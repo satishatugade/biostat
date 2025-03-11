@@ -59,6 +59,13 @@ func (r *diseaseRepositoryImpl) GetDiseaseProfiles(limit int, offset int) ([]mod
 		Preload("Disease.Causes").
 		Preload("Disease.DiseaseTypeMapping").
 		Preload("Disease.DiseaseTypeMapping.DiseaseType").
+		Preload("Disease.Medications").
+		Preload("Disease.Exercises").
+		Preload("Disease.DietPlans").
+		Preload("Disease.DiagnosticTests").
+		Preload("Disease.DiagnosticTests.Components").
+		Limit(limit).
+		Offset(offset).
 		Find(&diseaseProfiles).Error
 
 	if err != nil {

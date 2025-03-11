@@ -37,6 +37,8 @@ func (r routes) Disease(g *gin.RouterGroup) {
 		switch diseaseRoute.Method {
 		case http.MethodPost:
 			disease.POST(diseaseRoute.Path, diseaseRoute.HandleFunc)
+		case http.MethodGet:
+			disease.GET(diseaseRoute.Path, diseaseRoute.HandleFunc)
 		}
 	}
 }
