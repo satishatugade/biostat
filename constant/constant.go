@@ -9,6 +9,7 @@ const (
 	User                = "/getuser"
 	Disease             = "/get-disease"
 	DiseaseProfile      = "/disease-profile"
+	DiagnosticTests     = "/diagnostic-tests"
 )
 
 const (

@@ -25,3 +25,10 @@ var diseaseRoutes = Routes{
 	Route{"disease", http.MethodPost, constant.Disease, diseaseController.GetDiseaseInfo},
 	Route{"disease", http.MethodPost, constant.DiseaseProfile, diseaseController.GetDiseaseProfile},
 }
+
+var diagnosticRepo = repository.NewDiagnosticRepository(database.InitDB())
+var diagnosticService = service.NewDiagnosticService(diagnosticRepo)
+var diagnosticController = controller.NewDiagnosticController(diagnosticService)
+var diagnosticRoutes = Routes{
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticTests, diagnosticController.GetDiagnosticTests},	
+}
