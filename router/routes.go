@@ -43,6 +43,16 @@ func (r routes) Disease(g *gin.RouterGroup) {
 	}
 }
 
+func (r routes) Diagnostic(g *gin.RouterGroup) {
+	diagnostic := g.Group("/diagnostic")
+	for _, diagnosticRoute := range diagnosticRoutes {
+		switch diagnosticRoute.Method {
+		case http.MethodPost:
+			diagnostic.POST(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
+		}
+	}
+}
+
 func Routing() {
 	r := routes{
 		router: gin.Default(),
@@ -55,5 +65,6 @@ func Routing() {
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	r.Patient(apiGroup)
 	r.Disease(apiGroup)
+	r.Diagnostic(apiGroup)
 	r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
 }
