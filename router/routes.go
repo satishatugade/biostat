@@ -53,6 +53,12 @@ func (r routes) Diagnostic(g *gin.RouterGroup) {
 		switch diagnosticRoute.Method {
 		case http.MethodPost:
 			diagnostic.POST(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
+		case http.MethodPut:
+			diagnostic.PUT(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
+		case http.MethodGet:
+			diagnostic.GET(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
+		case http.MethodDelete:
+			diagnostic.DELETE(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
 		}
 	}
 }

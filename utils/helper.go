@@ -43,3 +43,10 @@ func GetResponseStatusMessage(dataLength int, successMsg, notFoundMsg string) (i
 	}
 	return http.StatusNotFound, notFoundMsg
 }
+func GetParamAsInt(c *gin.Context, param string) int {
+	value, err := strconv.Atoi(c.Param(param))
+	if err != nil {
+		return 0
+	}
+	return value
+}

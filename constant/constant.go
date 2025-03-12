@@ -16,7 +16,14 @@ const (
 	Medication          = "/get-medication"
 	AddMedication       = "/add-medication"
 	// UpdateMedication    = "/update-medication/:medication_id"
-	UpdateMedication = "/update-medication"
+	UpdateMedication                = "/update-medication"
+	DiagnosticTest                  = "/diagnostic-test"
+	SingleDiagnosticTest            = "/diagnostic-test/:diagnosticTestId"
+	DiagnosticComponents            = "/diagnostic-components"
+	DiagnosticComponent             = "/diagnostic-component"
+	SingleDiagnosticComponent       = "/diagnostic-component/:diagnosticComponentId"
+	DiagnosticTestComponentMappings = "/diagnostic-test-component-mappings"
+	DiagnosticTestComponentMapping  = "/diagnostic-test-component-mapping"
 )
 
 const (
