@@ -14,6 +14,8 @@ var patientService = service.NewPatientService(patientRepo)
 var patientController = controller.NewPatientController(patientService)
 var patientRoutes = Routes{
 	Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
+	Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},
+	// Route{"update  prescription", http.MethodPut, constant.UpdatePrescription, patientController.UpdatePrescription},
 }
 
 var diseaseRepo = repository.NewDiseaseRepository(database.InitDB())

@@ -8,6 +8,8 @@ import (
 
 type PatientRepository interface {
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
+	AddPatientPrescription(*models.PatientPrescription) error
+	// UpdatePrescription(*models.PatientPrescription) error
 }
 
 type patientRepositoryImpl struct {
@@ -19,6 +21,13 @@ func NewPatientRepository(db *gorm.DB) PatientRepository {
 		panic("database instance is null")
 	}
 	return &patientRepositoryImpl{db: db}
+}
+
+func (r *patientRepositoryImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
+	if err := r.db.Create(prescription).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *patientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.Patient, int64, error) {

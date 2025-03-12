@@ -32,3 +32,44 @@ func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, patients, pagination, nil)
 }
+
+func (pc *PatientController) AddPrescription(c *gin.Context) {
+	var prescription models.PatientPrescription
+
+	if err := c.ShouldBindJSON(&prescription); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
+		return
+	}
+	err := pc.patientService.AddPatientPrescription(&prescription)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add patient prescription", nil, err)
+		return
+	}
+	message := "Patient prescription added."
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescription, nil, nil)
+}
+
+// func (pc *PatientController) UpdatePrescription(c *gin.Context) {
+
+// 	prescriptionId := c.Param("prescription_id")
+// 	id, err := strconv.ParseUint(prescriptionId, 10, 64)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid prescription ID"})
+// 		return
+// 	}
+// 	var prescription models.PatientPrescription
+
+// 	if err := c.ShouldBindJSON(&prescription); err != nil {
+// 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
+// 		return
+// 	}
+// 	prescription.PrescriptionId = uint(id)
+// 	err1 := pc.patientService.UpdatePrescription(&prescription)
+// 	if err != nil {
+// 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient prescription", nil, err1)
+// 		return
+// 	}
+
+// 	message := "Patient prescription updated successfully."
+// 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescription, nil, nil)
+// }
