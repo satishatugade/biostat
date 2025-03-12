@@ -160,17 +160,33 @@ func (DiseaseTypeMapping) TableName() string {
 }
 
 type Medication struct {
-	MedicationId   uint      `json:"medication_id" gorm:"primaryKey"`
-	MedicationName string    `json:"medication_name"`
-	MedicationCode string    `json:"medication_code"`
-	Description    string    `json:"description"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	MedicationId    uint             `json:"medication_id" gorm:"column:medication_id;primaryKey"`
+	MedicationName  string           `json:"medication_name" gorm:"column:medication_name"`
+	MedicationCode  string           `json:"medication_code" gorm:"column:medication_code"`
+	Description     string           `json:"description" gorm:"column:description"`
+	CreatedAt       time.Time        `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt       time.Time        `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
+	MedicationTypes []MedicationType `json:"medication_type" gorm:"foreignKey:MedicationId;references:MedicationId"`
 }
 
 // Table name override
 func (Medication) TableName() string {
 	return "tbl_medication_master"
+}
+
+type MedicationType struct {
+	DosageId           uint    `json:"dosage_id" gorm:"column:dosage_id;primaryKey"`
+	MedicationId       uint    `json:"medication_id" gorm:"column:medication_id"`
+	MedicationType     string  `json:"medication_type" gorm:"column:medication_type"`
+	UnitValue          float64 `json:"unit_value" gorm:"column:unit_value"`
+	UnitType           string  `json:"unit_type" gorm:"column:unit_type"`
+	MedicationCost     float64 `json:"medication_cost" gorm:"column:medication_cost"`
+	MedicationImageURL string  `json:"medication_image_url" gorm:"column:medication_image_url"`
+}
+
+// Table name override
+func (MedicationType) TableName() string {
+	return "tbl_medication_type"
 }
 
 type DiseaseMedicationMapping struct {

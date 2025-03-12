@@ -19,6 +19,13 @@ import (
 var DB *gorm.DB
 var sqlDB *sql.DB
 
+func GetDBConn() *gorm.DB {
+	if DB == nil {
+		InitDB() // Ensure it's initialized
+	}
+	return DB
+}
+
 func InitDB() *gorm.DB {
 	err1 := godotenv.Load()
 	if err1 != nil {

@@ -3,6 +3,7 @@ package utils
 import (
 	"biostat/models"
 	"math"
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -34,4 +35,11 @@ func GetPagination(limit int, page int, offset int, totalRecords int64) *models.
 		Total:      totalRecords,
 		TotalPages: int64(totalPages),
 	}
+}
+
+func GetResponseStatusMessage(dataLength int, successMsg, notFoundMsg string) (int, string) {
+	if dataLength > 0 {
+		return http.StatusOK, successMsg
+	}
+	return http.StatusNotFound, notFoundMsg
 }

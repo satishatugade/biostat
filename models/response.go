@@ -1,8 +1,6 @@
 package models
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,7 +26,7 @@ func SuccessResponse(c *gin.Context, status string, statusCode int, message stri
 	if err != nil {
 		errorMessage = err.Error()
 	}
-	c.JSON(http.StatusOK, APIResponse{
+	c.JSON(statusCode, APIResponse{
 		Status:     status,
 		StatusCode: statusCode,
 		Message:    message,
@@ -43,7 +41,7 @@ func ErrorResponse(c *gin.Context, status string, statusCode int, message string
 	if err != nil {
 		errorMessage = err.Error()
 	}
-	c.JSON(int(statusCode), APIResponse{
+	c.JSON(statusCode, APIResponse{
 		Status:     status,
 		StatusCode: statusCode,
 		Message:    message,

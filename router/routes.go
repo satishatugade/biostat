@@ -41,6 +41,8 @@ func (r routes) Disease(g *gin.RouterGroup) {
 			disease.POST(diseaseRoute.Path, diseaseRoute.HandleFunc)
 		case http.MethodGet:
 			disease.GET(diseaseRoute.Path, diseaseRoute.HandleFunc)
+		case http.MethodPut:
+			disease.PUT(diseaseRoute.Path, diseaseRoute.HandleFunc)
 		}
 	}
 }
@@ -51,6 +53,20 @@ func (r routes) Diagnostic(g *gin.RouterGroup) {
 		switch diagnosticRoute.Method {
 		case http.MethodPost:
 			diagnostic.POST(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
+		}
+	}
+}
+
+func (r routes) Medication(g *gin.RouterGroup) {
+	medication := g.Group("/medication")
+	for _, medicationRoute := range medicationRoutes {
+		switch medicationRoute.Method {
+		case http.MethodPost:
+			medication.POST(medicationRoute.Path, medicationRoute.HandleFunc)
+		case http.MethodGet:
+			medication.GET(medicationRoute.Path, medicationRoute.HandleFunc)
+		case http.MethodPut:
+			medication.PUT(medicationRoute.Path, medicationRoute.HandleFunc)
 		}
 	}
 }
@@ -68,5 +84,6 @@ func Routing() {
 	r.Patient(apiGroup)
 	r.Disease(apiGroup)
 	r.Diagnostic(apiGroup)
+	r.Medication(apiGroup)
 	r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
 }
