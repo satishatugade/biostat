@@ -35,3 +35,11 @@ func GetPagination(limit int, page int, offset int, totalRecords int64) *models.
 		TotalPages: int64(totalPages),
 	}
 }
+
+func GetParamAsInt(c *gin.Context, param string) int {
+    value, err := strconv.Atoi(c.Param(param))
+    if err != nil {
+        return 0
+    }
+    return value
+}

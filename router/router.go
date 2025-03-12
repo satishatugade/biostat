@@ -28,5 +28,20 @@ var diagnosticRepo = repository.NewDiagnosticRepository(database.InitDB())
 var diagnosticService = service.NewDiagnosticService(diagnosticRepo)
 var diagnosticController = controller.NewDiagnosticController(diagnosticService)
 var diagnosticRoutes = Routes{
-	Route{"diagnostic", http.MethodPost, constant.DiagnosticTests, diagnosticController.GetDiagnosticTests},	
+	// Diagnostic Test Routes
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticTests, diagnosticController.GetDiagnosticTests},
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticTest, diagnosticController.CreateDiagnosticTest},
+	Route{"diagnostic", http.MethodPut, constant.DiagnosticTest, diagnosticController.UpdateDiagnosticTest},
+	Route{"diagnostic", http.MethodGet, constant.SingleDiagnosticTest, diagnosticController.GetSingleDiagnosticTest},
+	Route{"diagnostic", http.MethodDelete, constant.SingleDiagnosticTest, diagnosticController.DeleteDiagnosticTest},
+	// Diagnostic Component Routes
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticComponents, diagnosticController.GetAllDiagnosticComponents},
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticComponent, diagnosticController.CreateDiagnosticComponent},
+	Route{"diagnostic", http.MethodPut, constant.DiagnosticComponent, diagnosticController.UpdateDiagnosticComponent},
+	Route{"diagnostic", http.MethodGet, constant.SingleDiagnosticComponent, diagnosticController.GetSingleDiagnosticComponent},
+
+	// Diagnostic Test Component Mapping Routes
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticTestComponentMapping, diagnosticController.CreateDiagnosticTestComponentMapping},
+	Route{"diagnostic", http.MethodPost, constant.DiagnosticTestComponentMappings, diagnosticController.GetAllDiagnosticTestComponentMappings},
+	Route{"diagnostic", http.MethodPut, constant.DiagnosticTestComponentMapping, diagnosticController.UpdateDiagnosticTestComponentMapping},
 }
