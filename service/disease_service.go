@@ -6,23 +6,38 @@ import (
 )
 
 type DiseaseService interface {
-	GetDiseases(limit int, offset int) ([]models.Disease, int64, error)
+	GetDiseases(diseaseId uint) (*models.Disease, error)
+	// GetAllDiseasesInfo(dieaseId unit, limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
+	CreateDisease(disease *models.Disease) error
 }
 
-type diseaseServiceImpl struct {
+type DiseaseServiceImpl struct {
 	diseaseRepo repository.DiseaseRepository
 }
 
-// Ensure patientRepo is properly initialized
+// GetAllDiseasesInfo implements DiseaseService.
+// func (s *DiseaseServiceImpl) GetAllDiseasesInfo(dieaseId unit, limit int, offset int) ([]models.Disease, int64, error) {
+// 	return s.diseaseRepo.GetAllDiseases(dieaseId, limit, offset)
+// }
+
+// GetAllDiseasesInfo implements DiseaseService.
+// func (s *DiseaseServiceImpl) GetAllDiseasesInfo(diseaseId uint, limit int, offset int) ([]models.Disease, int64, error) {
+// 	return s.diseaseRepo.GetAllDiseases(&diseaseId, limit, offset)
+// }
+
 func NewDiseaseService(repo repository.DiseaseRepository) DiseaseService {
-	return &diseaseServiceImpl{diseaseRepo: repo}
+	return &DiseaseServiceImpl{diseaseRepo: repo}
 }
 
-func (s *diseaseServiceImpl) GetDiseases(limit int, offset int) ([]models.Disease, int64, error) {
-	return s.diseaseRepo.GetAllDiseases(limit, offset)
+func (s *DiseaseServiceImpl) GetDiseases(diseaseId uint) (*models.Disease, error) {
+	return s.diseaseRepo.GetDiseases(diseaseId)
 }
 
-func (s *diseaseServiceImpl) GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error) {
+func (s *DiseaseServiceImpl) GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error) {
 	return s.diseaseRepo.GetDiseaseProfiles(limit, offset)
+}
+
+func (s *DiseaseServiceImpl) CreateDisease(disease *models.Disease) error {
+	return s.diseaseRepo.CreateDisease(disease)
 }

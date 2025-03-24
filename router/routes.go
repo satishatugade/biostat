@@ -77,6 +77,34 @@ func (r routes) Medication(g *gin.RouterGroup) {
 	}
 }
 
+func (r routes) Exercise(g *gin.RouterGroup) {
+	exercise := g.Group("/exercise")
+	for _, exerciseRoute := range exerciseRoutes {
+		switch exerciseRoute.Method {
+		case http.MethodPost:
+			exercise.POST(exerciseRoute.Path, exerciseRoute.HandleFunc)
+		case http.MethodGet:
+			exercise.GET(exerciseRoute.Path, exerciseRoute.HandleFunc)
+		case http.MethodPut:
+			exercise.PUT(exerciseRoute.Path, exerciseRoute.HandleFunc)
+		}
+	}
+}
+
+func (r routes) Diet(g *gin.RouterGroup) {
+	diet := g.Group("/diet")
+	for _, dietRoute := range dietRoutes {
+		switch dietRoute.Method {
+		case http.MethodPost:
+			diet.POST(dietRoute.Path, dietRoute.HandleFunc)
+		case http.MethodGet:
+			diet.GET(dietRoute.Path, dietRoute.HandleFunc)
+		case http.MethodPut:
+			diet.PUT(dietRoute.Path, dietRoute.HandleFunc)
+		}
+	}
+}
+
 func Routing() {
 	r := routes{
 		router: gin.Default(),
@@ -91,5 +119,7 @@ func Routing() {
 	r.Disease(apiGroup)
 	r.Diagnostic(apiGroup)
 	r.Medication(apiGroup)
+	r.Exercise(apiGroup)
+	r.Diet(apiGroup)
 	r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
 }

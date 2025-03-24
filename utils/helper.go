@@ -10,12 +10,12 @@ import (
 )
 
 func GetPaginationParams(c *gin.Context) (int, int, int) {
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10")) // Default: 10
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	if err != nil || limit <= 0 {
 		limit = 10
 	}
 
-	page, err := strconv.Atoi(c.DefaultQuery("page", "1")) // Default: 1
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page <= 0 {
 		page = 1
 	}

@@ -33,6 +33,16 @@ func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, patients, pagination, nil)
 }
 
+func (pc *PatientController) GetPatientByID(c *gin.Context) {
+	patientId := c.Param("patient_id")
+	patient, err := pc.patientService.GetPatientById(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient info retrieved successfully", patient, nil, nil)
+}
+
 func (pc *PatientController) AddPrescription(c *gin.Context) {
 	var prescription models.PatientPrescription
 
@@ -47,6 +57,42 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 	}
 	message := "Patient prescription added."
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescription, nil, nil)
+}
+
+func (pc *PatientController) GetAllPrescription(c *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(c)
+	prescription, totalRecords, err := pc.patientService.GetAllPrescription(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve prescription", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(prescription),
+		"prescription info retrieved successfully",
+		"Prescription info not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, prescription, pagination, nil)
+}
+
+func (pc *PatientController) GetPrescriptionByPatientID(c *gin.Context) {
+	patientID := c.Param("patient_id")
+	page, limit, offset := utils.GetPaginationParams(c)
+
+	prescriptions, totalRecords, err := pc.patientService.GetPrescriptionByPatientID(patientID, limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve prescriptions", nil, err)
+		return
+	}
+
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(prescriptions),
+		"Prescription info retrieved successfully",
+		"Prescription info not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, prescriptions, pagination, nil)
 }
 
 // func (pc *PatientController) UpdatePrescription(c *gin.Context) {

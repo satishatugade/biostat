@@ -98,19 +98,20 @@ type DiseaseProfile struct {
 }
 
 type Disease struct {
-	DiseaseId          uint               `json:"disease_id" gorm:"primaryKey"`
-	DiseaseSnomedCode  string             `json:"disease_snomed_code"`
-	DiseaseName        string             `json:"disease_name"`
-	Description        string             `json:"description"`
-	ImageURL           string             `json:"image_url"`
-	SlugURL            string             `json:"slug_url"`
-	CreatedAt          time.Time          `json:"created_at"`
-	UpdatedAt          time.Time          `json:"updated_at"`
-	DiseaseType        *DiseaseType       `json:"disease_type" gorm:"-"`
+	DiseaseId         uint      `json:"disease_id" gorm:"primaryKey"`
+	DiseaseSnomedCode string    `json:"disease_snomed_code"`
+	DiseaseName       string    `json:"disease_name"`
+	Description       string    `json:"description"`
+	ImageURL          string    `json:"image_url"`
+	SlugURL           string    `json:"slug_url"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	// DiseaseTypeMapping DiseaseTypeMapping `json:"disease_type" gorm:"foreignKey:DiseaseId;references:DiseaseId"`
+	DiseaseTypeMapping DiseaseTypeMapping `json:"-" gorm:"foreignKey:DiseaseId;references:DiseaseId"`
+	DiseaseType        DiseaseType        `json:"disease_type" gorm:"-"`
 	Severity           []Severity         `json:"severity_levels" gorm:"many2many:tbl_disease_severity_mapping;joinForeignKey:DiseaseId;joinReferences:SeverityId"`
 	Symptoms           []Symptom          `json:"symptoms" gorm:"many2many:tbl_disease_symptom_mapping;joinForeignKey:DiseaseId;joinReferences:SymptomId"`
 	Causes             []Cause            `json:"causes" gorm:"many2many:tbl_disease_cause_mapping;joinForeignKey:DiseaseId;joinReferences:CauseId"`
-	DiseaseTypeMapping DiseaseTypeMapping `json:"-" gorm:"foreignKey:DiseaseId;references:DiseaseId"`
 	Medications        []Medication       `json:"medications" gorm:"many2many:tbl_disease_medication_mapping;foreignKey:DiseaseId;joinForeignKey:DiseaseId;References:MedicationId;joinReferences:MedicationId"`
 	Exercises          []Exercise         `json:"exercise_recommendations" gorm:"many2many:tbl_disease_exercise_mapping;foreignKey:DiseaseId;joinForeignKey:DiseaseId;References:ExerciseId;joinReferences:ExerciseId"`
 	DietPlans          []DietPlanTemplate `json:"diet_recommendations" gorm:"many2many:tbl_disease_diet_mapping;foreignKey:DiseaseId;joinForeignKey:DiseaseId;References:DietPlanTemplateId;joinReferences:DietPlanTemplateId"`
@@ -124,8 +125,8 @@ type DiseaseType struct {
 
 type DiseaseTypeMapping struct {
 	DiseaseTypeMappingId uint        `json:"-" gorm:"primaryKey"`
-	DiseaseId            uint        `json:"disease_id" gorm:"index"`
-	DiseaseTypeId        uint        `json:"disease_type_id"`
+	DiseaseId            uint        `json:"-" gorm:"index"`
+	DiseaseTypeId        uint        `json:"-"`
 	DiseaseType          DiseaseType `json:"disease_type" gorm:"foreignKey:DiseaseTypeId;references:DiseaseTypeId"`
 }
 
@@ -200,16 +201,26 @@ func (DiseaseMedicationMapping) TableName() string {
 }
 
 type Exercise struct {
-	ExerciseId     uint      `json:"exercise_id" gorm:"primaryKey"`
-	ExerciseName   string    `json:"exercise_name"`
-	Description    string    `json:"description"`
-	Category       string    `json:"category"`
-	IntensityLevel string    `json:"intensity_level"`
-	Duration       int       `json:"duration"`
-	DurationUnit   string    `json:"duration_unit"`
-	Benefits       string    `json:"benefits"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ExerciseId       uint               `json:"exercise_id" gorm:"primaryKey"`
+	ExerciseName     string             `json:"exercise_name"`
+	Description      string             `json:"description"`
+	Category         string             `json:"category"`
+	IntensityLevel   string             `json:"intensity_level"`
+	Duration         int                `json:"duration"`
+	DurationUnit     string             `json:"duration_unit"`
+	Benefits         string             `json:"benefits"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+	ExerciseArtifact []ExerciseArtifact `json:"artifact" gorm:"foreignKey:ExerciseId;references:ExerciseId"`
+}
+
+type ExerciseArtifact struct {
+	ExerciseArtifactId int       `gorm:"primaryKey;column:exercise_artifact_id" json:"exercise_artifact_id"`
+	ExerciseId         int       `gorm:"column:exercise_id" json:"exercise_id"`
+	ArtifactType       string    `gorm:"column:artifact_type;size:50" json:"artifact_type"`
+	ArtifactURL        string    `gorm:"column:artifact_url" json:"artifact_url"`
+	CreatedAt          time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
 
 type DiseaseExerciseMapping struct {
@@ -225,6 +236,10 @@ func (Exercise) TableName() string {
 	return "tbl_exercise_master"
 }
 
+func (ExerciseArtifact) TableName() string {
+	return "tbl_exercise_artifact"
+}
+
 func (DiseaseExerciseMapping) TableName() string {
 	return "tbl_disease_exercise_mapping"
 }
@@ -238,11 +253,39 @@ type DietPlanTemplate struct {
 	DietCreatorId      uint      `json:"-"`
 	Cost               float64   `json:"-"`
 	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	// Meals              []Meal    `json:"meals" gorm:"foreignKey:DietPlanTemplateId"`
+	Meals []Meal `json:"meals" gorm:"foreignKey:DietPlanTemplateId;constraint:OnDelete:CASCADE;"`
+}
+
+type Meal struct {
+	MealId             uint   `json:"meal_id" gorm:"primaryKey"`
+	DietPlanTemplateId uint   `json:"diet_plan_template_id"`
+	MealType           string `json:"meal_type"`
+	Description        string `json:"description"`
+	// Nutrients          []Nutrient `json:"nutrients" gorm:"foreignKey:MealId"`
+	Nutrients []Nutrient `json:"nutrients" gorm:"foreignKey:MealId;constraint:OnDelete:CASCADE;"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type Nutrient struct {
+	NutrientId   uint      `json:"nutrient_id" gorm:"primaryKey"`
+	MealId       uint      `json:"meal_id"`
+	NutrientName string    `json:"nutrient_name"`
+	Amount       string    `json:"amount"`
+	Unit         string    `json:"unit"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (DietPlanTemplate) TableName() string {
 	return "tbl_diet_plan_template"
+}
+
+func (Meal) TableName() string {
+	return "tbl_meal"
+}
+
+func (Nutrient) TableName() string {
+	return "tbl_nutrient"
 }
 
 type DiagnosticTest struct {

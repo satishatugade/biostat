@@ -29,7 +29,7 @@ func main() {
 	defer file.Close()
 	log.SetFlags(log.Ldate | log.Ltime)
 	log.SetOutput(file)
-	log.Println("Biostat Application Started.............................")
+	log.Println("Biostat Application Started.....")
 	database.InitDB()
 
 	router.Routing()
