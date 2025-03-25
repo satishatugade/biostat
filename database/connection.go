@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -27,10 +26,6 @@ func GetDBConn() *gorm.DB {
 }
 
 func InitDB() *gorm.DB {
-	err1 := godotenv.Load()
-	if err1 != nil {
-		log.Fatalf("Error loading .env file: %v", err1)
-	}
 	dbHost := os.Getenv("DB_HOST")
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")

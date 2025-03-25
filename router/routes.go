@@ -1,6 +1,8 @@
 package router
 
 import (
+	"biostat/controller"
+	"biostat/database"
 	"net/http"
 	"os"
 
@@ -21,9 +23,9 @@ type routes struct {
 
 type Routes []Route
 
-func (r routes) Patient(g *gin.RouterGroup) {
+func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientController) {
 	patient := g.Group("/patient")
-	for _, patientRoute := range patientRoutes {
+	for _, patientRoute := range getPatientRoutes(patientController) {
 		switch patientRoute.Method {
 		case http.MethodPost:
 			patient.POST(patientRoute.Path, patientRoute.HandleFunc)
@@ -33,9 +35,9 @@ func (r routes) Patient(g *gin.RouterGroup) {
 	}
 }
 
-func (r routes) Disease(g *gin.RouterGroup) {
+func DiseaseRoutes(g *gin.RouterGroup, diseaseController *controller.DiseaseController) {
 	disease := g.Group("/disease")
-	for _, diseaseRoute := range diseaseRoutes {
+	for _, diseaseRoute := range getDiseaseRoutes(diseaseController) {
 		switch diseaseRoute.Method {
 		case http.MethodPost:
 			disease.POST(diseaseRoute.Path, diseaseRoute.HandleFunc)
@@ -47,9 +49,9 @@ func (r routes) Disease(g *gin.RouterGroup) {
 	}
 }
 
-func (r routes) Diagnostic(g *gin.RouterGroup) {
+func DiagnosticRoutes(g *gin.RouterGroup, diagnosticController *controller.DiagnosticController) {
 	diagnostic := g.Group("/diagnostic")
-	for _, diagnosticRoute := range diagnosticRoutes {
+	for _, diagnosticRoute := range getDiagnosticRoutes(diagnosticController) {
 		switch diagnosticRoute.Method {
 		case http.MethodPost:
 			diagnostic.POST(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
@@ -63,9 +65,9 @@ func (r routes) Diagnostic(g *gin.RouterGroup) {
 	}
 }
 
-func (r routes) Medication(g *gin.RouterGroup) {
+func MedicationRoutes(g *gin.RouterGroup, medicationController *controller.MedicationController) {
 	medication := g.Group("/medication")
-	for _, medicationRoute := range medicationRoutes {
+	for _, medicationRoute := range getMedicationRoutes(medicationController) {
 		switch medicationRoute.Method {
 		case http.MethodPost:
 			medication.POST(medicationRoute.Path, medicationRoute.HandleFunc)
@@ -77,9 +79,9 @@ func (r routes) Medication(g *gin.RouterGroup) {
 	}
 }
 
-func (r routes) Exercise(g *gin.RouterGroup) {
+func ExerciseRoutes(g *gin.RouterGroup, exerciseController *controller.ExerciseController) {
 	exercise := g.Group("/exercise")
-	for _, exerciseRoute := range exerciseRoutes {
+	for _, exerciseRoute := range getExerciseRoutes(exerciseController) {
 		switch exerciseRoute.Method {
 		case http.MethodPost:
 			exercise.POST(exerciseRoute.Path, exerciseRoute.HandleFunc)
@@ -91,9 +93,9 @@ func (r routes) Exercise(g *gin.RouterGroup) {
 	}
 }
 
-func (r routes) Diet(g *gin.RouterGroup) {
+func DietRoutes(g *gin.RouterGroup, dietController *controller.DietController) {
 	diet := g.Group("/diet")
-	for _, dietRoute := range dietRoutes {
+	for _, dietRoute := range getDietRoutes(dietController) {
 		switch dietRoute.Method {
 		case http.MethodPost:
 			diet.POST(dietRoute.Path, dietRoute.HandleFunc)
@@ -115,11 +117,7 @@ func Routing() {
 		AllowHeaders: []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
 	}))
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
-	r.Patient(apiGroup)
-	r.Disease(apiGroup)
-	r.Diagnostic(apiGroup)
-	r.Medication(apiGroup)
-	r.Exercise(apiGroup)
-	r.Diet(apiGroup)
+	db := database.GetDBConn()
+	InitializeRoutes(apiGroup, db)
 	r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
 }
