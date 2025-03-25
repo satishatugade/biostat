@@ -15,7 +15,9 @@ import (
 func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var patientRepo = repository.NewPatientRepository(db)
 	var patientService = service.NewPatientService(patientRepo)
-	var patientController = controller.NewPatientController(patientService)
+	var dietRepo = repository.NewDietRepository(database.GetDBConn())
+	var dietService = service.NewDietService(dietRepo)
+	var patientController = controller.NewPatientController(patientService, dietService)
 
 	PatientRoutes(apiGroup, patientController)
 
@@ -46,10 +48,10 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var exerciseController = controller.NewExerciseController(exerciseService)
 	ExerciseRoutes(apiGroup, exerciseController)
 
-	var dietRepo = repository.NewDietRepository(database.GetDBConn())
-	var dietService = service.NewDietService(dietRepo)
+	// var dietRepo = repository.NewDietRepository(database.GetDBConn())
+	// var dietService = service.NewDietService(dietRepo)
 	var dietController = controller.NewDietController(dietService)
-	DietRoutes(apiGroup,dietController)
+	DietRoutes(apiGroup, dietController)
 
 }
 
@@ -57,6 +59,12 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 	return Routes{
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
 		Route{"patient", http.MethodPost, constant.SinglePatient, patientController.GetPatientByID},
+		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
+		Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
+		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
+		Route{"patient", http.MethodPut, constant.UpdateRealtiveInfo, patientController.UpdatePatientRelative},
+		Route{"patient disease condition", http.MethodPost, constant.PatientDiseaseCondition, patientController.GetPatientDiseaseProfiles},
+		Route{"patient diet", http.MethodPost, constant.PatientDietPlan, patientController.GetPatientDietPlan},
 		Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionByPatientId, patientController.GetPrescriptionByPatientID},
 		Route{"Get prescription", http.MethodPost, constant.AllPrescription, patientController.GetAllPrescription},
@@ -70,6 +78,7 @@ func getDiseaseRoutes(diseaseController *controller.DiseaseController) Routes {
 		Route{"disease", http.MethodPost, constant.Disease, diseaseController.GetDiseaseInfo},
 		Route{"disease", http.MethodPost, constant.AllDisease, diseaseController.GetDiseaseInfo},
 		Route{"disease", http.MethodPost, constant.DiseaseProfile, diseaseController.GetDiseaseProfile},
+		Route{"disease", http.MethodPost, constant.SingleDiseaseProfile, diseaseController.GetDiseaseProfileById},
 		Route{"disease", http.MethodPost, constant.Cause, diseaseController.GetAllCauses},
 		Route{"disease", http.MethodPost, constant.AddCause, diseaseController.AddDiseaseCause},
 		Route{"disease", http.MethodPut, constant.UpdateCause, diseaseController.UpdateDiseaseCause},

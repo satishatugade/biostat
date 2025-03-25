@@ -11,6 +11,7 @@ type DietRepository interface {
 	GetDietPlanTemplates(limit, offset int) ([]models.DietPlanTemplate, int64, error)
 	GetDietPlanById(dietPlanTemplateId string) (models.DietPlanTemplate, error)
 	UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error
+	GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error)
 }
 
 type DietRepositoryImpl struct {
@@ -54,4 +55,21 @@ func (d *DietRepositoryImpl) GetDietPlanById(dietPlanTemplateId string) (models.
 
 func (d *DietRepositoryImpl) UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error {
 	return d.db.Model(&models.DietPlanTemplate{}).Where("diet_plan_template_id = ?", dietPlanTemplateId).Updates(dietPlan).Error
+}
+
+func (d *DietRepositoryImpl) GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error) {
+	var dietPlans []models.PatientDietPlan
+
+	err := d.db.Preload("DietPlanTemplate").
+		Preload("DietPlanTemplate.Meals").
+		Preload("DietPlanTemplate.Meals.Nutrients").
+		Preload("DietCreator").
+		Where("patient_id = ?", patientId).
+		Find(&dietPlans).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return dietPlans, nil
 }

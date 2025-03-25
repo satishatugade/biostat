@@ -9,6 +9,7 @@ type DiseaseService interface {
 	GetDiseases(diseaseId uint) (*models.Disease, error)
 	// GetAllDiseasesInfo(dieaseId unit, limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
+	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
 }
 
@@ -32,6 +33,10 @@ func NewDiseaseService(repo repository.DiseaseRepository) DiseaseService {
 
 func (s *DiseaseServiceImpl) GetDiseases(diseaseId uint) (*models.Disease, error) {
 	return s.diseaseRepo.GetDiseases(diseaseId)
+}
+
+func (s *DiseaseServiceImpl) GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error) {
+	return s.diseaseRepo.GetDiseaseProfileById(diseaseProfileId)
 }
 
 func (s *DiseaseServiceImpl) GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error) {

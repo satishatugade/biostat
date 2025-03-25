@@ -11,7 +11,13 @@ type PatientRepository interface {
 	AddPatientPrescription(*models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	GetPatientById(patientId string) (*models.Patient, error)
+	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
+	AddPatientRelative(relative *models.PatientRelative) error
+	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
+
 	// UpdatePrescription(*models.PatientPrescription) error
 }
 
@@ -26,18 +32,18 @@ func NewPatientRepository(db *gorm.DB) PatientRepository {
 	return &PatientRepositoryImpl{db: db}
 }
 
-func (r *PatientRepositoryImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
-	if err := r.db.Create(prescription).Error; err != nil {
+func (p *PatientRepositoryImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
+	if err := p.db.Create(prescription).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *PatientRepositoryImpl) GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error) {
+func (p *PatientRepositoryImpl) GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
-	query := r.db.
+	query := p.db.
 		Preload("PrescriptionDetails").
 		Find(&prescriptions).
 		Count(&totalRecords)
@@ -49,11 +55,11 @@ func (r *PatientRepositoryImpl) GetAllPrescription(limit int, offset int) ([]mod
 	return prescriptions, totalRecords, nil
 }
 
-func (r *PatientRepositoryImpl) GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
+func (p *PatientRepositoryImpl) GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
-	query := r.db.
+	query := p.db.
 		Where("patient_id = ?", patientID).
 		Preload("PrescriptionDetails").
 		Limit(limit).
@@ -68,11 +74,11 @@ func (r *PatientRepositoryImpl) GetPrescriptionByPatientID(patientID string, lim
 	return prescriptions, totalRecords, nil
 }
 
-func (r *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.PatientPrescription) ([]models.PatientPrescription, int64, error) {
+func (p *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.PatientPrescription) ([]models.PatientPrescription, int64, error) {
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
-	query := r.db.
+	query := p.db.
 		Preload("PrescriptionDetails").
 		Where("patient_id = ?", prescription.PatientId).
 		Find(&prescriptions).
@@ -86,31 +92,107 @@ func (r *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.P
 }
 
 // GetPatientById implements PatientRepository.
-func (r *PatientRepositoryImpl) GetPatientById(patientId string) (*models.Patient, error) {
+func (p *PatientRepositoryImpl) GetPatientById(patientId string) (*models.Patient, error) {
 	var patient models.Patient
-	err := r.db.Where("patient_id = ?", patientId).First(&patient).Error
+	err := p.db.Where("patient_id = ?", patientId).First(&patient).Error
 	if err != nil {
 		return nil, err
 	}
 	return &patient, nil
 }
 
-func (r *PatientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.Patient, int64, error) {
+func (p *PatientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.Patient, int64, error) {
 
 	var patients []models.Patient
 	var totalRecords int64
 
 	// Count total records in the table
-	err := r.db.Model(&models.Patient{}).Count(&totalRecords).Error
+	err := p.db.Model(&models.Patient{}).Count(&totalRecords).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// Fetch paginated data
-	err = r.db.Limit(limit).Offset(offset).Find(&patients).Error
+	err = p.db.Limit(limit).Offset(offset).Find(&patients).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return patients, totalRecords, nil
+}
+
+func (p *PatientRepositoryImpl) UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error) {
+	var patient models.Patient
+
+	// Check if patient exists
+	err := p.db.Where("patient_id = ?", patientId).First(&patient).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Update patient info
+	err = p.db.Model(&patient).Updates(patientData).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &patient, nil
+}
+
+func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error) {
+	var patientDiseaseProfiles []models.PatientDiseaseProfile
+
+	err := p.db.Preload("DiseaseProfile").
+		Preload("DiseaseProfile.Disease").
+		Preload("DiseaseProfile.Disease.Severity").
+		Preload("DiseaseProfile.Disease.Symptoms").
+		Preload("DiseaseProfile.Disease.Causes").
+		Preload("DiseaseProfile.Disease.DiseaseTypeMapping").
+		Preload("DiseaseProfile.Disease.DiseaseTypeMapping.DiseaseType").
+		Preload("DiseaseProfile.Disease.Medications").
+		Preload("DiseaseProfile.Disease.Medications.MedicationTypes").
+		Preload("DiseaseProfile.Disease.Exercises").
+		Preload("DiseaseProfile.Disease.Exercises.ExerciseArtifact").
+		Preload("DiseaseProfile.Disease.DietPlans").
+		Preload("DiseaseProfile.Disease.DietPlans.Meals").
+		Preload("DiseaseProfile.Disease.DietPlans.Meals.Nutrients").
+		Preload("DiseaseProfile.Disease.DiagnosticTests").
+		Preload("DiseaseProfile.Disease.DiagnosticTests.Components").
+		// Where("patient_disease_profile_id = ?", PatientDiseaseProfileId).
+		Where("patient_id = ?", PatientId).
+		Find(&patientDiseaseProfiles).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return patientDiseaseProfiles, nil
+}
+
+// AddPatientRelative implements PatientRepository.
+func (p *PatientRepositoryImpl) AddPatientRelative(relative *models.PatientRelative) error {
+	return p.db.Create(relative).Error
+}
+
+func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
+	var relatives []models.PatientRelative
+	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
+	return relatives, err
+}
+
+func (p *PatientRepositoryImpl) UpdatePatientRelative(relativeId uint, updatedRelative *models.PatientRelative) (models.PatientRelative, error) {
+	var relative models.PatientRelative
+
+	// Find the existing relative
+	if err := p.db.First(&relative, "relative_id = ?", relativeId).Error; err != nil {
+		return models.PatientRelative{}, err
+	}
+
+	// Update the fields
+	if err := p.db.Model(&relative).Updates(updatedRelative).Error; err != nil {
+		return models.PatientRelative{}, err
+	}
+
+	// Return the updated relative
+	return relative, nil
 }

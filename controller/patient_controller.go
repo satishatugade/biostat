@@ -6,16 +6,18 @@ import (
 	"biostat/service"
 	"biostat/utils"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type PatientController struct {
 	patientService service.PatientService
+	dietService    service.DietService
 }
 
-func NewPatientController(patientService service.PatientService) *PatientController {
-	return &PatientController{patientService: patientService}
+func NewPatientController(patientService service.PatientService, dietService service.DietService) *PatientController {
+	return &PatientController{patientService: patientService, dietService: dietService}
 }
 
 func (pc *PatientController) GetPatientInfo(c *gin.Context) {
@@ -41,6 +43,36 @@ func (pc *PatientController) GetPatientByID(c *gin.Context) {
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient info retrieved successfully", patient, nil, nil)
+}
+
+func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
+	patientId := c.Param("patient_id")
+
+	var patientData models.Patient
+	if err := c.ShouldBindJSON(&patientData); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+
+	updatedPatient, err := pc.patientService.UpdatePatientById(patientId, &patientData)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient info", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient info updated successfully", updatedPatient, nil, nil)
+}
+
+func (pc *PatientController) GetPatientDiseaseProfiles(c *gin.Context) {
+	PatientId := c.Param("patient_id")
+
+	diseaseProfiles, err := pc.patientService.GetPatientDiseaseProfiles(PatientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient disease profiles not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient disease profiles retrieved successfully", diseaseProfiles, nil, nil)
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {
@@ -119,3 +151,76 @@ func (pc *PatientController) GetPrescriptionByPatientID(c *gin.Context) {
 // 	message := "Patient prescription updated successfully."
 // 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescription, nil, nil)
 // }
+
+func (pc *PatientController) GetPatientDietPlan(c *gin.Context) {
+	patientId := c.Param("patient_id")
+
+	dietPlans, err := pc.dietService.GetPatientDietPlan(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch diet plans", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(dietPlans),
+		"Patient Diet plans retrieved successfully",
+		"Diet plan not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, dietPlans, nil, nil)
+}
+
+func (pc *PatientController) AddPatientRelative(c *gin.Context) {
+	var relative models.PatientRelative
+	if err := c.ShouldBindJSON(&relative); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	if err := pc.patientService.AddPatientRelative(&relative); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create patient relative", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Patient relative created successfully", relative, nil, nil)
+}
+
+func (pc *PatientController) GetPatientRelative(c *gin.Context) {
+	patientId := c.Param("patient_id")
+
+	relatives, err := pc.patientService.GetPatientRelative(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient relatives", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(relatives),
+		"Patient relatives retrieved successfully",
+		"Relatives not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
+}
+
+func (pc *PatientController) UpdatePatientRelative(c *gin.Context) {
+	relativeIdStr := c.Param("relative_id")
+
+	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid relative ID", nil, err)
+		return
+	}
+
+	var updatedRelative models.PatientRelative
+	if err := c.ShouldBindJSON(&updatedRelative); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	patientRelative, err := pc.patientService.UpdatePatientRelative(uint(relativeId), &updatedRelative)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient relative", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient relative updated successfully", patientRelative, nil, nil)
+}

@@ -11,6 +11,7 @@ type DiseaseRepository interface {
 	GetDiseases(diseaseId uint) (*models.Disease, error)
 	GetAllDiseases(diseaseId uint, limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
+	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
 }
 
@@ -126,4 +127,33 @@ func (r *DiseaseRepositoryImpl) GetDiseaseProfiles(limit int, offset int) ([]mod
 	}
 
 	return diseaseProfiles, totalRecords, nil
+}
+
+func (r *DiseaseRepositoryImpl) GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error) {
+	var diseaseProfile models.DiseaseProfile
+
+	err := r.db.Preload("Disease").
+		Preload("Disease.Symptoms").
+		Preload("Disease.Causes").
+		Preload("Disease.DiseaseTypeMapping").
+		Preload("Disease.DiseaseTypeMapping.DiseaseType").
+		Preload("Disease.Medications").
+		Preload("Disease.Medications.MedicationTypes").
+		Preload("Disease.Exercises").
+		Preload("Disease.Exercises.ExerciseArtifact").
+		Preload("Disease.DietPlans").
+		Preload("Disease.DietPlans.Meals").
+		Preload("Disease.DietPlans.Meals.Nutrients").
+		Preload("Disease.DiagnosticTests").
+		Preload("Disease.DiagnosticTests.Components").
+		Where("disease_profile_id = ?", diseaseProfileId).
+		First(&diseaseProfile).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	diseaseProfile.Disease.DiseaseType = diseaseProfile.Disease.DiseaseTypeMapping.DiseaseType
+
+	return &diseaseProfile, nil
 }

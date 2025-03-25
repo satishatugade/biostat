@@ -24,6 +24,20 @@ type Patient struct {
 	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
+type PatientRelative struct {
+	RelativeId   uint      `json:"relative_id" gorm:"primaryKey"`
+	PatientId    uint      `json:"patient_id"`
+	Name         string    `json:"name"`
+	Relationship string    `json:"relationship"`
+	ContactInfo  string    `json:"contact_info"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func (PatientRelative) TableName() string {
+	return "tbl_patient_relative"
+}
+
 func (Patient) TableName() string {
 	return "tbl_patient"
 }

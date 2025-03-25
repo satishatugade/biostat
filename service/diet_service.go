@@ -10,6 +10,7 @@ type DietService interface {
 	GetDietPlanTemplates(limit, offset int) ([]models.DietPlanTemplate, int64, error)
 	GetDietPlanById(dietPlanTemplateId string) (models.DietPlanTemplate, error)
 	UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error
+	GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error)
 }
 
 type DietServiceImpl struct {
@@ -34,4 +35,8 @@ func (d *DietServiceImpl) GetDietPlanById(id string) (models.DietPlanTemplate, e
 
 func (d *DietServiceImpl) UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error {
 	return d.dietRepo.UpdateDietPlanTemplate(dietPlanTemplateId, dietPlan)
+}
+
+func (s *DietServiceImpl) GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error) {
+	return s.dietRepo.GetPatientDietPlan(patientId)
 }

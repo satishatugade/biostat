@@ -1,9 +1,16 @@
 package constant
 
 const (
-	Patient                 = "/registration"
-	PatientInfo             = "/patient-info"
-	SinglePatient           = "/patient-info/:patient_id"
+	Patient            = "/registration"
+	PatientInfo        = "/patient-info"
+	SinglePatient      = "/patient-info/:patient_id"
+	UpdatePatient      = "/patient-info/:patient_id"
+	PatientRelative    = "/patient-relative"
+	GetRelative        = "/patient-relative/:patient_id"
+	UpdateRealtiveInfo = "/patient-relative/:relative_id"
+	// PatientDiseaseCondition = "/patient-disease-condition/:patient_disease_profile_id"
+	PatientDiseaseCondition = "/patient-disease-condition/:patient_id"
+	PatientDietPlan         = "/patient-diet-plan/:patient_id"
 	PatientRegistration     = "/patient-registration"
 	PatientPrescription     = "/patient-prescription"
 	PrescriptionByPatientId = "/patient-prescription/:patient_id"
@@ -20,6 +27,7 @@ const (
 	AddCause                = "/add-cause"
 	UpdateCause             = "/update-cause"
 	DiseaseProfile          = "/disease-profile"
+	SingleDiseaseProfile    = "/disease-profile/:disease_profile_id"
 	DiagnosticTests         = "/diagnostic-tests"
 	Medication              = "/get-medication"
 	AddMedication           = "/add-medication"

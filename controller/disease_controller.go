@@ -131,6 +131,18 @@ func (dc *DiseaseController) GetDiseaseProfile(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, diseaseProfiles, pagination, nil)
 }
 
+func (dc *DiseaseController) GetDiseaseProfileById(c *gin.Context) {
+	diseaseProfileId := c.Param("disease_profile_id")
+
+	diseaseProfile, err := dc.diseaseService.GetDiseaseProfileById(diseaseProfileId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Disease profile not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Disease profile retrieved successfully", diseaseProfile, nil, nil)
+}
+
 // Get all causes with pagination
 func (dc *DiseaseController) GetAllCauses(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
