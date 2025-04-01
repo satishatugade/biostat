@@ -14,10 +14,11 @@ import (
 type PatientController struct {
 	patientService service.PatientService
 	dietService    service.DietService
+	allergyService service.AllergyService
 }
 
-func NewPatientController(patientService service.PatientService, dietService service.DietService) *PatientController {
-	return &PatientController{patientService: patientService, dietService: dietService}
+func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService) *PatientController {
+	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService}
 }
 
 func (pc *PatientController) GetPatientInfo(c *gin.Context) {
@@ -223,4 +224,63 @@ func (pc *PatientController) UpdatePatientRelative(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient relative updated successfully", patientRelative, nil, nil)
+}
+
+func (pc *PatientController) AddPatientAllergyRestriction(c *gin.Context) {
+	var allergy models.PatientAllergyRestriction
+	if err := c.ShouldBindJSON(&allergy); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid allergy input", nil, err)
+		return
+	}
+
+	if err := pc.allergyService.AddPatientAllergyRestriction(&allergy); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add allergy", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Allergy restriction added successfully", allergy, nil, nil)
+}
+
+func (pc *PatientController) GetPatientAllergyRestriction(c *gin.Context) {
+	patientId := c.Param("patient_id")
+	allergies, err := pc.allergyService.GetPatientAllergyRestriction(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch allergies", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Allergy restrictions fetched successfully", allergies, nil, nil)
+}
+
+func (pc *PatientController) UpdatePatientAllergyRestriction(c *gin.Context) {
+	var allergyUpdate models.PatientAllergyRestriction
+	if err := c.ShouldBindJSON(&allergyUpdate); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid allergy update input", nil, err)
+		return
+	}
+
+	if allergyUpdate.PatientAllergyRestrictionId == 0 || allergyUpdate.PatientId == 0 {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Patient ID and Allergy Restriction ID are required", nil, nil)
+		return
+	}
+
+	if err := pc.allergyService.UpdatePatientAllergyRestriction(&allergyUpdate); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update allergy", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Allergy updated successfully", allergyUpdate, nil, nil)
+}
+
+func (pc *PatientController) AddPatientClinicalRange(c *gin.Context) {
+	var customeRange models.PatientCustomRange
+	if err := c.ShouldBindJSON(&customeRange); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+	if err := pc.patientService.AddPatientClinicalRange(&customeRange); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add clinical range", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Clinical range added successfully", customeRange, nil, nil)
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"errors"
 
 	"gorm.io/gorm"
 )
@@ -17,12 +18,13 @@ type PatientRepository interface {
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
-
+	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
 }
 
 type PatientRepositoryImpl struct {
-	db *gorm.DB
+	db                *gorm.DB
+	diseaseRepository DiseaseRepositoryImpl
 }
 
 func NewPatientRepository(db *gorm.DB) PatientRepository {
@@ -195,4 +197,42 @@ func (p *PatientRepositoryImpl) UpdatePatientRelative(relativeId uint, updatedRe
 
 	// Return the updated relative
 	return relative, nil
+}
+
+func (s *PatientRepositoryImpl) IsPatientExists(patientID uint) (bool, error) {
+	var count int64
+	err := s.db.Model(&models.Patient{}).Where("patient_id = ?", patientID).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (p *PatientRepositoryImpl) AddPatientClinicalRange(customRange *models.PatientCustomRange) error {
+	tx := p.db.Begin()
+	exists, err := p.IsPatientExists(customRange.PatientId)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if !exists {
+		tx.Rollback()
+		return errors.New("patient does not exist")
+	}
+
+	exists, err = p.diseaseRepository.IsDiseaseProfileExists(customRange.DiseaseProfileId)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if !exists {
+		tx.Rollback()
+		return errors.New("disease profile does not exist")
+	}
+
+	if err := tx.Create(customRange).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }

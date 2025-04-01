@@ -16,6 +16,7 @@ type PatientService interface {
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
+	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
 }
 
@@ -27,6 +28,7 @@ type PatientServiceImpl struct {
 func (s *PatientServiceImpl) GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	return s.patientRepo.GetAllPrescription(limit, offset)
 }
+
 func (s *PatientServiceImpl) GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	return s.patientRepo.GetPrescriptionByPatientID(patientID, limit, offset)
 }
@@ -68,6 +70,11 @@ func (s *PatientServiceImpl) GetPatientRelative(patientId string) ([]models.Pati
 
 func (s *PatientServiceImpl) UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error) {
 	return s.patientRepo.UpdatePatientRelative(relativeId, relative)
+}
+
+// AddPatientClinicalRange implements PatientService.
+func (s *PatientServiceImpl) AddPatientClinicalRange(customRange *models.PatientCustomRange) error {
+	return s.patientRepo.AddPatientClinicalRange(customRange)
 }
 
 // func (s *PatientServiceImpl) UpdatePrescription(prescription *models.PatientPrescription) error {

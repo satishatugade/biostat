@@ -13,13 +13,19 @@ import (
 )
 
 func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
+
+	var allergyRepo = repository.NewAllergyRepository(db)
+	var allergyService = service.NewAllergyService(allergyRepo)
+	var masterController = controller.NewMasterController(allergyService)
+
 	var patientRepo = repository.NewPatientRepository(db)
 	var patientService = service.NewPatientService(patientRepo)
 	var dietRepo = repository.NewDietRepository(database.GetDBConn())
 	var dietService = service.NewDietService(dietRepo)
-	var patientController = controller.NewPatientController(patientService, dietService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService)
 
-	PatientRoutes(apiGroup, patientController)
+	// PatientRoutes(apiGroup, patientController)
+	MasterRoutes(apiGroup, masterController, patientController)
 
 	var diseaseRepo = repository.NewDiseaseRepository(database.GetDBConn())
 	var diseaseService = service.NewDiseaseService(diseaseRepo)
@@ -42,19 +48,24 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var medicationController = controller.NewMedicationController(medicationService)
 
 	MedicationRoutes(apiGroup, medicationController)
-
 	var exerciseRepo = repository.NewExerciseRepository(database.GetDBConn())
 	var exerciseService = service.NewExerciseService(exerciseRepo)
 	var exerciseController = controller.NewExerciseController(exerciseService)
 	ExerciseRoutes(apiGroup, exerciseController)
 
-	// var dietRepo = repository.NewDietRepository(database.GetDBConn())
-	// var dietService = service.NewDietService(dietRepo)
 	var dietController = controller.NewDietController(dietService)
 	DietRoutes(apiGroup, dietController)
 
+	var userController = controller.NewUserController()
+	UserRoutes(apiGroup, userController)
+
 }
 
+func getMasterRoutes(masterController *controller.MasterController) Routes {
+	return Routes{
+		// Route{"Master", http.MethodPost, constant.AllergyMaster, masterController.GetAllergyRestrictions},
+	}
+}
 func getPatientRoutes(patientController *controller.PatientController) Routes {
 	return Routes{
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
@@ -68,6 +79,10 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionByPatientId, patientController.GetPrescriptionByPatientID},
 		Route{"Get prescription", http.MethodPost, constant.AllPrescription, patientController.GetAllPrescription},
+		Route{"Patient Allergy", http.MethodPost, constant.PatientAllergy, patientController.AddPatientAllergyRestriction},
+		Route{"Patient Allgery", http.MethodPost, constant.Allergy, patientController.GetPatientAllergyRestriction},
+		Route{"Update Patient Allgery", http.MethodPut, constant.UpdateAllergy, patientController.UpdatePatientAllergyRestriction},
+		Route{"Add Custom Range", http.MethodPost, constant.CustomRange, patientController.AddPatientClinicalRange},
 		// Route{"update  prescription", http.MethodPut, constant.UpdatePrescription, patientController.UpdatePrescription},
 	}
 }
@@ -133,5 +148,13 @@ func getDietRoutes(dietController *controller.DietController) Routes {
 		Route{"diet", http.MethodPost, constant.AllDietTemplate, dietController.GetAllDietPlanTemplates},
 		Route{"diet", http.MethodPost, constant.SingleDiet, dietController.GetDietPlanById},
 		Route{"diet", http.MethodPut, constant.UpdateDiet, dietController.UpdateDietPlanTemplate},
+	}
+}
+
+func getUserRoutes(userController *controller.UserController) Routes {
+	return Routes{
+		Route{"User", http.MethodPost, constant.RegisterUser, userController.RegisterUser},
+		Route{"User", http.MethodPost, constant.AuthUser, userController.LoginUser},
+		Route{"User", http.MethodPost, constant.LogoutUser, userController.LogoutUser},
 	}
 }

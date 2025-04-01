@@ -1,6 +1,8 @@
 package router
 
 import (
+	"biostat/auth"
+	"biostat/constant"
 	"biostat/controller"
 	"biostat/database"
 	"net/http"
@@ -23,7 +25,22 @@ type routes struct {
 
 type Routes []Route
 
-func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientController) {
+var ProtectedRoutes = map[string][]string{
+	"/v1/diet":           {"admin", "patient"},
+	constant.Medication:  {"admin", "doctor"},
+	constant.PatientInfo: {"admin"},
+}
+
+func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {
+	master := g.Group("/master")
+	for _, masterRoute := range getMasterRoutes(masterController) {
+		switch masterRoute.Method {
+		case http.MethodPost:
+			master.POST(masterRoute.Path, masterRoute.HandleFunc)
+		case http.MethodPut:
+			master.PUT(masterRoute.Path, masterRoute.HandleFunc)
+		}
+	}
 	patient := g.Group("/patient")
 	for _, patientRoute := range getPatientRoutes(patientController) {
 		switch patientRoute.Method {
@@ -96,13 +113,26 @@ func ExerciseRoutes(g *gin.RouterGroup, exerciseController *controller.ExerciseC
 func DietRoutes(g *gin.RouterGroup, dietController *controller.DietController) {
 	diet := g.Group("/diet")
 	for _, dietRoute := range getDietRoutes(dietController) {
+		handler := auth.ApplyMiddleware(diet.BasePath(), ProtectedRoutes, dietRoute.HandleFunc)
 		switch dietRoute.Method {
 		case http.MethodPost:
-			diet.POST(dietRoute.Path, dietRoute.HandleFunc)
+			diet.POST(dietRoute.Path, handler)
 		case http.MethodGet:
 			diet.GET(dietRoute.Path, dietRoute.HandleFunc)
 		case http.MethodPut:
 			diet.PUT(dietRoute.Path, dietRoute.HandleFunc)
+		}
+	}
+}
+
+func UserRoutes(g *gin.RouterGroup, userController *controller.UserController) {
+	user := g.Group("/user")
+	for _, userRoute := range getUserRoutes(userController) {
+		switch userRoute.Method {
+		case http.MethodPost:
+			user.POST(userRoute.Path, userRoute.HandleFunc)
+		case http.MethodGet:
+			user.GET(userRoute.Path, userRoute.HandleFunc)
 		}
 	}
 }

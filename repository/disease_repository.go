@@ -13,10 +13,18 @@ type DiseaseRepository interface {
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
+	IsDiseaseProfileExists(diseaseProfileId uint) (bool, error)
 }
 
 type DiseaseRepositoryImpl struct {
 	db *gorm.DB
+}
+
+func NewDiseaseRepository(db *gorm.DB) DiseaseRepository {
+	if db == nil {
+		panic("database instance is null")
+	}
+	return &DiseaseRepositoryImpl{db: db}
 }
 
 // GetDiseases implements DiseaseRepository.
@@ -26,13 +34,6 @@ func (repo *DiseaseRepositoryImpl) GetDiseases(diseaseId uint) (*models.Disease,
 		return nil, err
 	}
 	return &disease, nil
-}
-
-func NewDiseaseRepository(db *gorm.DB) DiseaseRepository {
-	if db == nil {
-		panic("database instance is null")
-	}
-	return &DiseaseRepositoryImpl{db: db}
 }
 
 func (repo *DiseaseRepositoryImpl) CreateDisease(disease *models.Disease) error {
@@ -156,4 +157,13 @@ func (r *DiseaseRepositoryImpl) GetDiseaseProfileById(diseaseProfileId string) (
 	diseaseProfile.Disease.DiseaseType = diseaseProfile.Disease.DiseaseTypeMapping.DiseaseType
 
 	return &diseaseProfile, nil
+}
+
+func (d *DiseaseRepositoryImpl) IsDiseaseProfileExists(diseaseProfileId uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&models.DiseaseProfile{}).Where("disease_profile_id = ?", diseaseProfileId).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

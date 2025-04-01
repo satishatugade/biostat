@@ -3,6 +3,7 @@ package main
 import (
 	"biostat/database"
 	"biostat/router"
+	"biostat/utils"
 	"log"
 	"os"
 	"os/signal"
@@ -30,6 +31,7 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime)
 	log.SetOutput(file)
 	log.Println("Biostat Application Started.....")
+	utils.InitKeycloak()
 	database.InitDB()
 
 	router.Routing()

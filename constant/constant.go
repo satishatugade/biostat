@@ -1,6 +1,10 @@
 package constant
 
 const (
+	Allergy            = "/allergy/:patient_id"
+	UpdateAllergy      = "/allergy"
+	CustomRange        = "/custom-range"
+	PatientAllergy     = "/add-allergy"
 	Patient            = "/registration"
 	PatientInfo        = "/patient-info"
 	SinglePatient      = "/patient-info/:patient_id"
@@ -17,6 +21,9 @@ const (
 	AllPrescription         = "/get-prescription"
 	UpdatePrescription      = "/patient-prescription/:prescription_id"
 	User                    = "/getuser"
+	RegisterUser            = "/register"
+	AuthUser                = "/auth/login"
+	LogoutUser              = "/logout"
 	Disease                 = "/get-disease/:disease_id"
 	AllDisease              = "/get-disease"
 	AddDisease              = "/add-disease"

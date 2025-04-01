@@ -20,6 +20,11 @@ type Patient struct {
 	PassportNumber     string    `gorm:"type:varchar(255)" json:"passport_number"`
 	CountryOfResidence string    `gorm:"type:varchar(255)" json:"country_of_residence"`
 	IsIndianOrigin     bool      `gorm:"type:boolean" json:"is_indian_origin"`
+	Email              string    `gorm:"type:varchar(255)" json:"email"`
+	Role               string    `gorm:"type:varchar(255)" json:"role"`
+	AuthUserId         string    `gorm:"type:varchar(255)" json:"auth_user_id"`
+	Username           string    `gorm:"type:varchar(255)" json:"username"`
+	Password           string    `gorm:"type:varchar(255)" json:"password"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -40,4 +45,25 @@ func (PatientRelative) TableName() string {
 
 func (Patient) TableName() string {
 	return "tbl_patient"
+}
+
+type PatientCustomRange struct {
+	PatientDpCustomRangeId    uint      `gorm:"column:pdp_custom_range_id;primaryKey;autoIncrement" json:"pdp_custom_range_id"`
+	PatientId                 uint      `gorm:"column:patient_id" json:"patient_id"`
+	DiseaseProfileId          uint      `gorm:"column:disease_profile_id" json:"disease_profile_id"`
+	DiagnosticTestId          uint      `gorm:"column:diagnostic_test_id" json:"diagnostic_test_id"`
+	DiagnosticTestComponentId uint      `gorm:"column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	NormalMin                 float64   `gorm:"column:normal_min" json:"normal_min"`
+	NormalMax                 float64   `gorm:"column:normal_max" json:"normal_max"`
+	Unit                      string    `gorm:"column:unit" json:"unit"`
+	CustomFrequency           string    `gorm:"column:custom_frequency" json:"custom_frequency"`
+	CustomFrequencyUnit       string    `gorm:"column:custom_frequency_unit" json:"custom_frequency_unit"`
+	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
+
+	DiagnosticTest DiagnosticTest `gorm:"foreignKey:DiagnosticTestId" json:"diagnostic_test"`
+}
+
+func (PatientCustomRange) TableName() string {
+	return "tbl_patient_dp_custom_range"
 }
