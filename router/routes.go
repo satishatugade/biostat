@@ -1,7 +1,6 @@
 package router
 
 import (
-	"biostat/auth"
 	"biostat/constant"
 	"biostat/controller"
 	"biostat/database"
@@ -26,21 +25,29 @@ type routes struct {
 type Routes []Route
 
 var ProtectedRoutes = map[string][]string{
-	"/v1/diet":           {"admin", "patient"},
+	"/v1/master":         {"admin"},
 	constant.Medication:  {"admin", "doctor"},
-	constant.PatientInfo: {"admin"},
+	constant.PatientInfo: {"patient", "doctor"},
 }
 
 func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {
 	master := g.Group("/master")
 	for _, masterRoute := range getMasterRoutes(masterController) {
 		switch masterRoute.Method {
+		case http.MethodGet:
+			master.GET(masterRoute.Path, masterRoute.HandleFunc)
 		case http.MethodPost:
 			master.POST(masterRoute.Path, masterRoute.HandleFunc)
 		case http.MethodPut:
 			master.PUT(masterRoute.Path, masterRoute.HandleFunc)
+		case http.MethodDelete:
+			master.DELETE(masterRoute.Path, masterRoute.HandleFunc)
 		}
 	}
+}
+
+func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientController) {
+
 	patient := g.Group("/patient")
 	for _, patientRoute := range getPatientRoutes(patientController) {
 		switch patientRoute.Method {
@@ -48,79 +55,6 @@ func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterControl
 			patient.POST(patientRoute.Path, patientRoute.HandleFunc)
 		case http.MethodPut:
 			patient.PUT(patientRoute.Path, patientRoute.HandleFunc)
-		}
-	}
-}
-
-func DiseaseRoutes(g *gin.RouterGroup, diseaseController *controller.DiseaseController) {
-	disease := g.Group("/disease")
-	for _, diseaseRoute := range getDiseaseRoutes(diseaseController) {
-		switch diseaseRoute.Method {
-		case http.MethodPost:
-			disease.POST(diseaseRoute.Path, diseaseRoute.HandleFunc)
-		case http.MethodGet:
-			disease.GET(diseaseRoute.Path, diseaseRoute.HandleFunc)
-		case http.MethodPut:
-			disease.PUT(diseaseRoute.Path, diseaseRoute.HandleFunc)
-		}
-	}
-}
-
-func DiagnosticRoutes(g *gin.RouterGroup, diagnosticController *controller.DiagnosticController) {
-	diagnostic := g.Group("/diagnostic")
-	for _, diagnosticRoute := range getDiagnosticRoutes(diagnosticController) {
-		switch diagnosticRoute.Method {
-		case http.MethodPost:
-			diagnostic.POST(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
-		case http.MethodPut:
-			diagnostic.PUT(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
-		case http.MethodGet:
-			diagnostic.GET(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
-		case http.MethodDelete:
-			diagnostic.DELETE(diagnosticRoute.Path, diagnosticRoute.HandleFunc)
-		}
-	}
-}
-
-func MedicationRoutes(g *gin.RouterGroup, medicationController *controller.MedicationController) {
-	medication := g.Group("/medication")
-	for _, medicationRoute := range getMedicationRoutes(medicationController) {
-		switch medicationRoute.Method {
-		case http.MethodPost:
-			medication.POST(medicationRoute.Path, medicationRoute.HandleFunc)
-		case http.MethodGet:
-			medication.GET(medicationRoute.Path, medicationRoute.HandleFunc)
-		case http.MethodPut:
-			medication.PUT(medicationRoute.Path, medicationRoute.HandleFunc)
-		}
-	}
-}
-
-func ExerciseRoutes(g *gin.RouterGroup, exerciseController *controller.ExerciseController) {
-	exercise := g.Group("/exercise")
-	for _, exerciseRoute := range getExerciseRoutes(exerciseController) {
-		switch exerciseRoute.Method {
-		case http.MethodPost:
-			exercise.POST(exerciseRoute.Path, exerciseRoute.HandleFunc)
-		case http.MethodGet:
-			exercise.GET(exerciseRoute.Path, exerciseRoute.HandleFunc)
-		case http.MethodPut:
-			exercise.PUT(exerciseRoute.Path, exerciseRoute.HandleFunc)
-		}
-	}
-}
-
-func DietRoutes(g *gin.RouterGroup, dietController *controller.DietController) {
-	diet := g.Group("/diet")
-	for _, dietRoute := range getDietRoutes(dietController) {
-		handler := auth.ApplyMiddleware(diet.BasePath(), ProtectedRoutes, dietRoute.HandleFunc)
-		switch dietRoute.Method {
-		case http.MethodPost:
-			diet.POST(dietRoute.Path, handler)
-		case http.MethodGet:
-			diet.GET(dietRoute.Path, dietRoute.HandleFunc)
-		case http.MethodPut:
-			diet.PUT(dietRoute.Path, dietRoute.HandleFunc)
 		}
 	}
 }
@@ -133,22 +67,6 @@ func UserRoutes(g *gin.RouterGroup, userController *controller.UserController) {
 			user.POST(userRoute.Path, userRoute.HandleFunc)
 		case http.MethodGet:
 			user.GET(userRoute.Path, userRoute.HandleFunc)
-		}
-	}
-}
-
-func TblMedicalRecordsRoutes(g *gin.RouterGroup, tblMedicalRecordsController *controller.TblMedicalRecordController) {
-	tblMedicalRecords := g.Group("/medical_records")
-	for _, route := range getTblMedicalRecordsRoutes(tblMedicalRecordsController) {
-		switch route.Method {
-		case http.MethodPost:
-			tblMedicalRecords.POST(route.Path, route.HandleFunc)
-		case http.MethodGet:
-			tblMedicalRecords.GET(route.Path, route.HandleFunc)
-		case http.MethodPut:
-			tblMedicalRecords.PUT(route.Path, route.HandleFunc)
-		case http.MethodDelete:
-			tblMedicalRecords.DELETE(route.Path, route.HandleFunc)
 		}
 	}
 }

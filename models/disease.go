@@ -218,8 +218,8 @@ func (Nutrient) TableName() string {
 type DiagnosticTest struct {
 	DiagnosticTestId uint                      `gorm:"column:diagnostic_test_id;primaryKey" json:"diagnostic_test_id"`
 	LoincCode        string                    `gorm:"column:test_loinc_code" json:"test_loinc_code"`
-	Name             string                    `gorm:"column:test_name" json:"test_name"`
-	Type             string                    `gorm:"column:test_type" json:"test_type"`
+	TestName         string                    `gorm:"column:test_name" json:"test_name"`
+	TestType         string                    `gorm:"column:test_type" json:"test_type"`
 	Description      string                    `gorm:"column:test_description" json:"test_description"`
 	Category         string                    `gorm:"column:category" json:"category"`
 	Units            string                    `gorm:"column:units" json:"units"`

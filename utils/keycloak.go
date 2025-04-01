@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -32,12 +31,6 @@ func InitKeycloak() {
 	KeycloakClientSecret = os.Getenv("KEYCLOAK_CLIENT_SECRET")
 	KeycloakAdminUser = os.Getenv("KEYCLOAK_ADMIN_USER")
 	KeycloakAdminPassword = os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
-	fmt.Println("KeycloakAuthURL ", KeycloakAuthURL)
-	fmt.Println("KeycloakRealm ", KeycloakRealm)
-	fmt.Println("KeycloakClientID ", KeycloakClientID)
-	fmt.Println("KeycloakClientSecret ", KeycloakClientSecret)
-	fmt.Println("KeycloakAdminUser ", KeycloakAdminUser)
-	fmt.Println("KeycloakAdminPassword ", KeycloakAdminPassword)
 
 	Client = gocloak.NewClient(KeycloakAuthURL)
 }

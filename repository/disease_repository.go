@@ -9,7 +9,7 @@ import (
 type DiseaseRepository interface {
 	GetAllDiseasesInfo(limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseases(diseaseId uint) (*models.Disease, error)
-	GetAllDiseases(diseaseId uint, limit int, offset int) ([]models.Disease, int64, error)
+	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
@@ -43,27 +43,26 @@ func (repo *DiseaseRepositoryImpl) CreateDisease(disease *models.Disease) error 
 	return repo.db.Create(disease).Error
 }
 
-func (repo *DiseaseRepositoryImpl) GetAllDiseases(diseaseId uint, limit, offset int) ([]models.Disease, int64, error) {
+func (repo *DiseaseRepositoryImpl) GetAllDiseases(limit, offset int) ([]models.Disease, int64, error) {
 	var diseases []models.Disease
 	var totalRecords int64
-	query := repo.db.Model(&models.Disease{})
 
-	// If diseaseId is provided, fetch a single disease
-	if diseaseId != 0 {
-		if err := query.Where("disease_id = ?", diseaseId).Find(&diseases).Error; err != nil {
-			return nil, 0, err
-		}
-		totalRecords = int64(len(diseases)) // Single record count
-	} else {
-		// Count total records before pagination
-		if err := query.Count(&totalRecords).Error; err != nil {
-			return nil, 0, err
-		}
+	// Get total count of diseases before applying pagination
+	if err := repo.db.Model(&models.Disease{}).Count(&totalRecords).Error; err != nil {
+		return nil, 0, err
+	}
 
-		// Fetch all diseases with pagination
-		if err := query.Limit(limit).Offset(offset).Find(&diseases).Error; err != nil {
-			return nil, 0, err
-		}
+	// Build base query
+	query := repo.db.Model(&models.Disease{}).Order("disease_id ASC")
+
+	// Apply pagination only if limit is greater than 0
+	if limit > 0 {
+		query = query.Limit(limit).Offset(offset)
+	}
+
+	// Fetch diseases
+	if err := query.Find(&diseases).Error; err != nil {
+		return nil, 0, err
 	}
 
 	return diseases, totalRecords, nil
@@ -81,7 +80,6 @@ func (r *DiseaseRepositoryImpl) GetAllDiseasesInfo(limit int, offset int) ([]mod
 		Preload("DiseaseTypeMapping.DiseaseType").
 		Preload("Symptoms").
 		Preload("Causes").
-		// Preload("SeverityLevels").
 		Limit(limit).Offset(offset).
 		Find(&diseases).Error
 

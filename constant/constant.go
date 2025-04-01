@@ -2,7 +2,8 @@ package constant
 
 const (
 	Allergy            = "/allergy/:patient_id"
-	UpdateAllergy      = "/allergy"
+	UpdateAllergy      = "/update-allergy"
+	AllergyMaster      = "allergy"
 	CustomRange        = "/custom-range"
 	PatientAllergy     = "/add-allergy"
 	Patient            = "/registration"
@@ -53,7 +54,7 @@ const (
 	SingleExercise = "/exercise/:exercise_id"
 	UpdateExercise = "/update-exercise/:exercise_id"
 
-	Diet            = "/add-template"
+	Diet            = "/add-diet-template"
 	AllDietTemplate = "/diet-template"
 	SingleDiet      = "/diet-template/:diet_id"
 	UpdateDiet      = "/update-diet/:diet_id"

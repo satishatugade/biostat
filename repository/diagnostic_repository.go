@@ -64,7 +64,7 @@ func (r *diagnosticRepositoryImpl) CreateDiagnosticTest(diagnosticTest *models.D
 		auditRecord := models.DiseaseProfileDiagnosticTestMasterAudit{
 			DiagnosticTestID: diagnosticTest.DiagnosticTestId,
 			TestLoincCode:    diagnosticTest.LoincCode,
-			TestName:         diagnosticTest.Name,
+			TestName:         diagnosticTest.TestName,
 			TestDescription:  diagnosticTest.Description,
 			Category:         diagnosticTest.Category,
 			Units:            diagnosticTest.Units,
@@ -96,7 +96,7 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticTest(diagnosticTest *models.D
 		auditRecord := models.DiseaseProfileDiagnosticTestMasterAudit{
 			DiagnosticTestID: diagnosticTestOld.DiagnosticTestId,
 			TestLoincCode:    diagnosticTestOld.LoincCode,
-			TestName:         diagnosticTestOld.Name,
+			TestName:         diagnosticTestOld.TestName,
 			TestDescription:  diagnosticTestOld.Description,
 			Category:         diagnosticTestOld.Category,
 			Units:            diagnosticTestOld.Units,
@@ -114,8 +114,8 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticTest(diagnosticTest *models.D
 		if err := tx.Model(&models.DiagnosticTest{}).Where("diagnostic_test_id=?", diagnosticTest.DiagnosticTestId).Updates(
 			map[string]interface{}{
 				"test_loinc_code":  diagnosticTest.LoincCode,
-				"test_name":        diagnosticTest.Name,
-				"test_type":        diagnosticTest.Type,
+				"test_name":        diagnosticTest.TestName,
+				"test_type":        diagnosticTest.TestType,
 				"test_description": diagnosticTest.Description,
 				"category":         diagnosticTest.Category,
 				"units":            diagnosticTest.Units,
@@ -153,7 +153,7 @@ func (r *diagnosticRepositoryImpl) DeleteDiagnosticTest(diagnosticTestId int, up
 		auditRecord := models.DiseaseProfileDiagnosticTestMasterAudit{
 			DiagnosticTestID: diagnosticTest.DiagnosticTestId,
 			TestLoincCode:    diagnosticTest.LoincCode,
-			TestName:         diagnosticTest.Name,
+			TestName:         diagnosticTest.TestName,
 			TestDescription:  diagnosticTest.Description,
 			Category:         diagnosticTest.Category,
 			Units:            diagnosticTest.Units,

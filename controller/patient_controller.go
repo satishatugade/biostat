@@ -12,13 +12,14 @@ import (
 )
 
 type PatientController struct {
-	patientService service.PatientService
-	dietService    service.DietService
-	allergyService service.AllergyService
+	patientService       service.PatientService
+	dietService          service.DietService
+	allergyService       service.AllergyService
+	medicalRecordService service.TblMedicalRecordService
 }
 
-func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService) *PatientController {
-	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService}
+func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService) *PatientController {
+	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService}
 }
 
 func (pc *PatientController) GetPatientInfo(c *gin.Context) {
@@ -127,31 +128,6 @@ func (pc *PatientController) GetPrescriptionByPatientID(c *gin.Context) {
 
 	models.SuccessResponse(c, constant.Success, statusCode, message, prescriptions, pagination, nil)
 }
-
-// func (pc *PatientController) UpdatePrescription(c *gin.Context) {
-
-// 	prescriptionId := c.Param("prescription_id")
-// 	id, err := strconv.ParseUint(prescriptionId, 10, 64)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid prescription ID"})
-// 		return
-// 	}
-// 	var prescription models.PatientPrescription
-
-// 	if err := c.ShouldBindJSON(&prescription); err != nil {
-// 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
-// 		return
-// 	}
-// 	prescription.PrescriptionId = uint(id)
-// 	err1 := pc.patientService.UpdatePrescription(&prescription)
-// 	if err != nil {
-// 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient prescription", nil, err1)
-// 		return
-// 	}
-
-// 	message := "Patient prescription updated successfully."
-// 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescription, nil, nil)
-// }
 
 func (pc *PatientController) GetPatientDietPlan(c *gin.Context) {
 	patientId := c.Param("patient_id")
@@ -283,4 +259,105 @@ func (pc *PatientController) AddPatientClinicalRange(c *gin.Context) {
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Clinical range added successfully", customeRange, nil, nil)
+}
+
+func (c *PatientController) GetUserMedicalRecords(ctx *gin.Context) {
+	userID := utils.GetParamAsInt(ctx, "user_id")
+
+	records, err := c.medicalRecordService.GetUserMedicalRecords(int64(userID))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
+		return
+	}
+	message := "Data not found"
+	if len(records) > 0 {
+		message = "User records retrieved successfully"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, records, nil, nil)
+}
+
+func (c *PatientController) GetAllTblMedicalRecords(ctx *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(ctx)
+
+	data, total, err := c.medicalRecordService.GetAllTblMedicalRecords(limit, offset)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, total)
+	message := "Data not found"
+	if len(data) > 0 {
+		message = "Data retrieved successfully"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, pagination, nil)
+}
+
+func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
+
+	payload, err := utils.ProcessFileUpload(ctx)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "File processing failed", nil, err)
+		return
+	}
+	payload.UploadSource = ctx.PostForm("upload_source")
+	payload.Description = ctx.PostForm("description")
+	payload.RecordType = ctx.PostForm("record_type")
+
+	createdBy := 124
+
+	data, err := c.medicalRecordService.CreateTblMedicalRecord(payload, int64(createdBy))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record created successfully", data, nil, nil)
+}
+
+func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
+	var payload models.TblMedicalRecord
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	if payload.RecordId == 0 {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
+		return
+	}
+	updatedBy := ctx.GetString("user")
+	data, err := c.medicalRecordService.UpdateTblMedicalRecord(&payload, updatedBy)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update record", nil, nil)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record updated successfully", data, nil, nil)
+}
+
+func (c *PatientController) GetSingleTblMedicalRecord(ctx *gin.Context) {
+	id := utils.GetParamAsInt(ctx, "id")
+	if id == 0 {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
+		return
+	}
+	data, err := c.medicalRecordService.GetSingleTblMedicalRecord(id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve record", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record retrieved successfully", data, nil, nil)
+}
+
+func (c *PatientController) DeleteTblMedicalRecord(ctx *gin.Context) {
+	id := utils.GetParamAsInt(ctx, "id")
+	if id == 0 {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
+		return
+	}
+
+	updatedBy := ctx.GetString("user")
+	err := c.medicalRecordService.DeleteTblMedicalRecord(id, updatedBy)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to delete record", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record deleted successfully", nil, nil, nil)
 }

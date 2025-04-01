@@ -7,6 +7,7 @@ import (
 )
 
 type AllergyRepository interface {
+	GetAllergies() ([]models.Allergy, error)
 	AddPatientAllergyRestriction(allergy *models.PatientAllergyRestriction) error
 	GetPatientAllergyRestriction(patientId string) ([]models.PatientAllergyRestriction, error)
 	UpdatePatientAllergyRestriction(allergyUpdate *models.PatientAllergyRestriction) error
@@ -18,6 +19,15 @@ type AllergyRepositoryImpl struct {
 
 func NewAllergyRepository(db *gorm.DB) *AllergyRepositoryImpl {
 	return &AllergyRepositoryImpl{db}
+}
+
+func (r *AllergyRepositoryImpl) GetAllergies() ([]models.Allergy, error) {
+	var allergies []models.Allergy
+	err := r.db.Preload("AllergyType").Find(&allergies).Error
+	if err != nil {
+		return nil, err
+	}
+	return allergies, nil
 }
 
 func (a *AllergyRepositoryImpl) AddPatientAllergyRestriction(allergy *models.PatientAllergyRestriction) error {

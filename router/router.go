@@ -3,7 +3,6 @@ package router
 import (
 	"biostat/constant"
 	"biostat/controller"
-	"biostat/database"
 	"biostat/repository"
 	"biostat/service"
 	"net/http"
@@ -16,57 +15,46 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var allergyRepo = repository.NewAllergyRepository(db)
 	var allergyService = service.NewAllergyService(allergyRepo)
-	var masterController = controller.NewMasterController(allergyService)
+
+	var diseaseRepo = repository.NewDiseaseRepository(db)
+	var diseaseService = service.NewDiseaseService(diseaseRepo)
+
+	var causeRepo = repository.NewCauseRepository(db)
+	var causeService = service.NewCauseService(causeRepo)
+
+	var symptomRepo = repository.NewSymptomRepository(db)
+	var symptomService = service.NewSymptomService(symptomRepo)
+
+	var medicationRepo = repository.NewMedicationRepository(db)
+	var medicationService = service.NewMedicationService(medicationRepo)
+
+	var dietRepo = repository.NewDietRepository(db)
+	var dietService = service.NewDietService(dietRepo)
+
+	var exerciseRepo = repository.NewExerciseRepository(db)
+	var exerciseService = service.NewExerciseService(exerciseRepo)
+
+	var diagnosticRepo = repository.NewDiagnosticRepository(db)
+	var diagnosticService = service.NewDiagnosticService(diagnosticRepo)
+
+	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
+	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo)
 
 	var patientRepo = repository.NewPatientRepository(db)
 	var patientService = service.NewPatientService(patientRepo)
-	var dietRepo = repository.NewDietRepository(database.GetDBConn())
-	var dietService = service.NewDietService(dietRepo)
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService)
 
-	// PatientRoutes(apiGroup, patientController)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService)
+
+	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService)
 	MasterRoutes(apiGroup, masterController, patientController)
-
-	var diseaseRepo = repository.NewDiseaseRepository(database.GetDBConn())
-	var diseaseService = service.NewDiseaseService(diseaseRepo)
-	var causeRepo = repository.NewCauseRepository(database.GetDBConn())
-	var causeService = service.NewCauseService(causeRepo)
-	var symptomRepo = repository.NewSymptomRepository(database.GetDBConn())
-	var symptomService = service.NewSymptomService(symptomRepo)
-	var diseaseController = controller.NewDiseaseController(diseaseService, causeService, symptomService)
-
-	DiseaseRoutes(apiGroup, diseaseController)
-
-	var diagnosticRepo = repository.NewDiagnosticRepository(database.GetDBConn())
-	var diagnosticService = service.NewDiagnosticService(diagnosticRepo)
-	var diagnosticController = controller.NewDiagnosticController(diagnosticService)
-
-	DiagnosticRoutes(apiGroup, diagnosticController)
-
-	var medicationRepo = repository.NewMedicationRepository(database.GetDBConn())
-	var medicationService = service.NewMedicationService(medicationRepo)
-	var medicationController = controller.NewMedicationController(medicationService)
-
-	MedicationRoutes(apiGroup, medicationController)
-	var exerciseRepo = repository.NewExerciseRepository(database.GetDBConn())
-	var exerciseService = service.NewExerciseService(exerciseRepo)
-	var exerciseController = controller.NewExerciseController(exerciseService)
-	ExerciseRoutes(apiGroup, exerciseController)
-
-	var dietController = controller.NewDietController(dietService)
-	DietRoutes(apiGroup, dietController)
+	PatientRoutes(apiGroup, patientController)
 
 	var userController = controller.NewUserController()
 	UserRoutes(apiGroup, userController)
-	var tblMedicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
-	var tblMedicalRecordsService = service.NewTblMedicalRecordService(tblMedicalRecordsRepo)
-	var tblMedicalRecordsController = controller.NewTblMedicalRecordController(tblMedicalRecordsService)
-
-	TblMedicalRecordsRoutes(apiGroup, tblMedicalRecordsController)
 
 	var tblUserGtokenRepo = repository.NewTblUserGtokenRepository(db)
 	var tblUserGtokenService = service.NewTblUserGtokenService(tblUserGtokenRepo)
-	var gmailRecordsController = controller.NewGmailSyncController(tblMedicalRecordsService, tblUserGtokenService)
+	var gmailRecordsController = controller.NewGmailSyncController(medicalRecordService, tblUserGtokenService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
@@ -74,7 +62,59 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 func getMasterRoutes(masterController *controller.MasterController) Routes {
 	return Routes{
-		// Route{"Master", http.MethodPost, constant.AllergyMaster, masterController.GetAllergyRestrictions},
+		//disease master
+		Route{"Disease", http.MethodPost, constant.AddDisease, masterController.CreateDisease},
+		Route{"Disease", http.MethodPost, constant.Disease, masterController.GetDiseaseInfo},
+		Route{"Disease", http.MethodPost, constant.AllDisease, masterController.GetDiseaseInfo},
+		Route{"Disease", http.MethodPost, constant.DiseaseProfile, masterController.GetDiseaseProfile},
+		Route{"Disease", http.MethodPost, constant.SingleDiseaseProfile, masterController.GetDiseaseProfileById},
+
+		//Causes master
+		Route{"Causes", http.MethodPost, constant.Cause, masterController.GetAllCauses},
+		Route{"Causes", http.MethodPost, constant.AddCause, masterController.AddDiseaseCause},
+		Route{"Causes", http.MethodPut, constant.UpdateCause, masterController.UpdateDiseaseCause},
+
+		//symptoms master
+		Route{"Symptom", http.MethodPost, constant.Symptom, masterController.GetAllSymptom},
+		Route{"Symptom", http.MethodPost, constant.AddSymptom, masterController.AddSymptom},
+		Route{"Symptom", http.MethodPut, constant.UpdateSymptom, masterController.UpdateDiseaseSymptom},
+
+		// Allergy master
+		Route{"Allergy", http.MethodPost, constant.AllergyMaster, masterController.GetAllergyRestrictions},
+
+		//Medication master
+		Route{"Medication", http.MethodPost, constant.Medication, masterController.GetAllMedication},
+		Route{"Medication", http.MethodPost, constant.AddMedication, masterController.AddMedication},
+		Route{"Medication", http.MethodPut, constant.UpdateMedication, masterController.UpdateMedication},
+
+		//exercise master
+		Route{"Exercise", http.MethodPost, constant.Exercise, masterController.AddExercise},
+		Route{"Exercise", http.MethodPost, constant.AllExercise, masterController.GetAllExercises},
+		Route{"Exercise", http.MethodPost, constant.SingleExercise, masterController.GetExerciseByID},
+		Route{"Exercise", http.MethodPut, constant.UpdateExercise, masterController.UpdateExercise},
+
+		//diet master
+		Route{"Diet", http.MethodPost, constant.Diet, masterController.AddDietPlanTemplate},
+		Route{"Diet", http.MethodPost, constant.AllDietTemplate, masterController.GetAllDietPlanTemplates},
+		Route{"Diet", http.MethodPost, constant.SingleDiet, masterController.GetDietPlanById},
+		Route{"Diet", http.MethodPut, constant.UpdateDiet, masterController.UpdateDietPlanTemplate},
+
+		// Diagnostic Test Routes
+		Route{"DTM", http.MethodPost, constant.DiagnosticTests, masterController.GetDiagnosticTests},
+		Route{"DTM", http.MethodPost, constant.DiagnosticTest, masterController.CreateDiagnosticTest},
+		Route{"DTM", http.MethodPut, constant.DiagnosticTest, masterController.UpdateDiagnosticTest},
+		Route{"DTM", http.MethodGet, constant.SingleDiagnosticTest, masterController.GetSingleDiagnosticTest},
+		Route{"DTM", http.MethodDelete, constant.SingleDiagnosticTest, masterController.DeleteDiagnosticTest},
+		// Diagnostic Component Routes
+		Route{"DTM", http.MethodPost, constant.DiagnosticComponents, masterController.GetAllDiagnosticComponents},
+		Route{"DTM", http.MethodPost, constant.DiagnosticComponent, masterController.CreateDiagnosticComponent},
+		Route{"DTM", http.MethodPut, constant.DiagnosticComponent, masterController.UpdateDiagnosticComponent},
+		Route{"DTM", http.MethodGet, constant.SingleDiagnosticComponent, masterController.GetSingleDiagnosticComponent},
+
+		// Diagnostic Test Component Mapping Routes
+		Route{"DTM", http.MethodPost, constant.DiagnosticTestComponentMapping, masterController.CreateDiagnosticTestComponentMapping},
+		Route{"DTM", http.MethodPost, constant.DiagnosticTestComponentMappings, masterController.GetAllDiagnosticTestComponentMappings},
+		Route{"DTM", http.MethodPut, constant.DiagnosticTestComponentMapping, masterController.UpdateDiagnosticTestComponentMapping},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {
@@ -95,89 +135,21 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Update Patient Allgery", http.MethodPut, constant.UpdateAllergy, patientController.UpdatePatientAllergyRestriction},
 		Route{"Add Custom Range", http.MethodPost, constant.CustomRange, patientController.AddPatientClinicalRange},
 		// Route{"update  prescription", http.MethodPut, constant.UpdatePrescription, patientController.UpdatePrescription},
+
+		{"medical records create", http.MethodPost, "/medical_records", patientController.CreateTblMedicalRecord},
+		{"medical records get", http.MethodGet, "/medical_records", patientController.GetAllTblMedicalRecords},
+		{"medical records get", http.MethodPost, "/medical_records/:user_id", patientController.GetUserMedicalRecords},
+		{"medical records get single", http.MethodGet, "/medical_records/:id", patientController.GetSingleTblMedicalRecord},
+		{"medical records update", http.MethodPut, "/medical_records/:id", patientController.UpdateTblMedicalRecord},
+		{"medical records delete", http.MethodDelete, "/medical_records/:id", patientController.DeleteTblMedicalRecord},
 	}
 }
-
-func getDiseaseRoutes(diseaseController *controller.DiseaseController) Routes {
-	return Routes{
-		Route{"disease", http.MethodPost, constant.AddDisease, diseaseController.CreateDisease},
-		Route{"disease", http.MethodPost, constant.Disease, diseaseController.GetDiseaseInfo},
-		Route{"disease", http.MethodPost, constant.AllDisease, diseaseController.GetDiseaseInfo},
-		Route{"disease", http.MethodPost, constant.DiseaseProfile, diseaseController.GetDiseaseProfile},
-		Route{"disease", http.MethodPost, constant.SingleDiseaseProfile, diseaseController.GetDiseaseProfileById},
-		Route{"disease", http.MethodPost, constant.Cause, diseaseController.GetAllCauses},
-		Route{"disease", http.MethodPost, constant.AddCause, diseaseController.AddDiseaseCause},
-		Route{"disease", http.MethodPut, constant.UpdateCause, diseaseController.UpdateDiseaseCause},
-
-		Route{"disease", http.MethodPost, constant.Symptom, diseaseController.GetAllSymptom},
-		Route{"disease", http.MethodPost, constant.AddSymptom, diseaseController.AddSymptom},
-		Route{"disease", http.MethodPut, constant.UpdateSymptom, diseaseController.UpdateDiseaseSymptom},
-	}
-}
-
-func getDiagnosticRoutes(diagnosticController *controller.DiagnosticController) Routes {
-	return Routes{
-		// Diagnostic Test Routes
-		Route{"diagnostic", http.MethodPost, constant.DiagnosticTests, diagnosticController.GetDiagnosticTests},
-		Route{"diagnostic", http.MethodPost, constant.DiagnosticTest, diagnosticController.CreateDiagnosticTest},
-		Route{"diagnostic", http.MethodPut, constant.DiagnosticTest, diagnosticController.UpdateDiagnosticTest},
-		Route{"diagnostic", http.MethodGet, constant.SingleDiagnosticTest, diagnosticController.GetSingleDiagnosticTest},
-		Route{"diagnostic", http.MethodDelete, constant.SingleDiagnosticTest, diagnosticController.DeleteDiagnosticTest},
-		// Diagnostic Component Routes
-		Route{"diagnostic", http.MethodPost, constant.DiagnosticComponents, diagnosticController.GetAllDiagnosticComponents},
-		Route{"diagnostic", http.MethodPost, constant.DiagnosticComponent, diagnosticController.CreateDiagnosticComponent},
-		Route{"diagnostic", http.MethodPut, constant.DiagnosticComponent, diagnosticController.UpdateDiagnosticComponent},
-		Route{"diagnostic", http.MethodGet, constant.SingleDiagnosticComponent, diagnosticController.GetSingleDiagnosticComponent},
-
-		// Diagnostic Test Component Mapping Routes
-		Route{"diagnostic", http.MethodPost, constant.DiagnosticTestComponentMapping, diagnosticController.CreateDiagnosticTestComponentMapping},
-		Route{"diagnostic", http.MethodPost, constant.DiagnosticTestComponentMappings, diagnosticController.GetAllDiagnosticTestComponentMappings},
-		Route{"diagnostic", http.MethodPut, constant.DiagnosticTestComponentMapping, diagnosticController.UpdateDiagnosticTestComponentMapping},
-	}
-}
-
-func getMedicationRoutes(medicationController *controller.MedicationController) Routes {
-	return Routes{
-		Route{"Medication", http.MethodPost, constant.Medication, medicationController.GetAllMedication},
-		Route{"Medication", http.MethodPost, constant.AddMedication, medicationController.AddMedication},
-		Route{"Medication", http.MethodPut, constant.UpdateMedication, medicationController.UpdateMedication},
-	}
-}
-
-func getExerciseRoutes(exerciseController *controller.ExerciseController) Routes {
-	return Routes{
-		Route{"exercise", http.MethodPost, constant.Exercise, exerciseController.AddExercise},
-		Route{"exercise", http.MethodPost, constant.AllExercise, exerciseController.GetAllExercises},
-		Route{"exercise", http.MethodPost, constant.SingleExercise, exerciseController.GetExerciseByID},
-		Route{"exercise", http.MethodPut, constant.UpdateExercise, exerciseController.UpdateExercise},
-	}
-}
-
-func getDietRoutes(dietController *controller.DietController) Routes {
-	return Routes{
-		Route{"diet", http.MethodPost, constant.Diet, dietController.AddDietPlanTemplate},
-		Route{"diet", http.MethodPost, constant.AllDietTemplate, dietController.GetAllDietPlanTemplates},
-		Route{"diet", http.MethodPost, constant.SingleDiet, dietController.GetDietPlanById},
-		Route{"diet", http.MethodPut, constant.UpdateDiet, dietController.UpdateDietPlanTemplate},
-	}
-}
-
 
 func getUserRoutes(userController *controller.UserController) Routes {
 	return Routes{
 		Route{"User", http.MethodPost, constant.RegisterUser, userController.RegisterUser},
 		Route{"User", http.MethodPost, constant.AuthUser, userController.LoginUser},
 		Route{"User", http.MethodPost, constant.LogoutUser, userController.LogoutUser},
-	}
-}
-func getTblMedicalRecordsRoutes(tblMedicalRecordsController *controller.TblMedicalRecordController) Routes {
-	return Routes{
-		{"medical records create", http.MethodPost, "/medical_records", tblMedicalRecordsController.CreateTblMedicalRecord},
-		{"medical records get", http.MethodGet, "/medical_records", tblMedicalRecordsController.GetAllTblMedicalRecords},
-		{"medical records get", http.MethodPost, "/medical_records/:user_id", tblMedicalRecordsController.GetUserMedicalRecords},
-		{"medical records get single", http.MethodGet, "/medical_records/:id", tblMedicalRecordsController.GetSingleTblMedicalRecord},
-		{"medical records update", http.MethodPut, "/medical_records/:id", tblMedicalRecordsController.UpdateTblMedicalRecord},
-		{"medical records delete", http.MethodDelete, "/medical_records/:id", tblMedicalRecordsController.DeleteTblMedicalRecord},
 	}
 }
 
