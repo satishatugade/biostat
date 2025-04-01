@@ -107,14 +107,48 @@ func DietRoutes(g *gin.RouterGroup, dietController *controller.DietController) {
 	}
 }
 
+func TblMedicalRecordsRoutes(g *gin.RouterGroup, tblMedicalRecordsController *controller.TblMedicalRecordController) {
+	tblMedicalRecords := g.Group("/medical_records")
+	for _, route := range getTblMedicalRecordsRoutes(tblMedicalRecordsController) {
+		switch route.Method {
+		case http.MethodPost:
+			tblMedicalRecords.POST(route.Path, route.HandleFunc)
+		case http.MethodGet:
+			tblMedicalRecords.GET(route.Path, route.HandleFunc)
+		case http.MethodPut:
+			tblMedicalRecords.PUT(route.Path, route.HandleFunc)
+		case http.MethodDelete:
+			tblMedicalRecords.DELETE(route.Path, route.HandleFunc)
+		}
+	}
+}
+
+func GmailSyncRoutes(g *gin.RouterGroup, gmailSyncController *controller.GmailSyncController) {
+	gmailRoutGroup := g.Group("/mail")
+	for _, route := range getMailSyncRoutes(gmailSyncController) {
+		switch route.Method {
+		case http.MethodPost:
+			gmailRoutGroup.POST(route.Path, route.HandleFunc)
+		case http.MethodGet:
+			gmailRoutGroup.GET(route.Path, route.HandleFunc)
+		case http.MethodPut:
+			gmailRoutGroup.PUT(route.Path, route.HandleFunc)
+		case http.MethodDelete:
+			gmailRoutGroup.DELETE(route.Path, route.HandleFunc)
+		}
+
+	}
+}
+
 func Routing() {
 	r := routes{
 		router: gin.Default(),
 	}
 	r.router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{"GET", "POST", "PUT"},
-		AllowHeaders: []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT"},
+		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
+		AllowCredentials: true,
 	}))
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	db := database.GetDBConn()

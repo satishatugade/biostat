@@ -53,6 +53,18 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var dietController = controller.NewDietController(dietService)
 	DietRoutes(apiGroup, dietController)
 
+	var tblMedicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
+	var tblMedicalRecordsService = service.NewTblMedicalRecordService(tblMedicalRecordsRepo)
+	var tblMedicalRecordsController = controller.NewTblMedicalRecordController(tblMedicalRecordsService)
+
+	TblMedicalRecordsRoutes(apiGroup, tblMedicalRecordsController)
+
+	var tblUserGtokenRepo = repository.NewTblUserGtokenRepository(db)
+	var tblUserGtokenService = service.NewTblUserGtokenService(tblUserGtokenRepo)
+	var gmailRecordsController = controller.NewGmailSyncController(tblMedicalRecordsService, tblUserGtokenService)
+
+	GmailSyncRoutes(apiGroup, gmailRecordsController)
+
 }
 
 func getPatientRoutes(patientController *controller.PatientController) Routes {
@@ -133,5 +145,24 @@ func getDietRoutes(dietController *controller.DietController) Routes {
 		Route{"diet", http.MethodPost, constant.AllDietTemplate, dietController.GetAllDietPlanTemplates},
 		Route{"diet", http.MethodPost, constant.SingleDiet, dietController.GetDietPlanById},
 		Route{"diet", http.MethodPut, constant.UpdateDiet, dietController.UpdateDietPlanTemplate},
+	}
+}
+
+func getTblMedicalRecordsRoutes(tblMedicalRecordsController *controller.TblMedicalRecordController) Routes {
+	return Routes{
+		{"medical records create", http.MethodPost, "/medical_records", tblMedicalRecordsController.CreateTblMedicalRecord},
+		{"medical records get", http.MethodGet, "/medical_records", tblMedicalRecordsController.GetAllTblMedicalRecords},
+		{"medical records get", http.MethodPost, "/medical_records/:user_id", tblMedicalRecordsController.GetUserMedicalRecords},
+		{"medical records get single", http.MethodGet, "/medical_records/:id", tblMedicalRecordsController.GetSingleTblMedicalRecord},
+		{"medical records update", http.MethodPut, "/medical_records/:id", tblMedicalRecordsController.UpdateTblMedicalRecord},
+		{"medical records delete", http.MethodDelete, "/medical_records/:id", tblMedicalRecordsController.DeleteTblMedicalRecord},
+	}
+}
+
+func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Routes {
+	return Routes{
+		{"gmail sync route", http.MethodGet, "/inbox/:user_id", gmailSyncController.FetchEmailsHandler},
+		{"gmail sync route", http.MethodGet, "/oauth2callback", gmailSyncController.GmailCallbackHandler},
+		{"gmail sync route", http.MethodGet, "/login", controller.GmailLoginHandler},
 	}
 }
