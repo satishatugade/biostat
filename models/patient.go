@@ -8,9 +8,9 @@ type Patient struct {
 	PatientId          uint      `gorm:"primaryKey;autoIncrement" json:"patient_id"`
 	FirstName          string    `gorm:"type:varchar(255)" json:"first_name"`
 	LastName           string    `gorm:"type:varchar(255)" json:"last_name"`
-	DateOfBirth        time.Time `gorm:"type:date" json:"date_of_birth"`
+	DateOfBirth        string    `gorm:"type:date" json:"date_of_birth"`
 	Gender             string    `gorm:"type:varchar(50)" json:"gender"`
-	ContactInfo        string    `gorm:"type:text" json:"contact_info"`
+	MobileNo           string    `gorm:"type:varchar(255)" json:"mobile_no"`
 	Address            string    `gorm:"type:text" json:"address"`
 	EmergencyContact   string    `gorm:"type:varchar(255)" json:"emergency_contact"`
 	AbhaNumber         string    `gorm:"type:varchar(255)" json:"abha_number"`
@@ -21,10 +21,6 @@ type Patient struct {
 	CountryOfResidence string    `gorm:"type:varchar(255)" json:"country_of_residence"`
 	IsIndianOrigin     bool      `gorm:"type:boolean" json:"is_indian_origin"`
 	Email              string    `gorm:"type:varchar(255)" json:"email"`
-	Role               string    `gorm:"type:varchar(255)" json:"role"`
-	AuthUserId         string    `gorm:"type:varchar(255)" json:"auth_user_id"`
-	Username           string    `gorm:"type:varchar(255)" json:"username"`
-	Password           string    `gorm:"type:varchar(255)" json:"password"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -32,9 +28,13 @@ type Patient struct {
 type PatientRelative struct {
 	RelativeId   uint      `json:"relative_id" gorm:"primaryKey"`
 	PatientId    uint      `json:"patient_id"`
-	Name         string    `json:"name"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	Gender       string    `json:"gender"`
+	DateOfBirth  string    `json:"date_of_birth"`
 	Relationship string    `json:"relationship"`
-	ContactInfo  string    `json:"contact_info"`
+	MobileNo     string    `json:"mobile_no"`
+	Email        string    `json:"email"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

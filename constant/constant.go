@@ -12,6 +12,7 @@ const (
 	UpdatePatient      = "/patient-info/:patient_id"
 	PatientRelative    = "/patient-relative"
 	GetRelative        = "/patient-relative/:patient_id"
+	SingleRelative     = "/relative/:relative_id"
 	UpdateRealtiveInfo = "/patient-relative/:relative_id"
 	// PatientDiseaseCondition = "/patient-disease-condition/:patient_disease_profile_id"
 	PatientDiseaseCondition = "/patient-disease-condition/:patient_id"
@@ -61,6 +62,9 @@ const (
 	AllDietTemplate = "/diet-template"
 	SingleDiet      = "/diet-template/:diet_id"
 	UpdateDiet      = "/update-diet/:diet_id"
+
+	//Roles master
+	GetRole = "/get-role/:role_id"
 )
 
 const (

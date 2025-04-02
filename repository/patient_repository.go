@@ -13,10 +13,11 @@ type PatientRepository interface {
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
-	GetPatientById(patientId string) (*models.Patient, error)
+	GetPatientById(patientId uint) (*models.Patient, error)
 	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	GetPatientRelativeById(relativeId uint) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
@@ -94,7 +95,7 @@ func (p *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.P
 }
 
 // GetPatientById implements PatientRepository.
-func (p *PatientRepositoryImpl) GetPatientById(patientId string) (*models.Patient, error) {
+func (p *PatientRepositoryImpl) GetPatientById(patientId uint) (*models.Patient, error) {
 	var patient models.Patient
 	err := p.db.Where("patient_id = ?", patientId).First(&patient).Error
 	if err != nil {
@@ -235,4 +236,15 @@ func (p *PatientRepositoryImpl) AddPatientClinicalRange(customRange *models.Pati
 		return err
 	}
 	return tx.Commit().Error
+}
+
+// GetPatientRelativeById implements PatientRepository.
+func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint) (models.PatientRelative, error) {
+
+	var relative models.PatientRelative
+	err := p.db.Where("relative_id = ?", relativeId).First(&relative).Error
+	if err != nil {
+		return relative, err
+	}
+	return relative, nil
 }

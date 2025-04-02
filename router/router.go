@@ -40,16 +40,19 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
 	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo)
 
+	var roleRepo = repository.NewRoleRepository(db)
+	var roleService = service.NewRoleService(roleRepo)
+
 	var patientRepo = repository.NewPatientRepository(db)
 	var patientService = service.NewPatientService(patientRepo)
 
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService)
 
-	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService)
+	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController()
+	var userController = controller.NewUserController(patientService, roleService)
 	UserRoutes(apiGroup, userController)
 
 	var tblUserGtokenRepo = repository.NewTblUserGtokenRepository(db)
@@ -62,6 +65,10 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 func getMasterRoutes(masterController *controller.MasterController) Routes {
 	return Routes{
+
+		//Roles
+		Route{"Roles", http.MethodPost, constant.GetRole, masterController.GetRoleById},
+
 		//disease master
 		Route{"Disease", http.MethodPost, constant.AddDisease, masterController.CreateDisease},
 		Route{"Disease", http.MethodPost, constant.Disease, masterController.GetDiseaseInfo},
@@ -131,6 +138,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
 		Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
 		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
+		Route{"patient", http.MethodPost, constant.SingleRelative, patientController.GetPatientRelativeByRelativeId},
 		Route{"patient", http.MethodPut, constant.UpdateRealtiveInfo, patientController.UpdatePatientRelative},
 		Route{"patient disease condition", http.MethodPost, constant.PatientDiseaseCondition, patientController.GetPatientDiseaseProfiles},
 		Route{"patient diet", http.MethodPost, constant.PatientDietPlan, patientController.GetPatientDietPlan},

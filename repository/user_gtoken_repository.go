@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"biostat/database"
 	"biostat/models"
+	"errors"
 
 	"gorm.io/gorm"
 )
@@ -66,4 +68,12 @@ func (r *tblUserGtokenRepositoryImpl) GetSingleTblUserGtoken(id int) (*models.Tb
 
 func (r *tblUserGtokenRepositoryImpl) DeleteTblUserGtoken(id int, updatedBy string) error {
 	return r.db.Where("user_id = ?", id).Delete(&models.TblUserGtoken{}).Error
+}
+
+func GetRoleByName(roleName string) (*models.RoleMaster, error) {
+	var role models.RoleMaster
+	if err := database.DB.Where("role_name = ?", roleName).First(&role).Error; err != nil {
+		return nil, errors.New("role not found")
+	}
+	return &role, nil
 }

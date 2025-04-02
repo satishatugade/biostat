@@ -38,8 +38,14 @@ func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientByID(c *gin.Context) {
-	patientId := c.Param("patient_id")
-	patient, err := pc.patientService.GetPatientById(patientId)
+	patientIdStr := c.Param("patient_id")
+	patientId, err := strconv.ParseUint(patientIdStr, 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient ID", nil, err)
+		return
+	}
+
+	patient, err := pc.patientService.GetPatientById(uint(patientId))
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
@@ -176,6 +182,23 @@ func (pc *PatientController) GetPatientRelative(c *gin.Context) {
 	)
 
 	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
+}
+
+func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
+	relativeIdStr := c.Param("relative_id")
+	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid relative ID", nil, err)
+		return
+	}
+
+	relative, err := pc.patientService.GetPatientRelativeById(uint(relativeId))
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relative not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient relative retrieved successfully", relative, nil, nil)
 }
 
 func (pc *PatientController) UpdatePatientRelative(c *gin.Context) {

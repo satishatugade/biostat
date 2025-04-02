@@ -22,11 +22,12 @@ type MasterController struct {
 	dietService       service.DietService
 	exerciseService   service.ExerciseService
 	diagnosticService service.DiagnosticService
+	roleService       service.RoleService
 }
 
 func NewMasterController(allergyService service.AllergyService, diseaseService service.DiseaseService,
 	causeService service.CauseService, symptomService service.SymptomService, medicationService service.MedicationService,
-	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService) *MasterController {
+	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService, roleService service.RoleService) *MasterController {
 	return &MasterController{allergyService: allergyService,
 		diseaseService:    diseaseService,
 		causeService:      causeService,
@@ -35,6 +36,7 @@ func NewMasterController(allergyService service.AllergyService, diseaseService s
 		dietService:       dietService,
 		exerciseService:   exerciseService,
 		diagnosticService: diagnosticService,
+		roleService:       roleService,
 	}
 }
 
@@ -679,4 +681,19 @@ func (dc *MasterController) UpdateDiagnosticTestComponentMapping(c *gin.Context)
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Diagnostic test component mapping updated successfully", diagnosticTestComponentMappingRes, nil, nil)
+}
+
+func (mc *MasterController) GetRoleById(c *gin.Context) {
+	roleIdStr := c.Param("role_id")
+	roleId, err := strconv.ParseUint(roleIdStr, 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role ID", nil, err)
+		return
+	}
+	role, err := mc.roleService.GetRoleById(uint(roleId))
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Role not found", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Role retrieved successfully", role, nil, nil)
 }

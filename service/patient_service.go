@@ -7,7 +7,7 @@ import (
 
 type PatientService interface {
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
-	GetPatientById(patientId string) (*models.Patient, error)
+	GetPatientById(patientId uint) (*models.Patient, error)
 	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
@@ -15,6 +15,7 @@ type PatientService interface {
 	GetPrescriptionByPatientID(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	GetPatientRelativeById(relativeId uint) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
@@ -42,7 +43,7 @@ func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patien
 	return s.patientRepo.GetAllPatients(limit, offset)
 }
 
-func (s *PatientServiceImpl) GetPatientById(patientId string) (*models.Patient, error) {
+func (s *PatientServiceImpl) GetPatientById(patientId uint) (*models.Patient, error) {
 	return s.patientRepo.GetPatientById(patientId)
 }
 func (s *PatientServiceImpl) UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error) {
@@ -77,6 +78,7 @@ func (s *PatientServiceImpl) AddPatientClinicalRange(customRange *models.Patient
 	return s.patientRepo.AddPatientClinicalRange(customRange)
 }
 
-// func (s *PatientServiceImpl) UpdatePrescription(prescription *models.PatientPrescription) error {
-// 	return s.patientRepo.UpdatePrescription(prescription)
-// }
+// GetPatientRelativeById implements PatientService.
+func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint) (models.PatientRelative, error) {
+	return s.patientRepo.GetPatientRelativeById(relativeId)
+}
