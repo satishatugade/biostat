@@ -32,7 +32,8 @@ type Disease struct {
 	SlugURL           string    `json:"slug_url"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
-	// DiseaseTypeMapping DiseaseTypeMapping `json:"disease_type" gorm:"foreignKey:DiseaseId;references:DiseaseId"`
+	CreatedBy         string    `json:"created_by"` // Not stored in DB, used for tracking
+
 	DiseaseTypeMapping DiseaseTypeMapping `json:"-" gorm:"foreignKey:DiseaseId;references:DiseaseId"`
 	DiseaseType        DiseaseType        `json:"disease_type" gorm:"-"`
 	Severity           []Severity         `json:"severity_levels" gorm:"many2many:tbl_disease_severity_mapping;joinForeignKey:DiseaseId;joinReferences:SeverityId"`

@@ -2,6 +2,26 @@ package models
 
 import "time"
 
+type DiseaseAudit struct {
+	DiseaseAuditId    uint      `json:"disease_audit_id" gorm:"primaryKey"`
+	DiseaseId         uint      `json:"disease_id"`
+	DiseaseSnomedCode string    `json:"disease_snomed_code"`
+	DiseaseName       string    `json:"disease_name"`
+	Description       string    `json:"description"`
+	ImageURL          string    `json:"image_url"`
+	SlugURL           string    `json:"slug_url"`
+	OperationType     string    `json:"operation_type"` // "Update" or "Delete"
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	CreatedBy         string    `json:"created_by"`
+	UpdatedBy         string    `json:"updated_by"`
+}
+
+// Table Name
+func (DiseaseAudit) TableName() string {
+	return "tbl_disease_master_audit"
+}
+
 type DiseaseProfileDiagnosticTestMasterAudit struct {
 	ID               uint      `gorm:"primaryKey;column:diagnostic_test_audit_id"`
 	DiagnosticTestID uint      `gorm:"column:diagnostic_test_id"`

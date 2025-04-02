@@ -66,8 +66,15 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Disease", http.MethodPost, constant.AddDisease, masterController.CreateDisease},
 		Route{"Disease", http.MethodPost, constant.Disease, masterController.GetDiseaseInfo},
 		Route{"Disease", http.MethodPost, constant.AllDisease, masterController.GetDiseaseInfo},
-		Route{"Disease", http.MethodPost, constant.DiseaseProfile, masterController.GetDiseaseProfile},
-		Route{"Disease", http.MethodPost, constant.SingleDiseaseProfile, masterController.GetDiseaseProfileById},
+		Route{"Disease", http.MethodPut, constant.UpdateDisease, masterController.UpdateDiseaseInfo},
+		Route{"Disease", http.MethodPost, constant.DeleteDisease, masterController.DeleteDisease},
+
+		//DM AUDIT
+		Route{"Disease", http.MethodPost, constant.DiseaseAudit, masterController.GetDiseaseAuditLogs},
+
+		//disease condition(profile)
+		Route{"Disease profile", http.MethodPost, constant.DiseaseProfile, masterController.GetDiseaseProfile},
+		Route{"Disease profile", http.MethodPost, constant.SingleDiseaseProfile, masterController.GetDiseaseProfileById},
 
 		//Causes master
 		Route{"Causes", http.MethodPost, constant.Cause, masterController.GetAllCauses},

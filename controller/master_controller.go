@@ -52,6 +52,99 @@ func (mc *MasterController) CreateDisease(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Disease created successfully", nil, nil, nil)
 }
 
+func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
+	var Disease models.Disease
+	if err := c.ShouldBindJSON(&Disease); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request input", nil, err)
+		return
+	}
+
+	if Disease.DiseaseId == 0 {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Disease Id Required", nil, nil)
+		return
+	}
+	err := mc.diseaseService.UpdateDisease(&Disease)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update disease", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Disease updated successfully", Disease, nil, nil)
+}
+
+func (mc *MasterController) DeleteDisease(c *gin.Context) {
+	diseaseId, err := strconv.ParseUint(c.Param("disease_id"), 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid disease ID", nil, err)
+		return
+	}
+	err = mc.diseaseService.DeleteDisease(uint(diseaseId))
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete disease", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Disease deleted successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
+	// Parse disease_id from query parameters
+
+	var diseaseId uint
+	diseaseIdStr := c.Query("disease_id")
+	if diseaseIdStr != "" {
+		parsedDiseaseId, err := strconv.ParseUint(diseaseIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid disease ID", nil, err)
+			return
+		}
+		diseaseId = uint(parsedDiseaseId)
+	}
+
+	var diseaseAuditId uint
+	if auditIdStr := c.Query("disease_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			temp := uint(auditId)
+			diseaseAuditId = temp
+		}
+	}
+
+	// Extract pagination parameters
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Disease audit record not found"
+
+	if diseaseId == 0 && diseaseAuditId == 0 {
+		data, totalRecords, err := mc.diseaseService.GetAllDiseaseAuditLogs(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Disease audit record retrieved successfully",
+			"Disease audit record not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	auditRecord, err := mc.diseaseService.GetDiseaseAuditLogs(diseaseId, diseaseAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Disease audit record retrieved successfully",
+		"Disease audit record not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+
+}
+
 func (mc *MasterController) GetDiseaseInfo(c *gin.Context) {
 	DiseaseId, err := strconv.ParseUint(c.Param("disease_id"), 10, 32)
 	page, limit, offset := utils.GetPaginationParams(c)

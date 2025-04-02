@@ -11,6 +11,10 @@ type DiseaseService interface {
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
+	UpdateDisease(Disease *models.Disease) error
+	DeleteDisease(DiseaseId uint) error
+	GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error)
+	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
 }
 
 type DiseaseServiceImpl struct {
@@ -41,4 +45,20 @@ func (s *DiseaseServiceImpl) GetDiseaseProfiles(limit int, offset int) ([]models
 
 func (s *DiseaseServiceImpl) CreateDisease(disease *models.Disease) error {
 	return s.diseaseRepo.CreateDisease(disease)
+}
+
+func (s *DiseaseServiceImpl) UpdateDisease(Disease *models.Disease) error {
+	return s.diseaseRepo.UpdateDisease(Disease)
+}
+
+func (s *DiseaseServiceImpl) DeleteDisease(diseaseId uint) error {
+	return s.diseaseRepo.DeleteDisease(diseaseId)
+}
+
+func (s *DiseaseServiceImpl) GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error) {
+	return s.diseaseRepo.GetDiseaseAuditLogs(diseaseId, diseaseAuditId)
+}
+
+func (s *DiseaseServiceImpl) GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error) {
+	return s.diseaseRepo.GetAllDiseaseAuditLogs(page, limit)
 }

@@ -28,6 +28,9 @@ const (
 	Disease                 = "/get-disease/:disease_id"
 	AllDisease              = "/get-disease"
 	AddDisease              = "/add-disease"
+	UpdateDisease           = "/update-disease"
+	DeleteDisease           = "/delete-disease/:disease_id"
+	DiseaseAudit            = "/disease-audit"
 	Cause                   = "/causes"
 	Symptom                 = "/symptom"
 	AddSymptom              = "/add-symptom"
@@ -63,4 +66,9 @@ const (
 const (
 	Success = "success"
 	Failure = "failure"
+)
+
+const (
+	UPDATE = "Update"
+	DELETE = "Delete"
 )

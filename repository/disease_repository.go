@@ -1,7 +1,10 @@
 package repository
 
 import (
+	"biostat/constant"
 	"biostat/models"
+	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -13,6 +16,10 @@ type DiseaseRepository interface {
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
+	UpdateDisease(updatedDisease *models.Disease) error
+	DeleteDisease(DiseaseId uint) error
+	GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error)
+	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
 	IsDiseaseProfileExists(diseaseProfileId uint) (bool, error)
 }
 
@@ -164,4 +171,94 @@ func (d *DiseaseRepositoryImpl) IsDiseaseProfileExists(diseaseProfileId uint) (b
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (repo *DiseaseRepositoryImpl) DiseaseAudit(existingDisease *models.Disease, operationType string, updatedBy string) error {
+	auditLog := models.DiseaseAudit{
+		DiseaseId:         existingDisease.DiseaseId,
+		DiseaseSnomedCode: existingDisease.DiseaseSnomedCode,
+		DiseaseName:       existingDisease.DiseaseName,
+		Description:       existingDisease.Description,
+		ImageURL:          existingDisease.ImageURL,
+		SlugURL:           existingDisease.SlugURL,
+		OperationType:     operationType,
+		CreatedAt:         existingDisease.CreatedAt,
+		UpdatedAt:         time.Now(),
+		CreatedBy:         existingDisease.CreatedBy,
+		UpdatedBy:         updatedBy,
+	}
+
+	return repo.db.Create(&auditLog).Error
+}
+
+func (repo *DiseaseRepositoryImpl) UpdateDisease(Disease *models.Disease) error {
+	existingDisease, err := repo.GetDiseases(Disease.DiseaseId)
+	if err != nil {
+		return err
+	}
+	Disease.UpdatedAt = time.Now()
+	result := repo.db.Model(&models.Disease{}).Where("disease_id = ?", Disease.DiseaseId).Updates(Disease)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("no records updated")
+	}
+	if err := repo.DiseaseAudit(existingDisease, constant.UPDATE, "system"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repo *DiseaseRepositoryImpl) DeleteDisease(diseaseId uint) error {
+	// Fetch existing disease record before deleting
+	existingDisease, err := repo.GetDiseases(diseaseId)
+	if err != nil {
+		return err // Return error if disease not found
+	}
+	// Delete the actual record from the master table
+	if err := repo.db.Where("disease_id = ?", diseaseId).Delete(&models.Disease{}).Error; err != nil {
+		return err // Return error if delete operation fails
+	}
+
+	if err := repo.DiseaseAudit(existingDisease, constant.DELETE, "system"); err != nil {
+		return err
+	}
+
+	// Delete the actual record from the master table
+	if err := repo.db.Where("disease_id = ?", diseaseId).Delete(&models.Disease{}).Error; err != nil {
+		return err // Return error if delete operation fails
+	}
+
+	return nil
+}
+
+func (repo *DiseaseRepositoryImpl) GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error) {
+	var auditLogs []models.DiseaseAudit
+	query := repo.db
+	if diseaseId != 0 {
+		query = query.Where("disease_id = ?", diseaseId)
+	}
+	if diseaseAuditId != 0 {
+		query = query.Where("disease_audit_id = ?", diseaseAuditId)
+	}
+
+	err := query.Find(&auditLogs).Error
+	if err != nil {
+		return nil, err
+	}
+	return auditLogs, nil
+}
+
+func (repo *DiseaseRepositoryImpl) GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error) {
+	var auditLogs []models.DiseaseAudit
+	var totalRecords int64
+
+	// Get total count
+	repo.db.Model(&models.DiseaseAudit{}).Count(&totalRecords)
+
+	// Fetch data with pagination
+	err := repo.db.Limit(limit).Offset((page - 1) * limit).Find(&auditLogs).Error
+	return auditLogs, totalRecords, err
 }
