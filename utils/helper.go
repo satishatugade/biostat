@@ -3,8 +3,10 @@ package utils
 import (
 	"biostat/models"
 	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -49,4 +51,18 @@ func GetParamAsInt(c *gin.Context, param string) int {
 		return 0
 	}
 	return value
+}
+
+func GenerateRandomPassword() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 8
+
+	rand.Seed(time.Now().UnixNano())
+	password := make([]byte, length)
+
+	for i := range password {
+		password[i] = charset[rand.Intn(len(charset))]
+	}
+
+	return string(password)
 }

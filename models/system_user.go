@@ -53,7 +53,7 @@ func (SystemUser) TableName() string {
 }
 
 type RoleMaster struct {
-	RoleId    uint      `gorm:"primaryKey;column:role_id" json:"role_id"`
+	RoleId    uint64    `gorm:"primaryKey;column:role_id" json:"role_id"`
 	RoleName  string    `gorm:"size:50;not null;column:role_name" json:"role_name"`
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP;column:created_at" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`
@@ -64,12 +64,142 @@ func (RoleMaster) TableName() string {
 	return "tbl_role_master"
 }
 
+type SystemUserRoleMapping struct {
+	SystemUserRoleMappingId uint64    `gorm:"primaryKey;column:system_user_role_mapping_id" json:"system_user_role_mapping_id"`
+	UserId                  uint64    `gorm:"column:user_id;not null" json:"user_id"`
+	PatientId               uint64    `gorm:"column:patient_id;not null" json:"patient_id"`
+	RoleId                  uint64    `gorm:"column:role_id;not null" json:"role_id"`
+	IsSelf                  bool      `gorm:"column:is_self;default:false" json:"is_self"`
+	MappingType             string    `gorm:"column:mapping_type;type:varchar(50)" json:"mapping_type,omitempty"`
+	CreatedAt               time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt               time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+}
+
+func (SystemUserRoleMapping) TableName() string {
+	return "tbl_system_user_role_mapping"
+}
+
 type UserResponse struct {
-	UserId     int    `json:"user_id" gorm:"primaryKey"`
+	UserId     uint64 `json:"user_id" gorm:"primaryKey"`
 	FirstName  string `json:"first_name"`
 	LastName   string `json:"last_name"`
 	Role       string `json:"role"`
 	Username   string `json:"username"`
 	Email      string `json:"email"`
 	AuthUserId string `json:"auth_user_id"`
+}
+
+type UserLoginResponse struct {
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	UserResponse UserResponse `json:"user_data"`
+}
+
+// type SystemUser_ struct {
+// 	UserID      uint64     `gorm:"primaryKey;column:user_id" json:"user_id"`
+// 	AuthUserID  string     `gorm:"column:auth_user_id" json:"auth_user_id"`
+// 	Username    string     `gorm:"column:username" json:"username"`
+// 	Password    string     `gorm:"column:password" json:"password"`
+// 	FirstName   string     `gorm:"column:first_name;not null" json:"first_name"`
+// 	LastName    string     `gorm:"column:last_name;not null" json:"last_name"`
+// 	Gender      string     `gorm:"column:gender" json:"gender"`
+// 	DateOfBirth *time.Time `gorm:"column:date_of_birth" json:"date_of_birth"`
+// 	MobileNo    string     `gorm:"column:mobile_no" json:"mobile_no"`
+// 	Email       string     `gorm:"column:email" json:"email"`
+// 	Address     string     `gorm:"column:address" json:"address"`
+
+// 	//patient
+// 	EmergencyContact   string `gorm:"column:emergency_contact;type:varchar(20)" json:"emergency_contact,omitempty"`
+// 	AbhaNumber         string `gorm:"column:abha_number;type:varchar(20)" json:"abha_number,omitempty"`
+// 	BloodGroup         string `gorm:"column:blood_group;type:varchar(5)" json:"blood_group,omitempty"`
+// 	Nationality        string `gorm:"column:nationality;type:varchar(50)" json:"nationality,omitempty"`
+// 	CitizenshipStatus  string `gorm:"column:citizenship_status;type:varchar(50)" json:"citizenship_status,omitempty"`
+// 	PassportNumber     string `gorm:"column:passport_number;type:varchar(20)" json:"passport_number,omitempty"`
+// 	CountryOfResidence string `gorm:"column:country_of_residence;type:varchar(50)" json:"country_of_residence,omitempty"`
+// 	IsIndianOrigin     bool   `gorm:"column:is_indian_origin" json:"is_indian_origin,omitempty"`
+
+// 	//doctor
+// 	Specialty          string     `gorm:"column:specialty" json:"specialty"`
+// 	LicenseNumber      string     `gorm:"column:license_number" json:"license_number"`
+// 	ClinicName         string     `gorm:"column:clinic_name" json:"clinic_name"`
+// 	ClinicAddress      string     `gorm:"column:clinic_address" json:"clinic_address"`
+// 	YearsOfExperience  *int       `gorm:"column:years_of_experience" json:"years_of_experience"`
+// 	ConsultationFee    *float64   `gorm:"column:consultation_fee" json:"consultation_fee"`
+// 	WorkingHours       string     `gorm:"column:working_hours" json:"working_hours"`
+// 	UserState          string     `gorm:"column:user_state" json:"user_state"`
+// 	AuthType           string     `gorm:"column:auth_type" json:"auth_type"`
+// 	AuthStatus         string     `gorm:"column:auth_status" json:"auth_status"`
+// 	AuthDate           time.Time  `gorm:"column:auth_date;default:CURRENT_TIMESTAMP" json:"auth_date"`
+// 	ActivationFlag     bool       `gorm:"column:activation_flag;default:false" json:"activation_flag"`
+// 	FirstLoginFlag     bool       `gorm:"column:first_login_flag;default:false" json:"first_login_flag"`
+// 	AccountExpired     bool       `gorm:"column:account_expired;default:false" json:"account_expired"`
+// 	AccountLocked      bool       `gorm:"column:account_locked;default:false" json:"account_locked"`
+// 	CredentialsExpired bool       `gorm:"column:credentials_expired;default:false" json:"credentials_expired"`
+// 	LastLogin          *time.Time `gorm:"column:last_login" json:"last_login"`
+// 	IsMobileVerified   bool       `gorm:"column:is_mobile_verified;default:false" json:"is_mobile_verified"`
+// 	CreatedAt          time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+// 	UpdatedAt          time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+// 	// Transient fields (not stored in DB)
+// 	RoleId   uint   `gorm:"-" json:"role_id"`
+// 	RoleName string `gorm:"-" json:"role_name"`
+// }
+
+type SystemUser_ struct {
+	UserId      uint64     `gorm:"primaryKey;column:user_id" json:"user_id"`
+	AuthUserId  string     `gorm:"column:auth_user_id;type:varchar(100);unique" json:"auth_user_id"`
+	Username    string     `gorm:"column:username;type:varchar(50);unique;not null" json:"username"`
+	Password    string     `gorm:"column:password;type:varchar(255);not null" json:"password"`
+	FirstName   string     `gorm:"column:first_name;type:varchar(50);not null" json:"first_name"`
+	LastName    string     `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
+	Gender      string     `gorm:"column:gender;type:varchar(10)" json:"gender"`
+	DateOfBirth *time.Time `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
+	MobileNo    string     `gorm:"column:mobile_no;type:varchar(20);unique" json:"mobile_no"`
+	Email       string     `gorm:"column:email;type:varchar(100);unique" json:"email"`
+	Address     string     `gorm:"column:address;type:text" json:"address"`
+
+	// Patient-Specific Fields
+	EmergencyContact   string `gorm:"column:emergency_contact;type:varchar(20)" json:"emergency_contact,omitempty"`
+	AbhaNumber         string `gorm:"column:abha_number;type:varchar(20)" json:"abha_number,omitempty"`
+	BloodGroup         string `gorm:"column:blood_group;type:varchar(5)" json:"blood_group,omitempty"`
+	Nationality        string `gorm:"column:nationality;type:varchar(50)" json:"nationality,omitempty"`
+	CitizenshipStatus  string `gorm:"column:citizenship_status;type:varchar(50)" json:"citizenship_status,omitempty"`
+	PassportNumber     string `gorm:"column:passport_number;type:varchar(20);unique" json:"passport_number,omitempty"`
+	CountryOfResidence string `gorm:"column:country_of_residence;type:varchar(50)" json:"country_of_residence,omitempty"`
+	IsIndianOrigin     bool   `gorm:"column:is_indian_origin;default:false" json:"is_indian_origin,omitempty"`
+
+	// Doctor-Specific Fields
+	Specialty         string   `gorm:"column:specialty;type:varchar(100)" json:"specialty,omitempty"`
+	LicenseNumber     string   `gorm:"column:license_number;type:varchar(50);unique" json:"license_number,omitempty"`
+	ClinicName        string   `gorm:"column:clinic_name;type:varchar(100)" json:"clinic_name,omitempty"`
+	ClinicAddress     string   `gorm:"column:clinic_address;type:text" json:"clinic_address,omitempty"`
+	YearsOfExperience *int     `gorm:"column:years_of_experience" json:"years_of_experience,omitempty"`
+	ConsultationFee   *float64 `gorm:"column:consultation_fee;type:decimal(10,2)" json:"consultation_fee,omitempty"`
+	WorkingHours      string   `gorm:"column:working_hours;type:varchar(100)" json:"working_hours,omitempty"`
+
+	// Authentication & User State
+	UserState          string     `gorm:"column:user_state;type:varchar(50)" json:"user_state"`
+	AuthType           string     `gorm:"column:auth_type;type:varchar(50)" json:"auth_type"`
+	AuthStatus         string     `gorm:"column:auth_status;type:varchar(50);default:'pending'" json:"auth_status"`
+	AuthDate           time.Time  `gorm:"column:auth_date;default:CURRENT_TIMESTAMP" json:"auth_date"`
+	ActivationFlag     bool       `gorm:"column:activation_flag;default:false" json:"activation_flag"`
+	FirstLoginFlag     bool       `gorm:"column:first_login_flag;default:false" json:"first_login_flag"`
+	AccountExpired     bool       `gorm:"column:account_expired;default:false" json:"account_expired"`
+	AccountLocked      bool       `gorm:"column:account_locked;default:false" json:"account_locked"`
+	CredentialsExpired bool       `gorm:"column:credentials_expired;default:false" json:"credentials_expired"`
+	LastLogin          *time.Time `gorm:"column:last_login" json:"last_login,omitempty"`
+	IsMobileVerified   bool       `gorm:"column:is_mobile_verified;default:false" json:"is_mobile_verified"`
+
+	// Timestamp Fields
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+	// Transient Fields (Not Stored in DB)
+	RoleId   uint64 `gorm:"-" json:"role_id"`
+	RoleName string `gorm:"-" json:"role_name"`
+}
+
+// TableName overrides the default table name
+func (SystemUser_) TableName() string {
+	return "tbl_system_user_"
 }

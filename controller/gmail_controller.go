@@ -27,10 +27,10 @@ var googleOauthConfig = &oauth2.Config{
 
 type GmailSyncController struct {
 	service       service.TblMedicalRecordService
-	gTokenService service.TblUserGtokenService
+	gTokenService service.UserService
 }
 
-func NewGmailSyncController(service service.TblMedicalRecordService, gTokenService service.TblUserGtokenService) *GmailSyncController {
+func NewGmailSyncController(service service.TblMedicalRecordService, gTokenService service.UserService) *GmailSyncController {
 	return &GmailSyncController{
 		service:       service,
 		gTokenService: gTokenService,
@@ -88,7 +88,7 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 		first5Emails := emailMedRecord[:5]
 		log.Println("Following email models will be saved:", len(first5Emails))
 
-		err = c.service.SaveMedicalRecords(&first5Emails,userID)
+		err = c.service.SaveMedicalRecords(&first5Emails, userID)
 		if err != nil {
 			log.Println("Error while saving email data:", err)
 			return
@@ -119,11 +119,11 @@ func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch emails", nil, err)
 		return
 	}
-	
+
 	first5Emails := emails[:5]
 	log.Println("Following email models will be saved:", len(first5Emails))
 
-	err = c.service.SaveMedicalRecords(&first5Emails,int64(user_id))
+	err = c.service.SaveMedicalRecords(&first5Emails, int64(user_id))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while saving data", nil, err)
 	}

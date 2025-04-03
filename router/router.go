@@ -46,18 +46,20 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var patientRepo = repository.NewPatientRepository(db)
 	var patientService = service.NewPatientService(patientRepo)
 
+	var userRepo = repository.NewTblUserGtokenRepository(db)
+	var userService = service.NewTblUserGtokenService(userRepo)
+
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService)
 
+	var emailService = service.NewEmailService()
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController(patientService, roleService)
+	var userController = controller.NewUserController(patientService, roleService, userService, emailService)
 	UserRoutes(apiGroup, userController)
 
-	var tblUserGtokenRepo = repository.NewTblUserGtokenRepository(db)
-	var tblUserGtokenService = service.NewTblUserGtokenService(tblUserGtokenRepo)
-	var gmailRecordsController = controller.NewGmailSyncController(medicalRecordService, tblUserGtokenService)
+	var gmailRecordsController = controller.NewGmailSyncController(medicalRecordService, userService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
@@ -163,6 +165,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 func getUserRoutes(userController *controller.UserController) Routes {
 	return Routes{
 		Route{"User", http.MethodPost, constant.RegisterUser, userController.RegisterUser},
+		Route{"User", http.MethodPost, constant.UserRegistrationByPatient, userController.UserRegisterByPatient},
 		Route{"User", http.MethodPost, constant.AuthUser, userController.LoginUser},
 		Route{"User", http.MethodPost, constant.LogoutUser, userController.LogoutUser},
 	}

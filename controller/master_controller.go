@@ -690,7 +690,7 @@ func (mc *MasterController) GetRoleById(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role ID", nil, err)
 		return
 	}
-	role, err := mc.roleService.GetRoleById(uint(roleId))
+	role, err := mc.roleService.GetRoleById(roleId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Role not found", nil, err)
 		return

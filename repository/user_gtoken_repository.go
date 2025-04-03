@@ -1,33 +1,32 @@
 package repository
 
 import (
-	"biostat/database"
 	"biostat/models"
-	"errors"
 
 	"gorm.io/gorm"
 )
 
-type TblUserGtokenRepository interface {
+type UserRepository interface {
 	GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error)
 	CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error)
 	UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error)
 	GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error)
 	DeleteTblUserGtoken(id int, updatedBy string) error
+	CreateSystemUser(systemUser models.SystemUser_) (models.SystemUser_, error)
 }
 
-type tblUserGtokenRepositoryImpl struct {
+type UserRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func NewTblUserGtokenRepository(db *gorm.DB) TblUserGtokenRepository {
+func NewTblUserGtokenRepository(db *gorm.DB) UserRepository {
 	if db == nil {
 		panic("database instance is null")
 	}
-	return &tblUserGtokenRepositoryImpl{db: db}
+	return &UserRepositoryImpl{db: db}
 }
 
-func (r *tblUserGtokenRepositoryImpl) GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error) {
+func (r *UserRepositoryImpl) GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error) {
 	var objs []models.TblUserGtoken
 	var totalRecords int64
 	err := r.db.Model(&models.TblUserGtoken{}).Count(&totalRecords).Error
@@ -41,7 +40,7 @@ func (r *tblUserGtokenRepositoryImpl) GetAllTblUserGtokens(limit int, offset int
 	return objs, totalRecords, nil
 }
 
-func (r *tblUserGtokenRepositoryImpl) CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error) {
+func (r *UserRepositoryImpl) CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error) {
 	err := r.db.Create(data).Error
 	if err != nil {
 		return nil, err
@@ -49,7 +48,7 @@ func (r *tblUserGtokenRepositoryImpl) CreateTblUserGtoken(data *models.TblUserGt
 	return data, nil
 }
 
-func (r *tblUserGtokenRepositoryImpl) UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error) {
+func (r *UserRepositoryImpl) UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error) {
 	err := r.db.Model(&models.TblUserGtoken{}).Where("id = ?", data.Id).Updates(data).Error
 	if err != nil {
 		return nil, err
@@ -57,7 +56,7 @@ func (r *tblUserGtokenRepositoryImpl) UpdateTblUserGtoken(data *models.TblUserGt
 	return data, nil
 }
 
-func (r *tblUserGtokenRepositoryImpl) GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error) {
+func (r *UserRepositoryImpl) GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error) {
 	var obj models.TblUserGtoken
 	err := r.db.Where("user_id = ?", id).First(&obj).Error
 	if err != nil {
@@ -66,14 +65,14 @@ func (r *tblUserGtokenRepositoryImpl) GetSingleTblUserGtoken(id int) (*models.Tb
 	return &obj, nil
 }
 
-func (r *tblUserGtokenRepositoryImpl) DeleteTblUserGtoken(id int, updatedBy string) error {
+func (r *UserRepositoryImpl) DeleteTblUserGtoken(id int, updatedBy string) error {
 	return r.db.Where("user_id = ?", id).Delete(&models.TblUserGtoken{}).Error
 }
 
-func GetRoleByName(roleName string) (*models.RoleMaster, error) {
-	var role models.RoleMaster
-	if err := database.DB.Where("role_name = ?", roleName).First(&role).Error; err != nil {
-		return nil, errors.New("role not found")
+// CreateSystemUser implements UserRepository.
+func (r *UserRepositoryImpl) CreateSystemUser(systemUser models.SystemUser_) (models.SystemUser_, error) {
+	if err := r.db.Create(&systemUser).Error; err != nil {
+		return models.SystemUser_{}, err
 	}
-	return &role, nil
+	return systemUser, nil
 }

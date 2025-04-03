@@ -4,10 +4,11 @@ import (
 	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
-	"biostat/repository"
 	"biostat/service"
 	"biostat/utils"
 	"context"
+	"log"
+	"strconv"
 
 	"fmt"
 	"net/http"
@@ -20,100 +21,190 @@ import (
 type UserController struct {
 	patientService service.PatientService
 	roleService    service.RoleService
+	userService    service.UserService
+	emailService   *service.EmailService
 }
 
-func NewUserController(patientService service.PatientService, roleService service.RoleService) *UserController {
-	return &UserController{patientService: patientService, roleService: roleService}
+// var emailService = service.NewEmailService()
+
+func NewUserController(patientService service.PatientService, roleService service.RoleService,
+	userService service.UserService, emailService *service.EmailService) *UserController {
+	return &UserController{patientService: patientService, roleService: roleService,
+		userService: userService, emailService: emailService}
 }
+
+// func (uc *UserController) RegisterUser(c *gin.Context) {
+// 	var user models.SystemUser
+// 	if err := c.ShouldBindJSON(&user); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+// 		return
+// 	}
+// 	role, err := repository.GetRoleByName(user.Role)
+// 	if err != nil {
+// 		fmt.Println("Error:", err)
+// 	} else {
+// 		fmt.Printf("Role ID: %d, Role Name: %s\n", role.RoleId, role.RoleName)
+// 	}
+// 	user.Role = role.RoleName
+// 	user.RoleId = role.RoleId
+// 	//Add User in Keycloak
+// 	keyCloakID, err := createUserInKeycloak(user)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+// 	// Map SystemUser to Patient
+// 	if user.RoleId == 3 {
+// 		patient := models.Patient{
+// 			FirstName:          user.FirstName,
+// 			LastName:           user.LastName,
+// 			DateOfBirth:        user.DateOfBirth,
+// 			Gender:             user.Gender,
+// 			MobileNo:           user.Username,
+// 			Address:            user.Address,
+// 			EmergencyContact:   user.EmergencyContact,
+// 			AbhaNumber:         user.AbhaNumber,
+// 			BloodGroup:         user.BloodGroup,
+// 			Nationality:        user.Nationality,
+// 			CitizenshipStatus:  user.CitizenshipStatus,
+// 			PassportNumber:     user.PassportNumber,
+// 			CountryOfResidence: user.CountryOfResidence,
+// 			IsIndianOrigin:     user.IsIndianOrigin,
+// 			Email:              user.Email,
+// 		}
+
+// 		// Store patient in tbl_patient table
+// 		if err := database.DB.Create(&patient).Error; err != nil {
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store patient data"})
+// 			return
+// 		}
+// 		user.AuthUserId = keyCloakID
+// 		user.Password = string(hashedPassword)
+// 		user.UserId = patient.PatientId // Assign patient_id to user_id in SystemUser
+// 	} else if user.RoleId == 5 {
+// 		relative := models.PatientRelative{
+// 			FirstName:    user.FirstName,
+// 			LastName:     user.LastName,
+// 			PatientId:    user.PatientId,
+// 			DateOfBirth:  user.DateOfBirth,
+// 			Gender:       user.Gender,
+// 			MobileNo:     user.Username,
+// 			Email:        user.Email,
+// 			Relationship: user.Relationship,
+// 		}
+// 		// Store patient in tbl_patient table
+// 		if err := database.DB.Create(&relative).Error; err != nil {
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store patient relative data"})
+// 			return
+// 		}
+// 		user.AuthUserId = keyCloakID
+// 		user.Password = string(hashedPassword)
+// 		user.UserId = relative.RelativeId
+// 	}
+
+// 	//store user in DB
+// 	if err := database.DB.Create(&user).Error; err != nil {
+// 		// if err := connection.DB.Create(&user).Error; err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+// }
 
 func (uc *UserController) RegisterUser(c *gin.Context) {
-	var user models.SystemUser
+	var user models.SystemUser_
 	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to bind user object", nil, err)
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
 		return
 	}
-	role, err := repository.GetRoleByName(user.Role)
+	roleMaster, err := uc.roleService.GetRoleIdByRoleName(user.RoleName)
 	if err != nil {
-		fmt.Println("Error:", err)
+		log.Println("Error fetching role from role master:", err)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Role not found", nil, err)
 	} else {
-		fmt.Printf("Role ID: %d, Role Name: %s\n", role.RoleId, role.RoleName)
+		log.Printf("Role Id: %d, Role Name: %s\n", roleMaster.RoleId, roleMaster.RoleName)
 	}
-	user.Role = role.RoleName
-	user.RoleId = role.RoleId
+	user.RoleName = roleMaster.RoleName
+	user.RoleId = roleMaster.RoleId
+
 	//Add User in Keycloak
 	keyCloakID, err := createUserInKeycloak(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
 		return
 	}
-	// Map SystemUser to Patient
-	if user.RoleId == 3 {
-		patient := models.Patient{
-			FirstName:          user.FirstName,
-			LastName:           user.LastName,
-			DateOfBirth:        user.DateOfBirth,
-			Gender:             user.Gender,
-			MobileNo:           user.Username,
-			Address:            user.Address,
-			EmergencyContact:   user.EmergencyContact,
-			AbhaNumber:         user.AbhaNumber,
-			BloodGroup:         user.BloodGroup,
-			Nationality:        user.Nationality,
-			CitizenshipStatus:  user.CitizenshipStatus,
-			PassportNumber:     user.PassportNumber,
-			CountryOfResidence: user.CountryOfResidence,
-			IsIndianOrigin:     user.IsIndianOrigin,
-			Email:              user.Email,
-		}
-
-		// Store patient in tbl_patient table
-		if err := database.DB.Create(&patient).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store patient data"})
-			return
-		}
-		user.AuthUserId = keyCloakID
-		user.Password = string(hashedPassword)
-		user.UserId = patient.PatientId // Assign patient_id to user_id in SystemUser
-	} else if user.RoleId == 5 {
-		relative := models.PatientRelative{
-			FirstName:    user.FirstName,
-			LastName:     user.LastName,
-			PatientId:    user.PatientId,
-			DateOfBirth:  user.DateOfBirth,
-			Gender:       user.Gender,
-			MobileNo:     user.Username,
-			Email:        user.Email,
-			Relationship: user.Relationship,
-		}
-		// Store patient in tbl_patient table
-		if err := database.DB.Create(&relative).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store patient relative data"})
-			return
-		}
-		user.AuthUserId = keyCloakID
-		user.Password = string(hashedPassword)
-		user.UserId = relative.RelativeId
-	}
-
-	//store user in DB
-	if err := database.DB.Create(&user).Error; err != nil {
-		// if err := connection.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	user.Password = string(hashedPassword)
+	user.AuthUserId = keyCloakID
+	systemUser, err := uc.userService.CreateSystemUser(user)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+	mappingError := uc.roleService.AddSystemUserMapping(nil, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName)
+	if err != nil {
+		log.Println("Error while adding user mapping", mappingError)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User mapping not added", nil, mappingError)
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", nil, nil, nil)
 }
 
-func createUserInKeycloak(user models.SystemUser) (string, error) {
+// func createUserInKeycloak(user models.SystemUser) (string, error) {
+// 	client := utils.Client
+// 	fmt.Println("client ", client)
+// 	ctx := context.Background()
+// 	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	newuser := gocloak.User{
+// 		Username:      gocloak.StringP(user.Username),
+// 		Email:         gocloak.StringP(user.Email),
+// 		FirstName:     gocloak.StringP(user.FirstName),
+// 		LastName:      gocloak.StringP(user.LastName),
+// 		Enabled:       gocloak.BoolP(true),
+// 		EmailVerified: gocloak.BoolP(true),
+// 		Credentials: &[]gocloak.CredentialRepresentation{
+// 			{
+// 				Type:      gocloak.StringP("password"),
+// 				Value:     gocloak.StringP(user.Password),
+// 				Temporary: gocloak.BoolP(false),
+// 			},
+// 		},
+// 		RealmRoles: &[]string{(user.Role)},
+// 	}
+
+// 	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, utils.KeycloakRealm, user.Role)
+// 	if roleErr != nil {
+// 		return "", roleErr
+// 	}
+
+// 	userID, err := client.CreateUser(ctx, token.AccessToken, utils.KeycloakRealm, newuser)
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
+// 	if adderr != nil {
+// 		return "", adderr
+// 	}
+// 	return userID, nil
+// }
+
+func createUserInKeycloak(user models.SystemUser_) (string, error) {
 	client := utils.Client
-	fmt.Println("client ", client)
 	ctx := context.Background()
 	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
 	if err != nil {
@@ -133,107 +224,174 @@ func createUserInKeycloak(user models.SystemUser) (string, error) {
 				Temporary: gocloak.BoolP(false),
 			},
 		},
-		RealmRoles: &[]string{(user.Role)},
+		RealmRoles: &[]string{(user.RoleName)},
 	}
 
-	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, utils.KeycloakRealm, user.Role)
+	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, utils.KeycloakRealm, user.RoleName)
 	if roleErr != nil {
-		return "", roleErr
+		return "User role not found at keycloak server", roleErr
 	}
 
 	userID, err := client.CreateUser(ctx, token.AccessToken, utils.KeycloakRealm, newuser)
 	if err != nil {
-		return "", err
+		return "Unable to create user at keycloak server", err
 	}
 
 	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
 	if adderr != nil {
-		return "", adderr
+		return "Unable to add role to user", adderr
 	}
 	return userID, nil
 }
 
+// func (uc *UserController) LoginUser(c *gin.Context) {
+// 	var user models.SystemUser
+// 	var input struct {
+// 		Username string `json:"username"`
+// 		Password string `json:"password"`
+// 	}
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
+// 	client := utils.Client
+// 	ctx := context.Background()
+// 	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, input.Username, input.Password)
+// 	if err != nil {
+// 		fmt.Println("Error logging in to Keycloak:", err)
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": err})
+// 		return
+// 	}
+// 	fmt.Println("keycloack login")
+// 	_, claims, err := client.DecodeAccessToken(ctx, token.AccessToken, utils.KeycloakRealm)
+// 	if err != nil {
+// 		fmt.Println("Error decoding access token:", err)
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+// 		c.Abort()
+// 		return
+// 	}
+// 	if claims == nil {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+// 		c.Abort()
+// 		return
+// 	}
+
+// 	sub, ok := (*claims)["sub"]
+// 	if !ok {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+// 		c.Abort()
+// 		return
+// 	}
+// 	err1 := database.DB.Where("auth_user_id = ?", sub).First(&user).Error
+// 	if err1 != nil {
+// 		c.JSON(http.StatusNotFound, gin.H{"Error": err1.Error()})
+// 		return
+// 	}
+// 	fmt.Println("keycloack user data ", user)
+// 	fmt.Println("keycloack user data ", user.RoleId)
+// 	if user.RoleId == 3 {
+// 		fmt.Println("User login as role ", user.Role)
+// 		role, err := uc.roleService.GetRoleById(user.RoleId)
+// 		if err != nil {
+// 			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient role not found", nil, err)
+// 			return
+// 		}
+// 		patient, err := uc.patientService.GetPatientById(user.UserId)
+// 		if err != nil {
+// 			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+// 			return
+// 		}
+// 		useResponse := models.UserResponse{UserId: int(user.UserId), FirstName: patient.FirstName, LastName: patient.LastName, Email: patient.Email, Username: user.Username, Role: role.RoleName, AuthUserId: user.AuthUserId}
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"access_token":  token.AccessToken,
+// 			"refresh_token": token.RefreshToken,
+// 			"user_data":     useResponse})
+// 	} else if user.RoleId == 5 {
+
+// 		role, err := uc.roleService.GetRoleById(user.RoleId)
+// 		if err != nil {
+// 			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relative role not found", nil, err)
+// 			return
+// 		}
+// 		relative, err := uc.patientService.GetPatientRelativeById(user.UserId)
+// 		if err != nil {
+// 			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relative not found", nil, err)
+// 			return
+// 		}
+// 		useResponse := models.UserResponse{UserId: int(user.UserId), FirstName: relative.FirstName, LastName: relative.LastName, Email: relative.Email, Username: user.Username, Role: role.RoleName, AuthUserId: user.AuthUserId}
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"access_token":  token.AccessToken,
+// 			"refresh_token": token.RefreshToken,
+// 			"user_data":     useResponse})
+// 	}
+
+// }
+
 func (uc *UserController) LoginUser(c *gin.Context) {
-	var user models.SystemUser
+	var user models.SystemUser_
 	var input struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username string  `json:"username" binding:"required"`
+		Password string  `json:"password" binding:"required"`
+		LoginAs  *string `json:"login_as"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Username password required.", nil, err)
 		return
 	}
 	client := utils.Client
 	ctx := context.Background()
 	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, input.Username, input.Password)
 	if err != nil {
-		fmt.Println("Error logging in to Keycloak:", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err})
+		log.Println("Error logging in to Keycloak:", err)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid user credentials!", nil, err)
 		return
 	}
-	fmt.Println("keycloack login")
 	_, claims, err := client.DecodeAccessToken(ctx, token.AccessToken, utils.KeycloakRealm)
 	if err != nil {
-		fmt.Println("Error decoding access token:", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		log.Println("Error decoding access token:", err)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token", nil, err)
 		c.Abort()
 		return
 	}
 	if claims == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token claims", nil, err)
 		c.Abort()
 		return
 	}
 
 	sub, ok := (*claims)["sub"]
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token claims", nil, err)
 		c.Abort()
 		return
 	}
 	err1 := database.DB.Where("auth_user_id = ?", sub).First(&user).Error
 	if err1 != nil {
-		c.JSON(http.StatusNotFound, gin.H{"Error": err1.Error()})
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, err)
 		return
 	}
-	fmt.Println("keycloack user data ", user)
-	fmt.Println("keycloack user data ", user.RoleId)
-	if user.RoleId == 3 {
-		fmt.Println("User login as role ", user.Role)
-		role, err := uc.roleService.GetRoleById(user.RoleId)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient role not found", nil, err)
-			return
-		}
-		patient, err := uc.patientService.GetPatientById(user.UserId)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
-			return
-		}
-		useResponse := models.UserResponse{UserId: int(user.UserId), FirstName: patient.FirstName, LastName: patient.LastName, Email: patient.Email, Username: user.Username, Role: role.RoleName, AuthUserId: user.AuthUserId}
-		c.JSON(http.StatusOK, gin.H{
-			"access_token":  token.AccessToken,
-			"refresh_token": token.RefreshToken,
-			"user_data":     useResponse})
-	} else if user.RoleId == 5 {
-
-		role, err := uc.roleService.GetRoleById(user.RoleId)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relative role not found", nil, err)
-			return
-		}
-		relative, err := uc.patientService.GetPatientRelativeById(user.UserId)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relative not found", nil, err)
-			return
-		}
-		useResponse := models.UserResponse{UserId: int(user.UserId), FirstName: relative.FirstName, LastName: relative.LastName, Email: relative.Email, Username: user.Username, Role: role.RoleName, AuthUserId: user.AuthUserId}
-		c.JSON(http.StatusOK, gin.H{
-			"access_token":  token.AccessToken,
-			"refresh_token": token.RefreshToken,
-			"user_data":     useResponse})
+	fmt.Println("User login as role ", user.RoleName)
+	// role, err := uc.roleService.GetRoleById(user.RoleId)
+	// role, err := uc.roleService.GetRoleIdByRoleName("patient")
+	role, err := uc.roleService.GetRoleByUserId(user.UserId, input.LoginAs)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User role not found", nil, err)
+		return
 	}
-
+	userLoginResponse := models.UserLoginResponse{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		UserResponse: models.UserResponse{
+			UserId:     user.UserId,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			Email:      user.Email,
+			Username:   user.Username,
+			Role:       role.RoleName,
+			AuthUserId: user.AuthUserId,
+		},
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User login successfully", userLoginResponse, nil, nil)
 }
 
 func (uc *UserController) LogoutUser(c *gin.Context) {
@@ -241,7 +399,7 @@ func (uc *UserController) LogoutUser(c *gin.Context) {
 		RefreshToken string `json:"refresh_token"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid refresh token", nil, err)
 		return
 	}
 
@@ -250,12 +408,11 @@ func (uc *UserController) LogoutUser(c *gin.Context) {
 
 	err := client.Logout(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, input.RefreshToken)
 	if err != nil {
-		fmt.Println("Error logging out from Keycloak:", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		log.Println("Error logging out from Keycloak:", err)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Error while user logout", nil, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "User logged out successfully"})
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User logged out successfully", nil, nil, nil)
 }
 
 func GetUserInfoById(c *gin.Context) {
@@ -276,4 +433,76 @@ func GetAllUsersInfo(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": users})
+}
+
+func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
+
+	patientUserIdParam := c.Param("user_id")
+
+	// Convert to uint64 (handle conversion errors)
+	var patientUserId *uint64
+	if patientUserIdParam != "" {
+		id, err := strconv.ParseUint(patientUserIdParam, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
+			return
+		}
+		patientUserId = &id
+	}
+
+	var req models.SystemUser_
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	// Ensure only relative or caregiver roles are allowed
+	if req.RoleName != "relative" && req.RoleName != "caregiver" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role. Only relative or caregiver can be registered.", nil, nil)
+		return
+	}
+
+	password := utils.GenerateRandomPassword()
+	req.Password = password
+	log.Println("System Generated Password for system user:", password)
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
+		return
+	}
+
+	// Get Role ID from role name
+	roleMaster, err := uc.roleService.GetRoleIdByRoleName(req.RoleName)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Role not found", nil, err)
+		return
+	}
+
+	// Create user in Keycloak or authentication system
+	keyCloakID, err := createUserInKeycloak(req)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
+		return
+	}
+	req.Password = string(hashedPassword)
+	req.AuthUserId = keyCloakID
+	systemUser, err := uc.userService.CreateSystemUser(req)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
+		return
+	}
+
+	// Map the user to the patient who created them
+	err = uc.roleService.AddSystemUserMapping(patientUserId, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
+		return
+	}
+	err = uc.emailService.SendLoginCredentials(systemUser.Email, systemUser.Username, password)
+	if err != nil {
+		log.Println("Error sending email:", err)
+	}
+	log.Println("Email send succesfully ")
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", nil, nil, nil)
 }
