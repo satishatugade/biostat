@@ -66,3 +66,40 @@ func GenerateRandomPassword() string {
 
 	return string(password)
 }
+
+func GetUserDataContext(c *gin.Context) (string, bool) {
+	sub, exists := c.Get("sub")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve user id"})
+		return "", false
+	}
+
+	subStr, ok := sub.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user id not a valid string"})
+		return "", false
+	}
+
+	return subStr, true
+}
+
+// UserId, exists := utils.GetUserDataContext(c)
+// if !exists {
+// 	return
+// }
+
+// user, err := client.GetUserByID(ctx, tokenStr, utils.KeycloakRealm, UserId)
+// if err != nil {
+// 	fmt.Println("User data ", user)
+// 	log.Println("User data ", user)
+// 	log.Println("User data email ", user.Email)
+// 	return
+// }
+
+// func Logger(msg string) {
+// 	if log.GetLevel() == log.DebugLevel {
+// 		log.Debug(msg)
+// 	} else {
+// 		log.Info(msg)
+// 	}
+// }

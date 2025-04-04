@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"biostat/constant"
+	"biostat/models"
 	"biostat/utils"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -14,60 +17,50 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Authorization header missing", nil, nil)
 			c.Abort()
 			return
 		}
 		tokenStr := authHeader[len("Bearer "):]
-
 		client := utils.Client
 		ctx := context.Background()
-		fmt.Println("tokenStr ", tokenStr)
-		_, claims, err := client.DecodeAccessToken(ctx, tokenStr, utils.KeycloakRealm)
-		if err != nil {
-			fmt.Println("Error decoding access token:", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
 		introspection, err := client.RetrospectToken(ctx, tokenStr, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
 		if err != nil {
-			fmt.Println("Error introspecting token:", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			log.Println("Error introspecting token:", err)
+			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token", nil, err)
 			c.Abort()
 			return
 		}
-		fmt.Println("introspection.Active ", introspection.Active)
 		if !*introspection.Active {
-			fmt.Println("introspection.Active ", introspection)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token is expired!"})
+			log.Println("introspection.Active ", introspection)
+			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Token is expired!", nil, err)
 			c.Abort()
 			return
 		}
 
-		// _, claims, err := client.DecodeAccessToken(ctx, tokenStr, utils.KeycloakRealm)
-		// if err != nil {
-		// 	fmt.Println("Error decoding access token:", err)
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		// 	c.Abort()
-		// 	return
-		// }
+		_, claims, err := client.DecodeAccessToken(ctx, tokenStr, utils.KeycloakRealm)
+		if err != nil {
+			log.Println("Error decoding access token:", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
 		if claims == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token claims", nil, err)
 			c.Abort()
 			return
 		}
 
 		roles, ok := (*claims)["realm_access"].(map[string]interface{})["roles"].([]interface{})
 		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token claims", nil, err)
 			c.Abort()
 			return
 		}
 
 		sub, ok := (*claims)["sub"]
 		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token claims", nil, err)
 			c.Abort()
 			return
 		}
@@ -77,7 +70,7 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 		hasRequiredRole := false
 		for _, requiredRole := range requiredRoles {
 			for _, role := range roles {
-				fmt.Println("roles ", roles)
+				log.Println(" keycloak roles ", roles)
 				userRoles = append(userRoles, role.(string))
 				if role == requiredRole {
 					hasRequiredRole = true
@@ -90,7 +83,7 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 		}
 
 		if !hasRequiredRole {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to perform this action."})
+			models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "You don't have access to perform this action.", nil, err)
 			c.Abort()
 			return
 		}
@@ -103,7 +96,7 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 	}
 }
 
-func ApplyMiddleware(path string, protectedRoutes map[string][]string, handler gin.HandlerFunc) gin.HandlerFunc {
+func Authenticate(path string, protectedRoutes map[string][]string, handler gin.HandlerFunc) gin.HandlerFunc {
 	fmt.Println("Full path:", path)
 
 	// Check if path starts with any protected route prefix

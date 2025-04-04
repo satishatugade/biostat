@@ -56,6 +56,15 @@ func (r *RoleRepositoryImpl) GetRoleByUserId(UserId uint64, mappingType *string)
 
 	err := query.First(&rolesMapping).Error
 	if err != nil {
+		log.Println("SystemUserRoleMapping not found:")
+		mappingTypes := []string{"A", "D", "R", "C"}
+		for _, mt := range mappingTypes {
+			err = r.db.Where("user_id = ? AND mapping_type = ? AND is_self = ? ", UserId, mt, false).First(&rolesMapping).Error
+			if err == nil {
+				log.Println("SystemUserRoleMapping found with fallback mapping_type =", mt)
+				return rolesMapping, nil
+			}
+		}
 		return rolesMapping, err
 	}
 

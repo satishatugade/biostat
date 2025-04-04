@@ -1,7 +1,7 @@
 package router
 
 import (
-	"biostat/constant"
+	"biostat/auth"
 	"biostat/controller"
 	"biostat/database"
 	"net/http"
@@ -25,23 +25,24 @@ type routes struct {
 type Routes []Route
 
 var ProtectedRoutes = map[string][]string{
-	"/v1/master":         {"admin"},
-	constant.Medication:  {"admin", "doctor"},
-	constant.PatientInfo: {"patient", "doctor"},
+	"/v1/master":  {"admin"},
+	"/v1/patient": {"admin", "patient"},
+	"/v1/user":    {"admin", "patient", "relative", "caregiver"},
 }
 
 func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {
 	master := g.Group("/master")
 	for _, masterRoute := range getMasterRoutes(masterController) {
+		protectedHandler := auth.Authenticate(master.BasePath(), ProtectedRoutes, masterRoute.HandleFunc)
 		switch masterRoute.Method {
 		case http.MethodGet:
-			master.GET(masterRoute.Path, masterRoute.HandleFunc)
+			master.GET(masterRoute.Path, protectedHandler)
 		case http.MethodPost:
-			master.POST(masterRoute.Path, masterRoute.HandleFunc)
+			master.POST(masterRoute.Path, protectedHandler)
 		case http.MethodPut:
-			master.PUT(masterRoute.Path, masterRoute.HandleFunc)
+			master.PUT(masterRoute.Path, protectedHandler)
 		case http.MethodDelete:
-			master.DELETE(masterRoute.Path, masterRoute.HandleFunc)
+			master.DELETE(masterRoute.Path, protectedHandler)
 		}
 	}
 }
@@ -50,7 +51,10 @@ func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientCont
 
 	patient := g.Group("/patient")
 	for _, patientRoute := range getPatientRoutes(patientController) {
+		// protectedHandler := auth.Authenticate(patient.BasePath(), ProtectedRoutes, patientRoute.HandleFunc)
 		switch patientRoute.Method {
+		case http.MethodGet:
+			patient.GET(patientRoute.Path, patientRoute.HandleFunc)
 		case http.MethodPost:
 			patient.POST(patientRoute.Path, patientRoute.HandleFunc)
 		case http.MethodPut:
@@ -62,6 +66,7 @@ func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientCont
 func UserRoutes(g *gin.RouterGroup, userController *controller.UserController) {
 	user := g.Group("/user")
 	for _, userRoute := range getUserRoutes(userController) {
+		// protectedHandler := auth.Authenticate(user.BasePath(), ProtectedRoutes, userRoute.HandleFunc)
 		switch userRoute.Method {
 		case http.MethodPost:
 			user.POST(userRoute.Path, userRoute.HandleFunc)
@@ -72,17 +77,18 @@ func UserRoutes(g *gin.RouterGroup, userController *controller.UserController) {
 }
 
 func GmailSyncRoutes(g *gin.RouterGroup, gmailSyncController *controller.GmailSyncController) {
-	gmailRoutGroup := g.Group("/mail")
-	for _, route := range getMailSyncRoutes(gmailSyncController) {
-		switch route.Method {
+	gmail := g.Group("/mail")
+	for _, gmailroute := range getMailSyncRoutes(gmailSyncController) {
+		// protectedHandler := auth.Authenticate(gmail.BasePath(), ProtectedRoutes, gmailroute.HandleFunc)
+		switch gmailroute.Method {
 		case http.MethodPost:
-			gmailRoutGroup.POST(route.Path, route.HandleFunc)
+			gmail.POST(gmailroute.Path, gmailroute.HandleFunc)
 		case http.MethodGet:
-			gmailRoutGroup.GET(route.Path, route.HandleFunc)
+			gmail.GET(gmailroute.Path, gmailroute.HandleFunc)
 		case http.MethodPut:
-			gmailRoutGroup.PUT(route.Path, route.HandleFunc)
+			gmail.PUT(gmailroute.Path, gmailroute.HandleFunc)
 		case http.MethodDelete:
-			gmailRoutGroup.DELETE(route.Path, route.HandleFunc)
+			gmail.DELETE(gmailroute.Path, gmailroute.HandleFunc)
 		}
 
 	}
@@ -93,7 +99,7 @@ func Routing() {
 		router: gin.Default(),
 	}
 	r.router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"},
 		AllowMethods:     []string{"GET", "POST", "PUT"},
 		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
 		AllowCredentials: true,

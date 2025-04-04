@@ -184,6 +184,47 @@ func (pc *PatientController) GetPatientRelative(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
 }
 
+func (pc *PatientController) GetPatientRelativeList(c *gin.Context) {
+	patientIdParam := c.Param("patient_id")
+	var patientId *uint64
+	if patientIdParam != "" {
+		id, err := strconv.ParseUint(patientIdParam, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
+			return
+		}
+		patientId = &id
+	}
+	relatives, err := pc.patientService.GetRelativeList(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient relatives", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(relatives),
+		"Patient relatives retrieved successfully",
+		"Relatives not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
+}
+
+func (pc *PatientController) GetRelativeList(c *gin.Context) {
+
+	relatives, err := pc.patientService.GetRelativeList(nil)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch relatives", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(relatives),
+		"Relatives retrieved successfully",
+		"Relatives not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
+}
+
 func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
 	relativeIdStr := c.Param("relative_id")
 	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 32)
@@ -223,6 +264,106 @@ func (pc *PatientController) UpdatePatientRelative(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient relative updated successfully", patientRelative, nil, nil)
+}
+
+func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
+	patientIdParam := c.Param("patient_id")
+	var patientId *uint64
+	if patientIdParam != "" {
+		id, err := strconv.ParseUint(patientIdParam, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
+			return
+		}
+		patientId = &id
+	}
+
+	caregivers, err := pc.patientService.GetCaregiverList(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient caregivers", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(caregivers),
+		"Patient caregiver retrieved successfully",
+		"Caregiver not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, caregivers, nil, nil)
+}
+
+func (pc *PatientController) GetCaregiverList(c *gin.Context) {
+
+	caregivers, err := pc.patientService.GetCaregiverList(nil)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient caregivers", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(caregivers),
+		"Caregiver list retrieved successfully",
+		"Caregiver not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, caregivers, nil, nil)
+}
+
+func (pc *PatientController) GetPatientDoctorList(c *gin.Context) {
+	patientIdParam := c.Param("patient_id")
+	var patientId *uint64
+	if patientIdParam != "" {
+		id, err := strconv.ParseUint(patientIdParam, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
+			return
+		}
+		patientId = &id
+	}
+
+	doctors, err := pc.patientService.GetDoctorList(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(doctors),
+		"Patient doctor retrieved successfully",
+		"Doctor not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, doctors, nil, nil)
+}
+
+func (pc *PatientController) GetDoctorList(c *gin.Context) {
+
+	doctors, err := pc.patientService.GetDoctorList(nil)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(doctors),
+		"Doctor list retrieved successfully",
+		"Doctor not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, doctors, nil, nil)
+}
+
+func (pc *PatientController) GetPatientList(c *gin.Context) {
+
+	patients, err := pc.patientService.GetPatientList()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient list", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(patients),
+		"Patient retrieved successfully",
+		"Patient not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, patients, nil, nil)
 }
 
 func (pc *PatientController) AddPatientAllergyRestriction(c *gin.Context) {

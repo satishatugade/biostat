@@ -17,6 +17,11 @@ type PatientRepository interface {
 	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	GetRelativeList(relativeUserIds []uint64) ([]models.PatientRelative, error)
+	GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error)
+	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
+	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
+	FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]uint64, error)
 	GetPatientRelativeById(relativeId uint) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
@@ -247,4 +252,147 @@ func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint) (models.
 		return relative, err
 	}
 	return relative, nil
+}
+
+// GetRelativeList implements PatientRepository.
+func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64) ([]models.PatientRelative, error) {
+	var relatives []models.PatientRelative
+
+	if len(relativeUserIds) == 0 {
+		return relatives, nil
+	}
+
+	err := p.db.
+		Table("tbl_system_user_").
+		Select(`user_id AS relative_id, 
+		        first_name, 
+		        last_name, 
+		        gender, 
+		        date_of_birth, 
+		        mobile_no AS mobile_no, 
+		        email, 
+		        created_at, 
+		        updated_at`).
+		Where("user_id IN ?", relativeUserIds).
+		Scan(&relatives).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return relatives, nil
+}
+
+func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]uint64, error) {
+	var relativeUserIds []uint64
+	db := p.db.Table("tbl_system_user_role_mapping")
+	if patientId != nil {
+		db = db.Where("patient_id = ?", *patientId)
+	}
+	db = db.Where("mapping_type = ? AND is_self = ?", mappingType, isSelf)
+	err := db.Pluck("user_id", &relativeUserIds).Error
+	if err != nil {
+		return nil, err
+	}
+	return relativeUserIds, nil
+}
+
+// GetCaregiverList implements PatientRepository.
+func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error) {
+
+	var caregivers []models.Caregiver
+
+	if len(caregiverUserIds) == 0 {
+		return caregivers, nil
+	}
+
+	err := p.db.
+		Table("tbl_system_user_").
+		Select(`user_id AS caregiver_id, 
+		        first_name, 
+		        last_name, 
+		        gender, 
+		        date_of_birth, 
+		        mobile_no AS mobile_no, 
+		        email, 
+				address,
+		        created_at, 
+		        updated_at`).
+		Where("user_id IN ?", caregiverUserIds).
+		Scan(&caregivers).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return caregivers, nil
+}
+
+// GetDoctorList implements PatientRepository.
+func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error) {
+	var doctors []models.Doctor
+	if len(doctorUserIds) == 0 {
+		return doctors, nil
+	}
+	err := p.db.
+		Table("tbl_system_user_").
+		Select(`user_id AS doctor_id,
+	        first_name,
+	        last_name,
+	        specialty,
+	        gender,
+			mobile_no,
+	        license_number,
+	        clinic_name,
+	        clinic_address,
+	        email,
+	        years_of_experience,
+	        consultation_fee,
+	        working_hours,
+	        created_at,
+	        updated_at`).
+		Where("user_id IN ?", doctorUserIds).
+		Scan(&doctors).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return doctors, nil
+}
+
+// GetPatientList implements PatientRepository.
+func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]models.Patient, error) {
+	var patients []models.Patient
+
+	if len(patientUserIds) == 0 {
+		return patients, nil // Return empty slice if no patient IDs
+	}
+
+	err := p.db.
+		Table("tbl_system_user_").
+		Select(`user_id AS patient_id,
+				first_name,
+				last_name,
+				date_of_birth,
+				gender,
+				mobile_no,
+				address,
+				emergency_contact,
+				abha_number,
+				blood_group,
+				nationality,
+				citizenship_status,
+				passport_number,
+				country_of_residence,
+				is_indian_origin,
+				email,
+				created_at,
+				updated_at`).
+		Where("user_id IN ?", patientUserIds).
+		Scan(&patients).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return patients, nil
 }

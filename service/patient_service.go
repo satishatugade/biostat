@@ -3,6 +3,7 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"fmt"
 )
 
 type PatientService interface {
@@ -15,6 +16,10 @@ type PatientService interface {
 	GetPrescriptionByPatientID(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
+	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
+	GetDoctorList(patientId *uint64) ([]models.Doctor, error)
+	GetPatientList() ([]models.Patient, error)
 	GetPatientRelativeById(relativeId uint) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
@@ -81,4 +86,48 @@ func (s *PatientServiceImpl) AddPatientClinicalRange(customRange *models.Patient
 // GetPatientRelativeById implements PatientService.
 func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint) (models.PatientRelative, error) {
 	return s.patientRepo.GetPatientRelativeById(relativeId)
+}
+
+// GetRelativeList implements PatientService.
+func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
+	relativeUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "R", false)
+	if err != nil {
+		return []models.PatientRelative{}, err
+	}
+
+	return s.patientRepo.GetRelativeList(relativeUserIds)
+}
+
+// GetCaregiverList implements PatientService.
+func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
+
+	caregiverUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "C", false)
+	if err != nil {
+		return []models.Caregiver{}, err
+	}
+
+	return s.patientRepo.GetCaregiverList(caregiverUserIds)
+}
+
+// GetDoctorList implements PatientService.
+func (s *PatientServiceImpl) GetDoctorList(patientId *uint64) ([]models.Doctor, error) {
+
+	doctorUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
+	if err != nil {
+		return []models.Doctor{}, err
+	}
+
+	return s.patientRepo.GetDoctorList(doctorUserIds)
+}
+
+// GetPatientList implements PatientService.
+func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
+
+	patientUserIds, err := s.patientRepo.FetchUserIdByPatientId(nil, "S", true)
+	if err != nil {
+		return []models.Patient{}, err
+	}
+	fmt.Println("patientUserIds ", patientUserIds)
+	return s.patientRepo.GetPatientList(patientUserIds)
+
 }

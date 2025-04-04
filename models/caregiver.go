@@ -7,6 +7,11 @@ type Caregiver struct {
 	FirstName   string    `json:"first_name"`
 	LastName    string    `json:"last_name"`
 	ContactInfo string    `json:"contact_info"`
+	Gender      string    `json:"gender"`
+	DateOfBirth time.Time `json:"date_of_birth"`
+	MobileNo    string    `json:"mobile_no"`
+	Email       string    `json:"email"`
+	Address     string    `json:"address"`
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }

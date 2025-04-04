@@ -45,7 +45,7 @@ func (r *RoleServiceImpl) GetRoleByUserId(UserId uint64, mappingType *string) (m
 func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uint64, roleId uint64, roleName string) error {
 
 	roleName = strings.ToLower(roleName)
-	mappingType := map[string]string{"patient": "S", "doctor": "D", "relative": "R", "caregiver": "C"}[roleName]
+	mappingType := map[string]string{"patient": "S", "doctor": "D", "relative": "R", "caregiver": "C", "admin": "A"}[roleName]
 	isSelf := roleName == "patient"
 
 	if mappingType == "" {

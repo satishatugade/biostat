@@ -205,6 +205,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 
 func createUserInKeycloak(user models.SystemUser_) (string, error) {
 	client := utils.Client
+	fmt.Println("client keycloak ", client)
 	ctx := context.Background()
 	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
 	if err != nil {

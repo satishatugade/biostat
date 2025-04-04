@@ -5,6 +5,7 @@ import (
 	"biostat/controller"
 	"biostat/repository"
 	"biostat/service"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,7 @@ import (
 )
 
 func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
-
+	log.Println("Inside InitializeRoutes.....")
 	var allergyRepo = repository.NewAllergyRepository(db)
 	var allergyService = service.NewAllergyService(allergyRepo)
 
@@ -139,7 +140,28 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.SinglePatient, patientController.GetPatientByID},
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
 		Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
+		Route{"patient", http.MethodPost, constant.Relative, patientController.GetPatientRelativeList},
+
+		// patient relatives
 		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
+
+		//all relatives list
+		Route{"patient", http.MethodPost, constant.RelativeList, patientController.GetRelativeList},
+
+		//patient caregiver list
+		Route{"patient", http.MethodPost, constant.Caregiver, patientController.GetPatientCaregiverList},
+
+		//all caregiver
+		Route{"patient", http.MethodPost, constant.CaregiverList, patientController.GetCaregiverList},
+
+		// patient doctor
+		Route{"patient", http.MethodPost, constant.Doctor, patientController.GetPatientDoctorList},
+		//all doctor
+		Route{"patient", http.MethodPost, constant.DoctorList, patientController.GetDoctorList},
+
+		//patient list
+		Route{"patient", http.MethodPost, constant.PatientList, patientController.GetPatientList},
+
 		Route{"patient", http.MethodPost, constant.SingleRelative, patientController.GetPatientRelativeByRelativeId},
 		Route{"patient", http.MethodPut, constant.UpdateRealtiveInfo, patientController.UpdatePatientRelative},
 		Route{"patient disease condition", http.MethodPost, constant.PatientDiseaseCondition, patientController.GetPatientDiseaseProfiles},

@@ -7,13 +7,23 @@ const (
 	CustomRange        = "/custom-range"
 	PatientAllergy     = "/add-allergy"
 	Patient            = "/registration"
+	PatientList        = "/patient-list"
 	PatientInfo        = "/patient-info"
 	SinglePatient      = "/patient-info/:patient_id"
 	UpdatePatient      = "/patient-info/:patient_id"
 	PatientRelative    = "/patient-relative"
 	GetRelative        = "/patient-relative/:patient_id"
+	Relative           = "/get-relative/:patient_id"
+	RelativeList       = "/relative-list"
 	SingleRelative     = "/relative/:relative_id"
 	UpdateRealtiveInfo = "/patient-relative/:relative_id"
+
+	Caregiver     = "/get-caregiver/:patient_id"
+	CaregiverList = "/caregiver-list"
+
+	Doctor     = "/get-doctor/:patient_id"
+	DoctorList = "/doctor-list"
+
 	// PatientDiseaseCondition = "/patient-disease-condition/:patient_disease_profile_id"
 	PatientDiseaseCondition   = "/patient-disease-condition/:patient_id"
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
