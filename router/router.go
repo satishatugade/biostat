@@ -72,6 +72,9 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		//Roles
 		Route{"Roles", http.MethodPost, constant.GetRole, masterController.GetRoleById},
 
+		// Bulk upload master data
+		Route{"Disease", http.MethodPost, constant.BulkUpload, masterController.UploadMasterData},
+
 		//disease master
 		Route{"Disease", http.MethodPost, constant.AddDisease, masterController.CreateDisease},
 		Route{"Disease", http.MethodPost, constant.Disease, masterController.GetDiseaseInfo},

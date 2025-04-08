@@ -697,3 +697,32 @@ func (mc *MasterController) GetRoleById(c *gin.Context) {
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Role retrieved successfully", role, nil, nil)
 }
+
+func (mc *MasterController) UploadMasterData(c *gin.Context) {
+	entity := c.Param("entity")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "file is required", nil, err)
+		return
+	}
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		return
+	}
+
+	fileReader, err := file.Open()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to open file", nil, err)
+		return
+	}
+	defer fileReader.Close()
+
+	count, err := mc.diseaseService.ProcessUploadFromStream(entity, authUserId, fileReader)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "failed to upload file", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Bulk upload successful", count, nil, nil)
+
+}

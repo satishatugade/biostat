@@ -78,6 +78,9 @@ const (
 
 	//Roles master
 	GetRole = "/get-role/:role_id"
+
+	//bulk upload master data
+	BulkUpload = "/bulk-upload/:entity"
 )
 
 const (

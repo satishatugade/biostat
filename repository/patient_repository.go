@@ -130,22 +130,40 @@ func (p *PatientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.
 	return patients, totalRecords, nil
 }
 
+func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
+	return &models.Patient{
+		PatientId:          user.UserId,
+		FirstName:          user.FirstName,
+		LastName:           user.LastName,
+		DateOfBirth:        user.DateOfBirth,
+		Gender:             user.Gender,
+		MobileNo:           user.MobileNo,
+		Address:            user.Address,
+		EmergencyContact:   user.EmergencyContact,
+		AbhaNumber:         user.AbhaNumber,
+		BloodGroup:         user.BloodGroup,
+		Nationality:        user.Nationality,
+		CitizenshipStatus:  user.CitizenshipStatus,
+		PassportNumber:     user.PassportNumber,
+		CountryOfResidence: user.CountryOfResidence,
+		IsIndianOrigin:     user.IsIndianOrigin,
+		Email:              user.Email,
+		CreatedAt:          user.CreatedAt,
+		UpdatedAt:          user.UpdatedAt,
+	}
+}
+
 func (p *PatientRepositoryImpl) UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error) {
-	var patient models.Patient
-
-	// Check if patient exists
-	err := p.db.Where("patient_id = ?", patientId).First(&patient).Error
+	var user models.SystemUser_
+	err := p.db.Where("user_id = ?", patientId).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
-
-	// Update patient info
-	err = p.db.Model(&patient).Updates(patientData).Error
+	err = p.db.Model(&user).Updates(patientData).Error
 	if err != nil {
 		return nil, err
 	}
-
-	return &patient, nil
+	return MapSystemUserToPatient(&user), nil
 }
 
 func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error) {

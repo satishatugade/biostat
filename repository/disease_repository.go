@@ -21,6 +21,8 @@ type DiseaseRepository interface {
 	GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error)
 	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
 	IsDiseaseProfileExists(diseaseProfileId uint) (bool, error)
+
+	BulkInsert(data interface{}) error
 }
 
 type DiseaseRepositoryImpl struct {
@@ -261,4 +263,8 @@ func (repo *DiseaseRepositoryImpl) GetAllDiseaseAuditLogs(page, limit int) ([]mo
 	// Fetch data with pagination
 	err := repo.db.Limit(limit).Offset((page - 1) * limit).Find(&auditLogs).Error
 	return auditLogs, totalRecords, err
+}
+
+func (r *DiseaseRepositoryImpl) BulkInsert(data interface{}) error {
+	return r.db.Create(data).Error
 }

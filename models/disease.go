@@ -32,7 +32,7 @@ type Disease struct {
 	SlugURL           string    `json:"slug_url"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
-	CreatedBy         string    `json:"created_by"` // Not stored in DB, used for tracking
+	CreatedBy         string    `json:"created_by"`
 
 	DiseaseTypeMapping DiseaseTypeMapping `json:"-" gorm:"foreignKey:DiseaseId;references:DiseaseId"`
 	DiseaseType        DiseaseType        `json:"disease_type" gorm:"-"`
@@ -58,11 +58,14 @@ type DiseaseTypeMapping struct {
 }
 
 type Symptom struct {
-	SymptomId   uint   `json:"symptom_id" gorm:"primaryKey"`
-	SymptomName string `json:"symptom_name"`
-	SymptomType string `json:"symptom_type"`
-	Commonality string `json:"commonality"`
-	Description string `json:"description"`
+	SymptomId   uint      `json:"symptom_id" gorm:"primaryKey"`
+	SymptomName string    `json:"symptom_name"`
+	SymptomType string    `json:"symptom_type"`
+	Commonality string    `json:"commonality"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedBy   string    `json:"created_by"`
 }
 
 type Severity struct {
@@ -71,10 +74,13 @@ type Severity struct {
 }
 
 type Cause struct {
-	CauseId     uint   `json:"cause_id" gorm:"primaryKey"`
-	CauseName   string `json:"cause_name"`
-	CauseType   string `json:"cause_type"`
-	Description string `json:"description"`
+	CauseId     uint      `json:"cause_id" gorm:"primaryKey"`
+	CauseName   string    `json:"cause_name"`
+	CauseType   string    `json:"cause_type"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedBy   string    `json:"created_by"`
 }
 
 func (PatientDiseaseProfile) TableName() string { return "tbl_patient_disease_profile" }
@@ -134,11 +140,12 @@ type Exercise struct {
 	Description      string             `json:"description"`
 	Category         string             `json:"category"`
 	IntensityLevel   string             `json:"intensity_level"`
-	Duration         int                `json:"duration"`
+	Duration         string             `json:"duration"`
 	DurationUnit     string             `json:"duration_unit"`
 	Benefits         string             `json:"benefits"`
 	CreatedAt        time.Time          `json:"created_at"`
 	UpdatedAt        time.Time          `json:"updated_at"`
+	CreatedBy        string             `json:"created_by"`
 	ExerciseArtifact []ExerciseArtifact `json:"artifact" gorm:"foreignKey:ExerciseId;references:ExerciseId"`
 }
 
@@ -149,6 +156,7 @@ type ExerciseArtifact struct {
 	ArtifactURL        string    `gorm:"column:artifact_url" json:"artifact_url"`
 	CreatedAt          time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt          time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
+	CreatedBy          string    `json:"created_by"`
 }
 
 type DiseaseExerciseMapping struct {
@@ -158,6 +166,7 @@ type DiseaseExerciseMapping struct {
 	Exercise                 Exercise  `json:"exercise" gorm:"foreignKey:ExerciseId;references:ExerciseId"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
+	CreatedBy                string    `json:"created_by"`
 }
 
 func (Exercise) TableName() string {
@@ -181,8 +190,9 @@ type DietPlanTemplate struct {
 	DietCreatorId      uint      `json:"-"`
 	Cost               float64   `json:"-"`
 	CreatedAt          time.Time `json:"created_at"`
-	// Meals              []Meal    `json:"meals" gorm:"foreignKey:DietPlanTemplateId"`
-	Meals []Meal `json:"meals" gorm:"foreignKey:DietPlanTemplateId;constraint:OnDelete:CASCADE;"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	CreatedBy          string    `json:"created_by"`
+	Meals              []Meal    `json:"meals" gorm:"foreignKey:DietPlanTemplateId;constraint:OnDelete:CASCADE;"`
 }
 
 type Meal struct {
@@ -193,6 +203,8 @@ type Meal struct {
 	// Nutrients          []Nutrient `json:"nutrients" gorm:"foreignKey:MealId"`
 	Nutrients []Nutrient `json:"nutrients" gorm:"foreignKey:MealId;constraint:OnDelete:CASCADE;"`
 	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	CreatedBy string     `json:"created_by"`
 }
 
 type Nutrient struct {
@@ -202,6 +214,8 @@ type Nutrient struct {
 	Amount       string    `json:"amount"`
 	Unit         string    `json:"unit"`
 	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedBy    string    `json:"created_by"`
 }
 
 func (DietPlanTemplate) TableName() string {
@@ -230,25 +244,26 @@ type DiagnosticTest struct {
 	Scale            string                    `gorm:"column:scale" json:"scale"`
 	CreatedAt        time.Time                 `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time                 `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy        string                    `json:"created_by"`
 	Components       []DiagnosticTestComponent `gorm:"many2many:tbl_disease_profile_diagnostic_test_component_mapping;foreignKey:DiagnosticTestId;joinForeignKey:DiagnosticTestId;References:DiagnosticTestComponentId;joinReferences:DiagnosticTestComponentId" json:"test_components"`
 }
 
 type DiagnosticTestComponent struct {
-	DiagnosticTestComponentId uint      `gorm:"column:diagnostic_test_component_id;primaryKey" json:"diagnostic_test_component_id"`
-	LoincCode                 string    `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
-	TestComponetName          string    `gorm:"column:test_component_name" json:"test_component_name"`
-	TestComponentType         string    `gorm:"column:test_component_type" json:"test_component_type"`
-	Description               string    `gorm:"column:description" json:"description"`
-	Units                     string    `gorm:"column:units" json:"units"`
-	Property                  string    `gorm:"column:property" json:"property"`
-	TimeAspect                string    `gorm:"column:time_aspect" json:"time_aspect"`
-	System                    string    `gorm:"column:system" json:"system"`
-	Scale                     string    `gorm:"column:scale" json:"scale"`
-	TestComponentFrequency    int       `gorm:"column:test_component_frequency" json:"test_component_frequency"`
-	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt                 time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-
-	TestResultValue []PatientDiagnosticTestResultValue `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_result_value"`
+	DiagnosticTestComponentId uint                               `gorm:"column:diagnostic_test_component_id;primaryKey" json:"diagnostic_test_component_id"`
+	LoincCode                 string                             `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
+	TestComponetName          string                             `gorm:"column:test_component_name" json:"test_component_name"`
+	TestComponentType         string                             `gorm:"column:test_component_type" json:"test_component_type"`
+	Description               string                             `gorm:"column:description" json:"description"`
+	Units                     string                             `gorm:"column:units" json:"units"`
+	Property                  string                             `gorm:"column:property" json:"property"`
+	TimeAspect                string                             `gorm:"column:time_aspect" json:"time_aspect"`
+	System                    string                             `gorm:"column:system" json:"system"`
+	Scale                     string                             `gorm:"column:scale" json:"scale"`
+	TestComponentFrequency    int                                `gorm:"column:test_component_frequency" json:"test_component_frequency"`
+	CreatedAt                 time.Time                          `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt                 time.Time                          `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy                 string                             `json:"created_by"`
+	TestResultValue           []PatientDiagnosticTestResultValue `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_result_value"`
 }
 
 type DiagnosticTestComponentMapping struct {
@@ -277,4 +292,20 @@ type DiseaseDiagnosticTestMapping struct {
 
 func (DiseaseDiagnosticTestMapping) TableName() string {
 	return "tbl_disease_diagnostic_test_mapping"
+}
+
+func (d *Disease) SetCreatedBy(userId string) {
+	d.CreatedBy = userId
+}
+
+func (s *Symptom) SetCreatedBy(userId string) {
+	s.CreatedBy = userId
+}
+
+func (c *Cause) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+type Creator interface {
+	SetCreatedBy(string)
 }

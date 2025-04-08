@@ -3,13 +3,18 @@ package utils
 import (
 	"biostat/constant"
 	"biostat/models"
+	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 func GetPaginationParams(c *gin.Context) (int, int, int) {
@@ -120,3 +125,42 @@ func GetUserDataContext(c *gin.Context) (string, bool) {
 // 		log.Info(msg)
 // 	}
 // }
+
+func ParseExcelFromReader[T any](reader io.Reader) ([]T, error) {
+	var results []T
+
+	f, err := excelize.OpenReader(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	sheetName := f.GetSheetName(0)
+	rows, err := f.GetRows(sheetName)
+	if err != nil || len(rows) < 2 {
+		return nil, fmt.Errorf("invalid or empty sheet")
+	}
+
+	headers := rows[0]
+	for _, row := range rows[1:] {
+		var item T
+		val := reflect.ValueOf(&item).Elem()
+
+		for i, cell := range row {
+			if i >= len(headers) {
+				continue
+			}
+
+			fieldName := strings.TrimSpace(headers[i])
+			for j := 0; j < val.NumField(); j++ {
+				field := val.Type().Field(j)
+				tag := field.Tag.Get("json")
+				if tag == fieldName && val.Field(j).CanSet() {
+					val.Field(j).SetString(cell)
+				}
+			}
+		}
+		results = append(results, item)
+	}
+
+	return results, nil
+}
