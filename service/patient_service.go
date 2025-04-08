@@ -25,6 +25,8 @@ type PatientService interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
+	GetUserProfile(user_id string, roles []string) (*models.Patient, error)
+	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
 }
 
 type PatientServiceImpl struct {
@@ -134,4 +136,50 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
 func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
 	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+}
+
+func (s *PatientServiceImpl) GetUserProfile(user_id string, roles []string) (*models.Patient, error) {
+	user, err := s.patientRepo.GetUserProfile(user_id)
+	if err != nil {
+		return nil, err
+	}
+	patient := &models.Patient{
+		PatientId:          uint(user.UserId),
+		FirstName:          user.FirstName,
+		LastName:           user.LastName,
+		Gender:             user.Gender,
+		DateOfBirth:        user.DateOfBirth.String(),
+		MobileNo:           user.MobileNo,
+		Address:            user.Address,
+		BloodGroup:         user.BloodGroup,
+		AbhaNumber:         user.AbhaNumber,
+		EmergencyContact:   user.EmergencyContact,
+		Email:              user.Email,
+		Nationality:        user.Nationality,
+		CitizenshipStatus:  user.CitizenshipStatus,
+		PassportNumber:     user.PassportNumber,
+		CountryOfResidence: user.CountryOfResidence,
+		IsIndianOrigin:     user.IsIndianOrigin,
+	}
+	return patient, nil
+}
+
+func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error) {
+	uid, err := s.patientRepo.GetUserIdBySUB(SUB)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	basicDetailsAdded, err := s.patientRepo.IsUserBasicProfileComplete(uid)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	familyDetailsAdded, err := s.patientRepo.IsUserFamilyDetailsComplete(uid)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	return basicDetailsAdded, familyDetailsAdded, false, nil
+
 }
