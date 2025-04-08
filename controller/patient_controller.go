@@ -5,6 +5,7 @@ import (
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -54,7 +55,11 @@ func (pc *PatientController) GetPatientByID(c *gin.Context) {
 }
 
 func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
-	patientId := c.Param("patient_id")
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 
 	var patientData models.Patient
 	if err := c.ShouldBindJSON(&patientData); err != nil {
@@ -62,7 +67,7 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 		return
 	}
 
-	updatedPatient, err := pc.patientService.UpdatePatientById(patientId, &patientData)
+	updatedPatient, err := pc.patientService.UpdatePatientById(authUserId, &patientData)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient info", nil, err)
 		return
@@ -541,4 +546,39 @@ func (c *PatientController) DeleteTblMedicalRecord(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record deleted successfully", nil, nil, nil)
+}
+
+func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
+	roles, rolesExists := ctx.Get("userRoles")
+	if !rolesExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
+		return
+	}
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
+		return
+	}
+
+	userProfile, err := pc.patientService.GetUserProfile(sub.(string), roles.([]string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "User profile retrieved successfully", userProfile, nil, nil)
+}
+
+func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
+		return
+	}
+	basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, err := pc.patientService.GetUserOnboardingStatusByUID(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while gwtting Onboarding status", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully", gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded, "health_details": healthDetailsAdded}, nil, nil)
 }

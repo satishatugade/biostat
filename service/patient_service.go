@@ -9,7 +9,7 @@ import (
 type PatientService interface {
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
 	GetPatientById(patientId uint) (*models.Patient, error)
-	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
+	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
@@ -25,6 +25,8 @@ type PatientService interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
+	GetUserProfile(user_id string, roles []string) (*models.Patient, error)
+	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
 }
 
 type PatientServiceImpl struct {
@@ -52,8 +54,8 @@ func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patien
 func (s *PatientServiceImpl) GetPatientById(patientId uint) (*models.Patient, error) {
 	return s.patientRepo.GetPatientById(patientId)
 }
-func (s *PatientServiceImpl) UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error) {
-	return s.patientRepo.UpdatePatientById(patientId, patientData)
+func (s *PatientServiceImpl) UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error) {
+	return s.patientRepo.UpdatePatientById(authUserId, patientData)
 }
 
 func (s *PatientServiceImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
@@ -134,4 +136,50 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
 func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
 	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+}
+
+func (s *PatientServiceImpl) GetUserProfile(user_id string, roles []string) (*models.Patient, error) {
+	user, err := s.patientRepo.GetUserProfile(user_id)
+	if err != nil {
+		return nil, err
+	}
+	patient := &models.Patient{
+		PatientId:          user.UserId,
+		FirstName:          user.FirstName,
+		LastName:           user.LastName,
+		Gender:             user.Gender,
+		DateOfBirth:        user.DateOfBirth.String(),
+		MobileNo:           user.MobileNo,
+		Address:            user.Address,
+		BloodGroup:         user.BloodGroup,
+		AbhaNumber:         user.AbhaNumber,
+		EmergencyContact:   user.EmergencyContact,
+		Email:              user.Email,
+		Nationality:        user.Nationality,
+		CitizenshipStatus:  user.CitizenshipStatus,
+		PassportNumber:     user.PassportNumber,
+		CountryOfResidence: user.CountryOfResidence,
+		IsIndianOrigin:     user.IsIndianOrigin,
+	}
+	return patient, nil
+}
+
+func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error) {
+	uid, err := s.patientRepo.GetUserIdBySUB(SUB)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	basicDetailsAdded, err := s.patientRepo.IsUserBasicProfileComplete(uid)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	familyDetailsAdded, err := s.patientRepo.IsUserFamilyDetailsComplete(uid)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	return basicDetailsAdded, familyDetailsAdded, false, nil
+
 }

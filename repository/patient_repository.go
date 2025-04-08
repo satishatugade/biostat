@@ -15,7 +15,7 @@ type PatientRepository interface {
 	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId uint) (*models.Patient, error)
-	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
+	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(relativeUserIds []uint64) ([]models.PatientRelative, error)
@@ -27,6 +27,11 @@ type PatientRepository interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
+
+	GetUserProfile(user_id string) (*models.SystemUser_, error)
+	GetUserIdBySUB(SUB string) (uint64, error)
+	IsUserBasicProfileComplete(user_id uint64) (bool, error)
+	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
 }
 
 type PatientRepositoryImpl struct {
@@ -135,7 +140,7 @@ func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
 		PatientId:          user.UserId,
 		FirstName:          user.FirstName,
 		LastName:           user.LastName,
-		DateOfBirth:        user.DateOfBirth,
+		DateOfBirth:        user.DateOfBirth.String(),
 		Gender:             user.Gender,
 		MobileNo:           user.MobileNo,
 		Address:            user.Address,
@@ -153,9 +158,9 @@ func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
 	}
 }
 
-func (p *PatientRepositoryImpl) UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error) {
+func (p *PatientRepositoryImpl) UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error) {
 	var user models.SystemUser_
-	err := p.db.Where("user_id = ?", patientId).First(&user).Error
+	err := p.db.Where("auth_user_id = ?", authUserId).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -440,4 +445,50 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 	}
 
 	return patients, nil
+}
+
+func (p *PatientRepositoryImpl) GetUserProfile(user_id string) (*models.SystemUser_, error) {
+	var user models.SystemUser_
+	err := p.db.Model(&models.SystemUser_{}).Where("auth_user_id=?", user_id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (p *PatientRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {
+	var user models.SystemUser_
+	err := p.db.Select("user_id").Where("auth_user_id=?", SUB).First(&user).Error
+	if err != nil {
+		return 0, err
+	}
+	return user.UserId, nil
+}
+
+func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool, error) {
+	var user models.SystemUser_
+	isComplete := false
+	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "address", "blood_group", "abha_number", "emergency_contact", "emergency_contact_name", "gender", "date_of_birth").
+		Where("user_id = ?", user_id).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	isComplete = user.Gender != "" && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != "" && user.Address != "" && user.BloodGroup != "" && user.AbhaNumber != "" && user.EmergencyContact != "" && user.EmergencyContactName != ""
+	return isComplete, nil
+}
+
+func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (bool, error) {
+	var relatives []models.PatientRelative
+	err := p.db.Select("relative_id").Where("patient_id=?", user_id).Find(&relatives).Error
+	if err != nil {
+		return false, err
+	}
+	isComplete := false
+	if len(relatives) > 0 {
+		isComplete = true
+	}
+	return isComplete, nil
 }

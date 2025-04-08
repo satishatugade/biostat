@@ -154,19 +154,20 @@ type SystemUser_ struct {
 	LastName    string     `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
 	Gender      string     `gorm:"column:gender;type:varchar(10)" json:"gender"`
 	DateOfBirth *time.Time `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
-	MobileNo    string     `gorm:"column:mobile_no;type:varchar(20);unique" json:"mobile_no"`
+	MobileNo    string     `gorm:"column:mobile_no;type:varchar(50);unique" json:"mobile_no"`
 	Email       string     `gorm:"column:email;type:varchar(100);unique" json:"email"`
 	Address     string     `gorm:"column:address;type:text" json:"address"`
 
 	// Patient-Specific Fields
-	EmergencyContact   string `gorm:"column:emergency_contact;type:varchar(20)" json:"emergency_contact,omitempty"`
-	AbhaNumber         string `gorm:"column:abha_number;type:varchar(20)" json:"abha_number,omitempty"`
-	BloodGroup         string `gorm:"column:blood_group;type:varchar(5)" json:"blood_group,omitempty"`
-	Nationality        string `gorm:"column:nationality;type:varchar(50)" json:"nationality,omitempty"`
-	CitizenshipStatus  string `gorm:"column:citizenship_status;type:varchar(50)" json:"citizenship_status,omitempty"`
-	PassportNumber     string `gorm:"column:passport_number;type:varchar(20);unique" json:"passport_number,omitempty"`
-	CountryOfResidence string `gorm:"column:country_of_residence;type:varchar(50)" json:"country_of_residence,omitempty"`
-	IsIndianOrigin     bool   `gorm:"column:is_indian_origin;default:false" json:"is_indian_origin,omitempty"`
+	EmergencyContact     string `gorm:"column:emergency_contact;type:varchar(50)" json:"emergency_contact,omitempty"`
+	EmergencyContactName string `gorm:"-" json:"emergency_contact_person"`
+	AbhaNumber           string `gorm:"column:abha_number;type:varchar(50)" json:"abha_number,omitempty"`
+	BloodGroup           string `gorm:"column:blood_group;type:varchar(10)" json:"blood_group,omitempty"`
+	Nationality          string `gorm:"column:nationality;type:varchar(50)" json:"nationality,omitempty"`
+	CitizenshipStatus    string `gorm:"column:citizenship_status;type:varchar(50)" json:"citizenship_status,omitempty"`
+	PassportNumber       string `gorm:"column:passport_number;type:varchar(50);unique" json:"passport_number,omitempty"`
+	CountryOfResidence   string `gorm:"column:country_of_residence;type:varchar(50)" json:"country_of_residence,omitempty"`
+	IsIndianOrigin       bool   `gorm:"column:is_indian_origin;default:false" json:"is_indian_origin,omitempty"`
 
 	// Doctor-Specific Fields
 	Specialty         string   `gorm:"column:specialty;type:varchar(100)" json:"specialty,omitempty"`

@@ -92,14 +92,12 @@ func GenerateRandomPassword() string {
 func GetUserDataContext(c *gin.Context) (string, bool) {
 	sub, exists := c.Get("sub")
 	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve user id"})
-		return "", false
+		return "Could not retrieve user id", false
 	}
 
 	subStr, ok := sub.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "user id not a valid string"})
-		return "", false
+		return "user id not a valid string", false
 	}
 
 	return subStr, true
@@ -163,4 +161,27 @@ func ParseExcelFromReader[T any](reader io.Reader) ([]T, error) {
 	}
 
 	return results, nil
+}
+
+func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
+	return &models.Patient{
+		PatientId:          user.UserId,
+		FirstName:          user.FirstName,
+		LastName:           user.LastName,
+		DateOfBirth:        user.DateOfBirth.String(),
+		Gender:             user.Gender,
+		MobileNo:           user.MobileNo,
+		Address:            user.Address,
+		EmergencyContact:   user.EmergencyContact,
+		AbhaNumber:         user.AbhaNumber,
+		BloodGroup:         user.BloodGroup,
+		Nationality:        user.Nationality,
+		CitizenshipStatus:  user.CitizenshipStatus,
+		PassportNumber:     user.PassportNumber,
+		CountryOfResidence: user.CountryOfResidence,
+		IsIndianOrigin:     user.IsIndianOrigin,
+		Email:              user.Email,
+		CreatedAt:          user.CreatedAt,
+		UpdatedAt:          user.UpdatedAt,
+	}
 }

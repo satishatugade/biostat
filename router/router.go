@@ -145,6 +145,9 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
 		Route{"patient", http.MethodPost, constant.Relative, patientController.GetPatientRelativeList},
 
+		Route{"patient", http.MethodPost, constant.UserProfile, patientController.GetUserProfile},
+		Route{"patient", http.MethodPost, constant.UserOnboardingStatus, patientController.GetUserOnBoardingStatus},
+
 		// patient relatives
 		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
 
