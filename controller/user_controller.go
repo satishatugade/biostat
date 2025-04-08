@@ -154,7 +154,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		return
 	}
 	mappingError := uc.roleService.AddSystemUserMapping(nil, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName)
-	if err != nil {
+	if mappingError != nil {
 		log.Println("Error while adding user mapping", mappingError)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User mapping not added", nil, mappingError)
 	}

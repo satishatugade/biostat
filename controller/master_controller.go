@@ -153,7 +153,7 @@ func (mc *MasterController) GetDiseaseInfo(c *gin.Context) {
 	message := "Diseases not found"
 	fmt.Println("DiseaseId ", DiseaseId)
 	if err != nil || DiseaseId == 0 {
-		data, totalRecords, err := mc.diseaseService.GetAllDiseases(page, limit)
+		data, totalRecords, err := mc.diseaseService.GetAllDiseases(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve diseases", nil, err)
 			return

@@ -83,6 +83,23 @@ func (pc *PatientController) GetPatientDiseaseProfiles(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient disease profiles retrieved successfully", diseaseProfiles, nil, nil)
 }
 
+func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
+	var req models.DiagnosticResultRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	diseaseProfiles, err := pc.patientService.GetPatientDiagnosticResultValue(req.PatientId, req.PatientDiagnosticReportId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient disease profiles not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient disease profiles retrieved successfully", diseaseProfiles, nil, nil)
+}
+
 func (pc *PatientController) AddPrescription(c *gin.Context) {
 	var prescription models.PatientPrescription
 
@@ -115,11 +132,11 @@ func (pc *PatientController) GetAllPrescription(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, prescription, pagination, nil)
 }
 
-func (pc *PatientController) GetPrescriptionByPatientID(c *gin.Context) {
+func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 	patientID := c.Param("patient_id")
 	page, limit, offset := utils.GetPaginationParams(c)
 
-	prescriptions, totalRecords, err := pc.patientService.GetPrescriptionByPatientID(patientID, limit, offset)
+	prescriptions, totalRecords, err := pc.patientService.GetPrescriptionByPatientId(patientID, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve prescriptions", nil, err)
 		return
