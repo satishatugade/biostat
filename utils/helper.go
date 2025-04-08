@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"biostat/constant"
 	"biostat/models"
 	"math"
 	"math/rand"
@@ -51,6 +52,22 @@ func GetParamAsInt(c *gin.Context, param string) int {
 		return 0
 	}
 	return value
+}
+
+func ParseUintParam(c *gin.Context, paramName string) (uint64, bool) {
+	paramValue := c.Param(paramName)
+	if paramValue == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, paramName+" is required", nil, nil)
+		return 0, false
+	}
+
+	parsedValue, err := strconv.ParseUint(paramValue, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid "+paramName, nil, err)
+		return 0, false
+	}
+
+	return parsedValue, true
 }
 
 func GenerateRandomPassword() string {

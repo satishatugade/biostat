@@ -11,8 +11,9 @@ type PatientRepository interface {
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
 	AddPatientPrescription(*models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
-	GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error)
-	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
+	GetPrescriptionByPatientId(patientId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
+	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId uint) (*models.Patient, error)
 	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
@@ -63,7 +64,7 @@ func (p *PatientRepositoryImpl) GetAllPrescription(limit int, offset int) ([]mod
 	return prescriptions, totalRecords, nil
 }
 
-func (p *PatientRepositoryImpl) GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
+func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
@@ -175,6 +176,32 @@ func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]m
 	}
 
 	return patientDiseaseProfiles, nil
+}
+
+// GetPatientDiagnosticResultValues implements PatientRepository.
+func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
+	var reports []models.PatientDiagnosticReport
+
+	query := p.db.
+		Preload("DiagnosticLab").
+		Preload("DiagnosticLab.PatientReportAttachments").
+		Preload("DiagnosticLab.PatientDiagnosticTests").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
+
+	if patientDiagnosticReportId > 0 {
+		query = query.Where("patient_diagnostic_report_id = ?", patientDiagnosticReportId)
+	} else {
+		query = query.Where("patient_id = ?", patientId)
+	}
+
+	err := query.Find(&reports).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return reports, nil
 }
 
 // AddPatientRelative implements PatientRepository.

@@ -11,9 +11,10 @@ type PatientService interface {
 	GetPatientById(patientId uint) (*models.Patient, error)
 	UpdatePatientById(patientId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
+	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
-	GetPrescriptionByPatientID(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPrescriptionByPatientId(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
@@ -35,8 +36,8 @@ func (s *PatientServiceImpl) GetAllPrescription(limit int, offset int) ([]models
 	return s.patientRepo.GetAllPrescription(limit, offset)
 }
 
-func (s *PatientServiceImpl) GetPrescriptionByPatientID(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
-	return s.patientRepo.GetPrescriptionByPatientID(patientID, limit, offset)
+func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
+	return s.patientRepo.GetPrescriptionByPatientId(patientID, limit, offset)
 }
 
 // Ensure patientRepo is properly initialized
@@ -129,5 +130,8 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 	}
 	fmt.Println("patientUserIds ", patientUserIds)
 	return s.patientRepo.GetPatientList(patientUserIds)
+}
 
+func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
+	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
 }

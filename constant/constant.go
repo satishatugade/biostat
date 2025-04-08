@@ -25,6 +25,7 @@ const (
 	DoctorList = "/doctor-list"
 
 	// PatientDiseaseCondition = "/patient-disease-condition/:patient_disease_profile_id"
+	PatientResultValue        = "/diagnostic-value"
 	PatientDiseaseCondition   = "/patient-disease-condition/:patient_id"
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
 	PatientRegistration       = "/patient-registration"

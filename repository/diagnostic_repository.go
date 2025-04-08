@@ -212,9 +212,9 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticComponent(diagnosticComponent
 	err := r.db.Model(&models.DiagnosticTestComponent{}).Where("diagnostic_test_component_id=?", diagnosticComponent.DiagnosticTestComponentId).
 		Updates(map[string]interface{}{
 			"test_component_loinc_code": diagnosticComponent.LoincCode,
-			"test_component_name":       diagnosticComponent.Name,
+			"test_component_name":       diagnosticComponent.TestComponetName,
 			"description":               diagnosticComponent.Description,
-			"test_component_type":       diagnosticComponent.Type,
+			"test_component_type":       diagnosticComponent.TestComponentType,
 			"units":                     diagnosticComponent.Units,
 			"property":                  diagnosticComponent.Property,
 			"time_aspect":               diagnosticComponent.TimeAspect,

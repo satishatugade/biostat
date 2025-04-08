@@ -236,8 +236,8 @@ type DiagnosticTest struct {
 type DiagnosticTestComponent struct {
 	DiagnosticTestComponentId uint      `gorm:"column:diagnostic_test_component_id;primaryKey" json:"diagnostic_test_component_id"`
 	LoincCode                 string    `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
-	Name                      string    `gorm:"column:test_component_name" json:"test_component_name"`
-	Type                      string    `gorm:"column:test_component_type" json:"test_component_type"`
+	TestComponetName          string    `gorm:"column:test_component_name" json:"test_component_name"`
+	TestComponentType         string    `gorm:"column:test_component_type" json:"test_component_type"`
 	Description               string    `gorm:"column:description" json:"description"`
 	Units                     string    `gorm:"column:units" json:"units"`
 	Property                  string    `gorm:"column:property" json:"property"`
@@ -247,6 +247,8 @@ type DiagnosticTestComponent struct {
 	TestComponentFrequency    int       `gorm:"column:test_component_frequency" json:"test_component_frequency"`
 	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+	TestResultValue []PatientDiagnosticTestResultValue `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_result_value"`
 }
 
 type DiagnosticTestComponentMapping struct {
