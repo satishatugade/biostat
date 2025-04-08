@@ -51,12 +51,12 @@ func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientCont
 
 	patient := g.Group("/patient")
 	for _, patientRoute := range getPatientRoutes(patientController) {
-		// protectedHandler := auth.Authenticate(patient.BasePath(), ProtectedRoutes, patientRoute.HandleFunc)
+		protectedHandler := auth.Authenticate(patient.BasePath(), ProtectedRoutes, patientRoute.HandleFunc)
 		switch patientRoute.Method {
 		case http.MethodGet:
 			patient.GET(patientRoute.Path, patientRoute.HandleFunc)
 		case http.MethodPost:
-			patient.POST(patientRoute.Path, patientRoute.HandleFunc)
+			patient.POST(patientRoute.Path, protectedHandler)
 		case http.MethodPut:
 			patient.PUT(patientRoute.Path, patientRoute.HandleFunc)
 		}
