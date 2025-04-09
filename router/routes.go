@@ -4,8 +4,10 @@ import (
 	"biostat/auth"
 	"biostat/controller"
 	"biostat/database"
+	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -98,9 +100,11 @@ func Routing() {
 	r := routes{
 		router: gin.Default(),
 	}
+	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
+	log.Println("corsOrigins", corsOrigins)
 	r.router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"},
-		AllowMethods:     []string{"GET", "POST", "PUT"},
+		AllowOrigins:     corsOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
 		AllowCredentials: true,
 	}))
