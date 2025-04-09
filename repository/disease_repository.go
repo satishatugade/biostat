@@ -11,14 +11,14 @@ import (
 
 type DiseaseRepository interface {
 	GetAllDiseasesInfo(limit int, offset int) ([]models.Disease, int64, error)
-	GetDiseases(diseaseId uint) (*models.Disease, error)
+	GetDiseases(diseaseId uint64) (*models.Disease, error)
 	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
-	UpdateDisease(updatedDisease *models.Disease) error
-	DeleteDisease(DiseaseId uint) error
-	GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error)
+	UpdateDisease(updatedDisease *models.Disease, authUserId string) error
+	DeleteDisease(DiseaseId uint64, authUserId string) error
+	GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditId uint64) ([]models.DiseaseAudit, error)
 	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
 	IsDiseaseProfileExists(diseaseProfileId uint) (bool, error)
 
@@ -37,7 +37,7 @@ func NewDiseaseRepository(db *gorm.DB) DiseaseRepository {
 }
 
 // GetDiseases implements DiseaseRepository.
-func (repo *DiseaseRepositoryImpl) GetDiseases(diseaseId uint) (*models.Disease, error) {
+func (repo *DiseaseRepositoryImpl) GetDiseases(diseaseId uint64) (*models.Disease, error) {
 	var disease models.Disease
 	if err := repo.db.Where("disease_id = ?", diseaseId).First(&disease).Error; err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func (repo *DiseaseRepositoryImpl) DiseaseAudit(existingDisease *models.Disease,
 	return repo.db.Create(&auditLog).Error
 }
 
-func (repo *DiseaseRepositoryImpl) UpdateDisease(Disease *models.Disease) error {
+func (repo *DiseaseRepositoryImpl) UpdateDisease(Disease *models.Disease, authUserId string) error {
 	existingDisease, err := repo.GetDiseases(Disease.DiseaseId)
 	if err != nil {
 		return err
@@ -207,27 +207,21 @@ func (repo *DiseaseRepositoryImpl) UpdateDisease(Disease *models.Disease) error 
 	if result.RowsAffected == 0 {
 		return errors.New("no records updated")
 	}
-	if err := repo.DiseaseAudit(existingDisease, constant.UPDATE, "system"); err != nil {
+	if err := repo.DiseaseAudit(existingDisease, constant.UPDATE, authUserId); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repo *DiseaseRepositoryImpl) DeleteDisease(diseaseId uint) error {
+func (repo *DiseaseRepositoryImpl) DeleteDisease(diseaseId uint64, authUserId string) error {
 	// Fetch existing disease record before deleting
 	existingDisease, err := repo.GetDiseases(diseaseId)
 	if err != nil {
 		return err // Return error if disease not found
 	}
-	// Delete the actual record from the master table
-	if err := repo.db.Where("disease_id = ?", diseaseId).Delete(&models.Disease{}).Error; err != nil {
-		return err // Return error if delete operation fails
-	}
-
-	if err := repo.DiseaseAudit(existingDisease, constant.DELETE, "system"); err != nil {
+	if err := repo.DiseaseAudit(existingDisease, constant.DELETE, authUserId); err != nil {
 		return err
 	}
-
 	// Delete the actual record from the master table
 	if err := repo.db.Where("disease_id = ?", diseaseId).Delete(&models.Disease{}).Error; err != nil {
 		return err // Return error if delete operation fails
@@ -236,7 +230,7 @@ func (repo *DiseaseRepositoryImpl) DeleteDisease(diseaseId uint) error {
 	return nil
 }
 
-func (repo *DiseaseRepositoryImpl) GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error) {
+func (repo *DiseaseRepositoryImpl) GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditId uint64) ([]models.DiseaseAudit, error) {
 	var auditLogs []models.DiseaseAudit
 	query := repo.db
 	if diseaseId != 0 {

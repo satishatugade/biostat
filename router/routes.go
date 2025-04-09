@@ -104,6 +104,9 @@ func Routing() {
 		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
 		AllowCredentials: true,
 	}))
+	r.router.GET("/", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"message": "Biostat server running..."})
+	})
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	db := database.GetDBConn()
 	InitializeRoutes(apiGroup, db)

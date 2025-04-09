@@ -9,14 +9,14 @@ import (
 )
 
 type DiseaseService interface {
-	GetDiseases(diseaseId uint) (*models.Disease, error)
+	GetDiseases(diseaseId uint64) (*models.Disease, error)
 	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
-	UpdateDisease(Disease *models.Disease) error
-	DeleteDisease(DiseaseId uint) error
-	GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error)
+	UpdateDisease(Disease *models.Disease, authUserId string) error
+	DeleteDisease(DiseaseId uint64, authUserId string) error
+	GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditId uint64) ([]models.DiseaseAudit, error)
 	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
 
 	ProcessUploadFromStream(entity, authUserId string, reader io.Reader) (int, error)
@@ -36,7 +36,7 @@ func NewDiseaseService(repo repository.DiseaseRepository) DiseaseService {
 	return &DiseaseServiceImpl{diseaseRepo: repo}
 }
 
-func (s *DiseaseServiceImpl) GetDiseases(diseaseId uint) (*models.Disease, error) {
+func (s *DiseaseServiceImpl) GetDiseases(diseaseId uint64) (*models.Disease, error) {
 	return s.diseaseRepo.GetDiseases(diseaseId)
 }
 
@@ -52,15 +52,15 @@ func (s *DiseaseServiceImpl) CreateDisease(disease *models.Disease) error {
 	return s.diseaseRepo.CreateDisease(disease)
 }
 
-func (s *DiseaseServiceImpl) UpdateDisease(Disease *models.Disease) error {
-	return s.diseaseRepo.UpdateDisease(Disease)
+func (s *DiseaseServiceImpl) UpdateDisease(Disease *models.Disease, authUserId string) error {
+	return s.diseaseRepo.UpdateDisease(Disease, authUserId)
 }
 
-func (s *DiseaseServiceImpl) DeleteDisease(diseaseId uint) error {
-	return s.diseaseRepo.DeleteDisease(diseaseId)
+func (s *DiseaseServiceImpl) DeleteDisease(diseaseId uint64, authUserId string) error {
+	return s.diseaseRepo.DeleteDisease(diseaseId, authUserId)
 }
 
-func (s *DiseaseServiceImpl) GetDiseaseAuditLogs(diseaseId uint, diseaseAuditId uint) ([]models.DiseaseAudit, error) {
+func (s *DiseaseServiceImpl) GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditId uint64) ([]models.DiseaseAudit, error) {
 	return s.diseaseRepo.GetDiseaseAuditLogs(diseaseId, diseaseAuditId)
 }
 

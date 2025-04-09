@@ -55,6 +55,11 @@ func (mc *MasterController) CreateDisease(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 	var Disease models.Disease
 	if err := c.ShouldBindJSON(&Disease); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request input", nil, err)
@@ -65,7 +70,7 @@ func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Disease Id Required", nil, nil)
 		return
 	}
-	err := mc.diseaseService.UpdateDisease(&Disease)
+	err := mc.diseaseService.UpdateDisease(&Disease, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update disease", nil, err)
 		return
@@ -75,12 +80,18 @@ func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteDisease(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+
 	diseaseId, err := strconv.ParseUint(c.Param("disease_id"), 10, 32)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid disease ID", nil, err)
 		return
 	}
-	err = mc.diseaseService.DeleteDisease(uint(diseaseId))
+	err = mc.diseaseService.DeleteDisease(diseaseId, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete disease", nil, err)
 		return
@@ -91,7 +102,7 @@ func (mc *MasterController) DeleteDisease(c *gin.Context) {
 func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
 	// Parse disease_id from query parameters
 
-	var diseaseId uint
+	var diseaseId uint64
 	diseaseIdStr := c.Query("disease_id")
 	if diseaseIdStr != "" {
 		parsedDiseaseId, err := strconv.ParseUint(diseaseIdStr, 10, 32)
@@ -99,14 +110,14 @@ func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
 			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid disease ID", nil, err)
 			return
 		}
-		diseaseId = uint(parsedDiseaseId)
+		diseaseId = parsedDiseaseId
 	}
 
-	var diseaseAuditId uint
+	var diseaseAuditId uint64
 	if auditIdStr := c.Query("disease_audit_id"); auditIdStr != "" {
 		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
 		if err == nil {
-			temp := uint(auditId)
+			temp := auditId
 			diseaseAuditId = temp
 		}
 	}
@@ -166,7 +177,7 @@ func (mc *MasterController) GetDiseaseInfo(c *gin.Context) {
 		models.SuccessResponse(c, constant.Success, http.StatusOK, message, data, pagination, nil)
 		return
 	}
-	diseases, err := mc.diseaseService.GetDiseases(uint(DiseaseId))
+	diseases, err := mc.diseaseService.GetDiseases(DiseaseId)
 	if err == nil {
 		message = "Diseases retrieved successfully"
 	}
@@ -242,6 +253,11 @@ func (mc *MasterController) AddDiseaseCause(c *gin.Context) {
 
 func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
 	var cause models.Cause
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 
 	if err := c.ShouldBindJSON(&cause); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid disease cause input", nil, err)
@@ -253,13 +269,92 @@ func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
 		return
 	}
 
-	err := mc.causeService.UpdateCause(&cause)
+	err := mc.causeService.UpdateCause(&cause, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update cause", nil, err)
 		return
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause updated successfully", cause, nil, nil)
+}
+
+func (mc *MasterController) DeleteCause(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+
+	causeId, err := strconv.ParseUint(c.Param("cause_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid cause ID", nil, err)
+		return
+	}
+
+	err = mc.causeService.DeleteCause(causeId, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete cause", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause deleted successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
+	var causeId uint64
+	causeIdStr := c.Query("cause_id")
+	if causeIdStr != "" {
+		parsedCauseId, err := strconv.ParseUint(causeIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid cause ID", nil, err)
+			return
+		}
+		causeId = parsedCauseId
+	}
+
+	var causeAuditId uint64
+	if auditIdStr := c.Query("cause_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			causeAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Cause audit record not found"
+
+	// Fetch all if no filters applied
+	if causeId == 0 && causeAuditId == 0 {
+		data, totalRecords, err := mc.causeService.GetAllCauseAuditRecord(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Cause audit records retrieved successfully",
+			"Cause audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.causeService.GetCauseAuditRecord(causeId, causeAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Cause audit records retrieved successfully",
+		"Cause audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
 
 func (mc *MasterController) GetAllSymptom(c *gin.Context) {
@@ -297,8 +392,12 @@ func (mc *MasterController) AddSymptom(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 	var symptom models.Symptom
-
 	if err := c.ShouldBindJSON(&symptom); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid disease symptom input", nil, err)
 		return
@@ -309,12 +408,91 @@ func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
 		return
 	}
 
-	err := mc.symptomService.UpdateSymptom(&symptom)
+	err := mc.symptomService.UpdateSymptom(&symptom, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update symptom", nil, err)
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "symptom updated successfully", symptom, nil, nil)
+}
+
+func (mc *MasterController) DeleteSymptom(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+
+	symptomId, err := strconv.ParseUint(c.Param("symptom_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid symptom ID", nil, err)
+		return
+	}
+
+	err = mc.symptomService.DeleteSymptom(symptomId, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Deletion failed", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Symptom deleted", nil, nil, nil)
+}
+
+func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
+	var symptomId uint64
+	symptomIdStr := c.Query("symptom_id")
+	if symptomIdStr != "" {
+		parsedSymptomId, err := strconv.ParseUint(symptomIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid symptom ID", nil, err)
+			return
+		}
+		symptomId = parsedSymptomId
+	}
+
+	var symptomAuditId uint64
+	if auditIdStr := c.Query("symptom_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			symptomAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Symptom audit record not found"
+
+	// Fetch all if no filters applied
+	if symptomId == 0 && symptomAuditId == 0 {
+		data, totalRecords, err := mc.symptomService.GetAllSymptomAuditRecord(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Symptom audit records retrieved successfully",
+			"Symptom audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.symptomService.GetSymptomAuditRecord(symptomId, symptomAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Symptom audit records retrieved successfully",
+		"Symptom audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
 
 func (mc *MasterController) AddDietPlanTemplate(c *gin.Context) {
@@ -708,6 +886,7 @@ func (mc *MasterController) UploadMasterData(c *gin.Context) {
 	}
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
 		return
 	}
 

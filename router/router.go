@@ -93,11 +93,15 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Causes", http.MethodPost, constant.Cause, masterController.GetAllCauses},
 		Route{"Causes", http.MethodPost, constant.AddCause, masterController.AddDiseaseCause},
 		Route{"Causes", http.MethodPut, constant.UpdateCause, masterController.UpdateDiseaseCause},
+		Route{"Causes", http.MethodPost, constant.DeleteCause, masterController.DeleteCause},
+		Route{"Causes", http.MethodPost, constant.CauseAudit, masterController.GetCauseAuditRecord},
 
 		//symptoms master
 		Route{"Symptom", http.MethodPost, constant.Symptom, masterController.GetAllSymptom},
 		Route{"Symptom", http.MethodPost, constant.AddSymptom, masterController.AddSymptom},
 		Route{"Symptom", http.MethodPut, constant.UpdateSymptom, masterController.UpdateDiseaseSymptom},
+		Route{"Symptom", http.MethodPost, constant.DeleteSymptom, masterController.DeleteSymptom},
+		Route{"Causes", http.MethodPost, constant.SymptomAudit, masterController.GetSymptomAuditRecord},
 
 		// Allergy master
 		Route{"Allergy", http.MethodPost, constant.AllergyMaster, masterController.GetAllergyRestrictions},

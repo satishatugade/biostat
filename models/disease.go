@@ -3,9 +3,9 @@ package models
 import "time"
 
 type PatientDiseaseProfile struct {
-	PatientDiseaseProfileId uint      `gorm:"primaryKey;autoIncrement" json:"patient_disease_profile_id"`
-	PatientId               uint      `gorm:"not null" json:"patient_id"`
-	DiseaseProfileID        uint      `gorm:"not null" json:"disease_profile_id"`
+	PatientDiseaseProfileId uint64    `gorm:"primaryKey;autoIncrement" json:"patient_disease_profile_id"`
+	PatientId               uint64    `gorm:"not null" json:"patient_id"`
+	DiseaseProfileId        uint64    `gorm:"not null" json:"disease_profile_id"`
 	ReminderFlag            *bool     `json:"reminder_flag"`        // Nullable
 	DietPlanSubscribed      *bool     `json:"diet_plan_subscribed"` // Nullable
 	AttachedDate            time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"attached_date"`
@@ -16,15 +16,15 @@ type PatientDiseaseProfile struct {
 }
 
 type DiseaseProfile struct {
-	DiseaseProfileId uint      `json:"disease_profile_id" gorm:"primaryKey"`
-	DiseaseId        uint      `json:"disease_id"`
+	DiseaseProfileId uint64    `json:"disease_profile_id" gorm:"primaryKey"`
+	DiseaseId        uint64    `json:"disease_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 	Disease          Disease   `json:"disease" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type Disease struct {
-	DiseaseId         uint      `json:"disease_id" gorm:"primaryKey"`
+	DiseaseId         uint64    `json:"disease_id" gorm:"primaryKey"`
 	DiseaseSnomedCode string    `json:"disease_snomed_code"`
 	DiseaseName       string    `json:"disease_name"`
 	Description       string    `json:"description"`
@@ -46,19 +46,19 @@ type Disease struct {
 }
 
 type DiseaseType struct {
-	DiseaseTypeId uint   `json:"disease_type_id" gorm:"primaryKey"`
+	DiseaseTypeId uint64 `json:"disease_type_id" gorm:"primaryKey"`
 	DiseaseType   string `json:"disease_type"`
 }
 
 type DiseaseTypeMapping struct {
-	DiseaseTypeMappingId uint        `json:"-" gorm:"primaryKey"`
-	DiseaseId            uint        `json:"-" gorm:"index"`
-	DiseaseTypeId        uint        `json:"-"`
+	DiseaseTypeMappingId uint64      `json:"-" gorm:"primaryKey"`
+	DiseaseId            uint64      `json:"-" gorm:"index"`
+	DiseaseTypeId        uint64      `json:"-"`
 	DiseaseType          DiseaseType `json:"disease_type" gorm:"foreignKey:DiseaseTypeId;references:DiseaseTypeId"`
 }
 
 type Symptom struct {
-	SymptomId   uint      `json:"symptom_id" gorm:"primaryKey"`
+	SymptomId   uint64    `json:"symptom_id" gorm:"primaryKey"`
 	SymptomName string    `json:"symptom_name"`
 	SymptomType string    `json:"symptom_type"`
 	Commonality string    `json:"commonality"`
@@ -69,12 +69,12 @@ type Symptom struct {
 }
 
 type Severity struct {
-	SeverityId    uint   `json:"severity_id" gorm:"primaryKey"`
+	SeverityId    uint64 `json:"severity_id" gorm:"primaryKey"`
 	SeverityLevel string `json:"severity_level"`
 }
 
 type Cause struct {
-	CauseId     uint      `json:"cause_id" gorm:"primaryKey"`
+	CauseId     uint64    `json:"cause_id" gorm:"primaryKey"`
 	CauseName   string    `json:"cause_name"`
 	CauseType   string    `json:"cause_type"`
 	Description string    `json:"description"`
@@ -95,7 +95,7 @@ func (DiseaseTypeMapping) TableName() string {
 }
 
 type Medication struct {
-	MedicationId    uint             `json:"medication_id" gorm:"column:medication_id;primaryKey"`
+	MedicationId    uint64           `json:"medication_id" gorm:"column:medication_id;primaryKey"`
 	MedicationName  string           `json:"medication_name" gorm:"column:medication_name"`
 	MedicationCode  string           `json:"medication_code" gorm:"column:medication_code"`
 	Description     string           `json:"description" gorm:"column:description"`
@@ -110,8 +110,8 @@ func (Medication) TableName() string {
 }
 
 type MedicationType struct {
-	DosageId           uint    `json:"dosage_id" gorm:"column:dosage_id;primaryKey"`
-	MedicationId       uint    `json:"medication_id" gorm:"column:medication_id"`
+	DosageId           uint64  `json:"dosage_id" gorm:"column:dosage_id;primaryKey"`
+	MedicationId       uint64  `json:"medication_id" gorm:"column:medication_id"`
 	MedicationType     string  `json:"medication_type" gorm:"column:medication_type"`
 	UnitValue          float64 `json:"unit_value" gorm:"column:unit_value"`
 	UnitType           string  `json:"unit_type" gorm:"column:unit_type"`
@@ -125,9 +125,9 @@ func (MedicationType) TableName() string {
 }
 
 type DiseaseMedicationMapping struct {
-	DiseaseMedicationMappingId uint `json:"-" gorm:"primaryKey"`
-	DiseaseId                  uint `json:"disease_id"`
-	MedicationId               uint `json:"medication_id"`
+	DiseaseMedicationMappingId uint64 `json:"-" gorm:"primaryKey"`
+	DiseaseId                  uint64 `json:"disease_id"`
+	MedicationId               uint64 `json:"medication_id"`
 }
 
 func (DiseaseMedicationMapping) TableName() string {
@@ -135,7 +135,7 @@ func (DiseaseMedicationMapping) TableName() string {
 }
 
 type Exercise struct {
-	ExerciseId       uint               `json:"exercise_id" gorm:"primaryKey"`
+	ExerciseId       uint64             `json:"exercise_id" gorm:"primaryKey"`
 	ExerciseName     string             `json:"exercise_name"`
 	Description      string             `json:"description"`
 	Category         string             `json:"category"`
@@ -150,8 +150,8 @@ type Exercise struct {
 }
 
 type ExerciseArtifact struct {
-	ExerciseArtifactId int       `gorm:"primaryKey;column:exercise_artifact_id" json:"exercise_artifact_id"`
-	ExerciseId         int       `gorm:"column:exercise_id" json:"exercise_id"`
+	ExerciseArtifactId int64     `gorm:"primaryKey;column:exercise_artifact_id" json:"exercise_artifact_id"`
+	ExerciseId         int64     `gorm:"column:exercise_id" json:"exercise_id"`
 	ArtifactType       string    `gorm:"column:artifact_type;size:50" json:"artifact_type"`
 	ArtifactURL        string    `gorm:"column:artifact_url" json:"artifact_url"`
 	CreatedAt          time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
@@ -160,9 +160,9 @@ type ExerciseArtifact struct {
 }
 
 type DiseaseExerciseMapping struct {
-	DiseaseExerciseMappingId uint      `json:"-" gorm:"primaryKey"`
-	DiseaseId                uint      `json:"-"`
-	ExerciseId               uint      `json:"-"`
+	DiseaseExerciseMappingId uint64    `json:"-" gorm:"primaryKey"`
+	DiseaseId                uint64    `json:"-"`
+	ExerciseId               uint64    `json:"-"`
 	Exercise                 Exercise  `json:"exercise" gorm:"foreignKey:ExerciseId;references:ExerciseId"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
@@ -182,7 +182,7 @@ func (DiseaseExerciseMapping) TableName() string {
 }
 
 type DietPlanTemplate struct {
-	DietPlanTemplateId uint      `json:"diet_plan_template_id" gorm:"primaryKey"`
+	DietPlanTemplateId uint64    `json:"diet_plan_template_id" gorm:"primaryKey"`
 	Name               string    `json:"name"`
 	Description        string    `json:"description"`
 	Goal               string    `json:"goal"`
@@ -196,8 +196,8 @@ type DietPlanTemplate struct {
 }
 
 type Meal struct {
-	MealId             uint   `json:"meal_id" gorm:"primaryKey"`
-	DietPlanTemplateId uint   `json:"diet_plan_template_id"`
+	MealId             uint64 `json:"meal_id" gorm:"primaryKey"`
+	DietPlanTemplateId uint64 `json:"diet_plan_template_id"`
 	MealType           string `json:"meal_type"`
 	Description        string `json:"description"`
 	// Nutrients          []Nutrient `json:"nutrients" gorm:"foreignKey:MealId"`
@@ -208,8 +208,8 @@ type Meal struct {
 }
 
 type Nutrient struct {
-	NutrientId   uint      `json:"nutrient_id" gorm:"primaryKey"`
-	MealId       uint      `json:"meal_id"`
+	NutrientId   uint64    `json:"nutrient_id" gorm:"primaryKey"`
+	MealId       uint64    `json:"meal_id"`
 	NutrientName string    `json:"nutrient_name"`
 	Amount       string    `json:"amount"`
 	Unit         string    `json:"unit"`
@@ -231,7 +231,7 @@ func (Nutrient) TableName() string {
 }
 
 type DiagnosticTest struct {
-	DiagnosticTestId uint                      `gorm:"column:diagnostic_test_id;primaryKey" json:"diagnostic_test_id"`
+	DiagnosticTestId uint64                    `gorm:"column:diagnostic_test_id;primaryKey" json:"diagnostic_test_id"`
 	LoincCode        string                    `gorm:"column:test_loinc_code" json:"test_loinc_code"`
 	TestName         string                    `gorm:"column:test_name" json:"test_name"`
 	TestType         string                    `gorm:"column:test_type" json:"test_type"`
@@ -249,7 +249,7 @@ type DiagnosticTest struct {
 }
 
 type DiagnosticTestComponent struct {
-	DiagnosticTestComponentId uint                               `gorm:"column:diagnostic_test_component_id;primaryKey" json:"diagnostic_test_component_id"`
+	DiagnosticTestComponentId uint64                             `gorm:"column:diagnostic_test_component_id;primaryKey" json:"diagnostic_test_component_id"`
 	LoincCode                 string                             `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
 	TestComponetName          string                             `gorm:"column:test_component_name" json:"test_component_name"`
 	TestComponentType         string                             `gorm:"column:test_component_type" json:"test_component_type"`
@@ -267,9 +267,9 @@ type DiagnosticTestComponent struct {
 }
 
 type DiagnosticTestComponentMapping struct {
-	DiagnosticTestComponentMappingId uint `gorm:"column:diagnostic_test_component_mapping_id;primaryKey" json:"diagnostic_test_component_mapping_id"`
-	DiagnosticTestId                 uint `gorm:"column:diagnostic_test_id" json:"diagnostic_test_id"`
-	DiagnosticComponentId            uint `gorm:"column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	DiagnosticTestComponentMappingId uint64 `gorm:"column:diagnostic_test_component_mapping_id;primaryKey" json:"diagnostic_test_component_mapping_id"`
+	DiagnosticTestId                 uint64 `gorm:"column:diagnostic_test_id" json:"diagnostic_test_id"`
+	DiagnosticComponentId            uint64 `gorm:"column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
 }
 
 func (DiagnosticTestComponent) TableName() string {
@@ -285,9 +285,9 @@ func (DiagnosticTestComponentMapping) TableName() string {
 }
 
 type DiseaseDiagnosticTestMapping struct {
-	DiseaseDiagnosticTestMapping uint `gorm:"column:disease_diagnostic_test_mapping_id;primaryKey"`
-	DiseaseId                    uint `gorm:"column:disease_id"`
-	DiagnosticTestId             uint `gorm:"column:diagnostic_test_id"`
+	DiseaseDiagnosticTestMapping uint64 `gorm:"column:disease_diagnostic_test_mapping_id;primaryKey"`
+	DiseaseId                    uint64 `gorm:"column:disease_id"`
+	DiagnosticTestId             uint64 `gorm:"column:diagnostic_test_id"`
 }
 
 func (DiseaseDiagnosticTestMapping) TableName() string {
