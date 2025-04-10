@@ -468,7 +468,7 @@ func (p *PatientRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {
 func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool, error) {
 	var user models.SystemUser_
 	isComplete := false
-	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "address", "blood_group", "abha_number", "emergency_contact", "emergency_contact_name", "gender", "date_of_birth").
+	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "address", "abha_number", "emergency_contact", "gender", "date_of_birth").
 		Where("user_id = ?", user_id).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -476,19 +476,16 @@ func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool
 		}
 		return false, err
 	}
-	isComplete = user.Gender != "" && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != "" && user.Address != "" && user.BloodGroup != "" && user.AbhaNumber != "" && user.EmergencyContact != "" && user.EmergencyContactName != ""
+	isComplete = user.Gender != "" && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != "" && user.Address != "" && user.AbhaNumber != "" && user.EmergencyContact != ""
 	return isComplete, nil
 }
 
 func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (bool, error) {
-	var relatives []models.PatientRelative
-	err := p.db.Select("relative_id").Where("patient_id=?", user_id).Find(&relatives).Error
+	var count int64
+	err := p.db.Table("tbl_system_user_role_mapping").Where("patient_id = ? AND mapping_type != 'S'", user_id).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
-	isComplete := false
-	if len(relatives) > 0 {
-		isComplete = true
-	}
+	isComplete := count > 0
 	return isComplete, nil
 }

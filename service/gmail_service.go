@@ -1,12 +1,12 @@
 package service
 
 import (
-	"biostat/config"
 	"biostat/models"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -15,9 +15,9 @@ import (
 )
 
 var googleOauthConfig = &oauth2.Config{
-	ClientID:     config.GoogleClientID,
-	ClientSecret: config.GoogleClientSecret,
-	RedirectURL:  config.RedirectURI,
+	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+	RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URI"),
 	Scopes:       []string{"https://mail.google.com/"},
 	Endpoint:     google.Endpoint,
 }

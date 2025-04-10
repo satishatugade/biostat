@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"biostat/config"
 	"biostat/constant"
 	"biostat/models"
 	"biostat/service"
@@ -10,6 +9,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -18,9 +18,9 @@ import (
 )
 
 var googleOauthConfig = &oauth2.Config{
-	ClientID:     config.GoogleClientID,
-	ClientSecret: config.GoogleClientSecret,
-	RedirectURL:  config.RedirectURI,
+	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+	RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URI"),
 	Scopes:       []string{"https://mail.google.com/"},
 	Endpoint:     google.Endpoint,
 }
