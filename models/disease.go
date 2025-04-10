@@ -10,7 +10,7 @@ type PatientDiseaseProfile struct {
 	DietPlanSubscribed      *bool     `json:"diet_plan_subscribed"` // Nullable
 	AttachedDate            time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"attached_date"`
 	UpdatedAt               time.Time `gorm:"autoUpdateTime" json:"updated_at"`
-
+	AttachedFlag            int       `json:"attached_flag"`
 	// Relations
 	DiseaseProfile DiseaseProfile `gorm:"foreignKey:DiseaseProfileId" json:"disease_profile"`
 }
@@ -20,6 +20,7 @@ type DiseaseProfile struct {
 	DiseaseId        uint64    `json:"disease_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+	IsDeleted        int       `json:"is_deleted"`
 	Disease          Disease   `json:"disease" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
@@ -30,6 +31,7 @@ type Disease struct {
 	Description       string    `json:"description"`
 	ImageURL          string    `json:"image_url"`
 	SlugURL           string    `json:"slug_url"`
+	IsDeleted         int       `json:"is_deleted"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 	CreatedBy         string    `json:"created_by"`
@@ -66,11 +68,13 @@ type Symptom struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	CreatedBy   string    `json:"created_by"`
+	IsDeleted   int       `json:"is_deleted"`
 }
 
 type Severity struct {
 	SeverityId    uint64 `json:"severity_id" gorm:"primaryKey"`
 	SeverityLevel string `json:"severity_level"`
+	IsDeleted     int    `json:"is_deleted"`
 }
 
 type Cause struct {
@@ -81,6 +85,7 @@ type Cause struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	CreatedBy   string    `json:"created_by"`
+	IsDeleted   int       `json:"is_deleted"`
 }
 
 func (PatientDiseaseProfile) TableName() string { return "tbl_patient_disease_profile" }
@@ -101,6 +106,7 @@ type Medication struct {
 	Description     string           `json:"description" gorm:"column:description"`
 	CreatedAt       time.Time        `json:"created_at" gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt       time.Time        `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
+	IsDeleted       int              `json:"is_deleted"`
 	MedicationTypes []MedicationType `json:"medication_type" gorm:"foreignKey:MedicationId;references:MedicationId"`
 }
 
@@ -146,6 +152,7 @@ type Exercise struct {
 	CreatedAt        time.Time          `json:"created_at"`
 	UpdatedAt        time.Time          `json:"updated_at"`
 	CreatedBy        string             `json:"created_by"`
+	IsDeleted        int                `json:"is_deleted"`
 	ExerciseArtifact []ExerciseArtifact `json:"artifact" gorm:"foreignKey:ExerciseId;references:ExerciseId"`
 }
 
@@ -192,6 +199,7 @@ type DietPlanTemplate struct {
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 	CreatedBy          string    `json:"created_by"`
+	IsDeleted          int       `json:"is_deleted"`
 	Meals              []Meal    `json:"meals" gorm:"foreignKey:DietPlanTemplateId;constraint:OnDelete:CASCADE;"`
 }
 
@@ -205,6 +213,7 @@ type Meal struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	CreatedBy string     `json:"created_by"`
+	IsDeleted int        `json:"is_deleted"`
 }
 
 type Nutrient struct {
@@ -216,6 +225,7 @@ type Nutrient struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	CreatedBy    string    `json:"created_by"`
+	IsDeleted    int       `json:"is_deleted"`
 }
 
 func (DietPlanTemplate) TableName() string {
@@ -245,6 +255,7 @@ type DiagnosticTest struct {
 	CreatedAt        time.Time                 `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time                 `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 	CreatedBy        string                    `json:"created_by"`
+	IsDeleted        int                       `json:"is_deleted"`
 	Components       []DiagnosticTestComponent `gorm:"many2many:tbl_disease_profile_diagnostic_test_component_mapping;foreignKey:DiagnosticTestId;joinForeignKey:DiagnosticTestId;References:DiagnosticTestComponentId;joinReferences:DiagnosticTestComponentId" json:"test_components"`
 }
 
@@ -263,6 +274,7 @@ type DiagnosticTestComponent struct {
 	CreatedAt                 time.Time                          `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt                 time.Time                          `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 	CreatedBy                 string                             `json:"created_by"`
+	IsDeleted                 int                                `json:"is_deleted"`
 	TestResultValue           []PatientDiagnosticTestResultValue `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_result_value"`
 }
 

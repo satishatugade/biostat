@@ -184,6 +184,7 @@ func (repo *DiseaseRepositoryImpl) DiseaseAudit(existingDisease *models.Disease,
 		ImageURL:          existingDisease.ImageURL,
 		SlugURL:           existingDisease.SlugURL,
 		OperationType:     operationType,
+		IsDeleted:         1,
 		CreatedAt:         existingDisease.CreatedAt,
 		UpdatedAt:         time.Now(),
 		CreatedBy:         existingDisease.CreatedBy,
@@ -214,19 +215,16 @@ func (repo *DiseaseRepositoryImpl) UpdateDisease(Disease *models.Disease, authUs
 }
 
 func (repo *DiseaseRepositoryImpl) DeleteDisease(diseaseId uint64, authUserId string) error {
-	// Fetch existing disease record before deleting
 	existingDisease, err := repo.GetDiseases(diseaseId)
 	if err != nil {
-		return err // Return error if disease not found
+		return err
 	}
 	if err := repo.DiseaseAudit(existingDisease, constant.DELETE, authUserId); err != nil {
 		return err
 	}
-	// Delete the actual record from the master table
-	if err := repo.db.Where("disease_id = ?", diseaseId).Delete(&models.Disease{}).Error; err != nil {
-		return err // Return error if delete operation fails
+	if err := repo.db.Model(&models.Disease{}).Where("disease_id = ?", diseaseId).Update("is_deleted", 1).Error; err != nil {
+		return err
 	}
-
 	return nil
 }
 

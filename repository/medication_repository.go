@@ -47,30 +47,6 @@ func (m *MedicationRepositoryImpl) CreateMedication(medication *models.Medicatio
 	return m.db.Create(medication).Error
 }
 
-// UpdateMedication implements MedicationRepository.
-// func (m *MedicationRepositoryImpl) UpdateMedication(medication *models.Medication) error {
-// 	return m.db.Session(&gorm.Session{FullSaveAssociations: true}).Updates(medication).Error
-// }
-
-// func (r *MedicationRepositoryImpl) UpdateMedication(medication *models.Medication) error {
-// 	return r.db.Transaction(func(tx *gorm.DB) error {
-// 		// Update main medication
-// 		if err := tx.Save(medication).Error; err != nil {
-// 			return err
-// 		}
-
-// 		// Update or insert types
-// 		for _, medType := range medication.MedicationTypes {
-// 			medType.MedicationId = medication.MedicationId
-// 			if err := tx.Save(&medType).Error; err != nil {
-// 				return err
-// 			}
-// 		}
-
-// 		return nil
-// 	})
-// }
-
 func (r *MedicationRepositoryImpl) UpdateMedication(medication *models.Medication) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.Medication{}).

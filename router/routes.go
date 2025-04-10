@@ -35,7 +35,7 @@ var ProtectedRoutes = map[string][]string{
 func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {
 	master := g.Group("/master")
 	for _, masterRoute := range getMasterRoutes(masterController) {
-		protectedHandler := auth.Authenticate(master.BasePath(), ProtectedRoutes, masterRoute.HandleFunc)
+		protectedHandler := auth.Authenticate(master.BasePath()+masterRoute.Path, ProtectedRoutes, masterRoute.HandleFunc)
 		switch masterRoute.Method {
 		case http.MethodGet:
 			master.GET(masterRoute.Path, protectedHandler)

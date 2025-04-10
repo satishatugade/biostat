@@ -105,7 +105,7 @@ func (repo *CauseRepositoryImpl) DeleteCause(causeId uint64, deletedBy string) e
 	if err := repo.SaveCauseAudit(cause, constant.DELETE, deletedBy); err != nil {
 		return err
 	}
-	result := repo.db.Where("cause_id = ?", causeId).Delete(&models.Cause{})
+	result := repo.db.Model(&models.Cause{}).Where("cause_id = ?", causeId).Update("is_deleted", 1)
 	if result.Error != nil {
 		return result.Error
 	}

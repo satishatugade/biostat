@@ -10,7 +10,8 @@ type DiseaseAudit struct {
 	Description       string    `json:"description"`
 	ImageURL          string    `json:"image_url"`
 	SlugURL           string    `json:"slug_url"`
-	OperationType     string    `json:"operation_type"` // "Update" or "Delete"
+	OperationType     string    `json:"operation_type"`
+	IsDeleted         int       `json:"is_deleted"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 	CreatedBy         string    `json:"created_by"`
@@ -37,6 +38,7 @@ type DiseaseProfileDiagnosticTestMasterAudit struct {
 	Method           string    `gorm:"column:method"`
 	OperationType    string    `gorm:"column:operation_type"`
 	UpdatedBy        string    `gorm:"column:updated_by"`
+	IsDeleted        int       `json:"is_deleted"`
 	ModifiedOn       time.Time `gorm:"column:modified_on;autoCreateTime"`
 }
 
@@ -55,6 +57,7 @@ type CauseAudit struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 	CreatedBy     string    `json:"created_by"`
 	UpdatedBy     string    `json:"updated_by"`
+	IsDeleted     int       `json:"is_deleted"`
 }
 
 func (CauseAudit) TableName() string {
@@ -73,8 +76,27 @@ type SymptomAudit struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 	CreatedBy      string    `json:"created_by"`
 	UpdatedBy      string    `json:"updated_by"`
+	IsDeleted      int       `json:"is_deleted"`
 }
 
 func (SymptomAudit) TableName() string {
 	return "tbl_symptom_master_audit"
+}
+
+type MedicationAudit struct {
+	MedicationAuditId uint64    `json:"medication_audit_id" gorm:"column:medication_audit_id;primaryKey"`
+	MedicationId      uint64    `json:"medication_id" gorm:"column:medication_id"`
+	MedicationName    string    `json:"medication_name" gorm:"column:medication_name"`
+	MedicationCode    string    `json:"medication_code" gorm:"column:medication_code"`
+	Description       string    `json:"description" gorm:"column:description"`
+	OperationType     string    `json:"operation_type" gorm:"column:operation_type"`
+	IsDeleted         int       `json:"is_deleted" gorm:"column:is_deleted"`
+	CreatedAt         time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt         time.Time `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
+	CreatedBy         string    `json:"created_by" gorm:"column:created_by"`
+	UpdatedBy         string    `json:"updated_by" gorm:"column:updated_by"`
+}
+
+func (MedicationAudit) TableName() string {
+	return "tbl_medication_master_audit"
 }

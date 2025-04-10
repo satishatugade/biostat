@@ -17,10 +17,11 @@ type PatientController struct {
 	dietService          service.DietService
 	allergyService       service.AllergyService
 	medicalRecordService service.TblMedicalRecordService
+	medicationService    service.MedicationService
 }
 
-func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService) *PatientController {
-	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService}
+func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService, medicationService service.MedicationService) *PatientController {
+	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService, medicationService: medicationService}
 }
 
 func (pc *PatientController) GetPatientInfo(c *gin.Context) {
@@ -581,4 +582,19 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully", gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded, "health_details": healthDetailsAdded}, nil, nil)
+}
+func (mc *PatientController) GetMedication(c *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(c)
+	medications, totalRecords, err := mc.medicationService.GetMedications(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve medications", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(medications),
+		"Medication info retrieved successfully",
+		"Medication info not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, medications, pagination, nil)
 }

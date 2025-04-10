@@ -82,13 +82,18 @@ func (repo *SymptomRepositoryImpl) DeleteSymptom(symptomId uint64, deletedBy str
 	if err != nil {
 		return err
 	}
-
 	err = repo.SaveSymptomAudit(symptom, constant.DELETE, deletedBy)
 	if err != nil {
 		return err
 	}
-
-	return repo.db.Delete(&models.Symptom{}, "symptom_id = ?", symptomId).Error
+	result := repo.db.Model(&models.Symptom{}).Where("symptom_id = ?", symptomId).Update("is_deleted", 1)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("no records updated (cause not found or already deleted)")
+	}
+	return nil
 }
 
 func (repo *SymptomRepositoryImpl) SaveSymptomAudit(symptom *models.Symptom, operationType string, user string) error {
