@@ -657,18 +657,102 @@ func (mc *MasterController) AddMedication(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateMedication(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 	var medication models.Medication
 	if err := c.ShouldBindJSON(&medication); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid medication update input", nil, err)
 		return
 	}
 
-	if err := mc.medicationService.UpdateMedication(&medication); err != nil {
+	if err := mc.medicationService.UpdateMedication(&medication, authUserId); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update medication", nil, err)
 		return
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Medication updated successfully", medication, nil, nil)
+}
+
+func (mc *MasterController) DeleteMedication(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+
+	medicationId, err := strconv.ParseUint(c.Param("medication_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid medication ID", nil, err)
+		return
+	}
+
+	err = mc.medicationService.DeleteMedication(medicationId, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Deletion failed", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Medication deleted", nil, nil, nil)
+}
+
+func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
+	var medicationId uint64
+	medicationIdStr := c.Query("medication_id")
+	if medicationIdStr != "" {
+		parsedMedicationId, err := strconv.ParseUint(medicationIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid medication ID", nil, err)
+			return
+		}
+		medicationId = parsedMedicationId
+	}
+
+	var medicationAuditId uint64
+	if auditIdStr := c.Query("medication_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			medicationAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Medication audit record not found"
+
+	// Fetch all if no filters applied
+	if medicationId == 0 && medicationAuditId == 0 {
+		data, totalRecords, err := mc.medicationService.GetAllMedicationAuditRecord(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Medication audit records retrieved successfully",
+			"Medication audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.medicationService.GetMedicationAuditRecord(medicationId, medicationAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Medication audit records retrieved successfully",
+		"Medication audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
 
 func (dc *MasterController) GetDiagnosticTests(c *gin.Context) {

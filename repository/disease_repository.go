@@ -22,6 +22,9 @@ type DiseaseRepository interface {
 	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
 	IsDiseaseProfileExists(diseaseProfileId uint) (bool, error)
 
+	InsertMedication(medication *models.Medication) error
+	InsertMedicationType(medicationType *[]models.MedicationType) error
+
 	BulkInsert(data interface{}) error
 }
 
@@ -259,4 +262,14 @@ func (repo *DiseaseRepositoryImpl) GetAllDiseaseAuditLogs(page, limit int) ([]mo
 
 func (r *DiseaseRepositoryImpl) BulkInsert(data interface{}) error {
 	return r.db.Create(data).Error
+}
+
+// InsertMedication implements DiseaseRepository.
+func (repo *DiseaseRepositoryImpl) InsertMedication(medication *models.Medication) error {
+	return repo.db.Create(medication).Error
+}
+
+// InsertMedicationType implements DiseaseRepository.
+func (repo *DiseaseRepositoryImpl) InsertMedicationType(medicationType *[]models.MedicationType) error {
+	return repo.db.Create(medicationType).Error
 }

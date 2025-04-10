@@ -65,10 +65,10 @@ type Symptom struct {
 	SymptomType string    `json:"symptom_type"`
 	Commonality string    `json:"commonality"`
 	Description string    `json:"description"`
+	IsDeleted   int       `json:"is_deleted"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	CreatedBy   string    `json:"created_by"`
-	IsDeleted   int       `json:"is_deleted"`
 }
 
 type Severity struct {
@@ -107,6 +107,7 @@ type Medication struct {
 	CreatedAt       time.Time        `json:"created_at" gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt       time.Time        `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
 	IsDeleted       int              `json:"is_deleted"`
+	CreatedBy       string           `json:"created_by" gorm:"column:created_by"`
 	MedicationTypes []MedicationType `json:"medication_type" gorm:"foreignKey:MedicationId;references:MedicationId"`
 }
 
@@ -116,13 +117,17 @@ func (Medication) TableName() string {
 }
 
 type MedicationType struct {
-	DosageId           uint64  `json:"dosage_id" gorm:"column:dosage_id;primaryKey"`
-	MedicationId       uint64  `json:"medication_id" gorm:"column:medication_id"`
-	MedicationType     string  `json:"medication_type" gorm:"column:medication_type"`
-	UnitValue          float64 `json:"unit_value" gorm:"column:unit_value"`
-	UnitType           string  `json:"unit_type" gorm:"column:unit_type"`
-	MedicationCost     float64 `json:"medication_cost" gorm:"column:medication_cost"`
-	MedicationImageURL string  `json:"medication_image_url" gorm:"column:medication_image_url"`
+	DosageId           uint64    `json:"dosage_id" gorm:"column:dosage_id;primaryKey"`
+	MedicationId       uint64    `json:"medication_id" gorm:"column:medication_id"`
+	MedicationType     string    `json:"medication_type" gorm:"column:medication_type"`
+	UnitValue          float64   `json:"unit_value" gorm:"column:unit_value"`
+	UnitType           string    `json:"unit_type" gorm:"column:unit_type"`
+	MedicationCost     float64   `json:"medication_cost" gorm:"column:medication_cost"`
+	MedicationImageURL string    `json:"medication_image_url" gorm:"column:medication_image_url"`
+	IsDeleted          int       `json:"is_deleted"`
+	CreatedAt          time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
+	CreatedBy          string    `json:"created_by" gorm:"column:created_by"`
 }
 
 // Table name override

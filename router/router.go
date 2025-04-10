@@ -110,6 +110,8 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Medication", http.MethodPost, constant.Medication, masterController.GetAllMedication},
 		Route{"Medication", http.MethodPost, constant.AddMedication, masterController.AddMedication},
 		Route{"Medication", http.MethodPut, constant.UpdateMedication, masterController.UpdateMedication},
+		Route{"Medication", http.MethodPost, constant.DeleteMedication, masterController.DeleteMedication},
+		Route{"Medication", http.MethodPost, constant.MedicationAudit, masterController.GetMedicationAuditRecord},
 
 		//exercise master
 		Route{"Exercise", http.MethodPost, constant.Exercise, masterController.AddExercise},

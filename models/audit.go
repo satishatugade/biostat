@@ -100,3 +100,25 @@ type MedicationAudit struct {
 func (MedicationAudit) TableName() string {
 	return "tbl_medication_master_audit"
 }
+
+type MedicationTypeAudit struct {
+	MedicationTypeAuditId uint64  `json:"medication_type_audit_id" gorm:"column:medication_type_audit_id;primaryKey"`
+	DosageId              uint64  `json:"dosage_id" gorm:"column:dosage_id"`
+	MedicationId          uint64  `json:"medication_id" gorm:"column:medication_id"`
+	MedicationType        string  `json:"medication_type" gorm:"column:medication_type"`
+	UnitValue             float64 `json:"unit_value" gorm:"column:unit_value"`
+	UnitType              string  `json:"unit_type" gorm:"column:unit_type"`
+	MedicationCost        float64 `json:"medication_cost" gorm:"column:medication_cost"`
+	MedicationImageURL    string  `json:"medication_image_url" gorm:"column:medication_image_url"`
+
+	OperationType string `json:"operation_type" gorm:"column:operation_type"`
+	IsDeleted     int    `json:"is_deleted" gorm:"column:is_deleted"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
+	UpdatedBy string    `json:"updated_by" gorm:"column:updated_by"`
+}
+
+func (MedicationTypeAudit) TableName() string {
+	return "tbl_medication_type_audit"
+}

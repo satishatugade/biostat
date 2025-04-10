@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"biostat/constant"
 	"biostat/models"
 
 	"gorm.io/gorm"
@@ -9,7 +10,10 @@ import (
 type MedicationRepository interface {
 	GetMedications(limit int, offset int) ([]models.Medication, int64, error)
 	CreateMedication(medication *models.Medication) error
-	UpdateMedication(medication *models.Medication) error
+	UpdateMedication(medication *models.Medication, authUserId string) error
+	DeleteMedication(medicationId uint64, authUserId string) error
+	GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error)
+	GetAllMedicationAuditRecord(page, limit int) ([]models.MedicationAudit, int64, error)
 }
 
 type MedicationRepositoryImpl struct {
@@ -47,14 +51,47 @@ func (m *MedicationRepositoryImpl) CreateMedication(medication *models.Medicatio
 	return m.db.Create(medication).Error
 }
 
-func (r *MedicationRepositoryImpl) UpdateMedication(medication *models.Medication) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *MedicationRepositoryImpl) SaveMedicationAudit(tx *gorm.DB, medication *models.Medication, operationType, authUserId string) error {
+	medAudit := models.MedicationAudit{
+		MedicationId:   medication.MedicationId,
+		MedicationName: medication.MedicationName,
+		MedicationCode: medication.MedicationCode,
+		Description:    medication.Description,
+		OperationType:  operationType,
+		IsDeleted:      medication.IsDeleted,
+		CreatedBy:      medication.CreatedBy,
+		UpdatedBy:      authUserId,
+	}
+
+	return tx.Create(&medAudit).Error
+}
+
+func (r *MedicationRepositoryImpl) SaveMedicationTypeAudit(tx *gorm.DB, medType *models.MedicationType, operationType string, authUserId string) error {
+	typeAudit := models.MedicationTypeAudit{
+		DosageId:           medType.DosageId,
+		MedicationId:       medType.MedicationId,
+		MedicationType:     medType.MedicationType,
+		UnitValue:          medType.UnitValue,
+		UnitType:           medType.UnitType,
+		MedicationCost:     medType.MedicationCost,
+		MedicationImageURL: medType.MedicationImageURL,
+		OperationType:      operationType,
+		UpdatedBy:          authUserId,
+	}
+
+	return tx.Create(&typeAudit).Error
+}
+
+func (mr *MedicationRepositoryImpl) UpdateMedication(medication *models.Medication, authUserId string) error {
+	return mr.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.Medication{}).
 			Where("medication_id = ?", medication.MedicationId).
 			Updates(medication).Error; err != nil {
 			return err
 		}
-
+		if err := mr.SaveMedicationAudit(tx, medication, constant.UPDATE, authUserId); err != nil {
+			return err
+		}
 		for _, medType := range medication.MedicationTypes {
 			if medType.DosageId > 0 {
 				if err := tx.Model(&models.MedicationType{}).
@@ -68,8 +105,60 @@ func (r *MedicationRepositoryImpl) UpdateMedication(medication *models.Medicatio
 					return err
 				}
 			}
+			medType.MedicationId = medication.MedicationId
+			if err := mr.SaveMedicationTypeAudit(tx, &medType, constant.UPDATE, authUserId); err != nil {
+				return err
+			}
 		}
-
 		return nil
 	})
+}
+
+func (s *MedicationRepositoryImpl) DeleteMedication(medicationId uint64, authUserId string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var med *models.Medication
+		if err := tx.First(&med, "medication_id = ?", medicationId).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.Medication{}).
+			Where("medication_id = ?", medicationId).
+			Update("is_deleted", 1).Error; err != nil {
+			return err
+		}
+
+		if err := s.SaveMedicationAudit(tx, med, constant.DELETE, authUserId); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (repo *MedicationRepositoryImpl) GetAllMedicationAuditRecord(page, limit int) ([]models.MedicationAudit, int64, error) {
+	var auditLogs []models.MedicationAudit
+	var totalRecords int64
+
+	repo.db.Model(&models.MedicationAudit{}).Count(&totalRecords)
+
+	err := repo.db.
+		Limit(limit).
+		Offset((page - 1) * limit).
+		Order("medication_audit_id DESC").
+		Find(&auditLogs).Error
+
+	return auditLogs, totalRecords, err
+}
+
+func (repo *MedicationRepositoryImpl) GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error) {
+	var auditLogs []models.MedicationAudit
+	query := repo.db
+
+	if medicationId != 0 {
+		query = query.Where("medication_id = ?", medicationId)
+	}
+	if medicationAuditId != 0 {
+		query = query.Where("medication_audit_id = ?", medicationAuditId)
+	}
+
+	err := query.Order("medication_audit_id DESC").Find(&auditLogs).Error
+	return auditLogs, err
 }

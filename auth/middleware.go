@@ -97,9 +97,6 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 }
 
 func Authenticate(path string, protectedRoutes map[string][]string, handler gin.HandlerFunc) gin.HandlerFunc {
-	fmt.Println("Full path:", path)
-
-	// Check if path starts with any protected route prefix
 	for protectedPrefix, roles := range protectedRoutes {
 		if strings.HasPrefix(path, protectedPrefix) {
 			fmt.Println("Protected route matched:", protectedPrefix)

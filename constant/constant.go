@@ -63,6 +63,8 @@ const (
 	Medication                      = "/get-medication"
 	AddMedication                   = "/add-medication"
 	UpdateMedication                = "/update-medication"
+	DeleteMedication                = "/delete-medication/:medication_id"
+	MedicationAudit                 = "/medication-audit"
 	DiagnosticTest                  = "/diagnostic-test"
 	SingleDiagnosticTest            = "/diagnostic-test/:diagnosticTestId"
 	DiagnosticComponents            = "/diagnostic-components"

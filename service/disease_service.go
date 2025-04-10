@@ -6,6 +6,8 @@ import (
 	"biostat/utils"
 	"fmt"
 	"io"
+	"strconv"
+	"time"
 )
 
 type DiseaseService interface {
@@ -80,13 +82,15 @@ func (s *DiseaseServiceImpl) ProcessUploadFromStream(entity, authUserId string, 
 		return ProcessAndInsert[models.Exercise](s, reader, authUserId)
 	case "DietMaster":
 		return ProcessAndInsert[models.DietPlanTemplate](s, reader, authUserId)
+	case "MedicationMaster":
+		return processMedicationInsert(s, reader, authUserId)
 	default:
 		return 0, fmt.Errorf("unsupported entity: %s", entity)
 	}
 }
 
 func ProcessAndInsert[T any](s *DiseaseServiceImpl, reader io.Reader, authUserId string) (int, error) {
-	data, err := utils.ParseExcelFromReader[T](reader) // returns []T
+	data, err := utils.ParseExcelFromReader[T](reader)
 	if err != nil {
 		return 0, err
 	}
@@ -108,4 +112,84 @@ func SetCreatedByForAll[T any](list []*T, userId string) {
 			setter.SetCreatedBy(userId)
 		}
 	}
+}
+
+func processMedicationInsert(s *DiseaseServiceImpl, reader io.Reader, authUserId string) (int, error) {
+
+	type MedicationExcelRow struct {
+		MedicationName     string `json:"medication_name"`
+		MedicationCode     string `json:"medication_code"`
+		Description        string `json:"description"`
+		MedicationType     string `json:"medication_type"`
+		UnitValue          string `json:"unit_value"`
+		UnitType           string `json:"unit_type"`
+		MedicationCost     string `json:"medication_cost"`
+		MedicationImageURL string `json:"medication_image_url"`
+	}
+
+	data, err := utils.ParseExcelFromReader[MedicationExcelRow](reader)
+	if err != nil {
+		return 0, err
+	}
+
+	type medKey struct {
+		Name        string
+		Code        string
+		Description string
+	}
+	groupMap := make(map[medKey][]MedicationExcelRow)
+
+	for _, row := range data {
+		key := medKey{
+			Name:        row.MedicationName,
+			Code:        row.MedicationCode,
+			Description: row.Description,
+		}
+		groupMap[key] = append(groupMap[key], row)
+	}
+
+	totalInserted := 0
+
+	for key, rows := range groupMap {
+		med := models.Medication{
+			MedicationName: key.Name,
+			MedicationCode: key.Code,
+			Description:    key.Description,
+			CreatedBy:      authUserId,
+			IsDeleted:      0,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+		err := s.diseaseRepo.InsertMedication(&med)
+		if err != nil {
+			return totalInserted, err
+		}
+
+		var medTypes []models.MedicationType
+		for _, row := range rows {
+			unitVal, _ := strconv.ParseFloat(row.UnitValue, 64)
+			costVal, _ := strconv.ParseFloat(row.MedicationCost, 64)
+			medTypes = append(medTypes, models.MedicationType{
+				MedicationId:       med.MedicationId,
+				MedicationType:     row.MedicationType,
+				UnitValue:          unitVal,
+				UnitType:           row.UnitType,
+				MedicationCost:     costVal,
+				MedicationImageURL: row.MedicationImageURL,
+				CreatedBy:          authUserId,
+				IsDeleted:          0,
+				CreatedAt:          time.Now(),
+				UpdatedAt:          time.Now(),
+			})
+		}
+
+		err = s.diseaseRepo.InsertMedicationType(&medTypes)
+		if err != nil {
+			return totalInserted, err
+		}
+
+		totalInserted++
+	}
+
+	return totalInserted, nil
 }
