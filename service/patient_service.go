@@ -7,6 +7,8 @@ import (
 )
 
 type PatientService interface {
+	GetAllRelation() ([]models.PatientRelation, error)
+	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
 	GetPatientById(patientId uint) (*models.Patient, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
@@ -33,6 +35,21 @@ type PatientServiceImpl struct {
 	patientRepo repository.PatientRepository
 }
 
+// Ensure patientRepo is properly initialized
+func NewPatientService(repo repository.PatientRepository) PatientService {
+	return &PatientServiceImpl{patientRepo: repo}
+}
+
+// GetAllRelation implements PatientService.
+func (s *PatientServiceImpl) GetAllRelation() ([]models.PatientRelation, error) {
+	return s.patientRepo.GetAllRelation()
+}
+
+// GetRelationById implements PatientService.
+func (s *PatientServiceImpl) GetRelationById(relationId int) (models.PatientRelation, error) {
+	return s.patientRepo.GetRelationById(relationId)
+}
+
 // GetAllPatientPrescription implements PatientService.
 func (s *PatientServiceImpl) GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	return s.patientRepo.GetAllPrescription(limit, offset)
@@ -40,11 +57,6 @@ func (s *PatientServiceImpl) GetAllPrescription(limit int, offset int) ([]models
 
 func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	return s.patientRepo.GetPrescriptionByPatientId(patientID, limit, offset)
-}
-
-// Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository) PatientService {
-	return &PatientServiceImpl{patientRepo: repo}
 }
 
 func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patient, int64, error) {

@@ -8,6 +8,8 @@ import (
 )
 
 type PatientRepository interface {
+	GetAllRelation() ([]models.PatientRelation, error)
+	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
 	AddPatientPrescription(*models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
@@ -44,6 +46,19 @@ func NewPatientRepository(db *gorm.DB) PatientRepository {
 		panic("database instance is null")
 	}
 	return &PatientRepositoryImpl{db: db}
+}
+
+func (p *PatientRepositoryImpl) GetAllRelation() ([]models.PatientRelation, error) {
+	var relations []models.PatientRelation
+	err := p.db.Find(&relations).Error
+	return relations, err
+}
+
+// GetRelationById implements PatientRepository.
+func (p *PatientRepositoryImpl) GetRelationById(relationId int) (models.PatientRelation, error) {
+	var relation models.PatientRelation
+	err := p.db.First(&relation, relationId).Error
+	return relation, err
 }
 
 func (p *PatientRepositoryImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {

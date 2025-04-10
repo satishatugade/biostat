@@ -69,6 +69,7 @@ type SystemUserRoleMapping struct {
 	UserId                  uint64    `gorm:"column:user_id;not null" json:"user_id"`
 	PatientId               uint64    `gorm:"column:patient_id;not null" json:"patient_id"`
 	RoleId                  uint64    `gorm:"column:role_id;not null" json:"role_id"`
+	RelationId              int       `gorm:"column:relation_id;not null" json:"relation_id"`
 	IsSelf                  bool      `gorm:"column:is_self;default:false" json:"is_self"`
 	MappingType             string    `gorm:"column:mapping_type;type:varchar(50)" json:"mapping_type,omitempty"`
 	CreatedAt               time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
@@ -196,8 +197,9 @@ type SystemUser_ struct {
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 
 	// Transient Fields (Not Stored in DB)
-	RoleId   uint64 `gorm:"-" json:"role_id"`
-	RoleName string `gorm:"-" json:"role_name"`
+	RoleId     uint64 `gorm:"-" json:"role_id"`
+	RoleName   string `gorm:"-" json:"role_name"`
+	RelationId uint64 `gorm:"-" json:"relation_id"`
 }
 
 // TableName overrides the default table name

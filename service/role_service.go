@@ -11,7 +11,7 @@ type RoleService interface {
 	GetRoleById(roleId uint64) (models.RoleMaster, error)
 	GetRoleIdByRoleName(roleName string) (models.RoleMaster, error)
 	GetRoleByUserId(UserId uint64, mappingType *string) (models.RoleMaster, error)
-	AddSystemUserMapping(patientUserId *uint64, userId, roleId uint64, roleName string) error
+	AddSystemUserMapping(patientUserId *uint64, userId, roleId uint64, roleName string, relationId *int) error
 }
 
 type RoleServiceImpl struct {
@@ -42,7 +42,7 @@ func (r *RoleServiceImpl) GetRoleByUserId(UserId uint64, mappingType *string) (m
 }
 
 // AddSystemUserMapping implements RoleService.
-func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uint64, roleId uint64, roleName string) error {
+func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uint64, roleId uint64, roleName string, relationShipId *int) error {
 
 	roleName = strings.ToLower(roleName)
 	mappingType := map[string]string{"patient": "S", "doctor": "D", "relative": "R", "caregiver": "C", "admin": "A"}[roleName]
@@ -52,10 +52,16 @@ func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uin
 		return errors.New("invalid role name")
 	}
 	var patientId uint64
+	var relationId int
 	if patientUserId == nil {
 		patientId = userId
 	} else {
 		patientId = *patientUserId
+	}
+	if relationShipId == nil {
+		relationId = 0
+	} else {
+		relationId = *relationShipId
 	}
 	systemUsermapping := models.SystemUserRoleMapping{
 		UserId:      userId,
@@ -63,6 +69,7 @@ func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uin
 		MappingType: mappingType,
 		IsSelf:      isSelf,
 		PatientId:   patientId,
+		RelationId:  relationId,
 	}
 	return r.roleRepo.AddSystemUserMapping(&systemUsermapping)
 }

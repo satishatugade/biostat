@@ -24,6 +24,32 @@ func NewPatientController(patientService service.PatientService, dietService ser
 	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService, medicationService: medicationService}
 }
 
+func (pc *PatientController) GetAllRelation(c *gin.Context) {
+	relations, err := pc.patientService.GetAllRelation()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch relations", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Relations fetched successfully", relations, nil, nil)
+}
+
+func (pc *PatientController) GetRelationById(c *gin.Context) {
+	relationIdStr := c.Param("relation_id")
+	relationId, err := strconv.ParseUint(relationIdStr, 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid relation ID", nil, err)
+		return
+	}
+
+	relation, err := pc.patientService.GetRelationById(int(relationId))
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relation not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Relation fetched successfully", relation, nil, nil)
+}
+
 func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	patients, totalRecords, err := pc.patientService.GetPatients(limit, offset)

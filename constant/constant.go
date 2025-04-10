@@ -84,7 +84,8 @@ const (
 	UpdateDiet      = "/update-diet/:diet_id"
 
 	//Roles master
-	GetRole = "/get-role/:role_id"
+	GetRole  = "/get-role/:role_id"
+	Relation = "/all-relation"
 
 	//bulk upload master data
 	BulkUpload = "/bulk-upload/:entity"
