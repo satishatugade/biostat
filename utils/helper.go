@@ -225,6 +225,15 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			CreatedAt:         user.CreatedAt,
 			UpdatedAt:         user.UpdatedAt,
 		}
+	case "admin":
+		return models.Admin{
+			UserId:    user.UserId,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			RoleName:  user.RoleName,
+			MobileNo:  user.MobileNo,
+			Email:     user.Email,
+		}
 	default:
 		return models.Patient{
 			PatientId:          user.UserId,

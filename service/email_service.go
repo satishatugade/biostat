@@ -1,6 +1,7 @@
 package service
 
 import (
+	"biostat/models"
 	"fmt"
 	"net/smtp"
 	"os"
@@ -24,10 +25,18 @@ func NewEmailService() *EmailService {
 	}
 }
 
-func (e *EmailService) SendLoginCredentials(toEmail, username, password string) error {
+func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient) error {
 	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
-	APPURL := os.Getenv("APP_URL")                                         // Application Login URL
-	RESETURL := fmt.Sprintf("%s/reset-password?email=%s", APPURL, toEmail) // Password Reset URL
+	APPURL := os.Getenv("APP_URL")                                                  // Application Login URL
+	RESETURL := fmt.Sprintf("%s/reset-password?email=%s", APPURL, systemUser.Email) // Password Reset URL
+
+	var additionalInfo string
+	if patient != nil {
+		additionalInfo = fmt.Sprintf(
+			"<p style='text-align: left;'>You’ve been successfully added as a <strong>%s</strong> by patient <strong>%s %s</strong> in the Biostat Healthcare System.</p>",
+			systemUser.RoleName, patient.FirstName, patient.LastName,
+		)
+	}
 
 	// HTML Email Body with Login and Reset Password Links
 	message := fmt.Sprintf("Subject: Welcome to our Biostat Healthcare System\r\n"+
@@ -37,17 +46,25 @@ func (e *EmailService) SendLoginCredentials(toEmail, username, password string) 
 		"<html><body>"+
 		"<div style='text-align: center;'>"+
 		"<h3>Welcome to our Biostat Healthcare System</h3>"+
-		"<p>Hello,</p>"+
-		"<p>Your account has been created successfully.</p>"+
+		"<p style='text-align: left;'>Hello %s %s,</p>"+
+		"%s"+
 		"<p><strong>Username:</strong> %s</p>"+
 		"<p><strong>Password:</strong> %s</p>"+
 		"<p>Please change your password after logging in.</p>"+
 		"<p><a href='%s' style='background-color:blue;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;'>Login Here</a></p>"+
 		"<p>If you need to reset your password, click below:</p>"+
 		"<p><a href='%s' style='background-color:red;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;'>Reset Password</a></p>"+
-		"<br>Best Regards,<br>Biostat Healthcare Team"+
-		"</div></body></html>", e.SenderEmail, username, password, APPURL, RESETURL)
+		"<div><br>Best Regards,<br>Biostat Healthcare Team</div>"+
+		"</div></body></html>",
+		e.SenderEmail,
+		systemUser.FirstName, systemUser.LastName,
+		additionalInfo,
+		systemUser.Username,
+		password,
+		APPURL,
+		RESETURL,
+	)
 
 	// Send Email
-	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, []string{toEmail}, []byte(message))
+	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, []string{systemUser.Email}, []byte(message))
 }

@@ -16,7 +16,7 @@ type PatientRepository interface {
 	GetPrescriptionByPatientId(patientId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
-	GetPatientById(patientId uint) (*models.Patient, error)
+	GetPatientById(patientId *uint64) (*models.Patient, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
@@ -122,9 +122,9 @@ func (p *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.P
 }
 
 // GetPatientById implements PatientRepository.
-func (p *PatientRepositoryImpl) GetPatientById(patientId uint) (*models.Patient, error) {
+func (p *PatientRepositoryImpl) GetPatientById(patientId *uint64) (*models.Patient, error) {
 	var patient models.Patient
-	err := p.db.Where("patient_id = ?", patientId).First(&patient).Error
+	err := p.db.Where("patient_id = ?", &patientId).First(&patient).Error
 	if err != nil {
 		return nil, err
 	}

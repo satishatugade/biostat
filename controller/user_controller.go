@@ -39,11 +39,24 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to bind user object", nil, err)
 		return
 	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
-		return
+	var hashedPassword string
+	var password string
+	if user.RoleName == "doctor" || user.RoleName == "caregiver" || user.RoleName == "nurse" {
+		password = utils.GenerateRandomPassword()
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
+			return
+		}
+		user.Password = string(hashedPassword)
+	} else {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
+			return
+		}
+		password = user.Password
+		user.Password = string(hashedPassword)
 	}
 	roleMaster, err := uc.roleService.GetRoleIdByRoleName(user.RoleName)
 	if err != nil {
@@ -87,8 +100,13 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		return
 	}
 	tx.Commit()
+	err = uc.emailService.SendLoginCredentials(systemUser, password, nil)
+	if err != nil {
+		log.Println("Error sending email:", err)
+	}
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
+	return
 }
 
 func createUserInKeycloak(user models.SystemUser_) (string, error) {
@@ -266,6 +284,12 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		return
 	}
 
+	patient, err := uc.patientService.GetPatientById(patientUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+
 	relation, err := uc.patientService.GetRelationById(int(req.RelationId))
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relation not found", nil, err)
@@ -320,12 +344,12 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
 		return
 	}
-	err = uc.emailService.SendLoginCredentials(systemUser.Email, systemUser.Username, password)
+	err = uc.emailService.SendLoginCredentials(systemUser, password, patient)
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
 	log.Println("Email send succesfully ")
 	tx.Commit()
-	response:= utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
+	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 }

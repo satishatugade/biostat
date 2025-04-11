@@ -4,6 +4,15 @@ import (
 	"time"
 )
 
+type Admin struct {
+	UserId    uint64 `json:"user_id"`
+	RoleName  string `json:"role_name"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	MobileNo  string `json:"mobile_no"`
+	Email     string `json:"email"`
+}
+
 type SystemUser struct {
 	SystemUserId       uint      `gorm:"primaryKey;autoIncrement;column:system_user_id"`
 	UserId             uint      `gorm:"not null;column:user_id"`

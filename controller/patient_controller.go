@@ -73,7 +73,7 @@ func (pc *PatientController) GetPatientByID(c *gin.Context) {
 		return
 	}
 
-	patient, err := pc.patientService.GetPatientById(uint(patientId))
+	patient, err := pc.patientService.GetPatientById(&patientId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
