@@ -50,10 +50,13 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var userRepo = repository.NewTblUserGtokenRepository(db)
 	var userService = service.NewTblUserGtokenService(userRepo)
 
+	var supportGrpRepo = repository.NewSupportGroupRepository(db)
+	var supportGrpService = service.NewSupportGroupService(supportGrpRepo)
+
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService)
 
 	var emailService = service.NewEmailService()
-	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService)
+	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
@@ -150,6 +153,13 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"D-LAB", http.MethodPut, constant.UpdateLabInfo, masterController.UpdateLab},
 		Route{"D-LAB", http.MethodPost, constant.DeleteLab, masterController.DeleteLab},
 		Route{"D-LAB", http.MethodPost, constant.AuditViewLab, masterController.GetDiagnosticLabAuditRecord},
+
+		Route{"Support-Group", http.MethodPost, constant.AddGroup, masterController.AddSupportGroup},
+		Route{"Support-Group", http.MethodPost, constant.GetAllGroup, masterController.GetAllSupportGroups},
+		Route{"GET-SUPPORT-GROUP", http.MethodPost, constant.GetGroupById, masterController.GetSupportGroupById},
+		Route{"UPDATE-SUPPORT-GROUP", http.MethodPut, constant.UpadteSupportGroup, masterController.UpdateSupportGroup},
+		Route{"DELETE-SUPPORT-GROUP", http.MethodPost, constant.DeleteSupportGroup, masterController.DeleteSupportGroup},
+		Route{"DELETE-SUPPORT-GROUP", http.MethodPost, constant.AuditSupportGroup, masterController.GetSupportGroupAuditRecord},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {

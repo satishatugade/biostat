@@ -14,29 +14,32 @@ import (
 )
 
 type MasterController struct {
-	allergyService    service.AllergyService
-	diseaseService    service.DiseaseService
-	causeService      service.CauseService
-	symptomService    service.SymptomService
-	medicationService service.MedicationService
-	dietService       service.DietService
-	exerciseService   service.ExerciseService
-	diagnosticService service.DiagnosticService
-	roleService       service.RoleService
+	allergyService      service.AllergyService
+	diseaseService      service.DiseaseService
+	causeService        service.CauseService
+	symptomService      service.SymptomService
+	medicationService   service.MedicationService
+	dietService         service.DietService
+	exerciseService     service.ExerciseService
+	diagnosticService   service.DiagnosticService
+	roleService         service.RoleService
+	supportGroupService service.SupportGroupService
 }
 
 func NewMasterController(allergyService service.AllergyService, diseaseService service.DiseaseService,
 	causeService service.CauseService, symptomService service.SymptomService, medicationService service.MedicationService,
-	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService, roleService service.RoleService) *MasterController {
+	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService,
+	roleService service.RoleService, supportGroupService service.SupportGroupService) *MasterController {
 	return &MasterController{allergyService: allergyService,
-		diseaseService:    diseaseService,
-		causeService:      causeService,
-		symptomService:    symptomService,
-		medicationService: medicationService,
-		dietService:       dietService,
-		exerciseService:   exerciseService,
-		diagnosticService: diagnosticService,
-		roleService:       roleService,
+		diseaseService:      diseaseService,
+		causeService:        causeService,
+		symptomService:      symptomService,
+		medicationService:   medicationService,
+		dietService:         dietService,
+		exerciseService:     exerciseService,
+		diagnosticService:   diagnosticService,
+		roleService:         roleService,
+		supportGroupService: supportGroupService,
 	}
 }
 
@@ -1251,4 +1254,154 @@ func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
 		"Diagnostic lab audit records not found",
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) AddSupportGroup(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.SupportGroup
+	input.CreatedBy = authUserId
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+
+	err := mc.supportGroupService.AddSupportGroup(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add support group", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Support group added successfully", input, nil, nil)
+}
+
+func (mc *MasterController) GetAllSupportGroups(c *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(c)
+	data, totalRecords, err := mc.supportGroupService.GetAllSupportGroups(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch support groups", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, msg := utils.GetResponseStatusMessage(len(data), "Support groups found", "No support groups found")
+	models.SuccessResponse(c, constant.Success, statusCode, msg, data, pagination, nil)
+}
+
+func (mc *MasterController) GetSupportGroupById(c *gin.Context) {
+
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+
+	supportGroupId, err := strconv.ParseUint(c.Param("support_group_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid support group ID", nil, err)
+		return
+	}
+
+	group, err := mc.supportGroupService.GetSupportGroupById(supportGroupId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch support group", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Support group fetched successfully", group, nil, nil)
+}
+
+func (mc *MasterController) UpdateSupportGroup(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.SupportGroup
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+
+	err := mc.supportGroupService.UpdateSupportGroup(&input, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update support group", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Support group updated successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) DeleteSupportGroup(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	supportGroupId, err := strconv.ParseUint(c.Param("support_group_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid support group ID", nil, err)
+		return
+	}
+
+	if err := mc.supportGroupService.DeleteSupportGroup(supportGroupId, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete support group", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Support group deleted successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) GetSupportGroupAuditRecord(c *gin.Context) {
+	var supportGroupId uint64
+	supportGroupIdStr := c.Query("support_group_id")
+	if supportGroupIdStr != "" {
+		parsedID, err := strconv.ParseUint(supportGroupIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid support group ID", nil, err)
+			return
+		}
+		supportGroupId = parsedID
+	}
+
+	var supportGroupAuditId uint64
+	if auditIdStr := c.Query("support_group_audit_id"); auditIdStr != "" {
+		parsedAuditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			supportGroupAuditId = parsedAuditId
+		}
+	}
+	page, limit, offset := utils.GetPaginationParams(c)
+
+	if supportGroupId == 0 && supportGroupAuditId == 0 {
+		data, totalRecords, err := mc.supportGroupService.GetAllSupportGroupAuditRecord(limit, offset)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Support group audit records retrieved successfully",
+			"Support group audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecords, err := mc.supportGroupService.GetSupportGroupAuditRecord(supportGroupId, supportGroupAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecords),
+		"Support group audit records retrieved successfully",
+		"Support group audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecords, nil, nil)
 }

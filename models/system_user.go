@@ -161,6 +161,7 @@ type SupportGroup struct {
 	GroupName      string    `gorm:"column:group_name" json:"group_name"`
 	Description    string    `gorm:"column:description" json:"description"`
 	Location       string    `gorm:"column:location" json:"location"`
+	IsDeleted      int       `gorm:"column:is_deleted" json:"is_deleted"`
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 	CreatedBy      string    `gorm:"column:created_by" json:"created_by"`
@@ -169,6 +170,24 @@ type SupportGroup struct {
 
 func (SupportGroup) TableName() string {
 	return "tbl_support_group"
+}
+
+type SupportGroupAudit struct {
+	SupportGrpAuditId uint64    `gorm:"column:support_group_audit_id;primaryKey;autoIncrement" json:"support_group_audit_id"`
+	SupportGroupId    uint64    `gorm:"column:support_group_id" json:"support_group_id"`
+	GroupName         string    `gorm:"column:group_name" json:"group_name"`
+	Description       string    `gorm:"column:description" json:"description"`
+	Location          string    `gorm:"column:location" json:"location"`
+	IsDeleted         int       `gorm:"column:is_deleted" json:"is_deleted"`
+	OperationType     string    `gorm:"column:operation_type" json:"operation_type"`
+	CreatedAt         time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt         time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy         string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy         string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (SupportGroupAudit) TableName() string {
+	return "tbl_support_group_audit"
 }
 
 type SupportGroupMember struct {

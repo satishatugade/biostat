@@ -88,6 +88,8 @@ func (s *DiseaseServiceImpl) ProcessUploadFromStream(entity, authUserId string, 
 		return ProcessAndInsert[models.DiagnosticTestComponent](s, reader, authUserId)
 	case "DiagnosticLab":
 		return ProcessAndInsert[models.DiagnosticLab](s, reader, authUserId)
+	case "SupportGroup":
+		return ProcessAndInsert[models.SupportGroup](s, reader, authUserId)
 	case "MedicationMaster":
 		return processMedicationInsert(s, reader, authUserId)
 	default:

@@ -27,7 +27,7 @@ const (
 	DoctorList = "/doctor-list"
 
 	NursesList = "/nurse-list"
-	
+
 	// PatientDiseaseCondition = "/patient-disease-condition/:patient_disease_profile_id"
 	PatientResultValue        = "/diagnostic-value"
 	PatientDiseaseCondition   = "/patient-disease-condition/:patient_id"
@@ -101,6 +101,13 @@ const (
 	UpdateLabInfo = "update-lab-info"
 	DeleteLab     = "delete-lab/:lab_id"
 	AuditViewLab  = "lab-audit-view"
+
+	AddGroup           = "add-support-group"
+	GetAllGroup        = "get-support-group"
+	GetGroupById       = "support-group/:support_group_id"
+	DeleteSupportGroup = "delete-support-group/:support_group_id"
+	UpadteSupportGroup = "upadate-support-group"
+	AuditSupportGroup  = "support-group"
 )
 
 const (
