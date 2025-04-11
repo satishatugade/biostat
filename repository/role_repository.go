@@ -11,7 +11,7 @@ type RoleRepository interface {
 	GetRoleById(roleId uint64) (models.RoleMaster, error)
 	GetRoleIdByRoleName(roleName string) (models.RoleMaster, error)
 	GetRoleByUserId(UserId uint64, mappingType *string) (models.SystemUserRoleMapping, error)
-	AddSystemUserMapping(*models.SystemUserRoleMapping) error
+	AddSystemUserMapping(tx *gorm.DB,systemUserMapping *models.SystemUserRoleMapping) error
 }
 
 type RoleRepositoryImpl struct {
@@ -73,9 +73,6 @@ func (r *RoleRepositoryImpl) GetRoleByUserId(UserId uint64, mappingType *string)
 }
 
 // AddSystemUserMapping implements RoleRepository.
-func (r *RoleRepositoryImpl) AddSystemUserMapping(systemUserMapping *models.SystemUserRoleMapping) error {
-	if err := r.db.Create(systemUserMapping).Error; err != nil {
-		return err
-	}
-	return nil
+func (r *RoleRepositoryImpl) AddSystemUserMapping(tx *gorm.DB,systemUserMapping *models.SystemUserRoleMapping) error {
+	return tx.Create(systemUserMapping).Error
 }

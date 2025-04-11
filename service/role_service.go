@@ -5,13 +5,15 @@ import (
 	"biostat/repository"
 	"errors"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 type RoleService interface {
 	GetRoleById(roleId uint64) (models.RoleMaster, error)
 	GetRoleIdByRoleName(roleName string) (models.RoleMaster, error)
 	GetRoleByUserId(UserId uint64, mappingType *string) (models.RoleMaster, error)
-	AddSystemUserMapping(patientUserId *uint64, userId, roleId uint64, roleName string, relationId *int) error
+	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId, roleId uint64, roleName string, relationId *int) error
 }
 
 type RoleServiceImpl struct {
@@ -42,10 +44,10 @@ func (r *RoleServiceImpl) GetRoleByUserId(UserId uint64, mappingType *string) (m
 }
 
 // AddSystemUserMapping implements RoleService.
-func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uint64, roleId uint64, roleName string, relationShipId *int) error {
+func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, roleId uint64, roleName string, relationShipId *int) error {
 
 	roleName = strings.ToLower(roleName)
-	mappingType := map[string]string{"patient": "S", "doctor": "D", "relative": "R", "caregiver": "C", "admin": "A"}[roleName]
+	mappingType := map[string]string{"patient": "S", "doctor": "D", "nurse": "N", "relative": "R", "caregiver": "C", "admin": "A"}[roleName]
 	isSelf := roleName == "patient"
 
 	if mappingType == "" {
@@ -71,5 +73,5 @@ func (r *RoleServiceImpl) AddSystemUserMapping(patientUserId *uint64, userId uin
 		PatientId:   patientId,
 		RelationId:  relationId,
 	}
-	return r.roleRepo.AddSystemUserMapping(&systemUsermapping)
+	return r.roleRepo.AddSystemUserMapping(tx, &systemUsermapping)
 }

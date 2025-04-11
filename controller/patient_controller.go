@@ -624,3 +624,19 @@ func (mc *PatientController) GetMedication(c *gin.Context) {
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, medications, pagination, nil)
 }
+
+func (pc *PatientController) GetNursesList(c *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(c)
+	nurses, totalRecords, err := pc.patientService.GetNursesList(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch nurses", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(nurses),
+		"Nurses list retrieved successfully",
+		"Nurses not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, nurses, pagination, nil)
+}

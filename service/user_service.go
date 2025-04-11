@@ -3,6 +3,8 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+
+	"gorm.io/gorm"
 )
 
 type UserService interface {
@@ -12,7 +14,7 @@ type UserService interface {
 	GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error)
 	DeleteTblUserGtoken(id int, updatedBy string) error
 
-	CreateSystemUser(systemUser models.SystemUser_) (models.SystemUser_, error)
+	CreateSystemUser(tx *gorm.DB,systemUser models.SystemUser_) (models.SystemUser_, error)
 }
 
 type UserServiceImpl struct {
@@ -44,7 +46,7 @@ func (s *UserServiceImpl) DeleteTblUserGtoken(id int, updatedBy string) error {
 }
 
 // CreateSystemUser implements UserService.
-func (s *UserServiceImpl) CreateSystemUser(systemUser models.SystemUser_) (models.SystemUser_, error) {
-	return s.tblUserGtokenRepo.CreateSystemUser(systemUser)
+func (s *UserServiceImpl) CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error) {
+	return s.tblUserGtokenRepo.CreateSystemUser(tx,systemUser)
 
 }

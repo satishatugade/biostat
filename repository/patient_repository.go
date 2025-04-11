@@ -29,6 +29,7 @@ type PatientRepository interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
+	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 
 	GetUserProfile(user_id string) (*models.SystemUser_, error)
 	GetUserIdBySUB(SUB string) (uint64, error)
@@ -503,4 +504,42 @@ func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (boo
 	}
 	isComplete := count > 0
 	return isComplete, nil
+}
+
+func (p *PatientRepositoryImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {
+	var nurses []models.Nurse
+	var totalRecords int64
+	if err := p.db.
+		Table("tbl_system_user_ AS u").
+		Joins("JOIN tbl_system_user_role_mapping AS m ON u.user_id = m.user_id").
+		Where("m.mapping_type = ?", "N").
+		Count(&totalRecords).Error; err != nil {
+		return nil, 0, err
+	}
+	err := p.db.
+		Table("tbl_system_user_").
+		Select(`tbl_system_user_.user_id as nurse_id, 
+				tbl_system_user_.first_name, 
+				tbl_system_user_.last_name, 
+				tbl_system_user_.specialty,
+				tbl_system_user_.gender,
+				tbl_system_user_.mobile_no,
+				tbl_system_user_.license_number,
+				tbl_system_user_.clinic_name,
+				tbl_system_user_.clinic_address,
+				tbl_system_user_.email,
+				tbl_system_user_.years_of_experience,
+				tbl_system_user_.consultation_fee,
+				tbl_system_user_.working_hours,
+				tbl_system_user_.created_at,
+				tbl_system_user_.updated_at`).
+		Joins("JOIN tbl_system_user_role_mapping ON tbl_system_user_.user_id = tbl_system_user_role_mapping.user_id").
+		Where("tbl_system_user_role_mapping.mapping_type = ?", "N").
+		Limit(limit).
+		Offset(offset).
+		Scan(&nurses).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return nurses, totalRecords, nil
 }
