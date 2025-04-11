@@ -185,3 +185,80 @@ func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
 		UpdatedAt:          user.UpdatedAt,
 	}
 }
+
+func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
+	role := strings.ToLower(roleName)
+	switch role {
+	case "nurse":
+		return models.Nurse{
+			NurseId:           user.UserId,
+			FirstName:         user.FirstName,
+			LastName:          user.LastName,
+			Gender:            user.Gender,
+			MobileNo:          user.MobileNo,
+			Email:             user.Email,
+			Specialty:         user.Specialty,
+			LicenseNumber:     user.LicenseNumber,
+			ClinicName:        user.ClinicName,
+			ClinicAddress:     user.ClinicAddress,
+			YearsOfExperience: derefInt(user.YearsOfExperience),
+			ConsultationFee:   derefFloat(user.ConsultationFee),
+			WorkingHours:      user.WorkingHours,
+			CreatedAt:         user.CreatedAt,
+			UpdatedAt:         user.UpdatedAt,
+		}
+	case "doctor":
+		return models.Doctor{
+			DoctorId:          user.UserId,
+			FirstName:         user.FirstName,
+			LastName:          user.LastName,
+			Specialty:         user.Specialty,
+			Gender:            user.Gender,
+			MobileNo:          user.MobileNo,
+			LicenseNumber:     user.LicenseNumber,
+			ClinicName:        user.ClinicName,
+			ClinicAddress:     user.ClinicAddress,
+			Email:             user.Email,
+			YearsOfExperience: derefInt(user.YearsOfExperience),
+			ConsultationFee:   derefFloat(user.ConsultationFee),
+			WorkingHours:      user.WorkingHours,
+			CreatedAt:         user.CreatedAt,
+			UpdatedAt:         user.UpdatedAt,
+		}
+	default:
+		return models.Patient{
+			PatientId:          user.UserId,
+			FirstName:          user.FirstName,
+			LastName:           user.LastName,
+			DateOfBirth:        user.DateOfBirth.String(),
+			Gender:             user.Gender,
+			MobileNo:           user.MobileNo,
+			Address:            user.Address,
+			EmergencyContact:   user.EmergencyContact,
+			AbhaNumber:         user.AbhaNumber,
+			BloodGroup:         user.BloodGroup,
+			Nationality:        user.Nationality,
+			CitizenshipStatus:  user.CitizenshipStatus,
+			PassportNumber:     user.PassportNumber,
+			CountryOfResidence: user.CountryOfResidence,
+			IsIndianOrigin:     user.IsIndianOrigin,
+			Email:              user.Email,
+			CreatedAt:          user.CreatedAt,
+			UpdatedAt:          user.UpdatedAt,
+		}
+	}
+}
+
+func derefInt(ptr *int) int {
+	if ptr != nil {
+		return *ptr
+	}
+	return 0
+}
+
+func derefFloat(ptr *float64) float64 {
+	if ptr != nil {
+		return *ptr
+	}
+	return 0.0
+}

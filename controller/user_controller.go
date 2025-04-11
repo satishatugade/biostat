@@ -63,17 +63,32 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	}
 	user.Password = string(hashedPassword)
 	user.AuthUserId = keyCloakID
-	systemUser, err := uc.userService.CreateSystemUser(user)
+
+	tx := database.DB.Begin()
+	defer func() {
+		log.Println("Transaction rollback")
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in RegisterUser:", r)
+		}
+	}()
+	systemUser, err := uc.userService.CreateSystemUser(tx, user)
 	if err != nil {
+		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 		return
 	}
-	mappingError := uc.roleService.AddSystemUserMapping(nil, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName, nil)
+	log.Println("System User Created in DB with ID:", systemUser.UserId)
+	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName, nil)
 	if mappingError != nil {
+		tx.Rollback()
 		log.Println("Error while adding user mapping", mappingError)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User mapping not added", nil, mappingError)
+		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", nil, nil, nil)
+	tx.Commit()
+	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 }
 
 func createUserInKeycloak(user models.SystemUser_) (string, error) {
@@ -282,15 +297,26 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}
 	req.Password = string(hashedPassword)
 	req.AuthUserId = keyCloakID
-	systemUser, err := uc.userService.CreateSystemUser(req)
+
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in UserRegisterByPatient:", r)
+		}
+	}()
+
+	systemUser, err := uc.userService.CreateSystemUser(tx, req)
 	if err != nil {
+		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 		return
 	}
 
 	relationId := int(relation.RelationId)
-	err = uc.roleService.AddSystemUserMapping(patientUserId, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName, &relationId)
+	err = uc.roleService.AddSystemUserMapping(tx, patientUserId, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName, &relationId)
 	if err != nil {
+		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
 		return
 	}
@@ -299,5 +325,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		log.Println("Error sending email:", err)
 	}
 	log.Println("Email send succesfully ")
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", nil, nil, nil)
+	tx.Commit()
+	response:= utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 }

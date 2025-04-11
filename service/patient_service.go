@@ -29,6 +29,8 @@ type PatientService interface {
 	// UpdatePrescription(*models.PatientPrescription) error
 	GetUserProfile(user_id string, roles []string) (*models.Patient, error)
 	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
+
+	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 }
 
 type PatientServiceImpl struct {
@@ -194,4 +196,8 @@ func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, boo
 
 	return basicDetailsAdded, familyDetailsAdded, false, nil
 
+}
+
+func (s *PatientServiceImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {
+	return s.patientRepo.GetNursesList(limit, offset)
 }
