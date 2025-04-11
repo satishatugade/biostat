@@ -209,16 +209,15 @@ type DietPlanTemplate struct {
 }
 
 type Meal struct {
-	MealId             uint64 `json:"meal_id" gorm:"primaryKey"`
-	DietPlanTemplateId uint64 `json:"diet_plan_template_id"`
-	MealType           string `json:"meal_type"`
-	Description        string `json:"description"`
-	// Nutrients          []Nutrient `json:"nutrients" gorm:"foreignKey:MealId"`
-	Nutrients []Nutrient `json:"nutrients" gorm:"foreignKey:MealId;constraint:OnDelete:CASCADE;"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	CreatedBy string     `json:"created_by"`
-	IsDeleted int        `json:"is_deleted"`
+	MealId             uint64     `json:"meal_id" gorm:"primaryKey"`
+	DietPlanTemplateId uint64     `json:"diet_plan_template_id"`
+	MealType           string     `json:"meal_type"`
+	Description        string     `json:"description"`
+	Nutrients          []Nutrient `json:"nutrients" gorm:"foreignKey:MealId;constraint:OnDelete:CASCADE;"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	CreatedBy          string     `json:"created_by"`
+	IsDeleted          int        `json:"is_deleted"`
 }
 
 type Nutrient struct {
@@ -259,8 +258,8 @@ type DiagnosticTest struct {
 	Scale            string                    `gorm:"column:scale" json:"scale"`
 	CreatedAt        time.Time                 `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time                 `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-	CreatedBy        string                    `json:"created_by"`
-	IsDeleted        int                       `json:"is_deleted"`
+	CreatedBy        string                    `gorm:"column:created_by" json:"created_by"`
+	IsDeleted        int                       `gorm:"column:is_deleted" json:"is_deleted"`
 	Components       []DiagnosticTestComponent `gorm:"many2many:tbl_disease_profile_diagnostic_test_component_mapping;foreignKey:DiagnosticTestId;joinForeignKey:DiagnosticTestId;References:DiagnosticTestComponentId;joinReferences:DiagnosticTestComponentId" json:"test_components"`
 }
 
@@ -275,11 +274,11 @@ type DiagnosticTestComponent struct {
 	TimeAspect                string                             `gorm:"column:time_aspect" json:"time_aspect"`
 	System                    string                             `gorm:"column:system" json:"system"`
 	Scale                     string                             `gorm:"column:scale" json:"scale"`
-	TestComponentFrequency    int                                `gorm:"column:test_component_frequency" json:"test_component_frequency"`
+	TestComponentFrequency    string                             `gorm:"column:test_component_frequency" json:"test_component_frequency"`
 	CreatedAt                 time.Time                          `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt                 time.Time                          `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-	CreatedBy                 string                             `json:"created_by"`
-	IsDeleted                 int                                `json:"is_deleted"`
+	CreatedBy                 string                             `gorm:"column:created_by" json:"created_by"`
+	IsDeleted                 int                                `gorm:"column:is_deleted" json:"is_deleted"`
 	TestResultValue           []PatientDiagnosticTestResultValue `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_result_value"`
 }
 
@@ -320,6 +319,26 @@ func (s *Symptom) SetCreatedBy(userId string) {
 }
 
 func (c *Cause) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *Medication) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *Exercise) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *DietPlanTemplate) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *DiagnosticTest) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *DiagnosticTestComponent) SetCreatedBy(userId string) {
 	c.CreatedBy = userId
 }
 
