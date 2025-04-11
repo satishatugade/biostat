@@ -72,6 +72,7 @@ const (
 	SingleDiagnosticComponent       = "/diagnostic-component/:diagnosticComponentId"
 	DiagnosticTestComponentMappings = "/diagnostic-test-component-mappings"
 	DiagnosticTestComponentMapping  = "/diagnostic-test-component-mapping"
+	DeleteDTComponent               = "/delete-dt-component/:diagnostic_test_component_id"
 
 	Exercise       = "/add-exercise"
 	AllExercise    = "/get-exercise"
@@ -91,6 +92,12 @@ const (
 
 	//bulk upload master data
 	BulkUpload = "/bulk-upload/:entity"
+
+	DiagnosticLab = "diagnostic-lab"
+	GetLabById    = "diagnostic-lab/:lab_id"
+	UpdateLabInfo = "update-lab-info"
+	DeleteLab     = "delete-lab/:lab_id"
+	AuditViewLab  = "lab-audit-view"
 )
 
 const (
@@ -99,6 +106,7 @@ const (
 )
 
 const (
+	CREATE = "Create"
 	UPDATE = "Update"
 	DELETE = "Delete"
 )

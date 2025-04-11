@@ -9,10 +9,11 @@ type DiagnosticLab struct {
 	LabAddress       string    `gorm:"column:lab_address" json:"lab_address"`
 	LabContactNumber string    `gorm:"column:lab_contact_number" json:"lab_contact_number"`
 	LabEmail         string    `gorm:"column:lab_email" json:"lab_email"`
+	IsDeleted        int       `gorm:"column:is_deleted" json:"is_deleted"`
 	CreatedAt        time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"column:updated_at" json:"updated_at"`
-
-	// PatientDiagnosticTests []PatientDiagnosticTest `json:"patient_diagnostic_tests" gorm:"-"`
+	CreatedBy        string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy        string    `gorm:"column:updated_by" json:"updated_by"`
 
 	PatientDiagnosticTests   []PatientDiagnosticTest   `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
 	PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
@@ -20,6 +21,26 @@ type DiagnosticLab struct {
 
 func (DiagnosticLab) TableName() string {
 	return "tbl_diagnostic_lab"
+}
+
+type DiagnosticLabAudit struct {
+	DiagnosticLabAuditId uint64    `gorm:"column:diagnostic_lab_audit_id;primaryKey;autoIncrement" json:"diagnostic_lab_audit_id"`
+	DiagnosticLabId      uint64    `gorm:"column:diagnostic_lab_id" json:"diagnostic_lab_id"`
+	LabNo                string    `gorm:"column:lab_no" json:"lab_no"`
+	LabName              string    `gorm:"column:lab_name" json:"lab_name"`
+	LabAddress           string    `gorm:"column:lab_address" json:"lab_address"`
+	LabContactNumber     string    `gorm:"column:lab_contact_number" json:"lab_contact_number"`
+	LabEmail             string    `gorm:"column:lab_email" json:"lab_email"`
+	IsDeleted            int       `gorm:"column:is_deleted" json:"is_deleted"`
+	OperationType        string    `gorm:"column:operation_type" json:"operation_type"`
+	CreatedAt            time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy            string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy            string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (DiagnosticLabAudit) TableName() string {
+	return "tbl_diagnostic_lab_audit"
 }
 
 type PatientDiagnosticReport struct {

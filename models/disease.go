@@ -342,6 +342,10 @@ func (c *DiagnosticTestComponent) SetCreatedBy(userId string) {
 	c.CreatedBy = userId
 }
 
+func (c *DiagnosticLab) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
 type Creator interface {
 	SetCreatedBy(string)
 }

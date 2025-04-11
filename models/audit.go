@@ -23,29 +23,6 @@ func (DiseaseAudit) TableName() string {
 	return "tbl_disease_master_audit"
 }
 
-type DiseaseProfileDiagnosticTestMasterAudit struct {
-	ID               uint64    `gorm:"primaryKey;column:diagnostic_test_audit_id"`
-	DiagnosticTestID uint64    `gorm:"column:diagnostic_test_id"`
-	TestLoincCode    string    `gorm:"column:test_loinc_code"`
-	TestName         string    `gorm:"column:test_name"`
-	TestDescription  string    `gorm:"column:test_description"`
-	Category         string    `gorm:"column:category"`
-	Units            string    `gorm:"column:units"`
-	Property         string    `gorm:"column:property"`
-	TimeAspect       string    `gorm:"column:time_aspect"`
-	System           string    `gorm:"column:system"`
-	Scale            string    `gorm:"column:scale"`
-	Method           string    `gorm:"column:method"`
-	OperationType    string    `gorm:"column:operation_type"`
-	UpdatedBy        string    `gorm:"column:updated_by"`
-	IsDeleted        int       `json:"is_deleted"`
-	ModifiedOn       time.Time `gorm:"column:modified_on;autoCreateTime"`
-}
-
-func (DiseaseProfileDiagnosticTestMasterAudit) TableName() string {
-	return "tbl_disease_profile_diagnostic_test_master_audit"
-}
-
 type CauseAudit struct {
 	CauseAuditId  uint64    `json:"cause_audit_id" gorm:"primaryKey;autoIncrement"`
 	CauseId       uint64    `json:"cause_id" gorm:"primaryKey"`
@@ -143,4 +120,54 @@ type ExerciseAudit struct {
 
 func (ExerciseAudit) TableName() string {
 	return "tbl_exercise_master_audit"
+}
+
+type DiagnosticTestAudit struct {
+	DiagnosticTestAuditId uint64    `gorm:"column:diagnostic_test_audit_id;primaryKey" json:"diagnostic_test_audit_id"`
+	DiagnosticTestId      uint64    `gorm:"column:diagnostic_test_id" json:"diagnostic_test_id"`
+	TestLoincCode         string    `gorm:"column:test_loinc_code" json:"test_loinc_code"`
+	TestName              string    `gorm:"column:test_name" json:"test_name"`
+	TestType              string    `gorm:"column:test_type" json:"test_type"`
+	TestDescription       string    `gorm:"column:test_description" json:"test_description"`
+	Category              string    `gorm:"column:category" json:"category"`
+	Units                 string    `gorm:"column:units" json:"units"`
+	Property              string    `gorm:"column:property" json:"property"`
+	TimeAspect            string    `gorm:"column:time_aspect" json:"time_aspect"`
+	System                string    `gorm:"column:system" json:"system"`
+	Scale                 string    `gorm:"column:scale" json:"scale"`
+	OperationType         string    `gorm:"column:operation_type" json:"operation_type"`
+	IsDeleted             int       `gorm:"column:is_deleted" json:"is_deleted"`
+	CreatedAt             time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt             time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy             string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy             string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (DiagnosticTestAudit) TableName() string {
+	return "tbl_disease_profile_diagnostic_test_master_audit"
+}
+
+type DiagnosticTestComponentAudit struct {
+	DiagnosticTestComponentAuditId uint64    `gorm:"column:diagnostic_test_component_audit_id;primaryKey;autoIncrement" json:"diagnostic_test_component_audit_id"`
+	DiagnosticTestComponentId      uint64    `gorm:"column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	TestComponentLoincCode         string    `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
+	TestComponentName              string    `gorm:"column:test_component_name" json:"test_component_name"`
+	TestComponentType              string    `gorm:"column:test_component_type" json:"test_component_type"`
+	Description                    string    `gorm:"column:description" json:"description"`
+	Units                          string    `gorm:"column:units" json:"units"`
+	Property                       string    `gorm:"column:property" json:"property"`
+	TimeAspect                     string    `gorm:"column:time_aspect" json:"time_aspect"`
+	System                         string    `gorm:"column:system" json:"system"`
+	Scale                          string    `gorm:"column:scale" json:"scale"`
+	TestComponentFrequency         string    `gorm:"column:test_component_frequency" json:"test_component_frequency"`
+	OperationType                  string    `gorm:"column:operation_type" json:"operation_type"` // e.g., INSERT, UPDATE, DELETE
+	IsDeleted                      int       `gorm:"column:is_deleted" json:"is_deleted"`
+	CreatedAt                      time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt                      time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy                      string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy                      string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (DiagnosticTestComponentAudit) TableName() string {
+	return "tbl_disease_profile_diagnostic_test_component_master_audit"
 }

@@ -905,12 +905,17 @@ func (dc *MasterController) GetSingleDiagnosticTest(c *gin.Context) {
 }
 
 func (dc *MasterController) DeleteDiagnosticTest(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 	diagnosticTestId := utils.GetParamAsInt(c, "diagnosticTestId")
 	if diagnosticTestId == 0 {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "DiagnosticTestId is required", nil, nil)
 		return
 	}
-	err := dc.diagnosticService.DeleteDiagnosticTest(diagnosticTestId, "admin")
+	err := dc.diagnosticService.DeleteDiagnosticTest(diagnosticTestId, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete diagnostic test", nil, err)
 		return
@@ -950,6 +955,11 @@ func (dc *MasterController) CreateDiagnosticComponent(c *gin.Context) {
 }
 
 func (dc *MasterController) UpdateDiagnosticComponent(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 	var diagnosticComponent models.DiagnosticTestComponent
 	err := c.ShouldBindJSON(&diagnosticComponent)
 	if err != nil {
@@ -960,7 +970,7 @@ func (dc *MasterController) UpdateDiagnosticComponent(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "DiagnosticTestComponentId is required", nil, nil)
 		return
 	}
-	diagnosticComponentRes, err := dc.diagnosticService.UpdateDiagnosticComponent(&diagnosticComponent)
+	diagnosticComponentRes, err := dc.diagnosticService.UpdateDiagnosticComponent(authUserId, &diagnosticComponent)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update diagnostic component", nil, err)
 		return
@@ -1031,6 +1041,28 @@ func (dc *MasterController) UpdateDiagnosticTestComponentMapping(c *gin.Context)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Diagnostic test component mapping updated successfully", diagnosticTestComponentMappingRes, nil, nil)
 }
 
+func (mc *MasterController) DeleteDiagnosticTestComponent(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+
+	componentId, err := strconv.ParseUint(c.Param("diagnostic_test_component_id"), 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid diagnostic test component ID", nil, err)
+		return
+	}
+
+	err = mc.diagnosticService.DeleteDiagnosticTestComponent(uint64(componentId), authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete diagnostic test component", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Diagnostic test component deleted successfully", nil, nil, nil)
+}
+
 func (mc *MasterController) GetRoleById(c *gin.Context) {
 	roleIdStr := c.Param("role_id")
 	roleId, err := strconv.ParseUint(roleIdStr, 10, 32)
@@ -1074,4 +1106,130 @@ func (mc *MasterController) UploadMasterData(c *gin.Context) {
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Bulk upload successful", count, nil, nil)
 
+}
+
+func (mc *MasterController) CreateLab(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var lab models.DiagnosticLab
+	lab.CreatedBy = authUserId
+	if err := c.ShouldBindJSON(&lab); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+	if err := mc.diagnosticService.CreateLab(&lab); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create lab", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", lab, nil, nil)
+}
+
+func (mc *MasterController) GetLabById(c *gin.Context) {
+	diagnosticlLabId, err := strconv.ParseUint(c.Param("lab_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid lab ID", nil, err)
+		return
+	}
+	lab, err := mc.diagnosticService.GetLabById(diagnosticlLabId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Lab not found", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Lab fetched successfully", lab, nil, nil)
+}
+
+func (mc *MasterController) UpdateLab(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var lab models.DiagnosticLab
+	if err := c.ShouldBindJSON(&lab); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+	if err := mc.diagnosticService.UpdateLab(&lab, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update lab", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Lab updated successfully", lab, nil, nil)
+}
+
+func (mc *MasterController) DeleteLab(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	diagnosticlLabId, err := strconv.ParseUint(c.Param("lab_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid lab ID", nil, err)
+		return
+	}
+	if err := mc.diagnosticService.DeleteLab(diagnosticlLabId, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete lab", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Lab deleted successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
+	var labId uint64
+	labIdStr := c.Query("diagnostic_lab_id")
+	if labIdStr != "" {
+		parsedLabId, err := strconv.ParseUint(labIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid diagnostic lab ID", nil, err)
+			return
+		}
+		labId = parsedLabId
+	}
+
+	var labAuditId uint64
+	if auditIdStr := c.Query("diagnostic_lab_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			labAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Diagnostic lab audit record not found"
+
+	// Fetch all if no filters applied
+	if labId == 0 && labAuditId == 0 {
+		data, totalRecords, err := mc.diagnosticService.GetAllDiagnosticLabAuditRecords(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Diagnostic lab audit records retrieved successfully",
+			"Diagnostic lab audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.diagnosticService.GetDiagnosticLabAuditRecord(labId, labAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Diagnostic lab audit records retrieved successfully",
+		"Diagnostic lab audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
