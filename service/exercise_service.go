@@ -8,8 +8,11 @@ import (
 type ExerciseService interface {
 	CreateExercise(exercise *models.Exercise) error
 	GetExercises(limit, offset int) ([]models.Exercise, int64, error)
-	GetExerciseByID(id string) (models.Exercise, error)
-	UpdateExercise(id string, exercise *models.Exercise) error
+	GetExerciseById(exerciseId uint64) (*models.Exercise, error)
+	UpdateExercise(authUserId string, exercise *models.Exercise) error
+	DeleteExercise(exerciseId uint64, authUserId string) error
+	GetExerciseAuditRecord(exerciseId, exerciseAuditId uint64) ([]models.ExerciseAudit, error)
+	GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error)
 }
 
 type ExerciseServiceImpl struct {
@@ -28,10 +31,22 @@ func (e *ExerciseServiceImpl) GetExercises(limit, offset int) ([]models.Exercise
 	return e.exerciseRepo.GetExercises(limit, offset)
 }
 
-func (e *ExerciseServiceImpl) GetExerciseByID(id string) (models.Exercise, error) {
-	return e.exerciseRepo.GetExerciseByID(id)
+func (e *ExerciseServiceImpl) GetExerciseById(exerciseId uint64) (*models.Exercise, error) {
+	return e.exerciseRepo.GetExerciseById(exerciseId)
 }
 
-func (e *ExerciseServiceImpl) UpdateExercise(id string, exercise *models.Exercise) error {
-	return e.exerciseRepo.UpdateExercise(id, exercise)
+func (e *ExerciseServiceImpl) UpdateExercise(authUserId string, exercise *models.Exercise) error {
+	return e.exerciseRepo.UpdateExercise(authUserId, exercise)
+}
+
+func (e *ExerciseServiceImpl) DeleteExercise(exerciseId uint64, authUserId string) error {
+	return e.exerciseRepo.DeleteExercise(exerciseId, authUserId)
+}
+
+func (s *ExerciseServiceImpl) GetExerciseAuditRecord(exerciseId, exerciseAuditId uint64) ([]models.ExerciseAudit, error) {
+	return s.exerciseRepo.GetExerciseAuditRecord(exerciseId, exerciseAuditId)
+}
+
+func (s *ExerciseServiceImpl) GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error) {
+	return s.exerciseRepo.GetAllExerciseAuditRecord(page, limit)
 }

@@ -122,3 +122,25 @@ type MedicationTypeAudit struct {
 func (MedicationTypeAudit) TableName() string {
 	return "tbl_medication_type_audit"
 }
+
+type ExerciseAudit struct {
+	ExerciseAuditId uint64    `json:"exercise_audit_id" gorm:"primaryKey;column:exercise_audit_id"`
+	ExerciseId      uint64    `json:"exercise_id" gorm:"column:exercise_id"`
+	ExerciseName    string    `json:"exercise_name" gorm:"column:exercise_name"`
+	Description     string    `json:"description" gorm:"column:description"`
+	Category        string    `json:"category" gorm:"column:category"`
+	IntensityLevel  string    `json:"intensity_level" gorm:"column:intensity_level"`
+	Duration        int       `json:"duration" gorm:"column:duration"`
+	DurationUnit    string    `json:"duration_unit" gorm:"column:duration_unit"`
+	Benefits        string    `json:"benefits" gorm:"column:benefits"`
+	IsDeleted       int       `json:"is_deleted" gorm:"column:is_deleted"`
+	OperationType   string    `json:"operation_type" gorm:"column:operation_type"`
+	CreatedAt       time.Time `json:"created_at" gorm:"column:created_at"`
+	UpdatedAt       time.Time `json:"updated_at,omitempty" gorm:"column:updated_at"`
+	CreatedBy       string    `json:"created_by" gorm:"column:created_by"`
+	UpdatedBy       string    `json:"updated_by" gorm:"column:updated_by"`
+}
+
+func (ExerciseAudit) TableName() string {
+	return "tbl_exercise_master_audit"
+}

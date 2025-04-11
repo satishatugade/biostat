@@ -585,11 +585,14 @@ func (mc *MasterController) GetAllExercises(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, exercises, pagination, nil)
 }
 
-func (mc *MasterController) GetExerciseByID(c *gin.Context) {
-	id := c.Param("exercise_id")
-	var exercise models.Exercise
-
-	exercise, err := mc.exerciseService.GetExerciseByID(id)
+func (mc *MasterController) GetExerciseById(c *gin.Context) {
+	exerciseIdStr := c.Param("exercise_id")
+	exerciseId, err := strconv.ParseUint(exerciseIdStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid exercise ID", nil, err)
+		return
+	}
+	exercise, err := mc.exerciseService.GetExerciseById(uint64(exerciseId))
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Exercise not found", nil, err)
 		return
@@ -599,20 +602,103 @@ func (mc *MasterController) GetExerciseByID(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateExercise(c *gin.Context) {
-	id := c.Param("exercise_id")
-	var exercise models.Exercise
 
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var exercise models.Exercise
 	if err := c.ShouldBindJSON(&exercise); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid exercise input", nil, err)
 		return
 	}
 
-	if err := mc.exerciseService.UpdateExercise(id, &exercise); err != nil {
+	if err := mc.exerciseService.UpdateExercise(authUserId, &exercise); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update exercise", nil, err)
 		return
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Exercise updated successfully", exercise, nil, nil)
+}
+
+func (mc *MasterController) DeleteExercise(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+
+	exerciseId, err := strconv.ParseUint(c.Param("exercise_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid exercise ID", nil, err)
+		return
+	}
+
+	err = mc.exerciseService.DeleteExercise(exerciseId, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Deletion failed", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Exercise deleted", nil, nil, nil)
+}
+
+func (mc *MasterController) GetExerciseAuditRecord(c *gin.Context) {
+	var exerciseId uint64
+	exerciseIdStr := c.Query("exercise_id")
+	if exerciseIdStr != "" {
+		parsedExerciseId, err := strconv.ParseUint(exerciseIdStr, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid exercise ID", nil, err)
+			return
+		}
+		exerciseId = parsedExerciseId
+	}
+
+	var exerciseAuditId uint64
+	if auditIdStr := c.Query("exercise_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 64)
+		if err == nil {
+			exerciseAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Exercise audit record not found"
+
+	// Fetch all if no filters applied
+	if exerciseId == 0 && exerciseAuditId == 0 {
+		data, totalRecords, err := mc.exerciseService.GetAllExerciseAuditRecord(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Exercise audit records retrieved successfully",
+			"Exercise audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.exerciseService.GetExerciseAuditRecord(exerciseId, exerciseAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Exercise audit records retrieved successfully",
+		"Exercise audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
 
 func (mc *MasterController) GetAllergyRestrictions(c *gin.Context) {

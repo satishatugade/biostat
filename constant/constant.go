@@ -76,7 +76,9 @@ const (
 	Exercise       = "/add-exercise"
 	AllExercise    = "/get-exercise"
 	SingleExercise = "/exercise/:exercise_id"
-	UpdateExercise = "/update-exercise/:exercise_id"
+	UpdateExercise = "/update-exercise"
+	DeleteExercise = "/delete-exercise/:exercise_id"
+	ExerciseAudit  = "/exercise-audit"
 
 	Diet            = "/add-diet-template"
 	AllDietTemplate = "/diet-template"

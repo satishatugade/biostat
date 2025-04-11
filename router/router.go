@@ -115,8 +115,10 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		//exercise master
 		Route{"Exercise", http.MethodPost, constant.Exercise, masterController.AddExercise},
 		Route{"Exercise", http.MethodPost, constant.AllExercise, masterController.GetAllExercises},
-		Route{"Exercise", http.MethodPost, constant.SingleExercise, masterController.GetExerciseByID},
+		Route{"Exercise", http.MethodPost, constant.SingleExercise, masterController.GetExerciseById},
 		Route{"Exercise", http.MethodPut, constant.UpdateExercise, masterController.UpdateExercise},
+		Route{"Exercise", http.MethodPost, constant.DeleteExercise, masterController.DeleteExercise},
+		Route{"Exercise", http.MethodPost, constant.ExerciseAudit, masterController.GetExerciseAuditRecord},
 
 		//diet master
 		Route{"Diet", http.MethodPost, constant.Diet, masterController.AddDietPlanTemplate},
