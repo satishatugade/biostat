@@ -96,56 +96,6 @@ type UserLoginResponse struct {
 	UserResponse UserResponse `json:"user_data"`
 }
 
-// type SystemUser_ struct {
-// 	UserID      uint64     `gorm:"primaryKey;column:user_id" json:"user_id"`
-// 	AuthUserID  string     `gorm:"column:auth_user_id" json:"auth_user_id"`
-// 	Username    string     `gorm:"column:username" json:"username"`
-// 	Password    string     `gorm:"column:password" json:"password"`
-// 	FirstName   string     `gorm:"column:first_name;not null" json:"first_name"`
-// 	LastName    string     `gorm:"column:last_name;not null" json:"last_name"`
-// 	Gender      string     `gorm:"column:gender" json:"gender"`
-// 	DateOfBirth *time.Time `gorm:"column:date_of_birth" json:"date_of_birth"`
-// 	MobileNo    string     `gorm:"column:mobile_no" json:"mobile_no"`
-// 	Email       string     `gorm:"column:email" json:"email"`
-// 	Address     string     `gorm:"column:address" json:"address"`
-
-// 	//patient
-// 	EmergencyContact   string `gorm:"column:emergency_contact;type:varchar(20)" json:"emergency_contact,omitempty"`
-// 	AbhaNumber         string `gorm:"column:abha_number;type:varchar(20)" json:"abha_number,omitempty"`
-// 	BloodGroup         string `gorm:"column:blood_group;type:varchar(5)" json:"blood_group,omitempty"`
-// 	Nationality        string `gorm:"column:nationality;type:varchar(50)" json:"nationality,omitempty"`
-// 	CitizenshipStatus  string `gorm:"column:citizenship_status;type:varchar(50)" json:"citizenship_status,omitempty"`
-// 	PassportNumber     string `gorm:"column:passport_number;type:varchar(20)" json:"passport_number,omitempty"`
-// 	CountryOfResidence string `gorm:"column:country_of_residence;type:varchar(50)" json:"country_of_residence,omitempty"`
-// 	IsIndianOrigin     bool   `gorm:"column:is_indian_origin" json:"is_indian_origin,omitempty"`
-
-// 	//doctor
-// 	Specialty          string     `gorm:"column:specialty" json:"specialty"`
-// 	LicenseNumber      string     `gorm:"column:license_number" json:"license_number"`
-// 	ClinicName         string     `gorm:"column:clinic_name" json:"clinic_name"`
-// 	ClinicAddress      string     `gorm:"column:clinic_address" json:"clinic_address"`
-// 	YearsOfExperience  *int       `gorm:"column:years_of_experience" json:"years_of_experience"`
-// 	ConsultationFee    *float64   `gorm:"column:consultation_fee" json:"consultation_fee"`
-// 	WorkingHours       string     `gorm:"column:working_hours" json:"working_hours"`
-// 	UserState          string     `gorm:"column:user_state" json:"user_state"`
-// 	AuthType           string     `gorm:"column:auth_type" json:"auth_type"`
-// 	AuthStatus         string     `gorm:"column:auth_status" json:"auth_status"`
-// 	AuthDate           time.Time  `gorm:"column:auth_date;default:CURRENT_TIMESTAMP" json:"auth_date"`
-// 	ActivationFlag     bool       `gorm:"column:activation_flag;default:false" json:"activation_flag"`
-// 	FirstLoginFlag     bool       `gorm:"column:first_login_flag;default:false" json:"first_login_flag"`
-// 	AccountExpired     bool       `gorm:"column:account_expired;default:false" json:"account_expired"`
-// 	AccountLocked      bool       `gorm:"column:account_locked;default:false" json:"account_locked"`
-// 	CredentialsExpired bool       `gorm:"column:credentials_expired;default:false" json:"credentials_expired"`
-// 	LastLogin          *time.Time `gorm:"column:last_login" json:"last_login"`
-// 	IsMobileVerified   bool       `gorm:"column:is_mobile_verified;default:false" json:"is_mobile_verified"`
-// 	CreatedAt          time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-// 	UpdatedAt          time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-
-// 	// Transient fields (not stored in DB)
-// 	RoleId   uint   `gorm:"-" json:"role_id"`
-// 	RoleName string `gorm:"-" json:"role_name"`
-// }
-
 type SystemUser_ struct {
 	UserId      uint64     `gorm:"primaryKey;column:user_id" json:"user_id"`
 	AuthUserId  string     `gorm:"column:auth_user_id;type:varchar(100);unique" json:"auth_user_id"`
@@ -202,7 +152,39 @@ type SystemUser_ struct {
 	RelationId uint64 `gorm:"-" json:"relation_id"`
 }
 
-// TableName overrides the default table name
 func (SystemUser_) TableName() string {
 	return "tbl_system_user_"
+}
+
+type SupportGroup struct {
+	SupportGroupId uint64    `gorm:"column:support_group_id;primaryKey;autoIncrement" json:"support_group_id"`
+	GroupName      string    `gorm:"column:group_name" json:"group_name"`
+	Description    string    `gorm:"column:description" json:"description"`
+	Location       string    `gorm:"column:location" json:"location"`
+	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy      string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy      string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (SupportGroup) TableName() string {
+	return "tbl_support_group"
+}
+
+type SupportGroupMember struct {
+	SupportGroupMemberId uint64    `gorm:"column:support_group_member_id;primaryKey;autoIncrement" json:"support_group_member_id"`
+	SupportGroupId       uint64    `gorm:"column:support_group_id" json:"support_group_id"`
+	UserId               uint64    `gorm:"column:user_id" json:"user_id"`
+	Role                 string    `gorm:"column:role" json:"role"`
+	Status               string    `gorm:"column:status" json:"status"`
+	Notes                string    `gorm:"column:notes" json:"notes"`
+	JoinedAt             time.Time `gorm:"column:joined_at" json:"joined_at"`
+	CreatedAt            time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy            string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy            string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (SupportGroupMember) TableName() string {
+	return "tbl_support_group_member"
 }

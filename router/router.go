@@ -146,6 +146,7 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 
 		Route{"D-LAB", http.MethodPost, constant.DiagnosticLab, masterController.CreateLab},
 		Route{"D-LAB", http.MethodPost, constant.GetLabById, masterController.GetLabById},
+		Route{"D-LAB", http.MethodPost, constant.GetAllLab, masterController.GetAllLabs},
 		Route{"D-LAB", http.MethodPut, constant.UpdateLabInfo, masterController.UpdateLab},
 		Route{"D-LAB", http.MethodPost, constant.DeleteLab, masterController.DeleteLab},
 		Route{"D-LAB", http.MethodPost, constant.AuditViewLab, masterController.GetDiagnosticLabAuditRecord},

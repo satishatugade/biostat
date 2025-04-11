@@ -1127,6 +1127,25 @@ func (mc *MasterController) CreateLab(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", lab, nil, nil)
 }
 
+func (mc *MasterController) GetAllLabs(c *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(c)
+
+	data, totalRecords, err := mc.diagnosticService.GetAllLabs(page, limit)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve labs", nil, err)
+		return
+	}
+
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(data),
+		"Diagnostic labs retrieved successfully",
+		"Diagnostic labs not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+}
+
 func (mc *MasterController) GetLabById(c *gin.Context) {
 	diagnosticlLabId, err := strconv.ParseUint(c.Param("lab_id"), 10, 64)
 	if err != nil {

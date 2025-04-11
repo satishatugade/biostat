@@ -94,6 +94,7 @@ const (
 	BulkUpload = "/bulk-upload/:entity"
 
 	DiagnosticLab = "diagnostic-lab"
+	GetAllLab     = "get-diagnostic-lab"
 	GetLabById    = "diagnostic-lab/:lab_id"
 	UpdateLabInfo = "update-lab-info"
 	DeleteLab     = "delete-lab/:lab_id"

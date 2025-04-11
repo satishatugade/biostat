@@ -7,6 +7,7 @@ import (
 
 type DiagnosticService interface {
 	CreateLab(lab *models.DiagnosticLab) error
+	GetAllLabs(page int, limit int) ([]models.DiagnosticLab, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
@@ -111,4 +112,8 @@ func (s *diagnosticServiceImpl) GetAllDiagnosticLabAuditRecords(page, limit int)
 
 func (s *diagnosticServiceImpl) GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error) {
 	return s.diagnosticRepo.GetDiagnosticLabAuditRecord(labId, labAuditId)
+}
+
+func (s *diagnosticServiceImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
+	return s.diagnosticRepo.GetAllLabs(page, limit)
 }

@@ -12,6 +12,7 @@ type DiagnosticRepository interface {
 
 	//Diagnostic labs
 	CreateLab(lab *models.DiagnosticLab) error
+	GetAllLabs(page int, limit int) ([]models.DiagnosticLab, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
@@ -350,6 +351,21 @@ func SaveDiagnosticLabAudit(tx *gorm.DB, lab *models.DiagnosticLab, actionType s
 
 func (r *diagnosticRepositoryImpl) CreateLab(lab *models.DiagnosticLab) error {
 	return r.db.Create(lab).Error
+}
+func (r *diagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
+	var labs []models.DiagnosticLab
+	var total int64
+
+	offset := (page - 1) * limit
+	query := r.db.Model(&models.DiagnosticLab{}).Where("is_deleted = ?", 0)
+
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = query.Offset(offset).Limit(limit).Order("created_at desc").Find(&labs).Error
+	return labs, total, err
 }
 
 func (r *diagnosticRepositoryImpl) GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error) {
