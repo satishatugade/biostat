@@ -54,7 +54,7 @@ func (mc *MasterController) CreateDisease(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create disease", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Disease created successfully", nil, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Disease created successfully", disease, nil, nil)
 }
 
 func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
@@ -1042,6 +1042,25 @@ func (dc *MasterController) UpdateDiagnosticTestComponentMapping(c *gin.Context)
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Diagnostic test component mapping updated successfully", diagnosticTestComponentMappingRes, nil, nil)
+}
+
+func (dc *MasterController) DeleteDiagnosticTestComponentMapping(c *gin.Context) {
+	var diagnosticTestComponentMapping models.DiagnosticTestComponentMapping
+	err := c.ShouldBindJSON(&diagnosticTestComponentMapping)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	if diagnosticTestComponentMapping.DiagnosticTestId == 0 || diagnosticTestComponentMapping.DiagnosticComponentId ==0 {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "DiagnosticTestId and DiagnosticComponentId is required", nil, nil)
+		return
+	}
+	err = dc.diagnosticService.DeleteDiagnosticTestComponentMapping(diagnosticTestComponentMapping.DiagnosticTestId, diagnosticTestComponentMapping.DiagnosticComponentId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete diagnostic test component mapping", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Diagnostic test component mapping deleted successfully", nil, nil, nil)
 }
 
 func (mc *MasterController) DeleteDiagnosticTestComponent(c *gin.Context) {

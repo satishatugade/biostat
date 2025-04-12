@@ -39,37 +39,36 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to bind user object", nil, err)
 		return
 	}
-	var hashedPassword string
-	var password string
+	var rawPassword string
+	var hashedPassword []byte
+	var err error
+
 	if user.RoleName == "doctor" || user.RoleName == "caregiver" || user.RoleName == "nurse" {
-		password = utils.GenerateRandomPassword()
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
-			return
-		}
-		user.Password = string(hashedPassword)
+		rawPassword = utils.GenerateRandomPassword()
 	} else {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
-			return
-		}
-		password = user.Password
-		user.Password = string(hashedPassword)
+		rawPassword = user.Password
+	}
+
+	hashedPassword, err = bcrypt.GenerateFromPassword([]byte(rawPassword), bcrypt.DefaultCost)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
+		return
 	}
 	roleMaster, err := uc.roleService.GetRoleIdByRoleName(user.RoleName)
 	if err != nil {
 		log.Println("Error fetching role from role master:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Role not found", nil, err)
+		return
 	} else {
 		log.Printf("Role Id: %d, Role Name: %s\n", roleMaster.RoleId, roleMaster.RoleName)
 	}
 	user.RoleName = roleMaster.RoleName
 	user.RoleId = roleMaster.RoleId
 
+	keyCloakUser := user
+	keyCloakUser.Password = rawPassword
 	//Add User in Keycloak
-	keyCloakID, err := createUserInKeycloak(user)
+	keyCloakID, err := createUserInKeycloak(keyCloakUser)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
 		return
@@ -79,7 +78,6 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 
 	tx := database.DB.Begin()
 	defer func() {
-		log.Println("Transaction rollback")
 		if r := recover(); r != nil {
 			tx.Rollback()
 			log.Println("Recovered in RegisterUser:", r)
@@ -100,7 +98,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		return
 	}
 	tx.Commit()
-	err = uc.emailService.SendLoginCredentials(systemUser, password, nil)
+	err = uc.emailService.SendLoginCredentials(systemUser, rawPassword, nil)
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}

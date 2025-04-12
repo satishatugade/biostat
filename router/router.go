@@ -140,12 +140,14 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"DTM", http.MethodPost, constant.DiagnosticComponent, masterController.CreateDiagnosticComponent},
 		Route{"DTM", http.MethodPut, constant.DiagnosticComponent, masterController.UpdateDiagnosticComponent},
 		Route{"DTM", http.MethodGet, constant.SingleDiagnosticComponent, masterController.GetSingleDiagnosticComponent},
+		Route{"DTM", http.MethodPost, constant.DeleteDTComponent, masterController.DeleteDiagnosticTestComponent},		
 
 		// Diagnostic Test Component Mapping Routes
 		Route{"DTM", http.MethodPost, constant.DiagnosticTestComponentMapping, masterController.CreateDiagnosticTestComponentMapping},
 		Route{"DTM", http.MethodPost, constant.DiagnosticTestComponentMappings, masterController.GetAllDiagnosticTestComponentMappings},
 		Route{"DTM", http.MethodPut, constant.DiagnosticTestComponentMapping, masterController.UpdateDiagnosticTestComponentMapping},
-		Route{"DTM", http.MethodPost, constant.DeleteDTComponent, masterController.DeleteDiagnosticTestComponent},
+		Route{"DTM", http.MethodPost, constant.DeleteDiagnosticTestComponentMapping, masterController.DeleteDiagnosticTestComponentMapping},
+		
 
 		Route{"D-LAB", http.MethodPost, constant.DiagnosticLab, masterController.CreateLab},
 		Route{"D-LAB", http.MethodPost, constant.GetLabById, masterController.GetLabById},

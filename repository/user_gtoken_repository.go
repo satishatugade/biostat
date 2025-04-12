@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -12,7 +13,7 @@ type UserRepository interface {
 	UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error)
 	GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error)
 	DeleteTblUserGtoken(id int, updatedBy string) error
-	CreateSystemUser(tx *gorm.DB,systemUser models.SystemUser_) (models.SystemUser_, error)
+	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 }
 
 type UserRepositoryImpl struct {
@@ -70,7 +71,8 @@ func (r *UserRepositoryImpl) DeleteTblUserGtoken(id int, updatedBy string) error
 }
 
 // CreateSystemUser implements UserRepository.
-func (r *UserRepositoryImpl) CreateSystemUser(tx *gorm.DB,systemUser models.SystemUser_) (models.SystemUser_, error) {
+func (r *UserRepositoryImpl) CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error) {
+	log.Println("User pass:", systemUser.Password)
 	if err := tx.Create(&systemUser).Error; err != nil {
 		return models.SystemUser_{}, err
 	}

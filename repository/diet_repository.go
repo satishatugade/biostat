@@ -38,7 +38,8 @@ func (d *DietRepositoryImpl) GetDietPlanTemplates(limit, offset int) ([]models.D
 		return nil, 0, err
 	}
 
-	if err := d.db.Limit(limit).Offset(offset).Find(&dietPlans).Error; err != nil {
+	if err := d.db.Limit(limit).Offset(offset).Preload("Meals").
+	Preload("Meals.Nutrients").Find(&dietPlans).Error; err != nil {
 		return nil, 0, err
 	}
 

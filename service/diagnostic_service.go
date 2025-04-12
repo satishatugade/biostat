@@ -29,6 +29,7 @@ type DiagnosticService interface {
 	GetAllDiagnosticTestComponentMappings(limit int, offset int) ([]models.DiagnosticTestComponentMapping, int64, error)
 	CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
+	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64,diagnosticComponentId uint64) error
 }
 
 type diagnosticServiceImpl struct {
@@ -90,6 +91,11 @@ func (s *diagnosticServiceImpl) CreateDiagnosticTestComponentMapping(diagnosticT
 func (s *diagnosticServiceImpl) UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
 	return s.diagnosticRepo.UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping)
 }
+
+func (s *diagnosticServiceImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64,diagnosticComponentId uint64) error {
+	return s.diagnosticRepo.DeleteDiagnosticTestComponentMapping(diagnosticTestId, diagnosticComponentId)
+}
+
 
 func (s *diagnosticServiceImpl) CreateLab(lab *models.DiagnosticLab) error {
 	return s.diagnosticRepo.CreateLab(lab)

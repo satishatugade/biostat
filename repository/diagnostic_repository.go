@@ -3,6 +3,7 @@ package repository
 import (
 	"biostat/constant"
 	"biostat/models"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -37,6 +38,7 @@ type DiagnosticRepository interface {
 	GetAllDiagnosticTestComponentMappings(limit int, offset int) ([]models.DiagnosticTestComponentMapping, int64, error)
 	CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
+	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error
 }
 
 type diagnosticRepositoryImpl struct {
@@ -333,6 +335,26 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticTestComponentMapping(diagnost
 	}
 	return diagnosticTestComponentMapping, nil
 }
+
+func (r *diagnosticRepositoryImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var mapping models.DiagnosticTestComponentMapping
+		
+		if err := tx.Where("diagnostic_test_id = ? AND diagnostic_test_component_id = ?", diagnosticTestId, diagnosticComponentId).
+			First(&mapping).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return gorm.ErrRecordNotFound
+			}
+			return err
+		}
+		if err := tx.Delete(&mapping).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 
 func SaveDiagnosticLabAudit(tx *gorm.DB, lab *models.DiagnosticLab, actionType string, updatedBy string) error {
 	audit := models.DiagnosticLabAudit{
