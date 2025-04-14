@@ -46,10 +46,12 @@ const (
 	Disease                              = "/get-disease/:disease_id"
 	AllDisease                           = "/get-disease"
 	AddDisease                           = "/add-disease"
+	CreateDP                             = "/create-dp"
 	UpdateDisease                        = "/update-disease"
 	DeleteDisease                        = "/delete-disease/:disease_id"
 	DiseaseAudit                         = "/disease-audit"
 	Cause                                = "/causes"
+	DCMapping                            = "/dc-mapping"
 	AddCause                             = "/add-cause"
 	UpdateCause                          = "/update-cause"
 	DeleteCause                          = "/delete-cause/:cause_id"
@@ -109,6 +111,23 @@ const (
 	DeleteSupportGroup = "delete-support-group/:support_group_id"
 	UpadteSupportGroup = "upadate-support-group"
 	AuditSupportGroup  = "support-group"
+
+	//hospital
+	AddHospital     = "add-hospital"
+	UpdateHospital  = "update-hospital"
+	GetAllHospitals = "get-all-hospitals"
+	GetHospitalById = "get-hospital-by-id"
+	DeleteHospital  = "delete-hospital/:hospital_id"
+	AuditHospital   = "hospital-audit"
+
+	MappedHospitalService = "map-hospital-service"
+	//services
+	AddService     = "add-service"
+	GetAllServices = "get-all-service"
+	GetServiceById = "get-service-by-id/:service_id"
+	UpdateService  = "update-service"
+	DeleteService  = "delete-service/:service_id"
+	AuditService   = "service-audit"
 )
 
 const (

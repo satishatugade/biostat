@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,12 +25,13 @@ type MasterController struct {
 	diagnosticService   service.DiagnosticService
 	roleService         service.RoleService
 	supportGroupService service.SupportGroupService
+	hospitalService     service.HospitalService
 }
 
 func NewMasterController(allergyService service.AllergyService, diseaseService service.DiseaseService,
 	causeService service.CauseService, symptomService service.SymptomService, medicationService service.MedicationService,
 	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService,
-	roleService service.RoleService, supportGroupService service.SupportGroupService) *MasterController {
+	roleService service.RoleService, supportGroupService service.SupportGroupService, hospitalService service.HospitalService) *MasterController {
 	return &MasterController{allergyService: allergyService,
 		diseaseService:      diseaseService,
 		causeService:        causeService,
@@ -40,7 +42,30 @@ func NewMasterController(allergyService service.AllergyService, diseaseService s
 		diagnosticService:   diagnosticService,
 		roleService:         roleService,
 		supportGroupService: supportGroupService,
+		hospitalService:     hospitalService,
 	}
+}
+
+func (mc *MasterController) CreateDiseaseProfile(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var req models.DiseaseProfile
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request payload", nil, err)
+		return
+	}
+
+	req.CreatedAt = time.Now()
+	req.CreatedBy = authUserId
+	if err := mc.diseaseService.CreateDiseaseProfile(req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create disease profile", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Disease profile created successfully", nil, nil, nil)
 }
 
 func (mc *MasterController) CreateDisease(c *gin.Context) {
@@ -235,6 +260,27 @@ func (mc *MasterController) GetAllCauses(c *gin.Context) {
 	)
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
 	models.SuccessResponse(c, constant.Success, statusCode, message, causes, pagination, nil)
+}
+
+func (mc *MasterController) AddDiseaseCauseMapping(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.DiseaseCauseMapping
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	input.CreatedBy = authUserId
+	err := mc.causeService.AddDiseaseCauseMapping(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Mapping added successfully", nil, nil, nil)
 }
 
 func (mc *MasterController) AddDiseaseCause(c *gin.Context) {
@@ -1051,7 +1097,7 @@ func (dc *MasterController) DeleteDiagnosticTestComponentMapping(c *gin.Context)
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	if diagnosticTestComponentMapping.DiagnosticTestId == 0 || diagnosticTestComponentMapping.DiagnosticComponentId ==0 {
+	if diagnosticTestComponentMapping.DiagnosticTestId == 0 || diagnosticTestComponentMapping.DiagnosticComponentId == 0 {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "DiagnosticTestId and DiagnosticComponentId is required", nil, nil)
 		return
 	}
@@ -1423,4 +1469,315 @@ func (mc *MasterController) GetSupportGroupAuditRecord(c *gin.Context) {
 		"Support group audit records not found",
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecords, nil, nil)
+}
+
+func (mc *MasterController) AddHospital(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+
+	var input models.Hospital
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+
+	input.CreatedBy = authUserId
+
+	if err := mc.hospitalService.AddHospital(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add hospital", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospital added successfully", input, nil, nil)
+}
+
+func (mc *MasterController) UpdateHospital(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+
+	var input models.Hospital
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+
+	input.UpdatedBy = authUserId
+
+	if err := mc.hospitalService.UpdateHospital(&input, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update hospital", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospital updated successfully", input, nil, nil)
+}
+
+func (mc *MasterController) GetAllHospitals(c *gin.Context) {
+	hospitals, err := mc.hospitalService.GetAllHospitals()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch hospitals", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospitals fetched successfully", hospitals, nil, nil)
+}
+
+func (mc *MasterController) GetHospitalById(c *gin.Context) {
+	// Parse the hospital ID from the URL parameters (e.g., /hospitals/:id)
+	hospitalIdParam := c.Param("hospital_id")
+	hospitalId, err := strconv.ParseUint(hospitalIdParam, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid Hospital ID", nil, err)
+		return
+	}
+
+	hospital, err := mc.hospitalService.GetHospitalById(hospitalId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch hospital", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospital fetched successfully", hospital, nil, nil)
+}
+
+func (mc *MasterController) DeleteHospital(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+
+	hospitalIDStr := c.Param("hospital_id")
+	hospitalID, err := strconv.ParseInt(hospitalIDStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid hospital ID", nil, err)
+		return
+	}
+
+	if err := mc.hospitalService.DeleteHospitalById(hospitalID, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete hospital", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospital deleted successfully", nil, nil, nil)
+}
+
+func (sc *MasterController) CreateService(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
+		return
+	}
+	var service models.Service
+	if err := c.ShouldBindJSON(&service); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request", nil, err)
+		return
+	}
+	service.CreatedBy = authUserId
+	if err := sc.hospitalService.AddService(&service); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create service", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service created successfully", service, nil, nil)
+}
+
+// Get all services
+func (sc *MasterController) GetAllServices(c *gin.Context) {
+	services, err := sc.hospitalService.GetAllServices()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch services", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Services fetched successfully", services, nil, nil)
+}
+
+func (sc *MasterController) GetServiceById(c *gin.Context) {
+	serviceId := c.Param("service_id")
+	service, err := sc.hospitalService.GetServiceById(serviceId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Service not found", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service fetched successfully", service, nil, nil)
+}
+
+func (sc *MasterController) UpdateService(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var service models.Service
+	if err := c.ShouldBindJSON(&service); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request", nil, err)
+		return
+	}
+
+	if err := sc.hospitalService.UpdateService(&service, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update service", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service updated successfully", service, nil, nil)
+}
+
+func (sc *MasterController) DeleteService(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	serviceIdStr := c.Param("service_id")
+
+	serviceId, err := strconv.ParseUint(serviceIdStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid service ID", nil, err)
+		return
+	}
+
+	if err := sc.hospitalService.DeleteService(serviceId, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete service", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service deleted successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) GetHospitalAuditRecord(c *gin.Context) {
+	var hospitalId uint64
+	hospitalIdStr := c.Query("hospital_id")
+	if hospitalIdStr != "" {
+		parsedHospitalId, err := strconv.ParseUint(hospitalIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid hospital ID", nil, err)
+			return
+		}
+		hospitalId = parsedHospitalId
+	}
+
+	var hospitalAuditId uint64
+	if auditIdStr := c.Query("hospital_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			hospitalAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Hospital audit record not found"
+
+	// Fetch all if no filters applied
+	if hospitalId == 0 && hospitalAuditId == 0 {
+		data, totalRecords, err := mc.hospitalService.GetAllHospitalAuditRecord(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Hospital audit records retrieved successfully",
+			"Hospital audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.hospitalService.GetHospitalAuditRecord(hospitalId, hospitalAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Hospital audit records retrieved successfully",
+		"Hospital audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) GetServiceAuditRecord(c *gin.Context) {
+	var serviceId uint64
+	serviceIdStr := c.Query("service_id")
+	if serviceIdStr != "" {
+		parsedServiceId, err := strconv.ParseUint(serviceIdStr, 10, 32)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid service ID", nil, err)
+			return
+		}
+		serviceId = parsedServiceId
+	}
+
+	var serviceAuditId uint64
+	if auditIdStr := c.Query("service_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 32)
+		if err == nil {
+			serviceAuditId = auditId
+		}
+	}
+
+	// Pagination
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Service audit record not found"
+
+	// Fetch all if no filters applied
+	if serviceId == 0 && serviceAuditId == 0 {
+		data, totalRecords, err := mc.hospitalService.GetAllServiceAuditRecord(page, limit)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+			return
+		}
+
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			"Service audit records retrieved successfully",
+			"Service audit records not found",
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	// Fetch filtered records
+	auditRecord, err := mc.hospitalService.GetServiceAuditRecord(serviceId, serviceAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		"Service audit records retrieved successfully",
+		"Service audit records not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) AddServiceMapping(c *gin.Context) {
+	var serviceMapping models.ServiceMapping
+
+	if err := c.ShouldBindJSON(&serviceMapping); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	if serviceMapping.ServiceProviderId == 0 || serviceMapping.ServiceId == 0 {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "ServiceProviderId and ServiceId are required", nil, nil)
+		return
+	}
+
+	err := mc.hospitalService.AddServiceMapping(serviceMapping)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add service mapping", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service mapping added successfully", nil, nil, nil)
 }

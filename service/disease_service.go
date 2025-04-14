@@ -13,6 +13,7 @@ import (
 type DiseaseService interface {
 	GetDiseases(diseaseId uint64) (*models.Disease, error)
 	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
+	CreateDiseaseProfile(profile models.DiseaseProfile) error
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
@@ -44,6 +45,10 @@ func (s *DiseaseServiceImpl) GetDiseases(diseaseId uint64) (*models.Disease, err
 
 func (s *DiseaseServiceImpl) GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error) {
 	return s.diseaseRepo.GetDiseaseProfileById(diseaseProfileId)
+}
+
+func (s *DiseaseServiceImpl) CreateDiseaseProfile(profile models.DiseaseProfile) error {
+	return s.diseaseRepo.CreateDiseaseProfile(profile)
 }
 
 func (s *DiseaseServiceImpl) GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error) {
@@ -90,6 +95,10 @@ func (s *DiseaseServiceImpl) ProcessUploadFromStream(entity, authUserId string, 
 		return ProcessAndInsert[models.DiagnosticLab](s, reader, authUserId)
 	case "SupportGroup":
 		return ProcessAndInsert[models.SupportGroup](s, reader, authUserId)
+	case "HospitalMaster":
+		return ProcessAndInsert[models.Hospital](s, reader, authUserId)
+	case "HospitalServices":
+		return ProcessAndInsert[models.Service](s, reader, authUserId)
 	case "MedicationMaster":
 		return processMedicationInsert(s, reader, authUserId)
 	default:

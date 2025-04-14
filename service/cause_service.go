@@ -12,6 +12,7 @@ type CauseService interface {
 	DeleteCause(causeId uint64, authUserId string) error
 	GetCauseAuditRecord(causeId uint64, causeAuditId uint64) ([]models.CauseAudit, error)
 	GetAllCauseAuditRecord(page, limit int) ([]models.CauseAudit, int64, error)
+	AddDiseaseCauseMapping(DCMapping *models.DiseaseCauseMapping) error
 }
 
 type CauseServiceImpl struct {
@@ -44,4 +45,8 @@ func (s *CauseServiceImpl) GetAllCauseAuditRecord(page, limit int) ([]models.Cau
 
 func (s *CauseServiceImpl) GetCauseAuditRecord(causeId, causeAuditId uint64) ([]models.CauseAudit, error) {
 	return s.causeRepo.GetCauseAuditRecord(causeId, causeAuditId)
+}
+
+func (c *CauseServiceImpl) AddDiseaseCauseMapping(DCMapping *models.DiseaseCauseMapping) error {
+	return c.causeRepo.AddDiseaseCauseMapping(DCMapping)
 }
