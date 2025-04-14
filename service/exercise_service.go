@@ -13,6 +13,7 @@ type ExerciseService interface {
 	DeleteExercise(exerciseId uint64, authUserId string) error
 	GetExerciseAuditRecord(exerciseId, exerciseAuditId uint64) ([]models.ExerciseAudit, error)
 	GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error)
+	AddDiseaseExerciseMapping(mapping *models.DiseaseExerciseMapping) error
 }
 
 type ExerciseServiceImpl struct {
@@ -49,4 +50,7 @@ func (s *ExerciseServiceImpl) GetExerciseAuditRecord(exerciseId, exerciseAuditId
 
 func (s *ExerciseServiceImpl) GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error) {
 	return s.exerciseRepo.GetAllExerciseAuditRecord(page, limit)
+}
+func (s *ExerciseServiceImpl) AddDiseaseExerciseMapping(mapping *models.DiseaseExerciseMapping) error {
+	return s.exerciseRepo.AddDiseaseExerciseMapping(mapping)
 }

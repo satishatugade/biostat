@@ -446,6 +446,30 @@ func (mc *MasterController) AddSymptom(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "symptom added successfully", symptom, nil, nil)
 }
 
+func (mc *MasterController) AddDiseaseSymptomMapping(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+
+	var input models.DiseaseSymptomMapping
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	input.CreatedBy = authUserId
+
+	err := mc.symptomService.AddDiseaseSymptomMapping(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Mapping added successfully", nil, nil, nil)
+}
+
 func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
@@ -607,6 +631,48 @@ func (mc *MasterController) UpdateDietPlanTemplate(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Diet plan updated successfully", dietPlan, nil, nil)
+}
+
+func (mc *MasterController) AddDiseaseDietMapping(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.DiseaseDietMapping
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	input.CreatedBy = authUserId
+	err := mc.dietService.AddDiseaseDietMapping(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Mapping added successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) AddDiseaseExerciseMapping(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.DiseaseExerciseMapping
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	input.CreatedBy = authUserId
+	err := mc.exerciseService.AddDiseaseExerciseMapping(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Mapping added successfully", nil, nil, nil)
 }
 
 func (mc *MasterController) AddExercise(c *gin.Context) {
@@ -839,6 +905,26 @@ func (mc *MasterController) DeleteMedication(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Medication deleted", nil, nil, nil)
 }
 
+func (mc *MasterController) AddDiseaseMedicationMapping(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.DiseaseMedicationMapping
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	input.CreatedBy = authUserId
+	err := mc.medicationService.AddDiseaseMedicationMapping(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add disease-medication mapping", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Disease-medication mapping added successfully", nil, nil, nil)
+}
+
 func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
 	var medicationId uint64
 	medicationIdStr := c.Query("medication_id")
@@ -894,6 +980,27 @@ func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
 		"Medication audit records not found",
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) AddDiseaseDiagnosticTestMapping(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
+	var input models.DiseaseDiagnosticTestMapping
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	input.CreatedBy = authUserId
+	err := mc.diagnosticService.AddDiseaseDiagnosticTestMapping(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Mapping added successfully", nil, nil, nil)
 }
 
 func (dc *MasterController) GetDiagnosticTests(c *gin.Context) {

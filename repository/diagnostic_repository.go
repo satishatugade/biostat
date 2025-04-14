@@ -39,6 +39,7 @@ type DiagnosticRepository interface {
 	CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error
+	AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error
 }
 
 type diagnosticRepositoryImpl struct {
@@ -339,7 +340,7 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticTestComponentMapping(diagnost
 func (r *diagnosticRepositoryImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var mapping models.DiagnosticTestComponentMapping
-		
+
 		if err := tx.Where("diagnostic_test_id = ? AND diagnostic_test_component_id = ?", diagnosticTestId, diagnosticComponentId).
 			First(&mapping).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -354,7 +355,6 @@ func (r *diagnosticRepositoryImpl) DeleteDiagnosticTestComponentMapping(diagnost
 		return nil
 	})
 }
-
 
 func SaveDiagnosticLabAudit(tx *gorm.DB, lab *models.DiagnosticLab, actionType string, updatedBy string) error {
 	audit := models.DiagnosticLabAudit{
@@ -472,4 +472,8 @@ func (r *diagnosticRepositoryImpl) GetDiagnosticLabAuditRecord(labId, labAuditId
 
 	err := query.Order("diagnostic_lab_audit_id desc").Find(&records).Error
 	return records, err
+}
+
+func (r *diagnosticRepositoryImpl) AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error {
+	return r.db.Create(mapping).Error
 }

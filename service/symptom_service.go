@@ -12,6 +12,8 @@ type SymptomService interface {
 	DeleteSymptom(symptomId uint64, authUserId string) error
 	GetSymptomAuditRecord(symptomId uint64, symptomAuditId uint64) ([]models.SymptomAudit, error)
 	GetAllSymptomAuditRecord(page, limit int) ([]models.SymptomAudit, int64, error)
+
+	AddDiseaseSymptomMapping(mapping *models.DiseaseSymptomMapping) error
 }
 
 type SymptomServiceImpl struct {
@@ -47,4 +49,8 @@ func (s *SymptomServiceImpl) GetAllSymptomAuditRecord(page, limit int) ([]models
 
 func (s *SymptomServiceImpl) GetSymptomAuditRecord(symptomId, symptomAuditId uint64) ([]models.SymptomAudit, error) {
 	return s.symptomRepo.GetSymptomAuditRecord(symptomId, symptomAuditId)
+}
+
+func (s *SymptomServiceImpl) AddDiseaseSymptomMapping(mapping *models.DiseaseSymptomMapping) error {
+	return s.symptomRepo.AddDiseaseSymptomMapping(mapping)
 }

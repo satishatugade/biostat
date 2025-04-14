@@ -105,6 +105,7 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Causes", http.MethodPost, constant.CauseAudit, masterController.GetCauseAuditRecord},
 
 		//symptoms master
+		Route{"Symptom", http.MethodPost, constant.DSMapping, masterController.AddDiseaseSymptomMapping},
 		Route{"Symptom", http.MethodPost, constant.Symptom, masterController.GetAllSymptom},
 		Route{"Symptom", http.MethodPost, constant.AddSymptom, masterController.AddSymptom},
 		Route{"Symptom", http.MethodPut, constant.UpdateSymptom, masterController.UpdateDiseaseSymptom},
@@ -115,6 +116,7 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Allergy", http.MethodPost, constant.AllergyMaster, masterController.GetAllergyRestrictions},
 
 		//Medication master
+		Route{"Medication", http.MethodPost, constant.DMMapping, masterController.AddDiseaseMedicationMapping},
 		Route{"Medication", http.MethodPost, constant.Medication, masterController.GetAllMedication},
 		Route{"Medication", http.MethodPost, constant.AddMedication, masterController.AddMedication},
 		Route{"Medication", http.MethodPut, constant.UpdateMedication, masterController.UpdateMedication},
@@ -122,6 +124,7 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Medication", http.MethodPost, constant.MedicationAudit, masterController.GetMedicationAuditRecord},
 
 		//exercise master
+		Route{"Exercise", http.MethodPost, constant.DEMapping, masterController.AddDiseaseExerciseMapping},
 		Route{"Exercise", http.MethodPost, constant.Exercise, masterController.AddExercise},
 		Route{"Exercise", http.MethodPost, constant.AllExercise, masterController.GetAllExercises},
 		Route{"Exercise", http.MethodPost, constant.SingleExercise, masterController.GetExerciseById},
@@ -130,12 +133,16 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Exercise", http.MethodPost, constant.ExerciseAudit, masterController.GetExerciseAuditRecord},
 
 		//diet master
+
+		Route{"Diet", http.MethodPost, constant.DDMapping, masterController.AddDiseaseDietMapping},
 		Route{"Diet", http.MethodPost, constant.Diet, masterController.AddDietPlanTemplate},
 		Route{"Diet", http.MethodPost, constant.AllDietTemplate, masterController.GetAllDietPlanTemplates},
 		Route{"Diet", http.MethodPost, constant.SingleDiet, masterController.GetDietPlanById},
 		Route{"Diet", http.MethodPut, constant.UpdateDiet, masterController.UpdateDietPlanTemplate},
 
 		// Diagnostic Test Routes
+
+		Route{"DTM", http.MethodPost, constant.DDTMapping, masterController.AddDiseaseDiagnosticTestMapping},
 		Route{"DTM", http.MethodPost, constant.DiagnosticTests, masterController.GetDiagnosticTests},
 		Route{"DTM", http.MethodPost, constant.DiagnosticTest, masterController.CreateDiagnosticTest},
 		Route{"DTM", http.MethodPut, constant.DiagnosticTest, masterController.UpdateDiagnosticTest},

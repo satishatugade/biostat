@@ -14,6 +14,7 @@ type MedicationRepository interface {
 	DeleteMedication(medicationId uint64, authUserId string) error
 	GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error)
 	GetAllMedicationAuditRecord(page, limit int) ([]models.MedicationAudit, int64, error)
+	AddDiseaseMedicationMapping(mapping *models.DiseaseMedicationMapping) error
 }
 
 type MedicationRepositoryImpl struct {
@@ -161,4 +162,7 @@ func (repo *MedicationRepositoryImpl) GetMedicationAuditRecord(medicationId, med
 
 	err := query.Order("medication_audit_id DESC").Find(&auditLogs).Error
 	return auditLogs, err
+}
+func (r *MedicationRepositoryImpl) AddDiseaseMedicationMapping(mapping *models.DiseaseMedicationMapping) error {
+	return r.db.Create(mapping).Error
 }

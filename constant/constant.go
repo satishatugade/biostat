@@ -57,6 +57,7 @@ const (
 	DeleteCause                          = "/delete-cause/:cause_id"
 	CauseAudit                           = "/cause-audit"
 	Symptom                              = "/symptom"
+	DSMapping                            = "/ds-mapping"
 	AddSymptom                           = "/add-symptom"
 	UpdateSymptom                        = "/update-symptom"
 	DeleteSymptom                        = "/delete-symptom/:symptom_id"
@@ -64,7 +65,9 @@ const (
 	DiseaseProfile                       = "/disease-profile"
 	SingleDiseaseProfile                 = "/disease-profile/:disease_profile_id"
 	DiagnosticTests                      = "/diagnostic-tests"
+	DDTMapping                           = "/ddt-mapping"
 	Medication                           = "/get-medication"
+	DMMapping                            = "/dm-mapping"
 	AddMedication                        = "/add-medication"
 	UpdateMedication                     = "/update-medication"
 	DeleteMedication                     = "/delete-medication/:medication_id"
@@ -79,6 +82,7 @@ const (
 	DeleteDiagnosticTestComponentMapping = "/delete-diagnostic-test-component-mapping"
 	DeleteDTComponent                    = "/delete-dt-component/:diagnostic_test_component_id"
 
+	DEMapping      = "de-mapping"
 	Exercise       = "/add-exercise"
 	AllExercise    = "/get-exercise"
 	SingleExercise = "/exercise/:exercise_id"
@@ -90,6 +94,7 @@ const (
 	AllDietTemplate = "/diet-template"
 	SingleDiet      = "/diet-template/:diet_id"
 	UpdateDiet      = "/update-diet/:diet_id"
+	DDMapping       = "/dd-mapping"
 
 	//Roles master
 	GetRole  = "/get-role/:role_id"

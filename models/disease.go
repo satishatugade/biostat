@@ -74,6 +74,20 @@ type Symptom struct {
 	CreatedBy   string    `json:"created_by"`
 }
 
+type DiseaseSymptomMapping struct {
+	DiseaseSymptomMappingId uint64    `json:"disease_symptom_mapping_id" gorm:"primaryKey"`
+	DiseaseId               uint64    `json:"disease_id"`
+	SymptomId               uint64    `json:"symptom_id"`
+	CreatedAt               time.Time `json:"created_at"`
+	UpdatedAt               time.Time `json:"updated_at"`
+	CreatedBy               string    `json:"created_by"`
+	UpdatedBy               string    `json:"updated_by"`
+}
+
+func (DiseaseSymptomMapping) TableName() string {
+	return "tbl_disease_symptom_mapping"
+}
+
 type Severity struct {
 	SeverityId    uint64 `json:"severity_id" gorm:"primaryKey"`
 	SeverityLevel string `json:"severity_level"`
@@ -153,9 +167,13 @@ func (MedicationType) TableName() string {
 }
 
 type DiseaseMedicationMapping struct {
-	DiseaseMedicationMappingId uint64 `json:"-" gorm:"primaryKey"`
-	DiseaseId                  uint64 `json:"disease_id"`
-	MedicationId               uint64 `json:"medication_id"`
+	DiseaseMedicationMappingId uint64    `json:"-" gorm:"primaryKey"`
+	DiseaseId                  uint64    `json:"disease_id"`
+	MedicationId               uint64    `json:"medication_id"`
+	CreatedAt                  time.Time `json:"created_at"`
+	UpdatedAt                  time.Time `json:"updated_at"`
+	CreatedBy                  string    `json:"created_by"`
+	UpdatedBy                  string    `json:"updated_by"`
 }
 
 func (DiseaseMedicationMapping) TableName() string {
@@ -196,6 +214,7 @@ type DiseaseExerciseMapping struct {
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
 	CreatedBy                string    `json:"created_by"`
+	UpdatedBy                string    `json:"updated_by"`
 }
 
 func (Exercise) TableName() string {
@@ -261,6 +280,20 @@ func (Nutrient) TableName() string {
 	return "tbl_nutrient"
 }
 
+type DiseaseDietMapping struct {
+	DiseaseDietMappingId uint64    `json:"disease_diet_mapping_id" gorm:"primaryKey"`
+	DiseaseId            uint64    `json:"disease_id"`
+	DietPlanTemplateId   uint64    `json:"diet_plan_template_id"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	CreatedBy            string    `json:"created_by"`
+	UpdatedBy            string    `json:"updated_by"`
+}
+
+func (DiseaseDietMapping) TableName() string {
+	return "tbl_disease_diet_mapping"
+}
+
 type DiagnosticTest struct {
 	DiagnosticTestId uint64                    `gorm:"column:diagnostic_test_id;primaryKey" json:"diagnostic_test_id"`
 	LoincCode        string                    `gorm:"column:test_loinc_code" json:"test_loinc_code"`
@@ -318,9 +351,13 @@ func (DiagnosticTestComponentMapping) TableName() string {
 }
 
 type DiseaseDiagnosticTestMapping struct {
-	DiseaseDiagnosticTestMapping uint64 `gorm:"column:disease_diagnostic_test_mapping_id;primaryKey"`
-	DiseaseId                    uint64 `gorm:"column:disease_id"`
-	DiagnosticTestId             uint64 `gorm:"column:diagnostic_test_id"`
+	DiseaseDiagnosticTestMapping uint64    `gorm:"column:disease_diagnostic_test_mapping_id;primaryKey"`
+	DiseaseId                    uint64    `json:"disease_id"`
+	DiagnosticTestId             uint64    `json:"diagnostic_test_id"`
+	CreatedAt                    time.Time `json:"created_at"`
+	UpdatedAt                    time.Time `json:"updated_at"`
+	CreatedBy                    string    `json:"created_by"`
+	UpdatedBy                    string    `json:"updated_by"`
 }
 
 func (DiseaseDiagnosticTestMapping) TableName() string {

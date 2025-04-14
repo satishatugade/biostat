@@ -17,6 +17,7 @@ type ExerciseRepository interface {
 	DeleteExercise(exerciseId uint64, authUserId string) error
 	GetExerciseAuditRecord(exerciseId, exerciseAuditId uint64) ([]models.ExerciseAudit, error)
 	GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error)
+	AddDiseaseExerciseMapping(mapping *models.DiseaseExerciseMapping) error
 }
 
 type ExerciseRepositoryImpl struct {
@@ -151,4 +152,8 @@ func (repo *ExerciseRepositoryImpl) GetAllExerciseAuditRecord(page, limit int) (
 	}
 
 	return audits, totalRecords, nil
+}
+
+func (r *ExerciseRepositoryImpl) AddDiseaseExerciseMapping(mapping *models.DiseaseExerciseMapping) error {
+	return r.db.Create(mapping).Error
 }

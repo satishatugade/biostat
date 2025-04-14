@@ -29,7 +29,9 @@ type DiagnosticService interface {
 	GetAllDiagnosticTestComponentMappings(limit int, offset int) ([]models.DiagnosticTestComponentMapping, int64, error)
 	CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
-	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64,diagnosticComponentId uint64) error
+	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error
+
+	AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error
 }
 
 type diagnosticServiceImpl struct {
@@ -92,10 +94,9 @@ func (s *diagnosticServiceImpl) UpdateDiagnosticTestComponentMapping(diagnosticT
 	return s.diagnosticRepo.UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping)
 }
 
-func (s *diagnosticServiceImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64,diagnosticComponentId uint64) error {
+func (s *diagnosticServiceImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error {
 	return s.diagnosticRepo.DeleteDiagnosticTestComponentMapping(diagnosticTestId, diagnosticComponentId)
 }
-
 
 func (s *diagnosticServiceImpl) CreateLab(lab *models.DiagnosticLab) error {
 	return s.diagnosticRepo.CreateLab(lab)
@@ -122,4 +123,8 @@ func (s *diagnosticServiceImpl) GetDiagnosticLabAuditRecord(labId, labAuditId ui
 
 func (s *diagnosticServiceImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
 	return s.diagnosticRepo.GetAllLabs(page, limit)
+}
+
+func (s *diagnosticServiceImpl) AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error {
+	return s.diagnosticRepo.AddDiseaseDiagnosticTestMapping(mapping)
 }

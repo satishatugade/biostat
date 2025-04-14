@@ -12,6 +12,7 @@ type MedicationService interface {
 	DeleteMedication(medicationId uint64, authUserId string) error
 	GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error)
 	GetAllMedicationAuditRecord(page, limit int) ([]models.MedicationAudit, int64, error)
+	AddDiseaseMedicationMapping(mapping *models.DiseaseMedicationMapping) error
 }
 
 type MedicationServiceImpl struct {
@@ -48,4 +49,8 @@ func (s *MedicationServiceImpl) GetAllMedicationAuditRecord(page, limit int) ([]
 
 func (s *MedicationServiceImpl) GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error) {
 	return s.medicineRepo.GetMedicationAuditRecord(medicationId, medicationAuditId)
+}
+
+func (s *MedicationServiceImpl) AddDiseaseMedicationMapping(mapping *models.DiseaseMedicationMapping) error {
+	return s.medicineRepo.AddDiseaseMedicationMapping(mapping)
 }

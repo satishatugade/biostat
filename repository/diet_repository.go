@@ -13,6 +13,7 @@ type DietRepository interface {
 	GetDietPlanById(dietPlanTemplateId string) (models.DietPlanTemplate, error)
 	UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error
 	GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error)
+	AddDiseaseDietMapping(mapping *models.DiseaseDietMapping) error
 }
 
 type DietRepositoryImpl struct {
@@ -145,4 +146,8 @@ func (d *DietRepositoryImpl) GetPatientDietPlan(patientId string) ([]models.Pati
 	}
 
 	return dietPlans, nil
+}
+
+func (r *DietRepositoryImpl) AddDiseaseDietMapping(mapping *models.DiseaseDietMapping) error {
+	return r.db.Create(mapping).Error
 }
