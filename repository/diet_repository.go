@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -39,7 +40,7 @@ func (d *DietRepositoryImpl) GetDietPlanTemplates(limit, offset int) ([]models.D
 	}
 
 	if err := d.db.Limit(limit).Offset(offset).Preload("Meals").
-	Preload("Meals.Nutrients").Find(&dietPlans).Error; err != nil {
+		Preload("Meals.Nutrients").Find(&dietPlans).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -55,7 +56,78 @@ func (d *DietRepositoryImpl) GetDietPlanById(dietPlanTemplateId string) (models.
 }
 
 func (d *DietRepositoryImpl) UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error {
-	return d.db.Model(&models.DietPlanTemplate{}).Where("diet_plan_template_id = ?", dietPlanTemplateId).Updates(dietPlan).Error
+	tx := d.db.Begin()
+
+	// Step 1: Update DietPlanTemplate
+	if err := tx.Model(&models.DietPlanTemplate{}).
+		Where("diet_plan_template_id = ?", dietPlanTemplateId).
+		Updates(map[string]interface{}{
+			"name":        dietPlan.Name,
+			"description": dietPlan.Description,
+			"goal":        dietPlan.Goal,
+			"notes":       dietPlan.Notes,
+			"updated_at":  time.Now(),
+			"created_by":  dietPlan.CreatedBy,
+		}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Step 2: Iterate over each meal
+	for _, meal := range dietPlan.Meals {
+		meal.DietPlanTemplateId = dietPlan.DietPlanTemplateId
+
+		// If MealId exists, update; otherwise, create
+		if meal.MealId != 0 {
+			if err := tx.Model(&models.Meal{}).
+				Where("meal_id = ?", meal.MealId).
+				Updates(map[string]interface{}{
+					"meal_type":   meal.MealType,
+					"description": meal.Description,
+					"updated_at":  time.Now(),
+					"created_by":  meal.CreatedBy,
+				}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		} else {
+			meal.CreatedAt = time.Now()
+			meal.UpdatedAt = time.Now()
+			if err := tx.Create(&meal).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		// Step 3: Nutrients inside each meal
+		for _, nutrient := range meal.Nutrients {
+			nutrient.MealId = meal.MealId
+
+			if nutrient.NutrientId != 0 {
+				if err := tx.Model(&models.Nutrient{}).
+					Where("nutrient_id = ?", nutrient.NutrientId).
+					Updates(map[string]interface{}{
+						"nutrient_name": nutrient.NutrientName,
+						"amount":        nutrient.Amount,
+						"unit":          nutrient.Unit,
+						"updated_at":    time.Now(),
+						"created_by":    nutrient.CreatedBy,
+					}).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			} else {
+				nutrient.CreatedAt = time.Now()
+				nutrient.UpdatedAt = time.Now()
+				if err := tx.Create(&nutrient).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+	}
+
+	return tx.Commit().Error
 }
 
 func (d *DietRepositoryImpl) GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error) {

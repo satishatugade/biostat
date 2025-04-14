@@ -8,7 +8,7 @@ import (
 type HospitalService interface {
 	AddHospital(hospitaL *models.Hospital) error
 	UpdateHospital(hospital *models.Hospital, authUserId string) error
-	GetAllHospitals() ([]models.Hospital, error)
+	GetAllHospitals(isDeleted *int) ([]models.Hospital, error)
 	DeleteHospitalById(hospitalId int64, updatedBy string) error
 	GetHospitalById(hospitalId uint64) (models.Hospital, error)
 
@@ -44,8 +44,8 @@ func (s *HospitalServiceImpl) UpdateHospital(hospital *models.Hospital, authUser
 	return s.hospitalRepo.UpdateHospital(hospital, authUserId)
 }
 
-func (s *HospitalServiceImpl) GetAllHospitals() ([]models.Hospital, error) {
-	return s.hospitalRepo.GetAllHospitals()
+func (s *HospitalServiceImpl) GetAllHospitals(isDeleted *int) ([]models.Hospital, error) {
+	return s.hospitalRepo.GetAllHospitals(isDeleted)
 }
 
 func (s *HospitalServiceImpl) DeleteHospitalById(hospitalId int64, updatedBy string) error {

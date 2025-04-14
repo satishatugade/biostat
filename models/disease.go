@@ -28,6 +28,7 @@ type DiseaseProfile struct {
 
 type Disease struct {
 	DiseaseId         uint64    `json:"disease_id" gorm:"primaryKey"`
+	DiseaseTypeId     uint64    `json:"disease_type_id" gorm:"-"`
 	DiseaseSnomedCode string    `json:"disease_snomed_code"`
 	DiseaseName       string    `json:"disease_name"`
 	Description       string    `json:"description"`

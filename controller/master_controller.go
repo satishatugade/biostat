@@ -69,11 +69,17 @@ func (mc *MasterController) CreateDiseaseProfile(c *gin.Context) {
 }
 
 func (mc *MasterController) CreateDisease(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		return
+	}
 	var disease models.Disease
 	if err := c.ShouldBindJSON(&disease); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request payload", nil, err)
 		return
 	}
+	disease.CreatedBy = authUserId
 	err := mc.diseaseService.CreateDisease(&disease)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create disease", nil, err)
@@ -1518,7 +1524,7 @@ func (mc *MasterController) UpdateHospital(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllHospitals(c *gin.Context) {
-	hospitals, err := mc.hospitalService.GetAllHospitals()
+	hospitals, err := mc.hospitalService.GetAllHospitals(nil)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch hospitals", nil, err)
 		return

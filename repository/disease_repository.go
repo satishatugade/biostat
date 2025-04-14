@@ -53,7 +53,23 @@ func (repo *DiseaseRepositoryImpl) CreateDisease(disease *models.Disease) error 
 	if disease == nil {
 		return nil
 	}
-	return repo.db.Create(disease).Error
+	tx := repo.db.Begin()
+
+	if err := tx.Create(disease).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	mapping := models.DiseaseTypeMapping{
+		DiseaseId:     disease.DiseaseId,
+		DiseaseTypeId: disease.DiseaseTypeId, // make sure this is set in input
+	}
+
+	if err := tx.Create(&mapping).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 func (repo *DiseaseRepositoryImpl) GetAllDiseases(limit, offset int) ([]models.Disease, int64, error) {

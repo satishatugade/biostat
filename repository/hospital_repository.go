@@ -11,7 +11,7 @@ import (
 type HospitalRepository interface {
 	AddHospital(hospital *models.Hospital) error
 	UpdateHospital(hospital *models.Hospital, updatedBy string) error
-	GetAllHospitals() ([]models.Hospital, error)
+	GetAllHospitals(isDeleted *int) ([]models.Hospital, error)
 	DeleteHospitalById(hospitalId int64, updatedBy string) error
 	GetHospitalById(hospitalId uint64) (models.Hospital, error)
 
@@ -100,9 +100,15 @@ func (r *HospitalRepositoryImpl) InsertHospitalAudit(tx *gorm.DB, h *models.Hosp
 	return nil
 }
 
-func (r *HospitalRepositoryImpl) GetAllHospitals() ([]models.Hospital, error) {
+func (r *HospitalRepositoryImpl) GetAllHospitals(isDeleted *int) ([]models.Hospital, error) {
 	var hospitals []models.Hospital
-	err := r.db.Where("is_deleted = 0").Find(&hospitals).Error
+	query := r.db
+
+	if isDeleted != nil {
+		query = query.Where("is_deleted = ?", *isDeleted)
+	}
+
+	err := query.Order("hospital_id DESC").Find(&hospitals).Error
 	return hospitals, err
 }
 
