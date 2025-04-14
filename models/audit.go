@@ -107,7 +107,7 @@ type ExerciseAudit struct {
 	Description     string    `json:"description" gorm:"column:description"`
 	Category        string    `json:"category" gorm:"column:category"`
 	IntensityLevel  string    `json:"intensity_level" gorm:"column:intensity_level"`
-	Duration        int       `json:"duration" gorm:"column:duration"`
+	Duration        string    `json:"duration" gorm:"column:duration"`
 	DurationUnit    string    `json:"duration_unit" gorm:"column:duration_unit"`
 	Benefits        string    `json:"benefits" gorm:"column:benefits"`
 	IsDeleted       int       `json:"is_deleted" gorm:"column:is_deleted"`

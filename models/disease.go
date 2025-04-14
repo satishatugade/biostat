@@ -168,7 +168,7 @@ type Exercise struct {
 	Description      string             `json:"description"`
 	Category         string             `json:"category"`
 	IntensityLevel   string             `json:"intensity_level"`
-	Duration         int                `json:"duration"`
+	Duration         string             `json:"duration"`
 	DurationUnit     string             `json:"duration_unit"`
 	Benefits         string             `json:"benefits"`
 	CreatedAt        time.Time          `json:"created_at"`
