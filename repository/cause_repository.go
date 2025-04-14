@@ -17,6 +17,7 @@ type CauseRepository interface {
 	DeleteCause(causeId uint64, authUserId string) error
 	GetCauseAuditRecord(causeId uint64, causeAuditId uint64) ([]models.CauseAudit, error)
 	GetAllCauseAuditRecord(page, limit int) ([]models.CauseAudit, int64, error)
+	AddDiseaseCauseMapping(DCMapping *models.DiseaseCauseMapping) error
 }
 
 type CauseRepositoryImpl struct {
@@ -149,4 +150,8 @@ func (repo *CauseRepositoryImpl) GetCauseAuditRecord(causeId, causeAuditId uint6
 		return nil, err
 	}
 	return auditLogs, nil
+}
+
+func (r *CauseRepositoryImpl) AddDiseaseCauseMapping(mapping *models.DiseaseCauseMapping) error {
+	return r.db.Create(mapping).Error
 }

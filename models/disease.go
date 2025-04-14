@@ -18,9 +18,11 @@ type PatientDiseaseProfile struct {
 type DiseaseProfile struct {
 	DiseaseProfileId uint64    `json:"disease_profile_id" gorm:"primaryKey"`
 	DiseaseId        uint64    `json:"disease_id"`
+	IsDeleted        int       `json:"is_deleted"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
-	IsDeleted        int       `json:"is_deleted"`
+	CreatedBy        string    `json:"created_by"`
+	UpdatedBy        string    `json:"updated_by"`
 	Disease          Disease   `json:"disease" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
@@ -86,6 +88,20 @@ type Cause struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	CreatedBy   string    `json:"created_by"`
 	IsDeleted   int       `json:"is_deleted"`
+}
+
+type DiseaseCauseMapping struct {
+	DiseaseCauseMappingId uint64    `gorm:"column:disease_cause_mapping_id;primaryKey;autoIncrement" json:"disease_cause_mapping_id"`
+	DiseaseId             uint64    `gorm:"column:disease_id" json:"disease_id"`
+	CauseId               uint64    `gorm:"column:cause_id" json:"cause_id"`
+	CreatedAt             time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt             time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy             string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy             string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (DiseaseCauseMapping) TableName() string {
+	return "tbl_disease_cause_mapping"
 }
 
 func (PatientDiseaseProfile) TableName() string { return "tbl_patient_disease_profile" }
@@ -347,6 +363,14 @@ func (c *DiagnosticLab) SetCreatedBy(userId string) {
 }
 
 func (c *SupportGroup) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *Hospital) SetCreatedBy(userId string) {
+	c.CreatedBy = userId
+}
+
+func (c *Service) SetCreatedBy(userId string) {
 	c.CreatedBy = userId
 }
 

@@ -13,6 +13,7 @@ type DiseaseRepository interface {
 	GetAllDiseasesInfo(limit int, offset int) ([]models.Disease, int64, error)
 	GetDiseases(diseaseId uint64) (*models.Disease, error)
 	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
+	CreateDiseaseProfile(profile models.DiseaseProfile) error
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
@@ -100,6 +101,10 @@ func (r *DiseaseRepositoryImpl) GetAllDiseasesInfo(limit int, offset int) ([]mod
 	}
 
 	return diseases, totalRecords, nil
+}
+
+func (r *DiseaseRepositoryImpl) CreateDiseaseProfile(profile models.DiseaseProfile) error {
+	return r.db.Create(&profile).Error
 }
 
 func (r *DiseaseRepositoryImpl) GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error) {

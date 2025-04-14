@@ -53,10 +53,13 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var supportGrpRepo = repository.NewSupportGroupRepository(db)
 	var supportGrpService = service.NewSupportGroupService(supportGrpRepo)
 
+	var hospitalRepo = repository.NewHospitalRepository(db)
+	var hospitalService = service.NewHospitalService(hospitalRepo)
+
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService)
 
 	var emailService = service.NewEmailService()
-	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService)
+	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
@@ -78,6 +81,8 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Disease", http.MethodPost, constant.BulkUpload, masterController.UploadMasterData},
 
 		//disease master
+
+		Route{"DP", http.MethodPost, constant.CreateDP, masterController.CreateDiseaseProfile},
 		Route{"Disease", http.MethodPost, constant.AddDisease, masterController.CreateDisease},
 		Route{"Disease", http.MethodPost, constant.Disease, masterController.GetDiseaseInfo},
 		Route{"Disease", http.MethodPost, constant.AllDisease, masterController.GetDiseaseInfo},
@@ -92,6 +97,7 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Disease profile", http.MethodPost, constant.SingleDiseaseProfile, masterController.GetDiseaseProfileById},
 
 		//Causes master
+		Route{"Causes", http.MethodPost, constant.DCMapping, masterController.AddDiseaseCauseMapping},
 		Route{"Causes", http.MethodPost, constant.Cause, masterController.GetAllCauses},
 		Route{"Causes", http.MethodPost, constant.AddCause, masterController.AddDiseaseCause},
 		Route{"Causes", http.MethodPut, constant.UpdateCause, masterController.UpdateDiseaseCause},
@@ -140,14 +146,13 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"DTM", http.MethodPost, constant.DiagnosticComponent, masterController.CreateDiagnosticComponent},
 		Route{"DTM", http.MethodPut, constant.DiagnosticComponent, masterController.UpdateDiagnosticComponent},
 		Route{"DTM", http.MethodGet, constant.SingleDiagnosticComponent, masterController.GetSingleDiagnosticComponent},
-		Route{"DTM", http.MethodPost, constant.DeleteDTComponent, masterController.DeleteDiagnosticTestComponent},		
+		Route{"DTM", http.MethodPost, constant.DeleteDTComponent, masterController.DeleteDiagnosticTestComponent},
 
 		// Diagnostic Test Component Mapping Routes
 		Route{"DTM", http.MethodPost, constant.DiagnosticTestComponentMapping, masterController.CreateDiagnosticTestComponentMapping},
 		Route{"DTM", http.MethodPost, constant.DiagnosticTestComponentMappings, masterController.GetAllDiagnosticTestComponentMappings},
 		Route{"DTM", http.MethodPut, constant.DiagnosticTestComponentMapping, masterController.UpdateDiagnosticTestComponentMapping},
 		Route{"DTM", http.MethodPost, constant.DeleteDiagnosticTestComponentMapping, masterController.DeleteDiagnosticTestComponentMapping},
-		
 
 		Route{"D-LAB", http.MethodPost, constant.DiagnosticLab, masterController.CreateLab},
 		Route{"D-LAB", http.MethodPost, constant.GetLabById, masterController.GetLabById},
@@ -162,6 +167,23 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"UPDATE-SUPPORT-GROUP", http.MethodPut, constant.UpadteSupportGroup, masterController.UpdateSupportGroup},
 		Route{"DELETE-SUPPORT-GROUP", http.MethodPost, constant.DeleteSupportGroup, masterController.DeleteSupportGroup},
 		Route{"DELETE-SUPPORT-GROUP", http.MethodPost, constant.AuditSupportGroup, masterController.GetSupportGroupAuditRecord},
+
+		// Hospital Routes
+		Route{"Add-Hospital", http.MethodPost, constant.AddHospital, masterController.AddHospital},
+		Route{"Update-Hospital", http.MethodPut, constant.UpdateHospital, masterController.UpdateHospital},
+		Route{"Get-All-Hospitals", http.MethodPost, constant.GetAllHospitals, masterController.GetAllHospitals},
+		Route{"Get-Hospital-By-Id", http.MethodPost, constant.GetHospitalById, masterController.GetHospitalById},
+		Route{"Delete-Hospital", http.MethodPost, constant.DeleteHospital, masterController.DeleteHospital},
+		Route{"Audit-hospital", http.MethodPost, constant.AuditHospital, masterController.GetHospitalAuditRecord},
+
+		Route{"Audit-hospital", http.MethodPost, constant.MappedHospitalService, masterController.AddServiceMapping},
+
+		Route{"Add-Service", http.MethodPost, constant.AddService, masterController.CreateService},
+		Route{"Get-All-Services", http.MethodPost, constant.GetAllServices, masterController.GetAllServices},
+		Route{"Get-Service-By-Id", http.MethodPost, constant.GetServiceById, masterController.GetServiceById},
+		Route{"Update-Service", http.MethodPut, constant.UpdateService, masterController.UpdateService},
+		Route{"Delete-Service", http.MethodPost, constant.DeleteService, masterController.DeleteService},
+		Route{"Audit-Service", http.MethodPost, constant.AuditService, masterController.GetServiceAuditRecord},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {
