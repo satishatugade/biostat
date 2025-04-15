@@ -13,6 +13,25 @@ import (
 )
 
 func main() {
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatalf("Error loading .env file: %v", err)
+	// }
+	// env := os.Getenv("APP_ENV")
+	// var envFile string
+
+	// switch env {
+	// case "dev":
+	// 	envFile = ".env.dev"
+	// case "uat":
+	// 	envFile = ".env.uat"
+	// case "prod":
+	// 	envFile = ".env.prod"
+	// default:
+	// 	log.Println("No environment set or environment is not supported, using default .env.dev")
+	// 	envFile = ".env.dev"
+	// }
+	// fmt.Println("ENV profile active ", envFile)
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)

@@ -4,7 +4,6 @@ import (
 	"biostat/auth"
 	"biostat/controller"
 	"biostat/database"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -101,7 +100,6 @@ func Routing() {
 		router: gin.Default(),
 	}
 	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
-	log.Println("corsOrigins", corsOrigins)
 	r.router.Use(cors.New(cors.Config{
 		AllowOrigins:     corsOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},

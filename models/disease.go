@@ -208,8 +208,8 @@ type ExerciseArtifact struct {
 
 type DiseaseExerciseMapping struct {
 	DiseaseExerciseMappingId uint64    `json:"-" gorm:"primaryKey"`
-	DiseaseId                uint64    `json:"-"`
-	ExerciseId               uint64    `json:"-"`
+	DiseaseId                uint64    `json:"disease_id"`
+	ExerciseId               uint64    `json:"exercise_id"`
 	Exercise                 Exercise  `json:"exercise" gorm:"foreignKey:ExerciseId;references:ExerciseId"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
