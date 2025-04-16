@@ -333,9 +333,13 @@ type DiagnosticTestComponent struct {
 }
 
 type DiagnosticTestComponentMapping struct {
-	DiagnosticTestComponentMappingId uint64 `gorm:"column:diagnostic_test_component_mapping_id;primaryKey" json:"diagnostic_test_component_mapping_id"`
-	DiagnosticTestId                 uint64 `gorm:"column:diagnostic_test_id" json:"diagnostic_test_id"`
-	DiagnosticComponentId            uint64 `gorm:"column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	DiagnosticTestComponentMappingId uint64    `gorm:"column:diagnostic_test_component_mapping_id;primaryKey" json:"diagnostic_test_component_mapping_id"`
+	DiagnosticTestId                 uint64    `gorm:"column:diagnostic_test_id" json:"diagnostic_test_id"`
+	DiagnosticComponentId            uint64    `gorm:"column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	CreatedAt                        time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt                        time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy                        string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy                        string    `gorm:"column:updated_by" json:"updated_by"`
 }
 
 func (DiagnosticTestComponent) TableName() string {

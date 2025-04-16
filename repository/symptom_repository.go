@@ -37,7 +37,7 @@ func (s *SymptomRepositoryImpl) GetAllSymptom(limit int, offset int) ([]models.S
 	var symptom []models.Symptom
 	var totalRecords int64
 
-	query := s.db.Model(&models.Symptom{})
+	query := s.db.Model(&models.Symptom{}).Order("symptom_id DESC")
 	query.Count(&totalRecords)
 
 	err := query.Limit(limit).Offset(offset).Find(&symptom).Error

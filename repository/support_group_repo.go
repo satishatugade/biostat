@@ -48,7 +48,7 @@ func (r *SupportGroupRepositoryImpl) GetAllSupportGroups(limit, offset int) ([]m
 	if err != nil {
 		return nil, 0, err
 	}
-	err = r.db.Offset(offset).Limit(limit).Order("created_at desc").Find(&groups).Error
+	err = r.db.Offset(offset).Limit(limit).Order("support_group_id desc").Find(&groups).Error
 	return groups, total, err
 }
 

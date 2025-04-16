@@ -82,7 +82,7 @@ func (repo *DiseaseRepositoryImpl) GetAllDiseases(limit, offset int) ([]models.D
 	}
 
 	// Build base query
-	query := repo.db.Model(&models.Disease{}).Order("disease_id ASC")
+	query := repo.db.Model(&models.Disease{}).Order("disease_id DESC")
 
 	// Apply pagination only if limit is greater than 0
 	if limit > 0 {
@@ -146,7 +146,7 @@ func (r *DiseaseRepositoryImpl) GetDiseaseProfiles(limit int, offset int) ([]mod
 		Preload("Disease.DietPlans.Meals.Nutrients").
 		Preload("Disease.DiagnosticTests").
 		Preload("Disease.DiagnosticTests.Components").
-		Order("disease_profile_id ASC").
+		Order("disease_profile_id DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&diseaseProfiles).Error

@@ -43,7 +43,7 @@ func (e *ExerciseRepositoryImpl) GetExercises(limit, offset int) ([]models.Exerc
 		return nil, 0, err
 	}
 
-	if err := e.db.Limit(limit).Offset(offset).Find(&exercises).Error; err != nil {
+	if err := e.db.Order("exercise_id DESC").Limit(limit).Offset(offset).Find(&exercises).Error; err != nil {
 		return nil, 0, err
 	}
 

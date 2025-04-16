@@ -64,7 +64,7 @@ func (r *diagnosticRepositoryImpl) GetAllDiagnosticTests(limit int, offset int) 
 	}
 
 	// Fetch paginated data
-	err = r.db.Preload("Components").Limit(limit).Offset(offset).Find(&diagnosticTests).Error
+	err = r.db.Preload("Components").Order("diagnostic_test_id DESC").Limit(limit).Offset(offset).Find(&diagnosticTests).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -192,7 +192,7 @@ func (r *diagnosticRepositoryImpl) GetAllDiagnosticComponents(limit int, offset 
 	if err != nil {
 		return nil, 0, err
 	}
-	err = r.db.Limit(limit).Offset(offset).Find(&diagnosticComponents).Error
+	err = r.db.Order("diagnostic_test_component_id DESC").Limit(limit).Offset(offset).Find(&diagnosticComponents).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -374,6 +374,7 @@ func SaveDiagnosticLabAudit(tx *gorm.DB, lab *models.DiagnosticLab, actionType s
 func (r *diagnosticRepositoryImpl) CreateLab(lab *models.DiagnosticLab) error {
 	return r.db.Create(lab).Error
 }
+
 func (r *diagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
 	var labs []models.DiagnosticLab
 	var total int64
@@ -386,7 +387,7 @@ func (r *diagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.Diagnos
 		return nil, 0, err
 	}
 
-	err = query.Offset(offset).Limit(limit).Order("created_at desc").Find(&labs).Error
+	err = query.Offset(offset).Limit(limit).Order("diagnostic_lab_id desc").Find(&labs).Error
 	return labs, total, err
 }
 

@@ -37,7 +37,7 @@ func (c *CauseRepositoryImpl) GetAllCauses(limit int, offset int) ([]models.Caus
 	var causes []models.Cause
 	var totalRecords int64
 
-	query := c.db.Model(&models.Cause{})
+	query := c.db.Model(&models.Cause{}).Order("cause_id DESC")
 	query.Count(&totalRecords)
 
 	err := query.Limit(limit).Offset(offset).Find(&causes).Error

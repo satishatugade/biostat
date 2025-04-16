@@ -172,7 +172,7 @@ func (r *HospitalRepositoryImpl) AddService(service *models.Service) error {
 
 func (r *HospitalRepositoryImpl) GetAllServices() ([]models.Service, error) {
 	var services []models.Service
-	err := r.db.Find(&services).Error
+	err := r.db.Order("service_id DESC").Find(&services).Error
 	return services, err
 }
 

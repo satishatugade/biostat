@@ -40,7 +40,7 @@ func (m *MedicationRepositoryImpl) GetMedications(limit int, offset int) ([]mode
 	}
 
 	// Fetch medications with their associated types
-	if err := m.db.Preload("MedicationTypes").Limit(limit).Offset(offset).Find(&medications).Error; err != nil {
+	if err := m.db.Preload("MedicationTypes").Order("medication_id DESC").Limit(limit).Offset(offset).Find(&medications).Error; err != nil {
 		return nil, 0, err
 	}
 
