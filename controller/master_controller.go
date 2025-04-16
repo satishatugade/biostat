@@ -178,8 +178,8 @@ func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Disease audit record retrieved successfully",
-		"Disease audit record not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 
@@ -390,8 +390,8 @@ func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Cause audit records retrieved successfully",
-			"Cause audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -403,8 +403,8 @@ func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Cause audit records retrieved successfully",
-		"Cause audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
@@ -550,8 +550,8 @@ func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Symptom audit records retrieved successfully",
-			"Symptom audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -563,8 +563,8 @@ func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Symptom audit records retrieved successfully",
-		"Symptom audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
@@ -816,8 +816,8 @@ func (mc *MasterController) GetExerciseAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Exercise audit records retrieved successfully",
-			"Exercise audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -830,8 +830,8 @@ func (mc *MasterController) GetExerciseAuditRecord(c *gin.Context) {
 
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Exercise audit records retrieved successfully",
-		"Exercise audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
@@ -981,8 +981,8 @@ func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Medication audit records retrieved successfully",
-			"Medication audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -994,8 +994,8 @@ func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Medication audit records retrieved successfully",
-		"Medication audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
@@ -1494,8 +1494,8 @@ func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Diagnostic lab audit records retrieved successfully",
-			"Diagnostic lab audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -1507,8 +1507,8 @@ func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Diagnostic lab audit records retrieved successfully",
-		"Diagnostic lab audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
@@ -1642,8 +1642,8 @@ func (mc *MasterController) GetSupportGroupAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Support group audit records retrieved successfully",
-			"Support group audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -1655,8 +1655,8 @@ func (mc *MasterController) GetSupportGroupAuditRecord(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecords),
-		"Support group audit records retrieved successfully",
-		"Support group audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecords, nil, nil)
 }
@@ -1872,8 +1872,8 @@ func (mc *MasterController) GetHospitalAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Hospital audit records retrieved successfully",
-			"Hospital audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -1886,8 +1886,8 @@ func (mc *MasterController) GetHospitalAuditRecord(c *gin.Context) {
 
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Hospital audit records retrieved successfully",
-		"Hospital audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }
@@ -1927,8 +1927,8 @@ func (mc *MasterController) GetServiceAuditRecord(c *gin.Context) {
 		pagination := utils.GetPagination(limit, page, offset, totalRecords)
 		statusCode, message := utils.GetResponseStatusMessage(
 			len(data),
-			"Service audit records retrieved successfully",
-			"Service audit records not found",
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
 		)
 		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 		return
@@ -1940,8 +1940,8 @@ func (mc *MasterController) GetServiceAuditRecord(c *gin.Context) {
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(auditRecord),
-		"Service audit records retrieved successfully",
-		"Service audit records not found",
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
 }

@@ -145,3 +145,7 @@ const (
 	UPDATE = "Update"
 	DELETE = "Delete"
 )
+const (
+	AuditErrorMessage   = "Unable to show a history of this record. It has not been changed since it was created"
+	AuditSuccessMessage = "Audit records fetched successfully"
+)
