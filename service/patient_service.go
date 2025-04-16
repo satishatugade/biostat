@@ -29,6 +29,8 @@ type PatientService interface {
 	// UpdatePrescription(*models.PatientPrescription) error
 	GetUserProfile(user_id string, roles []string) (*models.Patient, error)
 	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
+	GetUserIdBySUB(sub string) (uint64, error)
+	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 }
@@ -200,4 +202,20 @@ func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, boo
 
 func (s *PatientServiceImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {
 	return s.patientRepo.GetNursesList(limit, offset)
+}
+
+func (s *PatientServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {
+	userId, err := s.patientRepo.GetUserIdBySUB(sub)
+	if err != nil {
+		return 0, err
+	}
+	return userId, nil
+}
+
+func (s *PatientServiceImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error) {
+	exists, err := s.patientRepo.ExistsByUserIdAndRoleId(userId, roleId)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }

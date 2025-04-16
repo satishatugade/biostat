@@ -133,6 +133,10 @@ const (
 	UpdateService  = "update-service"
 	DeleteService  = "delete-service/:service_id"
 	AuditService   = "service-audit"
+
+	// Appointments
+	ScheduleAppointment = "/schedule-appointment"
+	GetAppointments     = "/get-appointments"
 )
 
 const (

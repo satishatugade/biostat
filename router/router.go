@@ -56,7 +56,10 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var hospitalRepo = repository.NewHospitalRepository(db)
 	var hospitalService = service.NewHospitalService(hospitalRepo)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService)
+	var appointmentRepo = repository.NewAppointmentRepository(db)
+	var appointmentService = service.NewAppointmentService(appointmentRepo)
+
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService)
 
 	var emailService = service.NewEmailService()
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService)
@@ -254,6 +257,9 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		{"medical records get single", http.MethodGet, "/medical_records/:id", patientController.GetSingleTblMedicalRecord},
 		{"medical records update", http.MethodPut, "/medical_records/:id", patientController.UpdateTblMedicalRecord},
 		{"medical records delete", http.MethodDelete, "/medical_records/:id", patientController.DeleteTblMedicalRecord},
+
+		{"Appointments", http.MethodPost, constant.ScheduleAppointment, patientController.ScheduleAppointment},
+		{"Appointments", http.MethodPost, constant.GetAppointments, patientController.GetUserAppointments},
 	}
 }
 

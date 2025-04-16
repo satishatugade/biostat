@@ -35,6 +35,7 @@ type PatientRepository interface {
 	GetUserIdBySUB(SUB string) (uint64, error)
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
+	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 }
 
 type PatientRepositoryImpl struct {
@@ -542,4 +543,15 @@ func (p *PatientRepositoryImpl) GetNursesList(limit int, offset int) ([]models.N
 		return nil, 0, err
 	}
 	return nurses, totalRecords, nil
+}
+
+func (p *PatientRepositoryImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error) {
+	var count int64
+	err := p.db.Table("tbl_system_user_role_mapping").
+		Where("user_id = ? AND role_id = ?", userId, roleId).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

@@ -2,10 +2,12 @@ package controller
 
 import (
 	"biostat/constant"
+	"biostat/database"
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -18,10 +20,11 @@ type PatientController struct {
 	allergyService       service.AllergyService
 	medicalRecordService service.TblMedicalRecordService
 	medicationService    service.MedicationService
+	appointmentService   service.AppointmentService
 }
 
-func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService, medicationService service.MedicationService) *PatientController {
-	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService, medicationService: medicationService}
+func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService, medicationService service.MedicationService, appointmentService service.AppointmentService) *PatientController {
+	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService, medicationService: medicationService, appointmentService: appointmentService}
 }
 
 func (pc *PatientController) GetAllRelation(c *gin.Context) {
@@ -639,4 +642,93 @@ func (pc *PatientController) GetNursesList(c *gin.Context) {
 		"Nurses not found",
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, nurses, pagination, nil)
+}
+
+func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting "))
+		return
+	}
+	var appointment models.Appointment
+	if err := ctx.ShouldBindJSON(&appointment); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+
+	appointment.ScheduledBy = user_id
+	if appointment.ProviderType == "doctor" {
+		isDocPresent, err := pc.patientService.ExistsByUserIdAndRoleId(appointment.ProviderID, 2)
+		if err != nil || !isDocPresent {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to check doctor existence", nil, err)
+			return
+		}
+	} else if appointment.ProviderType == "nurse" {
+		isPresent, err := pc.patientService.ExistsByUserIdAndRoleId(appointment.ProviderID, 6)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to check nurse existence", nil, err)
+			return
+		}
+		if !isPresent {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Nurse not found", nil, err)
+			return
+		}
+	} else {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid provider type", nil, errors.New("Invalid provider type"))
+		return
+	}
+
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in CreateAppointment:", r)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to schedule appointment", nil, errors.New("Failed to schedule appointment"))
+			return
+		}
+	}()
+
+	createdAppointment, err := pc.appointmentService.CreateAppointment(tx, &appointment)
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Appointment could not be scheduled", nil, err)
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to schedule appointment", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusCreated, "Appointment created scheduled", createdAppointment, nil, nil)
+	return
+}
+
+func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting "))
+		return
+	}
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+	appointments, err := pc.appointmentService.GetUserAppointments(user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch appointments", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(appointments),
+		"Appointments retrieved successfully",
+		"Appointments not found",
+	)
+	models.SuccessResponse(ctx, constant.Success, statusCode, message, appointments, nil, nil)
+	return
 }
