@@ -26,14 +26,15 @@ type routes struct {
 type Routes []Route
 
 var ProtectedRoutes = map[string][]string{
-	"/v1/master":  {"admin"},
-	"/v1/patient": {"admin", "patient"},
-	"/v1/user":    {"admin", "patient", "relative", "caregiver"},
+	"/v1/master":                    {"admin"},
+	"/v1/master/get-diagnostic-lab": {"admin", "patient"},
+	"/v1/patient":                   {"patient"},
+	"/v1/user":                      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 }
 
 func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {
 	master := g.Group("/master")
-	for _, masterRoute := range getMasterRoutes(masterController) {
+	for _, masterRoute := range getMasterRoutes(masterController, patientController) {
 		protectedHandler := auth.Authenticate(master.BasePath(), ProtectedRoutes, masterRoute.HandleFunc)
 		switch masterRoute.Method {
 		case http.MethodGet:

@@ -21,10 +21,15 @@ type PatientController struct {
 	medicalRecordService service.TblMedicalRecordService
 	medicationService    service.MedicationService
 	appointmentService   service.AppointmentService
+	diagnosticService    service.DiagnosticService
 }
 
-func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService, medicationService service.MedicationService, appointmentService service.AppointmentService) *PatientController {
-	return &PatientController{patientService: patientService, dietService: dietService, allergyService: allergyService, medicalRecordService: medicalRecordService, medicationService: medicationService, appointmentService: appointmentService}
+func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
+	medicationService service.MedicationService, appointmentService service.AppointmentService, diagnosticService service.DiagnosticService) *PatientController {
+	return &PatientController{patientService: patientService, dietService: dietService,
+		allergyService: allergyService, medicalRecordService: medicalRecordService,
+		medicationService: medicationService, appointmentService: appointmentService,
+		diagnosticService: diagnosticService}
 }
 
 func (pc *PatientController) GetAllRelation(c *gin.Context) {
@@ -87,7 +92,7 @@ func (pc *PatientController) GetPatientByID(c *gin.Context) {
 func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found on keycloak server", nil, nil)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
 
@@ -128,11 +133,11 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 
 	diseaseProfiles, err := pc.patientService.GetPatientDiagnosticResultValue(req.PatientId, req.PatientDiagnosticReportId)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient disease profiles not found", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err)
 		return
 	}
 
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient disease profiles retrieved successfully", diseaseProfiles, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report fetch successfully", diseaseProfiles, nil, nil)
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {
@@ -731,4 +736,27 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 	)
 	models.SuccessResponse(ctx, constant.Success, statusCode, message, appointments, nil, nil)
 	return
+}
+
+func (mc *PatientController) GetAllLabs(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	page, limit, offset := utils.GetPaginationParams(c)
+	data, totalRecords, err := mc.diagnosticService.GetAllLabs(page, limit)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve labs", nil, err)
+		return
+	}
+
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(data),
+		"Diagnostic labs retrieved successfully",
+		"Diagnostic labs not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 }

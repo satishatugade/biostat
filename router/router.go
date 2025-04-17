@@ -59,7 +59,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var appointmentService = service.NewAppointmentService(appointmentRepo)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService)
 
 	var emailService = service.NewEmailService()
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService)
@@ -75,7 +75,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 }
 
-func getMasterRoutes(masterController *controller.MasterController) Routes {
+func getMasterRoutes(masterController *controller.MasterController, patientController *controller.PatientController) Routes {
 	return Routes{
 
 		//Roles
@@ -194,6 +194,13 @@ func getMasterRoutes(masterController *controller.MasterController) Routes {
 		Route{"Update-Service", http.MethodPut, constant.UpdateService, masterController.UpdateService},
 		Route{"Delete-Service", http.MethodPost, constant.DeleteService, masterController.DeleteService},
 		Route{"Audit-Service", http.MethodPost, constant.AuditService, masterController.GetServiceAuditRecord},
+
+		Route{"Test Reference Range", http.MethodPost, constant.AddRefRange, masterController.AddTestReferenceRange},
+		Route{"Test Reference Range", http.MethodPut, constant.UpdateRefRange, masterController.UpdateTestReferenceRange},
+		Route{"Test Reference Range", http.MethodPost, constant.DeleteRefRange, masterController.DeleteTestReferenceRange},
+		Route{"Test Reference Range", http.MethodPost, constant.ViewRefRange, masterController.ViewTestReferenceRange},
+		Route{"Test Reference Range", http.MethodPost, constant.ViewAllRefRange, masterController.GetAllTestReferenceRange},
+		Route{"Test Reference Range", http.MethodPost, constant.ViewAuditRefRange, masterController.GetTestReferenceRangeAuditRecord},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {
@@ -209,6 +216,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"patient", http.MethodPost, constant.UserProfile, patientController.GetUserProfile},
 		Route{"patient", http.MethodPost, constant.UserOnboardingStatus, patientController.GetUserOnBoardingStatus},
+
+		Route{"D-LAB", http.MethodPost, constant.GetAllLab, patientController.GetAllLabs},
 
 		// patient relatives
 		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},

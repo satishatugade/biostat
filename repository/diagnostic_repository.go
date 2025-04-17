@@ -40,9 +40,16 @@ type DiagnosticRepository interface {
 	UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error
 	AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error
+
+	AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error
+	UpdateTestReferenceRange(input *models.DiagnosticTestReferenceRange, updatedBy string) error
+	DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error
+	GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error)
+	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
+	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error)
 }
 
-type diagnosticRepositoryImpl struct {
+type DiagnosticRepositoryImpl struct {
 	db *gorm.DB
 }
 
@@ -50,10 +57,10 @@ func NewDiagnosticRepository(db *gorm.DB) DiagnosticRepository {
 	if db == nil {
 		panic("database instance is null")
 	}
-	return &diagnosticRepositoryImpl{db: db}
+	return &DiagnosticRepositoryImpl{db: db}
 }
 
-func (r *diagnosticRepositoryImpl) GetAllDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
 
 	var diagnosticTests []models.DiagnosticTest
 	var totalRecords int64
@@ -72,7 +79,7 @@ func (r *diagnosticRepositoryImpl) GetAllDiagnosticTests(limit int, offset int) 
 }
 
 // Diagnostic Test Repository Start
-func (r *diagnosticRepositoryImpl) CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error) {
+func (r *DiagnosticRepositoryImpl) CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error) {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(diagnosticTest).Error; err != nil {
 			return err
@@ -120,7 +127,7 @@ func SaveDiagnosticTestAudit(tx *gorm.DB, test *models.DiagnosticTest, operation
 	return tx.Create(&audit).Error
 }
 
-func (r *diagnosticRepositoryImpl) UpdateDiagnosticTest(diagnosticTest *models.DiagnosticTest, updatedBy string) (*models.DiagnosticTest, error) {
+func (r *DiagnosticRepositoryImpl) UpdateDiagnosticTest(diagnosticTest *models.DiagnosticTest, updatedBy string) (*models.DiagnosticTest, error) {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var diagnosticTestOld models.DiagnosticTest
 		if err := tx.First(&diagnosticTestOld, diagnosticTest.DiagnosticTestId).Error; err != nil {
@@ -153,7 +160,7 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticTest(diagnosticTest *models.D
 	return diagnosticTest, nil
 }
 
-func (r *diagnosticRepositoryImpl) GetSingleDiagnosticTest(diagnosticTestId int) (*models.DiagnosticTest, error) {
+func (r *DiagnosticRepositoryImpl) GetSingleDiagnosticTest(diagnosticTestId int) (*models.DiagnosticTest, error) {
 	var diagnosticTest models.DiagnosticTest
 	err := r.db.Preload("Components").Where("diagnostic_test_id=?", diagnosticTestId).First(&diagnosticTest).Error
 	if err != nil {
@@ -162,7 +169,7 @@ func (r *diagnosticRepositoryImpl) GetSingleDiagnosticTest(diagnosticTestId int)
 	return &diagnosticTest, nil
 }
 
-func (r *diagnosticRepositoryImpl) DeleteDiagnosticTest(diagnosticTestId int, updatedBy string) error {
+func (r *DiagnosticRepositoryImpl) DeleteDiagnosticTest(diagnosticTestId int, updatedBy string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var diagnosticTest models.DiagnosticTest
 		if err := tx.First(&diagnosticTest, diagnosticTestId).Error; err != nil {
@@ -185,7 +192,7 @@ func (r *diagnosticRepositoryImpl) DeleteDiagnosticTest(diagnosticTestId int, up
 	})
 }
 
-func (r *diagnosticRepositoryImpl) GetAllDiagnosticComponents(limit int, offset int) ([]models.DiagnosticTestComponent, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllDiagnosticComponents(limit int, offset int) ([]models.DiagnosticTestComponent, int64, error) {
 	var diagnosticComponents []models.DiagnosticTestComponent
 	var totalRecords int64
 	err := r.db.Model(&models.DiagnosticTestComponent{}).Count(&totalRecords).Error
@@ -199,7 +206,7 @@ func (r *diagnosticRepositoryImpl) GetAllDiagnosticComponents(limit int, offset 
 	return diagnosticComponents, totalRecords, nil
 }
 
-func (r *diagnosticRepositoryImpl) CreateDiagnosticComponent(diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
+func (r *DiagnosticRepositoryImpl) CreateDiagnosticComponent(diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
 	err := r.db.Create(diagnosticComponent).Error
 	if err != nil {
 		return nil, err
@@ -231,7 +238,7 @@ func SaveDiagnosticTestComponentAudit(tx *gorm.DB, component *models.DiagnosticT
 	return tx.Create(&audit).Error
 }
 
-func (r *diagnosticRepositoryImpl) UpdateDiagnosticComponent(authUserId string, diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
+func (r *DiagnosticRepositoryImpl) UpdateDiagnosticComponent(authUserId string, diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var existingComponent models.DiagnosticTestComponent
 		if err := tx.First(&existingComponent, "diagnostic_test_component_id = ?", diagnosticComponent.DiagnosticTestComponentId).Error; err != nil {
@@ -268,7 +275,7 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticComponent(authUserId string, 
 	return diagnosticComponent, nil
 }
 
-func (r *diagnosticRepositoryImpl) DeleteDiagnosticTestComponent(diagnosticTestComponentId uint64, updatedBy string) error {
+func (r *DiagnosticRepositoryImpl) DeleteDiagnosticTestComponent(diagnosticTestComponentId uint64, updatedBy string) error {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var existingComponent models.DiagnosticTestComponent
 
@@ -293,7 +300,7 @@ func (r *diagnosticRepositoryImpl) DeleteDiagnosticTestComponent(diagnosticTestC
 	return err
 }
 
-func (r *diagnosticRepositoryImpl) GetSingleDiagnosticComponent(diagnosticComponentId int) (*models.DiagnosticTestComponent, error) {
+func (r *DiagnosticRepositoryImpl) GetSingleDiagnosticComponent(diagnosticComponentId int) (*models.DiagnosticTestComponent, error) {
 	var diagnosticComponent models.DiagnosticTestComponent
 	err := r.db.Where("diagnostic_test_component_id=?", diagnosticComponentId).First(&diagnosticComponent).Error
 	if err != nil {
@@ -302,7 +309,7 @@ func (r *diagnosticRepositoryImpl) GetSingleDiagnosticComponent(diagnosticCompon
 	return &diagnosticComponent, nil
 }
 
-func (r *diagnosticRepositoryImpl) GetAllDiagnosticTestComponentMappings(limit int, offset int) ([]models.DiagnosticTestComponentMapping, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllDiagnosticTestComponentMappings(limit int, offset int) ([]models.DiagnosticTestComponentMapping, int64, error) {
 	var diagnosticTestComponentMappings []models.DiagnosticTestComponentMapping
 	var totalRecords int64
 
@@ -317,7 +324,7 @@ func (r *diagnosticRepositoryImpl) GetAllDiagnosticTestComponentMappings(limit i
 	return diagnosticTestComponentMappings, totalRecords, nil
 }
 
-func (r *diagnosticRepositoryImpl) CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
+func (r *DiagnosticRepositoryImpl) CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
 	err := r.db.Create(diagnosticTestComponentMapping).Error
 	if err != nil {
 		return nil, err
@@ -325,7 +332,7 @@ func (r *diagnosticRepositoryImpl) CreateDiagnosticTestComponentMapping(diagnost
 	return diagnosticTestComponentMapping, nil
 }
 
-func (r *diagnosticRepositoryImpl) UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
+func (r *DiagnosticRepositoryImpl) UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
 	err := r.db.Model(&models.DiagnosticTestComponentMapping{}).Where("diagnostic_test_component_mapping_id=?", diagnosticTestComponentMapping.DiagnosticTestComponentMappingId).
 		Updates(map[string]interface{}{
 			"diagnostic_test_id":           diagnosticTestComponentMapping.DiagnosticTestId,
@@ -337,7 +344,7 @@ func (r *diagnosticRepositoryImpl) UpdateDiagnosticTestComponentMapping(diagnost
 	return diagnosticTestComponentMapping, nil
 }
 
-func (r *diagnosticRepositoryImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error {
+func (r *DiagnosticRepositoryImpl) DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var mapping models.DiagnosticTestComponentMapping
 
@@ -371,11 +378,11 @@ func SaveDiagnosticLabAudit(tx *gorm.DB, lab *models.DiagnosticLab, actionType s
 	return tx.Create(&audit).Error
 }
 
-func (r *diagnosticRepositoryImpl) CreateLab(lab *models.DiagnosticLab) error {
+func (r *DiagnosticRepositoryImpl) CreateLab(lab *models.DiagnosticLab) error {
 	return r.db.Create(lab).Error
 }
 
-func (r *diagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
 	var labs []models.DiagnosticLab
 	var total int64
 
@@ -391,13 +398,13 @@ func (r *diagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.Diagnos
 	return labs, total, err
 }
 
-func (r *diagnosticRepositoryImpl) GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error) {
+func (r *DiagnosticRepositoryImpl) GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error) {
 	var lab models.DiagnosticLab
 	err := r.db.Where("diagnostic_lab_id = ? AND is_deleted = 0", diagnosticlLabId).First(&lab).Error
 	return &lab, err
 }
 
-func (r *diagnosticRepositoryImpl) UpdateLab(lab *models.DiagnosticLab, deletedBy string) error {
+func (r *DiagnosticRepositoryImpl) UpdateLab(lab *models.DiagnosticLab, deletedBy string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var existing models.DiagnosticLab
 		if err := tx.First(&existing, lab.DiagnosticLabId).Error; err != nil {
@@ -424,7 +431,7 @@ func (r *diagnosticRepositoryImpl) UpdateLab(lab *models.DiagnosticLab, deletedB
 	})
 }
 
-func (r *diagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error {
+func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var lab models.DiagnosticLab
 		if err := tx.First(&lab, id).Error; err != nil {
@@ -449,7 +456,7 @@ func (r *diagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 	})
 }
 
-func (r *diagnosticRepositoryImpl) GetAllDiagnosticLabAuditRecords(page, limit int) ([]models.DiagnosticLabAudit, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllDiagnosticLabAuditRecords(page, limit int) ([]models.DiagnosticLabAudit, int64, error) {
 	var records []models.DiagnosticLabAudit
 	var total int64
 
@@ -460,7 +467,7 @@ func (r *diagnosticRepositoryImpl) GetAllDiagnosticLabAuditRecords(page, limit i
 	return records, total, err
 }
 
-func (r *diagnosticRepositoryImpl) GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error) {
+func (r *DiagnosticRepositoryImpl) GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error) {
 	var records []models.DiagnosticLabAudit
 	query := r.db.Model(&models.DiagnosticLabAudit{})
 
@@ -475,6 +482,113 @@ func (r *diagnosticRepositoryImpl) GetDiagnosticLabAuditRecord(labId, labAuditId
 	return records, err
 }
 
-func (r *diagnosticRepositoryImpl) AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error {
+func (r *DiagnosticRepositoryImpl) AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error {
 	return r.db.Create(mapping).Error
+}
+
+func (r *DiagnosticRepositoryImpl) AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error {
+	return r.db.Create(&input).Error
+}
+
+func (r *DiagnosticRepositoryImpl) SaveTestReferenceRangeAudit(tx *gorm.DB, oldRecord *models.DiagnosticTestReferenceRange, updatedBy string, operationType string) error {
+	auditEntry := models.DiagnosticTestReferenceRangeAudit{
+		TestReferenceRangeId:      oldRecord.TestReferenceRangeId,
+		DiagnosticTestId:          oldRecord.DiagnosticTestId,
+		DiagnosticTestComponentId: oldRecord.DiagnosticTestComponentId,
+		Age:                       oldRecord.Age,
+		AgeGroup:                  oldRecord.AgeGroup,
+		Gender:                    oldRecord.Gender,
+		NormalMin:                 oldRecord.NormalMin,
+		NormalMax:                 oldRecord.NormalMax,
+		Units:                     oldRecord.Units,
+		OperationType:             operationType,
+		CreatedAt:                 time.Now(),
+		UpdatedBy:                 updatedBy,
+	}
+
+	return tx.Create(&auditEntry).Error
+}
+
+func (r *DiagnosticRepositoryImpl) UpdateTestReferenceRange(input *models.DiagnosticTestReferenceRange, updatedBy string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var oldRecord models.DiagnosticTestReferenceRange
+		if err := tx.Where("test_reference_range_id = ?", input.TestReferenceRangeId).First(&oldRecord).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.DiagnosticTestReferenceRange{}).
+			Where("test_reference_range_id = ?", input.TestReferenceRangeId).
+			Updates(input).Error; err != nil {
+			return err
+		}
+		if err := r.SaveTestReferenceRangeAudit(tx, &oldRecord, updatedBy, constant.UPDATE); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *DiagnosticRepositoryImpl) DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var oldRecord models.DiagnosticTestReferenceRange
+		if err := tx.Where("test_reference_range_id = ?", testReferenceRangeId).First(&oldRecord).Error; err != nil {
+			return err
+		}
+		oldRecord.IsDeleted = 1
+		if err := r.SaveTestReferenceRangeAudit(tx, &oldRecord, deletedBy, constant.DELETE); err != nil {
+			return err
+		}
+		if err := tx.Model(&models.DiagnosticTestReferenceRange{}).
+			Where("test_reference_range_id = ?", testReferenceRangeId).
+			Updates(map[string]interface{}{
+				"is_deleted": 1,
+				"updated_at": time.Now(),
+			}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *DiagnosticRepositoryImpl) ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error) {
+	var ranges *models.DiagnosticTestReferenceRange
+	err := r.db.Where("diagnostic_test_id = ? ", testReferenceRangeId).Find(&ranges).Error
+	return ranges, err
+}
+
+func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error) {
+	var results []models.DiagnosticTestReferenceRange
+	var total int64
+
+	query := r.db.Model(&models.DiagnosticTestReferenceRange{})
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("test_reference_range_id DESC").Limit(limit).Offset(offset).Find(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
+func (r *DiagnosticRepositoryImpl) GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error) {
+	var audits []models.DiagnosticTestReferenceRangeAudit
+	var totalRecords int64
+
+	query := r.db.Model(&models.DiagnosticTestReferenceRangeAudit{})
+
+	if testReferenceRangeId != 0 {
+		query = query.Where("test_reference_range_id = ?", testReferenceRangeId)
+	}
+
+	if auditId != 0 {
+		query = query.Where("test_reference_range_audit_id = ?", auditId)
+	}
+	if err := query.Count(&totalRecords).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Limit(limit).Offset(offset).Order("test_reference_range_audit_id DESC").Find(&audits).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return audits, totalRecords, nil
 }

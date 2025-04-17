@@ -137,6 +137,13 @@ const (
 	// Appointments
 	ScheduleAppointment = "/schedule-appointment"
 	GetAppointments     = "/get-appointments"
+
+	AddRefRange       = "add-range"
+	UpdateRefRange    = "update-range"
+	DeleteRefRange    = "delete-range/:test_reference_range_id"
+	ViewRefRange      = "view-range/:test_reference_range_id"
+	ViewAllRefRange   = "view-all-range"
+	ViewAuditRefRange = "view-audit-range"
 )
 
 const (
@@ -150,6 +157,7 @@ const (
 	DELETE = "Delete"
 )
 const (
-	AuditErrorMessage   = "Unable to show a history of this record. It has not been changed since it was created"
-	AuditSuccessMessage = "Audit records fetched successfully"
+	KeyCloakErrorMessage = "User not found on keycloak server. please check!"
+	AuditErrorMessage    = "Unable to show a history of this record. It has not been changed since it was created"
+	AuditSuccessMessage  = "Audit records fetched successfully"
 )

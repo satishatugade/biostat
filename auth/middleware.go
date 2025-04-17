@@ -5,7 +5,6 @@ import (
 	"biostat/models"
 	"biostat/utils"
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -83,7 +82,7 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 		}
 
 		if !hasRequiredRole {
-			models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "You don't have access to perform this action.", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "Access denied", nil, err)
 			c.Abort()
 			return
 		}
@@ -99,7 +98,6 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 func Authenticate(path string, protectedRoutes map[string][]string, handler gin.HandlerFunc) gin.HandlerFunc {
 	for protectedPrefix, roles := range protectedRoutes {
 		if strings.HasPrefix(path, protectedPrefix) {
-			fmt.Println("Protected route matched:", protectedPrefix)
 			return gin.HandlerFunc(func(c *gin.Context) {
 				AuthToken(roles...)(c)
 				if c.IsAborted() {

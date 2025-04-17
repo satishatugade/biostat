@@ -218,7 +218,6 @@ func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]m
 	return patientDiseaseProfiles, nil
 }
 
-// GetPatientDiagnosticResultValues implements PatientRepository.
 func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
 	var reports []models.PatientDiagnosticReport
 
@@ -236,7 +235,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 		query = query.Where("patient_id = ?", patientId)
 	}
 
-	err := query.Find(&reports).Error
+	err := query.Order("patient_diagnostic_report_id DESC").Find(&reports).Error
 	if err != nil {
 		return nil, err
 	}

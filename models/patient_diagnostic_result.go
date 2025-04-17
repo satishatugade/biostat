@@ -124,6 +124,49 @@ func (PatientDiagnosticTestResultValue) TableName() string {
 	return "tbl_patient_diagnostic_test_result_value"
 }
 
+type DiagnosticTestReferenceRange struct {
+	TestReferenceRangeId      uint64    `json:"test_reference_range_id" gorm:"primaryKey;autoIncrement"`
+	DiagnosticTestId          uint64    `json:"diagnostic_test_id"`
+	DiagnosticTestComponentId uint64    `json:"diagnostic_test_component_id"`
+	Age                       int       `json:"age"`
+	AgeGroup                  string    `json:"age_group"`
+	Gender                    string    `json:"gender"`
+	NormalMin                 float64   `json:"normal_min"`
+	NormalMax                 float64   `json:"normal_max"`
+	Units                     string    `json:"units"`
+	IsDeleted                 int       `json:"is_deleted"`
+	CreatedAt                 time.Time `json:"created_at"`
+	UpdatedAt                 time.Time `json:"updated_at"`
+	CreatedBy                 string    `json:"created_by"`
+}
+
+func (DiagnosticTestReferenceRange) TableName() string {
+	return "tbl_diagnostic_test_reference_range"
+}
+
+type DiagnosticTestReferenceRangeAudit struct {
+	TestReferenceRangeAuditId uint64    `json:"test_reference_range_audit_id" gorm:"primaryKey;autoIncrement"`
+	TestReferenceRangeId      uint64    `json:"test_reference_range_id"`
+	DiagnosticTestId          uint64    `json:"diagnostic_test_id"`
+	DiagnosticTestComponentId uint64    `json:"diagnostic_test_component_id"`
+	Age                       int       `json:"age"`
+	AgeGroup                  string    `json:"age_group"`
+	Gender                    string    `json:"gender"`
+	NormalMin                 float64   `json:"normal_min"`
+	NormalMax                 float64   `json:"normal_max"`
+	Units                     string    `json:"units"`
+	IsDeleted                 int       `json:"is_deleted"`
+	OperationType             string    `json:"operation_type"`
+	CreatedAt                 time.Time `json:"created_at"`
+	UpdatedAt                 time.Time `json:"updated_at"`
+	CreatedBy                 string    `json:"created_by"`
+	UpdatedBy                 string    `json:"updated_by"`
+}
+
+func (DiagnosticTestReferenceRangeAudit) TableName() string {
+	return "tbl_diagnostic_test_reference_range_audit"
+}
+
 type DiagnosticResultRequest struct {
 	PatientId                 uint64    `json:"patient_id"`
 	PatientDiagnosticReportId uint64    `json:"patient_diagnostic_report_id"`
