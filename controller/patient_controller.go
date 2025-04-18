@@ -725,7 +725,29 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to schedule appointment", nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusCreated, "Appointment created scheduled", createdAppointment, nil, nil)
+	user, _ := pc.patientService.GetUserProfileByUserId(createdAppointment.ProviderID)
+	providerInfo := utils.MapUserToPublicProviderInfo(*user, createdAppointment.ProviderType)
+	appointmentResponse := models.AppointmentResponse{
+		AppointmentID:   appointment.AppointmentID,
+		PatientID:       appointment.PatientID,
+		ProviderType:    appointment.ProviderType,
+		ProviderInfo:    providerInfo,
+		ScheduledBy:     appointment.ScheduledBy,
+		AppointmentType: appointment.AppointmentType,
+		AppointmentDate: appointment.AppointmentDate,
+		AppointmentTime: appointment.AppointmentTime,
+		DurationMinutes: appointment.DurationMinutes,
+		IsInperson:      appointment.IsInperson,
+		Status:          appointment.Status,
+		MeetingUrl:      appointment.MeetingUrl,
+		PaymentStatus:   appointment.PaymentStatus,
+		Notes:           appointment.Notes,
+		PaymentID:       appointment.PaymentID,
+		CreatedAt:       appointment.CreatedAt,
+		UpdatedAt:       appointment.UpdatedAt,
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusCreated, "Appointment created scheduled", appointmentResponse, nil, nil)
 	return
 }
 
