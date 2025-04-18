@@ -584,6 +584,10 @@ func (c *PatientController) DeleteTblMedicalRecord(ctx *gin.Context) {
 }
 
 func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
+	type UserRequest struct {
+		User string `json:"user"`
+	}
+	var req UserRequest
 	roles, rolesExists := ctx.Get("userRoles")
 	if !rolesExists {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
@@ -595,11 +599,23 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 
-	userProfile, err := pc.patientService.GetUserProfile(sub.(string), roles.([]string))
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	if !utils.StringInSlice(req.User, roles.([]string)) {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, nil)
+		return
+	}
+
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
 		return
 	}
+	userProfile := utils.MapUserToRoleSchema(*user, req.User)
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "User profile retrieved successfully", userProfile, nil, nil)
 }
@@ -729,12 +745,37 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch appointments", nil, err)
 		return
 	}
+	var responses []models.AppointmentResponse
+	for _, appointment := range appointments {
+		user, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
+		providerInfo := utils.MapUserToPublicProviderInfo(*user, appointment.ProviderType)
+		appointmentResponse := models.AppointmentResponse{
+			AppointmentID:   appointment.AppointmentID,
+			PatientID:       appointment.PatientID,
+			ProviderType:    appointment.ProviderType,
+			ProviderInfo:    providerInfo,
+			ScheduledBy:     appointment.ScheduledBy,
+			AppointmentType: appointment.AppointmentType,
+			AppointmentDate: appointment.AppointmentDate,
+			AppointmentTime: appointment.AppointmentTime,
+			DurationMinutes: appointment.DurationMinutes,
+			IsInperson:      appointment.IsInperson,
+			Status:          appointment.Status,
+			MeetingUrl:      appointment.MeetingUrl,
+			PaymentStatus:   appointment.PaymentStatus,
+			Notes:           appointment.Notes,
+			PaymentID:       appointment.PaymentID,
+			CreatedAt:       appointment.CreatedAt,
+			UpdatedAt:       appointment.UpdatedAt,
+		}
+		responses = append(responses, appointmentResponse)
+	}
 	statusCode, message := utils.GetResponseStatusMessage(
-		len(appointments),
+		len(responses),
 		"Appointments retrieved successfully",
 		"Appointments not found",
 	)
-	models.SuccessResponse(ctx, constant.Success, statusCode, message, appointments, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, statusCode, message, responses, nil, nil)
 	return
 }
 
