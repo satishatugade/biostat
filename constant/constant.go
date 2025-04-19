@@ -144,6 +144,8 @@ const (
 	ViewRefRange      = "view-range/:test_reference_range_id"
 	ViewAllRefRange   = "view-all-range"
 	ViewAuditRefRange = "view-audit-range"
+
+	SyncDigiLocker = "/sync-digilocker"
 )
 
 const (
