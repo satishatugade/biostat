@@ -14,26 +14,28 @@ import (
 	"google.golang.org/api/gmail/v1"
 )
 
-var googleOauthConfig = &oauth2.Config{
-	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-	RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URI"),
-	Scopes:       []string{"https://mail.google.com/"},
-	Endpoint:     google.Endpoint,
-}
-
 func GetGmailAuthURL(userId string) (authUrl string) {
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
+	var googleOauthConfig = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"https://mail.google.com/"},
+		Endpoint:     google.Endpoint,
+	}
 	authURL := googleOauthConfig.AuthCodeURL(userId, oauth2.AccessTypeOffline)
 	return authURL
 }
 
-func CreateGmailServiceClient(accessToken string) (*gmail.Service, error) {
+func CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error) {
 	creds := oauth2.Token{AccessToken: accessToken}
 	client := googleOauthConfig.Client(context.Background(), &creds)
 	return gmail.New(client)
 }
 
-func FetchEmailsWithAttachments(service *gmail.Service, userId int64) ([]models.TblMedicalRecord, error) {
+func FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
 	profile, err := service.Users.GetProfile("me").Do()
 	if err != nil {
 		return nil, err
@@ -53,14 +55,14 @@ func FetchEmailsWithAttachments(service *gmail.Service, userId int64) ([]models.
 			continue
 		}
 
-		attachments := ExtractAttachments(service, message, userEmail)
+		attachments := ExtractAttachments(service, message, userEmail, userId)
 		records = append(records, attachments...)
 	}
 	log.Println("Gmail Records found:", len(records), "userEmail: ", userEmail)
 	return records, nil
 }
 
-func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string) []models.TblMedicalRecord {
+func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64) []models.TblMedicalRecord {
 	var records []models.TblMedicalRecord
 
 	for _, part := range message.Payload.Parts {
@@ -72,15 +74,18 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 			}
 
 			record := models.TblMedicalRecord{
-				RecordName:   part.Filename,
-				RecordSize:   int64(len(attachmentData)),
-				RecordExt:    part.MimeType,
-				FileData:     attachmentData,
-				Description:  getHeader(message.Payload.Headers, "Subject"),
-				UploadSource: userEmail,
-				RecordType:   "report",
-				CreatedAt:    time.Now(),
-				IsActive:     true,
+				RecordName:     part.Filename,
+				RecordSize:     int64(len(attachmentData)),
+				FileType:       part.MimeType,
+				FileData:       attachmentData,
+				Description:    getHeader(message.Payload.Headers, "Subject"),
+				UploadSource:   "gmail",
+				SourceAccount:  userEmail,
+				UploadedBy:     userId,
+				RecordCategory: "report",
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+				RecordUrl:      fmt.Sprintf("https://mail.google.com/mail/u/0/?ui=2&ik=%s&attid=%s", message.Id, part.Body.AttachmentId),
 			}
 			records = append(records, record)
 		}

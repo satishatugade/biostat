@@ -514,6 +514,16 @@ func (c *PatientController) GetAllTblMedicalRecords(ctx *gin.Context) {
 }
 
 func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while uploading document"))
+		return
+	}
+	user_id, err := c.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
 
 	payload, err := utils.ProcessFileUpload(ctx)
 	if err != nil {
@@ -522,11 +532,10 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	}
 	payload.UploadSource = ctx.PostForm("upload_source")
 	payload.Description = ctx.PostForm("description")
-	payload.RecordType = ctx.PostForm("record_type")
+	payload.RecordCategory = ctx.PostForm("record_category")
+	payload.UploadedBy = user_id
 
-	createdBy := 124
-
-	data, err := c.medicalRecordService.CreateTblMedicalRecord(payload, int64(createdBy))
+	data, err := c.medicalRecordService.CreateTblMedicalRecord(payload, user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return

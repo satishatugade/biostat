@@ -17,14 +17,6 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-var googleOauthConfig = &oauth2.Config{
-	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-	RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URI"),
-	Scopes:       []string{"https://mail.google.com/"},
-	Endpoint:     google.Endpoint,
-}
-
 type GmailSyncController struct {
 	service       service.TblMedicalRecordService
 	gTokenService service.UserService
@@ -56,13 +48,24 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 		return
 	}
 
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
+	var googleOauthConfig = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"https://mail.google.com/"},
+		Endpoint:     google.Endpoint,
+	}
+
 	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while authenticating", nil, errors.New("Token exchange failed"))
 		return
 	}
 
-	userIDInt64, err := strconv.ParseInt(userID, 10, 64)
+	userIDInt64, err := strconv.ParseUint(userID, 10, 64)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while authenticating", nil, errors.New("Invalid user id"))
 	}
@@ -70,10 +73,10 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 
 	ctx.Redirect(http.StatusFound, "http://localhost:3000/dashboard/medical-reports?status=processing")
 
-	go func(userID int64, authToken string) {
+	go func(userID uint64, authToken string) {
 		log.Println("Starting background email sync for user:", userID)
 
-		gmailService, err := service.CreateGmailServiceClient(authToken)
+		gmailService, err := service.CreateGmailServiceClient(authToken, googleOauthConfig)
 		if err != nil {
 			log.Println("Failed to create Gmail client:", err)
 			return
@@ -100,7 +103,7 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 
 // This API is to Fetch Emails directly from userID and saved access token
 func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
-	user_id := utils.GetParamAsInt(ctx, "user_id")
+	user_id := utils.GetParamAsUInt(ctx, "user_id")
 
 	gToken, gErr := c.gTokenService.GetSingleTblUserGtoken(user_id)
 	if gErr != nil {
@@ -108,13 +111,24 @@ func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
 		return
 	}
 
-	gmailService, err := service.CreateGmailServiceClient(gToken.AuthToken)
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
+	var googleOauthConfig = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"https://mail.google.com/"},
+		Endpoint:     google.Endpoint,
+	}
+
+	gmailService, err := service.CreateGmailServiceClient(gToken.AuthToken, googleOauthConfig)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create Gmail client", nil, err)
 		return
 	}
 
-	emails, err := service.FetchEmailsWithAttachments(gmailService, int64(user_id))
+	emails, err := service.FetchEmailsWithAttachments(gmailService, user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch emails", nil, err)
 		return
@@ -123,7 +137,7 @@ func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
 	first5Emails := emails[:5]
 	log.Println("Following email models will be saved:", len(first5Emails))
 
-	err = c.service.SaveMedicalRecords(&first5Emails, int64(user_id))
+	err = c.service.SaveMedicalRecords(&first5Emails, user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while saving data", nil, err)
 	}

@@ -26,8 +26,8 @@ func ProcessFileUpload(ctx *gin.Context) (*models.TblMedicalRecord, error) {
 	record := &models.TblMedicalRecord{
 		RecordName: fileName,
 		RecordSize: fileSize,
-		RecordExt: fileType,
-		FileData: fileBytes,
+		FileType:   fileType,
+		FileData:   fileBytes,
 	}
 
 	return record, nil

@@ -17,7 +17,7 @@ type TblMedicalRecordRepository interface {
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 
 	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
-	DeleteMecationRecordMappings(id int,) error
+	DeleteMecationRecordMappings(id int) error
 
 	DeleteTblMedicalRecordWithMappings(id int, user_id string) error
 }
@@ -39,7 +39,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID int64)
 	err := r.db.Table("tbl_medical_record").
 		Select("tbl_medical_record.*").
 		Joins("INNER JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
-		Where("tbl_medical_record_user_mapping.user_id = ? and is_active=true", userID).
+		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID).
 		Find(&records).Error
 
 	if err != nil {
@@ -123,7 +123,7 @@ func (r *tblMedicalRecordRepositoryImpl) DeleteTblMedicalRecordWithMappings(id i
 
 	result = tx.Where("record_id = ?", id).Delete(&models.TblMedicalRecordUserMapping{})
 	if result.Error != nil {
-		tx.Rollback() 
+		tx.Rollback()
 		return result.Error
 	}
 

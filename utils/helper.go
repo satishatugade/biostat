@@ -59,6 +59,14 @@ func GetParamAsInt(c *gin.Context, param string) int {
 	return value
 }
 
+func GetParamAsUInt(c *gin.Context, param string) uint64 {
+	valueStr := c.Param(param)
+	value, err := strconv.ParseUint(valueStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return value
+}
 func ParseUintParam(c *gin.Context, paramName string) (uint64, bool) {
 	paramValue := c.Param(paramName)
 	if paramValue == "" {

@@ -11,8 +11,8 @@ type UserRepository interface {
 	GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error)
 	CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error)
 	UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error)
-	GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error)
-	DeleteTblUserGtoken(id int, updatedBy string) error
+	GetSingleTblUserGtoken(id uint64) (*models.TblUserGtoken, error)
+	DeleteTblUserGtoken(id uint64, updatedBy string) error
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 }
 
@@ -57,7 +57,7 @@ func (r *UserRepositoryImpl) UpdateTblUserGtoken(data *models.TblUserGtoken, upd
 	return data, nil
 }
 
-func (r *UserRepositoryImpl) GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error) {
+func (r *UserRepositoryImpl) GetSingleTblUserGtoken(id uint64) (*models.TblUserGtoken, error) {
 	var obj models.TblUserGtoken
 	err := r.db.Where("user_id = ?", id).First(&obj).Error
 	if err != nil {
@@ -66,7 +66,7 @@ func (r *UserRepositoryImpl) GetSingleTblUserGtoken(id int) (*models.TblUserGtok
 	return &obj, nil
 }
 
-func (r *UserRepositoryImpl) DeleteTblUserGtoken(id int, updatedBy string) error {
+func (r *UserRepositoryImpl) DeleteTblUserGtoken(id uint64, updatedBy string) error {
 	return r.db.Where("user_id = ?", id).Delete(&models.TblUserGtoken{}).Error
 }
 

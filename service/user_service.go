@@ -11,10 +11,10 @@ type UserService interface {
 	GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error)
 	CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error)
 	UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error)
-	GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error)
-	DeleteTblUserGtoken(id int, updatedBy string) error
+	GetSingleTblUserGtoken(id uint64) (*models.TblUserGtoken, error)
+	DeleteTblUserGtoken(id uint64, updatedBy string) error
 
-	CreateSystemUser(tx *gorm.DB,systemUser models.SystemUser_) (models.SystemUser_, error)
+	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 }
 
 type UserServiceImpl struct {
@@ -37,16 +37,16 @@ func (s *UserServiceImpl) UpdateTblUserGtoken(data *models.TblUserGtoken, update
 	return s.tblUserGtokenRepo.UpdateTblUserGtoken(data, updatedBy)
 }
 
-func (s *UserServiceImpl) GetSingleTblUserGtoken(id int) (*models.TblUserGtoken, error) {
+func (s *UserServiceImpl) GetSingleTblUserGtoken(id uint64) (*models.TblUserGtoken, error) {
 	return s.tblUserGtokenRepo.GetSingleTblUserGtoken(id)
 }
 
-func (s *UserServiceImpl) DeleteTblUserGtoken(id int, updatedBy string) error {
+func (s *UserServiceImpl) DeleteTblUserGtoken(id uint64, updatedBy string) error {
 	return s.tblUserGtokenRepo.DeleteTblUserGtoken(id, updatedBy)
 }
 
 // CreateSystemUser implements UserService.
 func (s *UserServiceImpl) CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error) {
-	return s.tblUserGtokenRepo.CreateSystemUser(tx,systemUser)
+	return s.tblUserGtokenRepo.CreateSystemUser(tx, systemUser)
 
 }
