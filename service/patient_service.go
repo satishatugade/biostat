@@ -28,7 +28,7 @@ type PatientService interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
-	GetUserProfile(user_id string, roles []string) (*models.Patient, error)
+	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
 	GetUserIdBySUB(sub string) (uint64, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
@@ -160,30 +160,12 @@ func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, p
 	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
 }
 
-func (s *PatientServiceImpl) GetUserProfile(user_id string, roles []string) (*models.Patient, error) {
-	user, err := s.patientRepo.GetUserProfile(user_id)
+func (s *PatientServiceImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
+	user, err := s.patientRepo.GetUserProfileByUserId(user_id)
 	if err != nil {
 		return nil, err
 	}
-	patient := &models.Patient{
-		PatientId:          user.UserId,
-		FirstName:          user.FirstName,
-		LastName:           user.LastName,
-		Gender:             user.Gender,
-		DateOfBirth:        user.DateOfBirth.String(),
-		MobileNo:           user.MobileNo,
-		Address:            user.Address,
-		BloodGroup:         user.BloodGroup,
-		AbhaNumber:         user.AbhaNumber,
-		EmergencyContact:   user.EmergencyContact,
-		Email:              user.Email,
-		Nationality:        user.Nationality,
-		CitizenshipStatus:  user.CitizenshipStatus,
-		PassportNumber:     user.PassportNumber,
-		CountryOfResidence: user.CountryOfResidence,
-		IsIndianOrigin:     user.IsIndianOrigin,
-	}
-	return patient, nil
+	return user, nil
 }
 
 func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error) {

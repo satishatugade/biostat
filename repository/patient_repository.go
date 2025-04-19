@@ -33,7 +33,7 @@ type PatientRepository interface {
 	// UpdatePrescription(*models.PatientPrescription) error
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 
-	GetUserProfile(user_id string) (*models.SystemUser_, error)
+	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserIdBySUB(SUB string) (uint64, error)
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
@@ -477,9 +477,9 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 	return patients, nil
 }
 
-func (p *PatientRepositoryImpl) GetUserProfile(user_id string) (*models.SystemUser_, error) {
+func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
 	var user models.SystemUser_
-	err := p.db.Model(&models.SystemUser_{}).Where("auth_user_id=?", user_id).First(&user).Error
+	err := p.db.Model(&models.SystemUser_{}).Where("user_id=?", user_id).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

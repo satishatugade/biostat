@@ -28,3 +28,52 @@ type Appointment struct {
 func (Appointment) TableName() string {
 	return "tbl_appointment_master"
 }
+
+type AppointmentResponse struct {
+	AppointmentID   uint64      `json:"appointment_id"`
+	PatientID       uint64      `json:"patient_id"`
+	ProviderType    string      `json:"provider_type"`
+	ProviderInfo    interface{} `json:"provider_info"`
+	ScheduledBy     uint64      `json:"scheduled_by"`
+	AppointmentType string      `json:"appointment_type"`
+	AppointmentDate time.Time   `json:"appointment_date"`
+	AppointmentTime string      `json:"appointment_time"`
+	DurationMinutes int         `json:"duration_minutes"`
+	IsInperson      int         `json:"is_inperson"`
+	MeetingUrl      string      `json:"meeting_url"`
+	Status          string      `json:"status"`
+	PaymentStatus   string      `json:"payment_status"`
+	PaymentID       string      `json:"payment_id"`
+	Notes           string      `json:"notes"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	IsDeleted       int         `json:"is_deleted"`
+}
+
+type DoctorInfo struct {
+	DoctorId          uint64 `json:"doctor_id"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	Specialty         string `json:"specialty"`
+	Gender            string `json:"gender"`
+	MobileNo          string `json:"mobile_no"`
+	ClinicName        string `json:"clinic_name"`
+	ClinicAddress     string `json:"clinic_address"`
+	YearsOfExperience int    `json:"years_of_experience"`
+	WorkingHours      string `json:"working_hours"`
+}
+
+type NurseInfo struct {
+	NurseId    uint64 `json:"nurse_id"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Specialty  string `json:"specialty"`
+	ClinicName string `json:"clinic_name"`
+}
+
+type PatientInfo struct {
+	PatientId  uint64 `json:"patient_id"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	BloodGroup string `json:"blood_group"`
+}

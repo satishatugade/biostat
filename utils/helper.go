@@ -59,6 +59,14 @@ func GetParamAsInt(c *gin.Context, param string) int {
 	return value
 }
 
+func GetParamAsUInt(c *gin.Context, param string) uint64 {
+	valueStr := c.Param(param)
+	value, err := strconv.ParseUint(valueStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return value
+}
 func ParseUintParam(c *gin.Context, paramName string) (uint64, bool) {
 	paramValue := c.Param(paramName)
 	if paramValue == "" {
@@ -258,6 +266,45 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 	}
 }
 
+func MapUserToPublicProviderInfo(user models.SystemUser_, roleName string) interface{} {
+	role := strings.ToLower(roleName)
+
+	switch role {
+	case "doctor":
+		return models.DoctorInfo{
+			DoctorId:          user.UserId,
+			FirstName:         user.FirstName,
+			LastName:          user.LastName,
+			Specialty:         user.Specialty,
+			ClinicName:        user.ClinicName,
+			Gender:            user.Gender,
+			MobileNo:          user.MobileNo,
+			ClinicAddress:     user.ClinicAddress,
+			YearsOfExperience: derefInt(user.YearsOfExperience),
+			WorkingHours:      user.WorkingHours,
+		}
+	case "nurse":
+		return models.Nurse{
+			NurseId:    user.UserId,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			Specialty:  user.Specialty,
+			ClinicName: user.ClinicName,
+		}
+	case "patient":
+		return models.Patient{
+			PatientId:  user.UserId,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			BloodGroup: user.BloodGroup,
+		}
+	default:
+		return map[string]string{
+			"message": "unsupported provider type",
+		}
+	}
+}
+
 func derefInt(ptr *int) int {
 	if ptr != nil {
 		return *ptr
@@ -270,4 +317,13 @@ func derefFloat(ptr *float64) float64 {
 		return *ptr
 	}
 	return 0.0
+}
+
+func StringInSlice(str string, list []string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }

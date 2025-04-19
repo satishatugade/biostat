@@ -8,8 +8,8 @@ import (
 type TblMedicalRecordService interface {
 	GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error)
 	GetUserMedicalRecords(userID int64) ([]models.TblMedicalRecord, error)
-	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy int64) (*models.TblMedicalRecord, error)
-	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId int64) error
+	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64) (*models.TblMedicalRecord, error)
+	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
 	GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
@@ -31,7 +31,7 @@ func (s *tblMedicalRecordServiceImpl) GetAllTblMedicalRecords(limit int, offset 
 	return s.tblMedicalRecordRepo.GetAllTblMedicalRecords(limit, offset)
 }
 
-func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy int64) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64) (*models.TblMedicalRecord, error) {
 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(data)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 
 }
 
-func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMedicalRecord, userId int64) error {
+func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMedicalRecord, userId uint64) error {
 	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(records)
 	if err != nil {
 		return err

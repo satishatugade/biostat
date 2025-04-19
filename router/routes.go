@@ -29,6 +29,7 @@ var ProtectedRoutes = map[string][]string{
 	"/v1/master":                    {"admin"},
 	"/v1/master/get-diagnostic-lab": {"admin", "patient"},
 	"/v1/patient":                   {"patient"},
+	"/v1/patient/user-profile":      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 	"/v1/user":                      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 }
 
