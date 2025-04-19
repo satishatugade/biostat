@@ -11,6 +11,7 @@ type PatientService interface {
 	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
 	GetPatientById(patientId *uint64) (*models.Patient, error)
+	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
@@ -33,6 +34,7 @@ type PatientService interface {
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
+	GetPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error)
 }
 
 type PatientServiceImpl struct {
@@ -70,6 +72,10 @@ func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patien
 func (s *PatientServiceImpl) GetPatientById(patientId *uint64) (*models.Patient, error) {
 	return s.patientRepo.GetPatientById(patientId)
 }
+func (s *PatientServiceImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
+	return s.patientRepo.GetUserIdByAuthUserId(authUserId)
+}
+
 func (s *PatientServiceImpl) UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error) {
 	return s.patientRepo.UpdatePatientById(authUserId, patientData)
 }
@@ -218,4 +224,8 @@ func (s *PatientServiceImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint6
 		return false, err
 	}
 	return exists, nil
+}
+
+func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error) {
+	return ps.patientRepo.FetchPatientDiagnosticTrendValue(patientId)
 }

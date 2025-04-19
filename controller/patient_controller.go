@@ -140,6 +140,25 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report fetch successfully", diseaseProfiles, nil, nil)
 }
 
+func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+	results, err := pc.patientService.GetPatientDiagnosticTrendValue(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient reports not found", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient reports fetched successfully", results, nil, nil)
+}
+
 func (pc *PatientController) AddPrescription(c *gin.Context) {
 	var prescription models.PatientPrescription
 

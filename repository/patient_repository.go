@@ -3,6 +3,7 @@ package repository
 import (
 	"biostat/models"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -17,6 +18,7 @@ type PatientRepository interface {
 	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId *uint64) (*models.Patient, error)
+	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
@@ -36,6 +38,7 @@ type PatientRepository interface {
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
+	FetchPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error)
 }
 
 type PatientRepositoryImpl struct {
@@ -130,6 +133,17 @@ func (p *PatientRepositoryImpl) GetPatientById(patientId *uint64) (*models.Patie
 		return nil, err
 	}
 	return &patient, nil
+}
+
+func (p *PatientRepositoryImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
+	var userId uint64
+	query := `SELECT user_id FROM tbl_system_user_ WHERE auth_user_id = ? LIMIT 1`
+	err := p.db.Raw(query, authUserId).Scan(&userId).Error
+	if err != nil {
+		return 0, err
+	}
+
+	return userId, nil
 }
 
 func (p *PatientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.Patient, int64, error) {
@@ -235,7 +249,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 		query = query.Where("patient_id = ?", patientId)
 	}
 
-	err := query.Order("patient_diagnostic_report_id DESC").Find(&reports).Error
+	err := query.Order("patient_diagnostic_report_id ASC").Find(&reports).Error
 	if err != nil {
 		return nil, err
 	}
@@ -553,4 +567,97 @@ func (p *PatientRepositoryImpl) ExistsByUserIdAndRoleId(userId uint64, roleId ui
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error) {
+	// Debugging log to check the patientId
+	fmt.Println("patientId ", patientId)
+
+	// Updated SQL query to join tbl_patient_diagnostic_test_result_value for test results
+	query := `
+	SELECT 
+		pdr.patient_diagnostic_report_id,
+		pdr.diagnostic_lab_id,
+		pdr.patient_id,
+		pdr.collected_date,
+		pdr.report_date,
+		pdr.report_status,
+
+		pdt.patient_test_id,
+		pdt.diagnostic_test_id,
+		pdt.test_note,
+		pdt.test_date,
+
+		dtrr.normal_min,
+		dtrr.normal_max,
+		dtrr.units,
+
+		pdtrv.result_value,
+		pdtrv.result_status,
+		pdtrv.result_date,
+		pdtrv.result_comment
+	FROM 
+		tbl_patient_diagnostic_report pdr
+	LEFT JOIN 
+		tbl_patient_diagnostic_test pdt 
+		ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
+	LEFT JOIN 
+		tbl_diagnostic_test_reference_range dtrr
+		ON pdt.diagnostic_test_id = dtrr.diagnostic_test_id
+	LEFT JOIN
+		tbl_patient_diagnostic_test_result_value pdtrv
+		ON pdt.patient_diagnostic_report_id = pdtrv.patient_diagnostic_report_id
+	WHERE 
+		pdr.patient_id = ?
+	ORDER BY pdr.collected_date ASC
+	`
+
+	// Execute the query with the patientId parameter
+	rows, err := pr.db.Raw(query, 1).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Get column names for the result set
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var results []map[string]interface{}
+	// Iterate over each row of the result set
+	for rows.Next() {
+		// Prepare a slice to hold the values of each row
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+
+		// Map the columns to the valuePtrs
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan the row values into the valuePtrs
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, err
+		}
+
+		// Create a map to hold column name-value pairs
+		rowMap := make(map[string]interface{})
+		for i, col := range columns {
+			val := values[i]
+			if b, ok := val.([]byte); ok {
+				// If the value is a byte slice, convert it to a string
+				rowMap[col] = string(b)
+			} else {
+				// Otherwise, use the value directly
+				rowMap[col] = val
+			}
+		}
+		// Append the rowMap to results
+		results = append(results, rowMap)
+	}
+
+	// Return the results
+	return results, nil
 }

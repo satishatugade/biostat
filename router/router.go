@@ -249,6 +249,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Medication", http.MethodPost, constant.Medication, patientController.GetMedication},
 		// diagnostic lab test result api
 		Route{"patient disease condition", http.MethodPost, constant.PatientResultValue, patientController.GetPatientDiagnosticResultValues},
+		Route{"patient disease condition", http.MethodPost, constant.FilterResultValue, patientController.GetPatientDiagnosticTrendValue},
 
 		Route{"patient diet", http.MethodPost, constant.PatientDietPlan, patientController.GetPatientDietPlan},
 		Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},
