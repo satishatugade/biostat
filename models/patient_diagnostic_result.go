@@ -47,7 +47,6 @@ type PatientDiagnosticReport struct {
 	PatientDiagnosticReportId uint64    `gorm:"column:patient_diagnostic_report_id;primaryKey;autoIncrement" json:"patient_diagnostic_report_id"`
 	DiagnosticLabId           uint64    `gorm:"column:diagnostic_lab_id" json:"diagnostic_lab_id"`
 	PatientId                 uint64    `gorm:"column:patient_id" json:"patient_id"`
-	DiseaseId                 uint64    `gorm:"column:disease_id" json:"disease_id"`
 	PaymentStatus             string    `gorm:"column:payment_status" json:"payment_status"`
 	DoctorId                  uint64    `gorm:"column:doctor_id" json:"doctor_id"`
 	CollectedDate             time.Time `gorm:"column:collected_date" json:"collected_date"`
@@ -165,7 +164,11 @@ func (DiagnosticTestReferenceRangeAudit) TableName() string {
 }
 
 type DiagnosticResultRequest struct {
-	PatientId                 uint64    `json:"patient_id"`
-	PatientDiagnosticReportId uint64    `json:"patient_diagnostic_report_id"`
-	ResultDate                time.Time `json:"result_date"`
+	PatientId                 uint64     `json:"patient_id,omitempty"`
+	PatientDiagnosticReportId *uint64    `json:"patient_diagnostic_report_id,omitempty"`
+	DiagnosticTestComponentId *uint64    `json:"diagnostic_test_component_id,omitempty"`
+	ReportDateStart           *time.Time `json:"report_date_start,omitempty"`
+	ReportDateEnd             *time.Time `json:"report_date_end,omitempty"`
+	ResultDateStart           *time.Time `json:"result_date_start,omitempty"`
+	ResultDateEnd             *time.Time `json:"result_date_end,omitempty"`
 }

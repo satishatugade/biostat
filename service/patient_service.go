@@ -14,7 +14,7 @@ type PatientService interface {
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
-	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
+	GetPatientDiagnosticResultValue(PatientId uint64) ([]models.PatientDiagnosticReport, error)
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientId(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
@@ -34,7 +34,7 @@ type PatientService interface {
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
-	GetPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error)
+	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 }
 
 type PatientServiceImpl struct {
@@ -156,8 +156,8 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 	return s.patientRepo.GetPatientList(patientUserIds)
 }
 
-func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
-	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64) ([]models.PatientDiagnosticReport, error) {
+	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId)
 }
 
 func (s *PatientServiceImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
@@ -208,6 +208,6 @@ func (s *PatientServiceImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint6
 	return exists, nil
 }
 
-func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error) {
-	return ps.patientRepo.FetchPatientDiagnosticTrendValue(patientId)
+func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error) {
+	return ps.patientRepo.FetchPatientDiagnosticTrendValue(input)
 }

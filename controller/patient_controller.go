@@ -124,14 +124,19 @@ func (pc *PatientController) GetPatientDiseaseProfiles(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
-	var req models.DiagnosticResultRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 
-	diseaseProfiles, err := pc.patientService.GetPatientDiagnosticResultValue(req.PatientId, req.PatientDiagnosticReportId)
+	diseaseProfiles, err := pc.patientService.GetPatientDiagnosticResultValue(patientId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err)
 		return
@@ -146,12 +151,17 @@ func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
+	var req models.DiagnosticResultRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Println("DiagnosticResultRequest filter result values")
+	}
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
-	results, err := pc.patientService.GetPatientDiagnosticTrendValue(patientId)
+	req.PatientId = patientId
+	results, err := pc.patientService.GetPatientDiagnosticTrendValue(req)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient reports not found", nil, err)
 		return

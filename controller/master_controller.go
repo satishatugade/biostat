@@ -1241,7 +1241,7 @@ func (dc *MasterController) CreateDiagnosticTestComponentMapping(c *gin.Context)
 	diagnosticTestComponentMapping.CreatedBy = authUserId
 	diagnosticTestComponentMappingRes, err := dc.diagnosticService.CreateDiagnosticTestComponentMapping(&diagnosticTestComponentMapping)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create diagnostic test component mapping", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Diagnostic test-component mapping already exists.", nil, err)
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Diagnostic test component mapping created successfully", diagnosticTestComponentMappingRes, nil, nil)
