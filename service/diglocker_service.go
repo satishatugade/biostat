@@ -1,6 +1,8 @@
 package service
 
 import (
+	"biostat/models"
+	"biostat/utils"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -9,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 )
 
 func GetDigiLockerToken(code string) (map[string]interface{}, error) {
@@ -19,8 +22,8 @@ func GetDigiLockerToken(code string) (map[string]interface{}, error) {
 	data.Set("code", code)
 	data.Set("redirect_uri", os.Getenv("DIGILOCKER_REDIRECT_URI"))
 	data.Set("code_verifier", os.Getenv("DIGILOCKER_CODE_VERIFIER"))
-	data.Set("client_id", os.Getenv("DIGILOCKER_CLIENT_ID"))
-	data.Set("client_secret", os.Getenv("DIGILOCKER_CLIENT_SECRET"))
+	data.Set("client_id", os.Getenv("DIGI_LOCKER_CLIENT_ID"))
+	data.Set("client_secret", os.Getenv("DIGITLOCKER_CLIENT_SECRET"))
 
 	req, err := http.NewRequest("POST", apiUrl, bytes.NewBufferString(data.Encode()))
 	if err != nil {
@@ -44,6 +47,7 @@ func GetDigiLockerToken(code string) (map[string]interface{}, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		log.Println("Error response:", string(body))
 		return nil, errors.New("failed to fetch token: " + result["error_description"].(string))
 	}
 
@@ -112,17 +116,18 @@ func GetDigiLockerDocumentsList(accessToken string, dir_code string) (map[string
 	return result, nil
 }
 
-func FetchDirItemsRecursively(token string, dirId string) {
+func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, userId uint64) ([]models.TblMedicalRecord, error) {
+	var allDocs []models.TblMedicalRecord
+
 	dirRes, err := GetDigiLockerDocumentsList(token, dirId)
 	if err != nil {
 		log.Println("Error fetching documents:", err)
-		return
+		return nil, err
 	}
 
 	dirItems, ok := dirRes["items"].([]interface{})
 	if !ok {
-		log.Println("Items is not a list")
-		return
+		return nil, errors.New("invalid response format for items")
 	}
 
 	for _, dirItem := range dirItems {
@@ -133,12 +138,29 @@ func FetchDirItemsRecursively(token string, dirId string) {
 
 		switch record["type"] {
 		case "file":
-			log.Printf("Save:: Name: %v, Size: %v Type: %v Uri: %v mime: %v\n",
-				record["name"], record["size"], record["type"], record["uri"], record["mime"])
+			newRecord := models.TblMedicalRecord{
+				RecordName:     record["name"].(string),
+				RecordSize:     utils.ParseIntField(record["size"].(string)),
+				FileType:       record["mime"].(string),
+				UploadSource:   "DigiLocker",
+				SourceAccount:  digiLockerId,
+				RecordCategory: "Report",
+				Description:    record["description"].(string),
+				UploadedBy:     userId,
+				RecordUrl:      "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
+				FetchedAt:      time.Now(),
+				CreatedAt:      utils.ParseDateField(record["date"]),
+			}
+			allDocs = append(allDocs, newRecord)
 		case "dir":
-			log.Printf("📂 Entering sub-directory: %v", record["name"])
-			// Recursive call
-			FetchDirItemsRecursively(token, record["id"].(string))
+			log.Printf("Entering sub-directory: %v", record["name"])
+			subDocs, err := FetchDirItemsRecursively(token, record["id"].(string), digiLockerId, userId)
+			if err != nil {
+				log.Printf("Error fetching sub-directory %v: %v", record["name"], err)
+				continue
+			}
+			allDocs = append(allDocs, subDocs...)
 		}
 	}
+	return allDocs, nil
 }

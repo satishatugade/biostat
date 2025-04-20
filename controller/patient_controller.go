@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,14 +24,17 @@ type PatientController struct {
 	medicationService    service.MedicationService
 	appointmentService   service.AppointmentService
 	diagnosticService    service.DiagnosticService
+	userService          service.UserService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
-	medicationService service.MedicationService, appointmentService service.AppointmentService, diagnosticService service.DiagnosticService) *PatientController {
+	medicationService service.MedicationService, appointmentService service.AppointmentService, diagnosticService service.DiagnosticService, userService service.UserService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
-		diagnosticService: diagnosticService}
+		diagnosticService: diagnosticService,
+		userService:       userService,
+	}
 }
 
 func (pc *PatientController) GetAllRelation(c *gin.Context) {
@@ -860,4 +865,98 @@ func (mc *PatientController) GetAllLabs(c *gin.Context) {
 	)
 
 	models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+}
+
+func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
+	type UserRequest struct {
+		Code string `json:"code"`
+	}
+	var req UserRequest
+
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
+		return
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+	digiTokenRes, err := service.GetDigiLockerToken(req.Code)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to get digilocker token", nil, err)
+		return
+	}
+	if !strings.Contains(digiTokenRes["scope"].(string), "files.uploadeddocs") {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Please provide drive access", nil, errors.New("Invalid scope"))
+		return
+	}
+
+	log.Println("DigiLocker Token: ", digiTokenRes["access_token"])
+	log.Println("DigiLocker ID: ", digiTokenRes["digilockerid"])
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "DigiLocker sunc is in process you'll be notified once done", digiTokenRes, nil, nil)
+
+	go func(userID uint64, token string, digiLockerId string) {
+		log.Println("Starting DigiLocker directory & document sync in background...")
+
+		dirsRes, err := service.GetDigiLockerDirs(token)
+		if err != nil {
+			log.Println("Error fetching dirs:", err)
+			return
+		}
+
+		items, ok := dirsRes["items"].([]interface{})
+		if !ok {
+			log.Println("Items is not a list")
+			return
+		}
+
+		var allDocs []models.TblMedicalRecord
+		for _, item := range items {
+			record, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			if record["type"] == "file" {
+				newRecord := models.TblMedicalRecord{
+					RecordName:     record["name"].(string),
+					RecordSize:     utils.ParseIntField(record["size"].(string)),
+					FileType:       record["mime"].(string),
+					UploadSource:   "DigiLocker",
+					SourceAccount:  digiLockerId,
+					RecordCategory: "Report",
+					Description:    record["description"].(string),
+					UploadedBy:     userID,
+					RecordUrl:      "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
+					FetchedAt:      time.Now(),
+					CreatedAt:      utils.ParseDateField(record["date"]),
+				}
+				allDocs = append(allDocs, newRecord)
+			}
+
+			if record["type"] == "dir" {
+				subDocs, err := service.FetchDirItemsRecursively(token, record["id"].(string), digiLockerId, userID)
+				if err != nil {
+					log.Println("Error in subdirectory:", err)
+					continue
+				}
+				allDocs = append(allDocs, subDocs...)
+			}
+		}
+		log.Printf("Total documents collected: %d %v", len(allDocs), allDocs)
+		err = pc.medicalRecordService.SaveMedicalRecords(&allDocs, userID)
+		if err != nil {
+			log.Println("Error occurend while saving medical records from digilocker for %v %v", userID, digiLockerId)
+		}
+		log.Println("Successfully saved medical records from DigiLocker for user ID:", userID)
+
+	}(user_id, digiTokenRes["access_token"].(string), digiTokenRes["digilockerid"].(string))
+
 }

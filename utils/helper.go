@@ -327,3 +327,31 @@ func StringInSlice(str string, list []string) bool {
 	}
 	return false
 }
+
+func ParseIntField(val interface{}) int64 {
+	switch v := val.(type) {
+	case float64:
+		return int64(v)
+	case string:
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return parsed
+		}
+	}
+	return 0
+}
+
+func ParseDateField(val interface{}) time.Time {
+	switch v := val.(type) {
+	case string:
+		if parsed, err := time.Parse(time.RFC3339, v); err == nil {
+			return parsed
+		}
+		if parsed, err := time.Parse("2006-01-02", v); err == nil {
+			return parsed
+		}
+
+	case float64:
+		return time.Unix(int64(v), 0)
+	}
+	return time.Now()
+}
