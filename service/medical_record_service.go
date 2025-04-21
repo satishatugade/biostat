@@ -50,12 +50,27 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 }
 
 func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMedicalRecord, userId uint64) error {
-	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(records)
+	var uniqueRecords []models.TblMedicalRecord
+
+	for _, record := range *records {
+		exists, err := s.tblMedicalRecordRepo.ExistsRecordForUser(userId, record.UploadSource, record.RecordUrl)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			uniqueRecords = append(uniqueRecords, record)
+		}
+	}
+	if len(uniqueRecords) == 0 {
+		return nil
+	}
+
+	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(&uniqueRecords)
 	if err != nil {
 		return err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
-	for _, record := range *records {
+	for _, record := range uniqueRecords {
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
 			UserID:   userId,
 			RecordID: int64(record.RecordId),

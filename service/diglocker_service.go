@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -163,4 +164,74 @@ func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, u
 		}
 	}
 	return allDocs, nil
+}
+
+func SaveRecordToDigiLocker(accessToken string, fileData []byte, fileName string, contentType string) (*models.TblMedicalRecord, error) {
+	clientSecret := os.Getenv("DIGITLOCKER_CLIENT_SECRET")
+	hmac := utils.GenerateHMAC(fileData, clientSecret)
+	apiUrl := "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/upload"
+	req, err := http.NewRequest("POST", apiUrl, bytes.NewReader(fileData))
+	if err != nil {
+		return nil, errors.New("Erro sending:" + err.Error())
+	}
+	
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("hmac", hmac)
+	req.Header.Set("path", "Health/"+fileName)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.New("Erro in response:" + err.Error())
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Println("Status: %s\n", resp.Status)
+	log.Println("Response: %s\n", string(body))
+	var uploadResult map[string]interface{}
+	if err := json.Unmarshal(body, &uploadResult); err != nil {
+		return nil, errors.New("Error while unmarshal:" + err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Println("Error response:", string(body))
+		return nil, errors.New(uploadResult["error_description"].(string))
+	}
+
+	fullPath, ok := uploadResult["path"].(string)
+	if !ok {
+		return nil, errors.New("invalid upload result format: path missing")
+	}
+	parts := strings.Split(fullPath, "/")
+	uploadedFileName := parts[len(parts)-1]
+
+	fileList, err := GetDigiLockerDocumentsList(accessToken, "SGVhbHRo")
+	if err != nil {
+		return nil, errors.New("error fetching updated directory: " + err.Error())
+	}
+	if items, ok := fileList["items"].([]interface{}); ok {
+		for _, item := range items {
+			file, ok := item.(map[string]interface{})
+			if !ok || file["type"] != "file" {
+				continue
+			}
+			if file["name"] == uploadedFileName {
+				log.Println("Found uploaded file:", file)
+				newRecord := models.TblMedicalRecord{
+					RecordName:   file["name"].(string),
+					RecordSize:   utils.ParseIntField(file["size"].(string)),
+					FileType:     contentType,
+					UploadSource: "DigiLocker",
+					RecordUrl:    "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + file["uri"].(string),
+					FetchedAt:    time.Now(),
+					CreatedAt:    utils.ParseDateField(file["date"]),
+				}
+				return &newRecord, nil
+			}
+		}
+	}
+
+	return nil, errors.New("uploaded file not found in directory")
 }

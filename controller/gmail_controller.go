@@ -69,7 +69,7 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while authenticating", nil, errors.New("Invalid user id"))
 	}
-	c.gTokenService.CreateTblUserGtoken(&models.TblUserGtoken{UserId: userIDInt64, AuthToken: token.AccessToken})
+	c.gTokenService.CreateTblUserToken(&models.TblUserToken{UserId: userIDInt64, AuthToken: token.AccessToken, Provider: "Gmail"})
 
 	ctx.Redirect(http.StatusFound, "http://localhost:3000/dashboard/medical-reports?status=processing")
 
@@ -81,8 +81,9 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 			log.Println("Failed to create Gmail client:", err)
 			return
 		}
+		accessToken, _ := c.gTokenService.GetSingleTblUserToken(userID, "DigiLocker")
 
-		emailMedRecord, err := service.FetchEmailsWithAttachments(gmailService, userID)
+		emailMedRecord, err := service.FetchEmailsWithAttachments(gmailService, userID, accessToken.AuthToken)
 		if err != nil {
 			log.Println("Failed to fetch emails:", err)
 			return
@@ -105,7 +106,7 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
 	user_id := utils.GetParamAsUInt(ctx, "user_id")
 
-	gToken, gErr := c.gTokenService.GetSingleTblUserGtoken(user_id)
+	gToken, gErr := c.gTokenService.GetSingleTblUserToken(user_id, "Gmail")
 	if gErr != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Error while syncing records", nil, gErr)
 		return
@@ -127,8 +128,13 @@ func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create Gmail client", nil, err)
 		return
 	}
-
-	emails, err := service.FetchEmailsWithAttachments(gmailService, user_id)
+	accessToken, err := c.gTokenService.GetSingleTblUserToken(user_id, "DigiLocker")
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch emails", nil, err)
+		return
+	}
+	
+	emails, err := service.FetchEmailsWithAttachments(gmailService, user_id, accessToken.AuthToken)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch emails", nil, err)
 		return
@@ -141,6 +147,6 @@ func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while saving data", nil, err)
 	}
-	c.gTokenService.DeleteTblUserGtoken(user_id, "")
+	c.gTokenService.DeleteTblUserToken(user_id, "")
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Email Sync completed", nil, nil, nil)
 }

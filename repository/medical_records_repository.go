@@ -15,6 +15,7 @@ type TblMedicalRecordRepository interface {
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
 	GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
+	ExistsRecordForUser(userId uint64, source, url string) (bool, error)
 
 	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
 	DeleteMecationRecordMappings(id int) error
@@ -39,7 +40,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID int64)
 	err := r.db.Table("tbl_medical_record").
 		Select("tbl_medical_record.*").
 		Joins("INNER JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
-		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID).
+		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID).Order("updated_at DESC").
 		Find(&records).Error
 
 	if err != nil {
@@ -133,4 +134,15 @@ func (r *tblMedicalRecordRepositoryImpl) DeleteTblMedicalRecordWithMappings(id i
 	}
 
 	return tx.Commit().Error
+}
+
+func (r *tblMedicalRecordRepositoryImpl) ExistsRecordForUser(userId uint64, source, url string) (bool, error) {
+	var count int64
+	err := r.db.
+		Table("tbl_medical_record").
+		Joins("INNER JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
+		Where("tbl_medical_record_user_mapping.user_id = ? AND tbl_medical_record.upload_source = ? AND tbl_medical_record.record_url = ?", userId, source, url).
+		Count(&count).Error
+
+	return count > 0, err
 }

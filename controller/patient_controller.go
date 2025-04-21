@@ -7,6 +7,7 @@ import (
 	"biostat/service"
 	"biostat/utils"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -553,28 +554,53 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while uploading document"))
 		return
 	}
+	file, header, err := ctx.Request.FormFile("file")
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
+		return
+	}
 	user_id, err := c.patientService.GetUserIdBySUB(sub.(string))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
 	}
 
-	payload, err := utils.ProcessFileUpload(ctx)
+	userDigiToken, err := c.userService.GetSingleTblUserToken(user_id, "DigiLocker")
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "File processing failed", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Digilocker Token not found", nil, err)
 		return
 	}
-	payload.UploadSource = ctx.PostForm("upload_source")
-	payload.Description = ctx.PostForm("description")
-	payload.RecordCategory = ctx.PostForm("record_category")
-	payload.UploadedBy = user_id
 
-	data, err := c.medicalRecordService.CreateTblMedicalRecord(payload, user_id)
+	fileData, err := utils.ReadFileBytes(file)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+
+	newRecord, err := service.SaveRecordToDigiLocker(userDigiToken.AuthToken, fileData, header.Filename, header.Header.Get("Content-Type"))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to Upload user record to Digilocker", nil, err)
+		return
+	}
+
+	// payload, err := utils.ProcessFileUpload(ctx)
+	// if err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "File processing failed", nil, err)
+	// 	return
+	// }
+	newRecord.UploadSource = ctx.PostForm("upload_source")
+	newRecord.Description = ctx.PostForm("description")
+	newRecord.RecordCategory = ctx.PostForm("record_category")
+	newRecord.SourceAccount = userDigiToken.ProviderId
+	newRecord.UploadedBy = user_id
+
+	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record created successfully", data, nil, nil)
+	return
 }
 
 func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
@@ -674,8 +700,38 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while gwtting Onboarding status", nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully", gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded, "health_details": healthDetailsAdded}, nil, nil)
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+	var status models.ThirdPartyTokenStatus
+
+	gmail, _ := pc.userService.GetSingleTblUserToken(user_id, "gmail")
+	if gmail != nil {
+		status.GmailPresent = true
+	}
+	digilocker, _ := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker")
+	if digilocker != nil {
+		status.DigiLockerPresent = true
+		createdAtUTC := digilocker.CreatedAt
+		nowLoc := time.Now().UTC()
+		fmt.Println("createdAtUTC ", createdAtUTC)
+		fmt.Println("nowLoc ", nowLoc)
+
+		duration := createdAtUTC.Sub(nowLoc)
+		hoursDiff := duration.Hours()
+		fmt.Println(hoursDiff)
+
+		if time.Since(digilocker.CreatedAt.UTC()) > time.Hour {
+			status.IsDLExpired = true
+		} else {
+			status.IsDLExpired = false
+		}
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully", gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded, "health_details": healthDetailsAdded, "DigiLocker": status.DigiLockerPresent, "IsDLExpired": status.IsDLExpired, "GmailPresent": status.GmailPresent}, nil, nil)
 }
+
 func (mc *PatientController) GetMedication(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	medications, totalRecords, err := mc.medicationService.GetMedications(limit, offset)
@@ -898,8 +954,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 		return
 	}
 
-	log.Println("DigiLocker Token: ", digiTokenRes["access_token"])
-	log.Println("DigiLocker ID: ", digiTokenRes["digilockerid"])
+	pc.userService.CreateTblUserToken(&models.TblUserToken{UserId: user_id, AuthToken: digiTokenRes["access_token"].(string), Provider: "DigiLocker", ProviderId: digiTokenRes["digilockerid"].(string), CreatedAt: time.Now().UTC()})
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "DigiLocker sunc is in process you'll be notified once done", digiTokenRes, nil, nil)
 
 	go func(userID uint64, token string, digiLockerId string) {
@@ -953,7 +1008,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 		log.Printf("Total documents collected: %d %v", len(allDocs), allDocs)
 		err = pc.medicalRecordService.SaveMedicalRecords(&allDocs, userID)
 		if err != nil {
-			log.Println("Error occurend while saving medical records from digilocker for %v %v", userID, digiLockerId)
+			log.Println("Error occurend while saving medical records from digilocker for", userID, digiLockerId, err)
 		}
 		log.Println("Successfully saved medical records from DigiLocker for user ID:", userID)
 

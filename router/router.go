@@ -47,8 +47,8 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var patientRepo = repository.NewPatientRepository(db)
 	var patientService = service.NewPatientService(patientRepo)
 
-	var userRepo = repository.NewTblUserGtokenRepository(db)
-	var userService = service.NewTblUserGtokenService(userRepo)
+	var userRepo = repository.NewTblUserTokenRepository(db)
+	var userService = service.NewTblUserTokenService(userRepo)
 
 	var supportGrpRepo = repository.NewSupportGroupRepository(db)
 	var supportGrpService = service.NewSupportGroupService(supportGrpRepo)

@@ -8,11 +8,11 @@ import (
 )
 
 type UserService interface {
-	GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error)
-	CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error)
-	UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error)
-	GetSingleTblUserGtoken(id uint64) (*models.TblUserGtoken, error)
-	DeleteTblUserGtoken(id uint64, updatedBy string) error
+	GetAllTblUserTokens(limit int, offset int) ([]models.TblUserToken, int64, error)
+	CreateTblUserToken(data *models.TblUserToken) (*models.TblUserToken, error)
+	UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error)
+	GetSingleTblUserToken(id uint64,provider string) (*models.TblUserToken, error)
+	DeleteTblUserToken(id uint64, updatedBy string) error
 
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 }
@@ -21,28 +21,28 @@ type UserServiceImpl struct {
 	tblUserGtokenRepo repository.UserRepository
 }
 
-func NewTblUserGtokenService(repo repository.UserRepository) UserService {
+func NewTblUserTokenService(repo repository.UserRepository) UserService {
 	return &UserServiceImpl{tblUserGtokenRepo: repo}
 }
 
-func (s *UserServiceImpl) GetAllTblUserGtokens(limit int, offset int) ([]models.TblUserGtoken, int64, error) {
-	return s.tblUserGtokenRepo.GetAllTblUserGtokens(limit, offset)
+func (s *UserServiceImpl) GetAllTblUserTokens(limit int, offset int) ([]models.TblUserToken, int64, error) {
+	return s.tblUserGtokenRepo.GetAllTblUserTokens(limit, offset)
 }
 
-func (s *UserServiceImpl) CreateTblUserGtoken(data *models.TblUserGtoken) (*models.TblUserGtoken, error) {
-	return s.tblUserGtokenRepo.CreateTblUserGtoken(data)
+func (s *UserServiceImpl) CreateTblUserToken(data *models.TblUserToken) (*models.TblUserToken, error) {
+	return s.tblUserGtokenRepo.CreateTblUserToken(data)
 }
 
-func (s *UserServiceImpl) UpdateTblUserGtoken(data *models.TblUserGtoken, updatedBy string) (*models.TblUserGtoken, error) {
-	return s.tblUserGtokenRepo.UpdateTblUserGtoken(data, updatedBy)
+func (s *UserServiceImpl) UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error) {
+	return s.tblUserGtokenRepo.UpdateTblUserToken(data, updatedBy)
 }
 
-func (s *UserServiceImpl) GetSingleTblUserGtoken(id uint64) (*models.TblUserGtoken, error) {
-	return s.tblUserGtokenRepo.GetSingleTblUserGtoken(id)
+func (s *UserServiceImpl) GetSingleTblUserToken(id uint64,provider string) (*models.TblUserToken, error) {
+	return s.tblUserGtokenRepo.GetSingleTblUserToken(id,provider)
 }
 
-func (s *UserServiceImpl) DeleteTblUserGtoken(id uint64, updatedBy string) error {
-	return s.tblUserGtokenRepo.DeleteTblUserGtoken(id, updatedBy)
+func (s *UserServiceImpl) DeleteTblUserToken(id uint64, updatedBy string) error {
+	return s.tblUserGtokenRepo.DeleteTblUserToken(id, updatedBy)
 }
 
 // CreateSystemUser implements UserService.

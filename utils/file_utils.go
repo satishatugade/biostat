@@ -1,7 +1,11 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"io"
+	"mime/multipart"
 
 	"biostat/models"
 
@@ -31,4 +35,21 @@ func ProcessFileUpload(ctx *gin.Context) (*models.TblMedicalRecord, error) {
 	}
 
 	return record, nil
+}
+
+func ReadFileBytes(file multipart.File) ([]byte, error) {
+	defer file.Close()
+
+	fileData, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return fileData, nil
+}
+
+func GenerateHMAC(fileData []byte, clientSecret string) string {
+	mac := hmac.New(sha256.New, []byte(clientSecret))
+	mac.Write(fileData)
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
