@@ -146,7 +146,8 @@ const (
 	ViewAllRefRange   = "view-all-range"
 	ViewAuditRefRange = "view-audit-range"
 
-	SyncDigiLocker = "/sync-digilocker"
+	SyncDigiLocker     = "/sync-digilocker"
+	GetMedicalResource = "/get-medical-resource"
 )
 
 const (

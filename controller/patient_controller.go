@@ -716,8 +716,6 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 		status.DigiLockerPresent = true
 		createdAtUTC := digilocker.CreatedAt
 		nowLoc := time.Now().UTC()
-		fmt.Println("createdAtUTC ", createdAtUTC)
-		fmt.Println("nowLoc ", nowLoc)
 
 		duration := createdAtUTC.Sub(nowLoc)
 		hoursDiff := duration.Hours()
@@ -730,6 +728,7 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 		}
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully", gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded, "health_details": healthDetailsAdded, "DigiLocker": status.DigiLockerPresent, "IsDLExpired": status.IsDLExpired, "GmailPresent": status.GmailPresent}, nil, nil)
+	return
 }
 
 func (mc *PatientController) GetMedication(c *gin.Context) {
@@ -925,7 +924,8 @@ func (mc *PatientController) GetAllLabs(c *gin.Context) {
 
 func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 	type UserRequest struct {
-		Code string `json:"code"`
+		Code        string `json:"code"`
+		OnlyRefresh int    `json:"onlyRefresh"`
 	}
 	var req UserRequest
 
@@ -955,6 +955,11 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 	}
 
 	pc.userService.CreateTblUserToken(&models.TblUserToken{UserId: user_id, AuthToken: digiTokenRes["access_token"].(string), Provider: "DigiLocker", ProviderId: digiTokenRes["digilockerid"].(string), CreatedAt: time.Now().UTC()})
+	if req.OnlyRefresh == 1 {
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "DigiLocker token refreshed successfully", digiTokenRes, nil, nil)
+		return
+	}
+
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "DigiLocker sunc is in process you'll be notified once done", digiTokenRes, nil, nil)
 
 	go func(userID uint64, token string, digiLockerId string) {
@@ -1014,4 +1019,41 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 
 	}(user_id, digiTokenRes["access_token"].(string), digiTokenRes["digilockerid"].(string))
 
+}
+
+func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while reading document"))
+		return
+	}
+
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+
+	userDigiToken, err := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker")
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Digilocker Token not found", nil, err)
+		return
+	}
+
+	type UserRequest struct {
+		ResourceUrl string `json:"resource_url"`
+	}
+	var req UserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	response, err := service.ReadDigiLockerFile(userDigiToken.AuthToken, req.ResourceUrl)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Error while reading file", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
+	return
 }

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -174,7 +175,7 @@ func SaveRecordToDigiLocker(accessToken string, fileData []byte, fileName string
 	if err != nil {
 		return nil, errors.New("Erro sending:" + err.Error())
 	}
-	
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -234,4 +235,30 @@ func SaveRecordToDigiLocker(accessToken string, fileData []byte, fileName string
 	}
 
 	return nil, errors.New("uploaded file not found in directory")
+}
+
+func ReadDigiLockerFile(accessToken string, fileUrl string) (*models.DigiLockerFile, error) {
+	req, err := http.NewRequest("GET", fileUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch file, status: %d", resp.StatusCode)
+	}
+	contentType := resp.Header.Get("Content-Type")
+	hmacHeader := resp.Header.Get("hmac")
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	return &models.DigiLockerFile{Data: body, ContentType: contentType, HMAC: hmacHeader}, nil
 }

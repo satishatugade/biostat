@@ -39,3 +39,9 @@ type TblMedicalRecordUserMapping struct {
 func (TblMedicalRecordUserMapping) TableName() string {
 	return "tbl_medical_record_user_mapping"
 }
+
+type DigiLockerFile struct {
+	Data        []byte `gorm:"data" json:"data"`
+	ContentType string `gorm:"content-type" json:"content-type"`
+	HMAC        string `gorm:"hmac" json:"hmac"`
+}
