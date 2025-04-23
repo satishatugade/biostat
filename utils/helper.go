@@ -266,37 +266,56 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 	}
 }
 
-func MapUserToPublicProviderInfo(user models.SystemUser_, roleName string) interface{} {
+func MapUserToPublicProviderInfo(user interface{}, roleName string) interface{} {
 	role := strings.ToLower(roleName)
 
 	switch role {
 	case "doctor":
+		u := user.(models.SystemUser_)
 		return models.DoctorInfo{
-			DoctorId:          user.UserId,
-			FirstName:         user.FirstName,
-			LastName:          user.LastName,
-			Specialty:         user.Specialty,
-			ClinicName:        user.ClinicName,
-			Gender:            user.Gender,
-			MobileNo:          user.MobileNo,
-			ClinicAddress:     user.ClinicAddress,
-			YearsOfExperience: derefInt(user.YearsOfExperience),
-			WorkingHours:      user.WorkingHours,
+			DoctorId:          u.UserId,
+			FirstName:         u.FirstName,
+			LastName:          u.LastName,
+			Specialty:         u.Specialty,
+			ClinicName:        u.ClinicName,
+			Gender:            u.Gender,
+			MobileNo:          u.MobileNo,
+			ClinicAddress:     u.ClinicAddress,
+			YearsOfExperience: derefInt(u.YearsOfExperience),
+			WorkingHours:      u.WorkingHours,
 		}
 	case "nurse":
-		return models.Nurse{
-			NurseId:    user.UserId,
-			FirstName:  user.FirstName,
-			LastName:   user.LastName,
-			Specialty:  user.Specialty,
-			ClinicName: user.ClinicName,
+		u := user.(models.SystemUser_)
+		return models.NurseInfo{
+			NurseId:           u.UserId,
+			FirstName:         u.FirstName,
+			LastName:          u.LastName,
+			Gender:            u.Gender,
+			MobileNo:          u.MobileNo,
+			Specialty:         u.Specialty,
+			ClinicName:        u.ClinicName,
+			ClinicAddress:     u.ClinicAddress,
+			YearsOfExperience: derefInt(u.YearsOfExperience),
+			WorkingHours:      u.WorkingHours,
 		}
+	case "lab":
+		lab := user.(models.DiagnosticLab)
+		return models.LabInfo{
+			LabId:            lab.DiagnosticLabId,
+			LabNo:            lab.LabNo,
+			LabName:          lab.LabName,
+			LabAddress:       lab.LabAddress,
+			LabContactNumber: lab.LabContactNumber,
+			LabEmail:         lab.LabEmail,
+		}
+
 	case "patient":
-		return models.Patient{
-			PatientId:  user.UserId,
-			FirstName:  user.FirstName,
-			LastName:   user.LastName,
-			BloodGroup: user.BloodGroup,
+		u := user.(models.SystemUser_)
+		return models.PatientInfo{
+			PatientId:  u.UserId,
+			FirstName:  u.FirstName,
+			LastName:   u.LastName,
+			BloodGroup: u.BloodGroup,
 		}
 	default:
 		return map[string]string{
