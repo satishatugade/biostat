@@ -810,6 +810,45 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		return
 	}
 
+	if appointment.IsInperson == 0 {
+		patientUser, _ := pc.patientService.GetUserProfileByUserId(appointment.PatientID)
+		providerUser, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
+		rawInvitees := []map[string]string{
+			{"name": patientUser.FirstName, "email": patientUser.Email},
+			{"name": providerUser.FirstName, "email": providerUser.Email},
+		}
+		startTime := utils.ConvertToZoomTime(appointment.AppointmentDate.Format("2006-01-02"), appointment.AppointmentTime)
+		
+		zToken, _ := pc.userService.GetSingleTblUserToken(0, "ZOOM")
+		expiresIn := 59 * time.Minute
+
+		if time.Since(zToken.CreatedAt.UTC()) > expiresIn {
+			res, err := service.GetRefreshedZoomAccessToken(zToken.RefreshToken)
+			if err != nil {
+				fmt.Println("Error while getting access token", err)
+				models.ErrorResponse(ctx, constant.Failure, http.StatusServiceUnavailable, "Unable to schedule meeting please try again in sometime", nil, err)
+				return
+			}
+			pc.userService.CreateTblUserToken(&models.TblUserToken{UserId: 0, AuthToken: res["access_token"].(string), Provider: "ZOOM", ProviderId: "catseyesystems", RefreshToken: res["refresh_token"].(string), CreatedAt: time.Now().UTC(), ExpiresAt: time.Now().UTC().Add(59 * time.Minute)})
+
+			zoomRes, err := service.CreateZoomMeeting(res["access_token"].(string), "Online Doctor Consultation", appointment.AppointmentType, startTime, 30, rawInvitees)
+			if err != nil {
+				fmt.Println("Error while scheduling meeting:", err)
+				models.ErrorResponse(ctx, constant.Failure, http.StatusServiceUnavailable, "Unable to schedule meeting please try again in sometime", nil, err)
+				return
+			}
+			appointment.MeetingUrl = zoomRes.JoinURL
+		} else {
+			zoomRes, err := service.CreateZoomMeeting(zToken.AuthToken, "Online Doctor Consultation", appointment.AppointmentType, time.Now(), 30, rawInvitees)
+			if err != nil {
+				fmt.Println("Error while scheduling meeting:", err)
+				models.ErrorResponse(ctx, constant.Failure, http.StatusServiceUnavailable, "Unable to schedule meeting please try again in sometime", nil, err)
+				return
+			}
+			appointment.MeetingUrl = zoomRes.JoinURL
+		}
+	}
+
 	tx := database.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
