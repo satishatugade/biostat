@@ -69,7 +69,6 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 		hasRequiredRole := false
 		for _, requiredRole := range requiredRoles {
 			for _, role := range roles {
-				log.Println(" keycloak roles ", roles)
 				userRoles = append(userRoles, role.(string))
 				if role == requiredRole {
 					hasRequiredRole = true

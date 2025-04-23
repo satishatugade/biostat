@@ -5,6 +5,7 @@ import (
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -306,6 +307,7 @@ func (mc *MasterController) AddDiseaseCause(c *gin.Context) {
 		return
 	}
 	cause.CreatedBy = authUserId
+	log.Println("AddDiseaseCause request data : ", cause)
 	err := mc.causeService.AddDiseaseCause(&cause)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add cause", nil, err)
@@ -329,6 +331,7 @@ func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Cause Id is required", nil, nil)
 		return
 	}
+	log.Println("UpdateCause request data : ", cause)
 	err := mc.causeService.UpdateCause(&cause, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update cause", nil, err)
@@ -348,6 +351,7 @@ func (mc *MasterController) DeleteCause(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid cause Id", nil, err)
 		return
 	}
+	log.Println("DeleteCause data By Id : ", causeId)
 	err = mc.causeService.DeleteCause(causeId, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete cause", nil, err)
@@ -442,6 +446,7 @@ func (mc *MasterController) AddSymptom(c *gin.Context) {
 		return
 	}
 	symptom.CreatedBy = authUserId
+	log.Println("AddDiseaseSymptom request data : ", symptom)
 	err := mc.symptomService.AddDiseaseSymptom(&symptom)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add symptom", nil, err)
@@ -464,6 +469,7 @@ func (mc *MasterController) AddDiseaseSymptomMapping(c *gin.Context) {
 		return
 	}
 	input.CreatedBy = authUserId
+	log.Println("AddDiseaseSymptomMapping mapping Id : ", input)
 	err := mc.symptomService.AddDiseaseSymptomMapping(&input)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Disease-symptoms mapping already exists.", nil, err)
@@ -487,7 +493,7 @@ func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "symptom Id is required", nil, nil)
 		return
 	}
-
+	log.Println("UpdateSymptom request data : ", symptom)
 	err := mc.symptomService.UpdateSymptom(&symptom, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update symptom data", nil, err)
@@ -507,6 +513,7 @@ func (mc *MasterController) DeleteSymptom(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid symptom Id", nil, err)
 		return
 	}
+	log.Println("DeleteSymptom data by Id : ", symptomId)
 	err = mc.symptomService.DeleteSymptom(symptomId, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Deletion failed", nil, err)
@@ -581,6 +588,7 @@ func (mc *MasterController) AddDietPlanTemplate(c *gin.Context) {
 		return
 	}
 	dietPlan.CreatedBy = authUserId
+	log.Println("CreateDietPlanTemplate request data : ", dietPlan)
 	if err := mc.dietService.CreateDietPlanTemplate(&dietPlan); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add diet plan", nil, err)
 		return
@@ -617,6 +625,7 @@ func (mc *MasterController) GetDietPlanById(c *gin.Context) {
 	}
 	dietPlanTemplateId := c.Param("diet_id")
 	var dietPlan models.DietPlanTemplate
+	log.Println("GetDietPlanById dietPlanTemplateId : ", dietPlanTemplateId)
 	dietPlan, err := mc.dietService.GetDietPlanById(dietPlanTemplateId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Diet plan not found", nil, err)
@@ -638,6 +647,7 @@ func (mc *MasterController) UpdateDietPlanTemplate(c *gin.Context) {
 		return
 	}
 	dietPlan.CreatedBy = authUserId
+	log.Println("UpdateDietPlanTemplate by template Id : ", dietPlan)
 	if err := mc.dietService.UpdateDietPlanTemplate(dietPlanTemplateId, &dietPlan); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update diet plan", nil, err)
 		return
@@ -657,6 +667,7 @@ func (mc *MasterController) AddDiseaseDietMapping(c *gin.Context) {
 		return
 	}
 	input.CreatedBy = authUserId
+	log.Println("AddDiseaseDietMapping request data : ", input)
 	err := mc.dietService.AddDiseaseDietMapping(&input)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Disease-diet mapping already exists.", nil, err)
@@ -677,6 +688,7 @@ func (mc *MasterController) AddDiseaseExerciseMapping(c *gin.Context) {
 		return
 	}
 	input.CreatedBy = authUserId
+	log.Println("AddDiseaseExerciseMapping request data : ", input)
 	err := mc.exerciseService.AddDiseaseExerciseMapping(&input)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Disease-exercise mapping already exists.", nil, err)
@@ -697,6 +709,7 @@ func (mc *MasterController) AddExercise(c *gin.Context) {
 		return
 	}
 	exercise.CreatedBy = authUserId
+	log.Println("CreateExercise request data : ", exercise)
 	if err := mc.exerciseService.CreateExercise(&exercise); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add exercise", nil, err)
 		return

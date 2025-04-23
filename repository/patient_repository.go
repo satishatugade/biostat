@@ -240,6 +240,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 		Preload("DiagnosticLab.PatientDiagnosticTests").
 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
 
 	if patientId > 0 {
@@ -567,81 +568,6 @@ func (p *PatientRepositoryImpl) ExistsByUserIdAndRoleId(userId uint64, roleId ui
 	return count > 0, nil
 }
 
-// func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(patientId uint64) ([]map[string]interface{}, error) {
-
-// 	query := `
-// 	SELECT
-// 		pdr.patient_diagnostic_report_id,
-// 		pdr.patient_id,
-// 		pdr.collected_date,
-// 		pdr.report_date,
-// 		pdr.report_status,
-// 		pdt.patient_test_id,
-// 		pdt.test_note,
-// 		pdt.test_date,
-// 		pdtrv.diagnostic_test_id,
-// 		pdtrv.diagnostic_test_component_id,
-// 		tdpdtcm.test_component_name,
-// 		pdtrv.result_value,
-// 		dtrr.normal_min,
-// 		dtrr.normal_max,
-// 		dtrr.units,
-// 		pdtrv.result_status,
-// 		pdtrv.result_date,
-// 		pdtrv.result_comment
-// 	FROM
-// 		tbl_patient_diagnostic_report pdr
-// 		INNER JOIN tbl_patient_diagnostic_test pdt
-// 			ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
-// 		INNER JOIN tbl_patient_diagnostic_test_result_value pdtrv
-// 			ON pdt.patient_diagnostic_report_id = pdtrv.patient_diagnostic_report_id
-// 		LEFT JOIN tbl_diagnostic_test_reference_range dtrr
-// 			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
-// 		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm
-// 			ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id
-// 	WHERE
-// 		pdr.patient_id = ?
-// 	`
-
-// 	rows, err := pr.db.Raw(query, patientId).Rows()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-
-// 	columns, err := rows.Columns()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var results []map[string]interface{}
-
-// 	for rows.Next() {
-// 		values := make([]interface{}, len(columns))
-// 		valuePtrs := make([]interface{}, len(columns))
-// 		for i := range columns {
-// 			valuePtrs[i] = &values[i]
-// 		}
-
-// 		if err := rows.Scan(valuePtrs...); err != nil {
-// 			return nil, err
-// 		}
-
-// 		rowMap := make(map[string]interface{})
-// 		for i, col := range columns {
-// 			val := values[i]
-// 			if b, ok := val.([]byte); ok {
-// 				rowMap[col] = string(b)
-// 			} else {
-// 				rowMap[col] = val
-// 			}
-// 		}
-// 		results = append(results, rowMap)
-// 	}
-
-// 	return results, nil
-// }
-
 func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error) {
 
 	query := `
@@ -680,7 +606,6 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 
 	args := []interface{}{input.PatientId}
 
-	// Optional component ID filter
 	if input.DiagnosticTestComponentId != nil {
 		query += " AND pdtrv.diagnostic_test_component_id = ?"
 		args = append(args, *input.DiagnosticTestComponentId)
@@ -691,13 +616,11 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		args = append(args, *input.PatientDiagnosticReportId)
 	}
 
-	// Optional report date range
 	if input.ReportDateStart != nil && input.ReportDateEnd != nil {
 		query += " AND pdr.report_date BETWEEN ? AND ?"
 		args = append(args, *input.ReportDateStart, *input.ReportDateStart)
 	}
 
-	// Optional result date range
 	if input.ResultDateStart != nil && input.ResultDateEnd != nil {
 		query += " AND pdtrv.result_date BETWEEN ? AND ?"
 		args = append(args, *input.ResultDateStart, *input.ResultDateEnd)

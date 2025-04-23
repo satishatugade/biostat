@@ -330,6 +330,7 @@ type DiagnosticTestComponent struct {
 	CreatedBy                 string                             `gorm:"column:created_by" json:"created_by"`
 	IsDeleted                 int                                `gorm:"column:is_deleted" json:"is_deleted"`
 	TestResultValue           []PatientDiagnosticTestResultValue `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_result_value"`
+	ReferenceRange            []DiagnosticTestReferenceRange     `gorm:"foreignKey:DiagnosticTestComponentId;references:DiagnosticTestComponentId" json:"test_referance_range"`
 }
 
 type DiagnosticTestComponentMapping struct {
