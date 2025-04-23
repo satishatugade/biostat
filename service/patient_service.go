@@ -4,6 +4,7 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"fmt"
+	"log"
 )
 
 type PatientService interface {
@@ -24,7 +25,7 @@ type PatientService interface {
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
 	GetDoctorList(patientId *uint64) ([]models.Doctor, error)
 	GetPatientList() ([]models.Patient, error)
-	GetPatientRelativeById(relativeId uint) (models.PatientRelative, error)
+	GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
@@ -108,12 +109,22 @@ func (s *PatientServiceImpl) AddPatientClinicalRange(customRange *models.Patient
 	return s.patientRepo.AddPatientClinicalRange(customRange)
 }
 
-// GetPatientRelativeById implements PatientService.
-func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint) (models.PatientRelative, error) {
-	return s.patientRepo.GetPatientRelativeById(relativeId)
+func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error) {
+	patientRelativeId, relationeId, err := s.patientRepo.CheckPatientRelativeMapping(relativeId, patientId, "R")
+	if err != nil {
+		log.Println("CheckPatientRelativeMapping Not found :")
+		return models.PatientRelative{}, err
+	}
+	var relation models.PatientRelation
+	if relationeId != 0 {
+		relation, err = s.patientRepo.GetRelationNameById(relationeId)
+		if err != nil {
+			log.Println("GetRelationNameById Not found :")
+		}
+	}
+	return s.patientRepo.GetPatientRelativeById(patientRelativeId, relation.RelationShip)
 }
 
-// GetRelativeList implements PatientService.
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
 	relativeUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "R", false)
 	if err != nil {

@@ -26,7 +26,9 @@ type PatientRepository interface {
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
 	FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]uint64, error)
-	GetPatientRelativeById(relativeId uint) (models.PatientRelative, error)
+	GetPatientRelativeById(relativeId uint64, relationName string) (models.PatientRelative, error)
+	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
+	GetRelationNameById(relationId uint64) (models.PatientRelation, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
@@ -322,18 +324,40 @@ func (p *PatientRepositoryImpl) AddPatientClinicalRange(customRange *models.Pati
 	return tx.Commit().Error
 }
 
-// GetPatientRelativeById implements PatientRepository.
-func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint) (models.PatientRelative, error) {
+func (p *PatientRepositoryImpl) CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error) {
+	var userId uint64
+	var relationId uint64
 
-	var relative models.PatientRelative
-	err := p.db.Where("relative_id = ?", relativeId).First(&relative).Error
+	row := p.db.Raw(`SELECT user_id, relation_id FROM tbl_system_user_role_mapping 
+	WHERE user_id = ? AND patient_id = ? AND mapping_type = ? LIMIT 1`, relativeId, patientId, mappingType).Row()
+
+	err := row.Scan(&userId, &relationId)
 	if err != nil {
-		return relative, err
+		return 0, 0, err
 	}
-	return relative, nil
+
+	return userId, relationId, nil
 }
 
-// GetRelativeList implements PatientRepository.
+func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relationName string) (models.PatientRelative, error) {
+	var relative models.PatientRelative
+	err := p.db.
+		Table("tbl_system_user_").
+		Select(`user_id AS relative_id, 
+		        first_name, 
+		        last_name, 
+		        gender, 
+		        date_of_birth, 
+		        mobile_no AS mobile_no, 
+		        email, 
+		        created_at, 
+		        updated_at`).
+		Where("user_id = ?", relativeId).
+		Scan(&relative).Error
+	relative.Relationship = relationName
+	return relative, err
+}
+
 func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64) ([]models.PatientRelative, error) {
 	var relatives []models.PatientRelative
 
@@ -662,4 +686,13 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	}
 
 	return results, nil
+}
+
+// GetRelationNameById implements PatientRepository.
+func (p *PatientRepositoryImpl) GetRelationNameById(relationId uint64) (models.PatientRelation, error) {
+	var relation models.PatientRelation
+	if err := p.db.Where("relation_id = ?", relationId).First(&relation).Error; err != nil {
+		return models.PatientRelation{}, err
+	}
+	return relation, nil
 }

@@ -318,6 +318,16 @@ func (pc *PatientController) GetRelativeList(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
 	relativeIdStr := c.Param("relative_id")
 	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 32)
 	if err != nil {
@@ -325,7 +335,7 @@ func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
 		return
 	}
 
-	relative, err := pc.patientService.GetPatientRelativeById(uint(relativeId))
+	relative, err := pc.patientService.GetPatientRelativeById(uint64(relativeId), patientId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relative not found", nil, err)
 		return
@@ -335,6 +345,11 @@ func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
 }
 
 func (pc *PatientController) UpdatePatientRelative(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
 	relativeIdStr := c.Param("relative_id")
 
 	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 64)
