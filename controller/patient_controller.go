@@ -798,6 +798,13 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Nurse not found", nil, err)
 			return
 		}
+	} else if appointment.ProviderType == "lab" {
+		_, err := pc.diagnosticService.GetLabById(appointment.ProviderID)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to check diagnostic center existence", nil, err)
+			return
+		}
+
 	} else {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid provider type", nil, errors.New("Invalid provider type"))
 		return
@@ -823,8 +830,14 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to schedule appointment", nil, err)
 		return
 	}
-	user, _ := pc.patientService.GetUserProfileByUserId(createdAppointment.ProviderID)
-	providerInfo := utils.MapUserToPublicProviderInfo(*user, createdAppointment.ProviderType)
+	var providerInfo interface{}
+	if appointment.ProviderType == "lab" {
+		lab, _ := pc.diagnosticService.GetLabById(appointment.ProviderID)
+		providerInfo = utils.MapUserToPublicProviderInfo(*lab, "lab")
+	} else {
+		user, _ := pc.patientService.GetUserProfileByUserId(createdAppointment.ProviderID)
+		providerInfo = utils.MapUserToPublicProviderInfo(*user, createdAppointment.ProviderType)
+	}
 	appointmentResponse := models.AppointmentResponse{
 		AppointmentID:   appointment.AppointmentID,
 		PatientID:       appointment.PatientID,
@@ -867,8 +880,14 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 	}
 	var responses []models.AppointmentResponse
 	for _, appointment := range appointments {
-		user, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
-		providerInfo := utils.MapUserToPublicProviderInfo(*user, appointment.ProviderType)
+		var providerInfo interface{}
+		if appointment.ProviderType == "lab" {
+			lab, _ := pc.diagnosticService.GetLabById(appointment.ProviderID)
+			providerInfo = utils.MapUserToPublicProviderInfo(*lab, "lab")
+		} else {
+			user, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
+			providerInfo = utils.MapUserToPublicProviderInfo(*user, appointment.ProviderType)
+		}
 		appointmentResponse := models.AppointmentResponse{
 			AppointmentID:   appointment.AppointmentID,
 			PatientID:       appointment.PatientID,

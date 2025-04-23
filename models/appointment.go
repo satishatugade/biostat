@@ -64,11 +64,25 @@ type DoctorInfo struct {
 }
 
 type NurseInfo struct {
-	NurseId    uint64 `json:"nurse_id"`
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
-	Specialty  string `json:"specialty"`
-	ClinicName string `json:"clinic_name"`
+	NurseId           uint64 `json:"nurse_id"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	Gender            string `json:"gender"`
+	MobileNo          string `json:"mobile_no"`
+	Specialty         string `json:"specialty"`
+	ClinicName        string `json:"clinic_name"`
+	ClinicAddress     string `json:"clinic_address"`
+	YearsOfExperience int    `json:"years_of_experience"`
+	WorkingHours      string `json:"working_hours"`
+}
+
+type LabInfo struct {
+	LabId            uint64 `json:"lab_id"`
+	LabNo            string `json:"lab_no"`
+	LabName          string `json:"lab_name"`
+	LabAddress       string `json:"lab_address"`
+	LabContactNumber string `json:"lab_contact_number"`
+	LabEmail         string `json:"lab_email"`
 }
 
 type PatientInfo struct {
