@@ -374,3 +374,13 @@ func ParseDateField(val interface{}) time.Time {
 	}
 	return time.Now()
 }
+
+func ConvertToZoomTime(dateStr, timeStr string) time.Time {
+	combined := fmt.Sprintf("%s %s", dateStr, timeStr)
+	layout := "2006-01-02 15:04:05"
+	startTime, err := time.Parse(layout, combined)
+	if err != nil {
+		return time.Now().UTC()
+	}
+	return startTime
+}

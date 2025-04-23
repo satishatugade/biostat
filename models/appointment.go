@@ -18,7 +18,7 @@ type Appointment struct {
 	MeetingUrl      string    `gorm:"column:meeting_url;" json:"meeting_url"`
 	Status          string    `gorm:"column:status;size:20;default:'pending'" json:"status"`
 	PaymentStatus   string    `gorm:"column:payment_status;size:20;default:'unpaid'" json:"payment_status"`
-	PaymentID       string    `gorm:"column:payment_id" json:"payment_id"`
+	PaymentID       uint64    `gorm:"column:payment_id" json:"payment_id"`
 	Notes           string    `gorm:"column:notes" json:"notes"`
 	CreatedAt       time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
@@ -43,7 +43,7 @@ type AppointmentResponse struct {
 	MeetingUrl      string      `json:"meeting_url"`
 	Status          string      `json:"status"`
 	PaymentStatus   string      `json:"payment_status"`
-	PaymentID       string      `json:"payment_id"`
+	PaymentID       uint64      `json:"payment_id"`
 	Notes           string      `json:"notes"`
 	CreatedAt       time.Time   `json:"created_at"`
 	UpdatedAt       time.Time   `json:"updated_at"`
