@@ -5,7 +5,7 @@ import (
 )
 
 type TblUserToken struct {
-	Id         uint      `gorm:"column:id;primaryKey" json:"Id"`
+	Id         uint      `gorm:"column:user_token_id;primaryKey" json:"user_token_id"`
 	UserId     uint64    `gorm:"column:user_id;" json:"user_id"`
 	AuthToken  string    `gorm:"column:auth_token;" json:"auth_token"`
 	Provider   string    `gorm:"column:provider;" json:"provider"`

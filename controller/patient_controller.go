@@ -549,9 +549,9 @@ func (c *PatientController) GetAllTblMedicalRecords(ctx *gin.Context) {
 }
 
 func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
-	sub, subExists := ctx.Get("sub")
-	if !subExists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while uploading document"))
+	authUserId, exists := utils.GetUserDataContext(ctx)
+	if !exists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
 	file, header, err := ctx.Request.FormFile("file")
@@ -559,7 +559,7 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
 		return
 	}
-	user_id, err := c.patientService.GetUserIdBySUB(sub.(string))
+	user_id, err := c.patientService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return

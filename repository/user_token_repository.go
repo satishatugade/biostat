@@ -13,7 +13,6 @@ type UserRepository interface {
 	GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error)
 	DeleteTblUserToken(id uint64, updatedBy string) error
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
-
 }
 
 type UserRepositoryImpl struct {
@@ -50,7 +49,7 @@ func (r *UserRepositoryImpl) CreateTblUserToken(data *models.TblUserToken) (*mod
 }
 
 func (r *UserRepositoryImpl) UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error) {
-	err := r.db.Model(&models.TblUserToken{}).Where("id = ?", data.Id).Updates(data).Error
+	err := r.db.Model(&models.TblUserToken{}).Where("user_token_id = ?", data.Id).Updates(data).Error
 	if err != nil {
 		return nil, err
 	}

@@ -31,9 +31,9 @@ func (TblMedicalRecord) TableName() string {
 }
 
 type TblMedicalRecordUserMapping struct {
-	ID       uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID   uint64 `gorm:"column:user_id;not null" json:"user_id"`
-	RecordID int64  `gorm:"column:record_id;not null" json:"record_id"`
+	MedicalRecordUserMappingId uint   `gorm:"primaryKey;autoIncrement" json:"medical_record_user_mapping_id"`
+	UserID                     uint64 `gorm:"column:user_id;not null" json:"user_id"`
+	RecordID                   int64  `gorm:"column:record_id;not null" json:"record_id"`
 }
 
 func (TblMedicalRecordUserMapping) TableName() string {
