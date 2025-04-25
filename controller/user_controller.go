@@ -282,11 +282,12 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		return
 	}
 
-	patient, err := uc.patientService.GetPatientById(patientUserId)
+	patient, err := uc.patientService.GetUserProfileByUserId(*patientUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
+	registrant := utils.MapSystemUserToPatient(patient)
 
 	relation, err := uc.patientService.GetRelationById(int(req.RelationId))
 	if err != nil {
@@ -342,7 +343,8 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
 		return
 	}
-	err = uc.emailService.SendLoginCredentials(systemUser, password, patient)
+
+	err = uc.emailService.SendLoginCredentials(systemUser, password, registrant)
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
