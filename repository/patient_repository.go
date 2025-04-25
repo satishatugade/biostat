@@ -15,6 +15,7 @@ type PatientRepository interface {
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientId(patientId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
+	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(patientId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
@@ -38,8 +39,11 @@ type PatientRepository interface {
 	GetUserIdBySUB(SUB string) (uint64, error)
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
+	IsUserHealthDetailsComplete(user_id uint64) (bool, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 	FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
+
+	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 }
 
 type PatientRepositoryImpl struct {
@@ -231,6 +235,14 @@ func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]m
 	}
 
 	return patientDiseaseProfiles, nil
+}
+
+func (p *PatientRepositoryImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error) {
+	err := tx.Create(input).Error
+	if err != nil {
+		return nil, err
+	}
+	return input, nil
 }
 
 func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64) ([]models.PatientDiagnosticReport, error) {
@@ -543,6 +555,16 @@ func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (boo
 	return isComplete, nil
 }
 
+func (p *PatientRepositoryImpl) IsUserHealthDetailsComplete(user_id uint64) (bool, error) {
+	var count int64
+	err := p.db.Table("tbl_patient_health_profile").Where("patient_id = ?", user_id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	isComplete := count > 0
+	return isComplete, nil
+}
+
 func (p *PatientRepositoryImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {
 	var nurses []models.Nurse
 	var totalRecords int64
@@ -695,4 +717,12 @@ func (p *PatientRepositoryImpl) GetRelationNameById(relationId uint64) (models.P
 		return models.PatientRelation{}, err
 	}
 	return relation, nil
+}
+
+func (p *PatientRepositoryImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {
+	err := tx.Create(input).Error
+	if err != nil {
+		return nil, err
+	}
+	return input, nil
 }

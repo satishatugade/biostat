@@ -19,6 +19,7 @@ const (
 	UpdateRealtiveInfo   = "/patient-relative/:relative_id"
 	UserProfile          = "/user-profile"
 	UserOnboardingStatus = "/user-onboarding-status"
+	UserHealthDetails    = "/user-health-details"
 
 	Caregiver     = "/get-caregiver/:patient_id"
 	CaregiverList = "/caregiver-list"

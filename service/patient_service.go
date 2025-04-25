@@ -5,6 +5,8 @@ import (
 	"biostat/repository"
 	"fmt"
 	"log"
+
+	"gorm.io/gorm"
 )
 
 type PatientService interface {
@@ -15,6 +17,7 @@ type PatientService interface {
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
+	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(PatientId uint64) ([]models.PatientDiagnosticReport, error)
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
@@ -36,6 +39,8 @@ type PatientService interface {
 
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
+
+	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 }
 
 type PatientServiceImpl struct {
@@ -87,6 +92,10 @@ func (s *PatientServiceImpl) AddPatientPrescription(prescription *models.Patient
 
 func (s *PatientServiceImpl) GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error) {
 	return s.patientRepo.GetPatientDiseaseProfiles(PatientId)
+}
+
+func (s *PatientServiceImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error) {
+	return s.patientRepo.AddPatientDiseaseProfile(tx, input)
 }
 
 // AddPatientRelative implements PatientService.
@@ -195,8 +204,11 @@ func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, boo
 		return false, false, false, err
 	}
 
-	return basicDetailsAdded, familyDetailsAdded, false, nil
-
+	healthDetailsAdded, err := s.patientRepo.IsUserHealthDetailsComplete(uid)
+	if err != nil {
+		return false, false, false, err
+	}
+	return basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, nil
 }
 
 func (s *PatientServiceImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {
@@ -221,4 +233,8 @@ func (s *PatientServiceImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint6
 
 func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error) {
 	return ps.patientRepo.FetchPatientDiagnosticTrendValue(input)
+}
+
+func (ps *PatientServiceImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {
+	return ps.patientRepo.SaveUserHealthProfile(tx, input)
 }

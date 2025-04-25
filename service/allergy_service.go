@@ -3,11 +3,13 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+
+	"gorm.io/gorm"
 )
 
 type AllergyService interface {
 	GetAllergies() ([]models.Allergy, error)
-	AddPatientAllergyRestriction(allergy *models.PatientAllergyRestriction) error
+	AddPatientAllergyRestriction(tx *gorm.DB, allergy *models.PatientAllergyRestriction) error
 	GetPatientAllergyRestriction(patientId string) ([]models.PatientAllergyRestriction, error)
 	UpdatePatientAllergyRestriction(allergyUpdate *models.PatientAllergyRestriction) error
 }
@@ -24,8 +26,8 @@ func (a *AllergyServiceImpl) GetAllergies() ([]models.Allergy, error) {
 	return a.allergyRepo.GetAllergies()
 }
 
-func (a *AllergyServiceImpl) AddPatientAllergyRestriction(allergy *models.PatientAllergyRestriction) error {
-	return a.allergyRepo.AddPatientAllergyRestriction(allergy)
+func (a *AllergyServiceImpl) AddPatientAllergyRestriction(tx *gorm.DB,allergy *models.PatientAllergyRestriction) error {
+	return a.allergyRepo.AddPatientAllergyRestriction(tx,allergy)
 }
 
 func (a *AllergyServiceImpl) GetPatientAllergyRestriction(patientId string) ([]models.PatientAllergyRestriction, error) {

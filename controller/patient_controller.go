@@ -484,13 +484,28 @@ func (pc *PatientController) AddPatientAllergyRestriction(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid allergy input", nil, err)
 		return
 	}
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to initiate transaction", nil, tx.Error)
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in AddPatientAllergyRestriction:", r)
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to save allergy details", nil, errors.New("Failed to save allergy details"))
+			return
+		}
+	}()
 
-	if err := pc.allergyService.AddPatientAllergyRestriction(&allergy); err != nil {
+	if err := pc.allergyService.AddPatientAllergyRestriction(tx, &allergy); err != nil {
+		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add allergy", nil, err)
 		return
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Allergy restriction added successfully", allergy, nil, nil)
+	return
 }
 
 func (pc *PatientController) GetPatientAllergyRestriction(c *gin.Context) {
@@ -1178,4 +1193,83 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report data saved successfully", componentNameCache, nil, nil)
+}
+
+func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Authentication token is missing or invalid", nil, errors.New("unable to retrieve user 'sub' from context"))
+		return
+	}
+	var userReq models.PatientHealthProfileRequest
+	if err := ctx.ShouldBindJSON(&userReq); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request format: please check the data you're sending", nil, err)
+		return
+	}
+
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
+		return
+	}
+
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to initiate transaction", nil, tx.Error)
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in SaveHealthProfile:", r)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to save health details", nil, errors.New("Failed to save health details"))
+			return
+		}
+	}()
+
+	healthData := &models.TblPatientHealthProfile{
+		PatientID:             user_id,
+		HeightCM:              userReq.HeightCm,
+		WeightKG:              userReq.WeightKg,
+		BloodType:             userReq.BloodType,
+		SmokingStatus:         userReq.SmokingStatus,
+		AlcoholConsumption:    userReq.AlcoholConsumption,
+		PhysicalActivityLevel: userReq.PhysicalActivityLevel,
+		DietaryPreferences:    userReq.DietaryPreferences,
+		ExistingConditions:    userReq.ExistingConditions,
+		FamilyMedicalHistory:  userReq.FamilyMedicalHistory,
+		MenstrualHistory:      userReq.MenstrualHistory,
+		Notes:                 userReq.Notes,
+	}
+
+	savedHealthProfile, err := pc.patientService.SaveUserHealthProfile(tx, healthData)
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to save health profile", nil, err)
+		return
+	}
+	for _, allergy := range userReq.Allergies {
+		err := pc.allergyService.AddPatientAllergyRestriction(tx, &models.PatientAllergyRestriction{
+			PatientId:  uint(user_id),
+			AllergyId:  uint(allergy.AllergyID),
+			SeverityId: uint(allergy.SeverityId),
+		})
+		if err != nil {
+			tx.Rollback()
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to save allergies", nil, err)
+			return
+		}
+	}
+	_, err = pc.patientService.AddPatientDiseaseProfile(tx, &models.PatientDiseaseProfile{PatientId: user_id, DiseaseProfileId: userReq.DiseaseProfileID})
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to save disease profile", nil, err)
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health data saved successfully", savedHealthProfile, nil, nil)
+	return
 }
