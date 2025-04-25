@@ -22,14 +22,14 @@ type PatientRepository interface {
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
-	GetRelativeList(relativeUserIds []uint64) ([]models.PatientRelative, error)
+	GetRelativeList(relativeUserIds []uint64, relation []models.PatientRelation) ([]models.PatientRelative, error)
 	GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
 	FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]uint64, error)
-	GetPatientRelativeById(relativeId uint64, relationName string) (models.PatientRelative, error)
+	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
-	GetRelationNameById(relationId uint64) (models.PatientRelation, error)
+	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	// UpdatePrescription(*models.PatientPrescription) error
@@ -351,8 +351,10 @@ func (p *PatientRepositoryImpl) CheckPatientRelativeMapping(relativeId uint64, p
 	return userId, relationId, nil
 }
 
-func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relationName string) (models.PatientRelative, error) {
+func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relations []models.PatientRelation) (models.PatientRelative, error) {
 	var relative models.PatientRelative
+
+	// Fetch the patient relative details
 	err := p.db.
 		Table("tbl_system_user_").
 		Select(`user_id AS relative_id, 
@@ -366,11 +368,21 @@ func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relati
 		        updated_at`).
 		Where("user_id = ?", relativeId).
 		Scan(&relative).Error
-	relative.Relationship = relationName
+
+	// If the relative is found, we need to set the relationship
+	if err == nil {
+		for _, r := range relations {
+			// Cast relativeId to uint to match r.RelationId type
+			if uint(relativeId) == r.RelationId {
+				relative.Relationship = r.RelationShip
+				break
+			}
+		}
+	}
 	return relative, err
 }
 
-func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64) ([]models.PatientRelative, error) {
+func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, relation []models.PatientRelation) ([]models.PatientRelative, error) {
 	var relatives []models.PatientRelative
 
 	if len(relativeUserIds) == 0 {
@@ -393,6 +405,17 @@ func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64) ([]mod
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Set the Relationship field for each relative based on the RelationId
+	for i := range relatives {
+		for _, r := range relation {
+			// Cast relativeUserIds to uint to match r.RelationId type
+			if uint(relativeUserIds[i]) == r.RelationId {
+				relatives[i].Relationship = r.RelationShip
+				break
+			}
+		}
 	}
 
 	return relatives, nil
@@ -710,13 +733,13 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	return results, nil
 }
 
-// GetRelationNameById implements PatientRepository.
-func (p *PatientRepositoryImpl) GetRelationNameById(relationId uint64) (models.PatientRelation, error) {
-	var relation models.PatientRelation
-	if err := p.db.Where("relation_id = ?", relationId).First(&relation).Error; err != nil {
-		return models.PatientRelation{}, err
+func (p *PatientRepositoryImpl) GetRelationNameById(relationIds []uint64) ([]models.PatientRelation, error) {
+	var relations []models.PatientRelation
+	// Use "IN" clause to fetch multiple relations based on relationIds
+	if err := p.db.Where("relation_id IN ?", relationIds).Find(&relations).Error; err != nil {
+		return nil, err
 	}
-	return relation, nil
+	return relations, nil
 }
 
 func (p *PatientRepositoryImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {

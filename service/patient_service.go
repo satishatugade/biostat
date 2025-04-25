@@ -124,14 +124,16 @@ func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint64, patientId
 		log.Println("CheckPatientRelativeMapping Not found :")
 		return models.PatientRelative{}, err
 	}
-	var relation models.PatientRelation
+	relationeIds := []uint64{relativeId}
+	// patientRelativeIds := []uint64{patientRelativeId}
+	var relation []models.PatientRelation
 	if relationeId != 0 {
-		relation, err = s.patientRepo.GetRelationNameById(relationeId)
+		relation, err = s.patientRepo.GetRelationNameById(relationeIds)
 		if err != nil {
 			log.Println("GetRelationNameById Not found :")
 		}
 	}
-	return s.patientRepo.GetPatientRelativeById(patientRelativeId, relation.RelationShip)
+	return s.patientRepo.GetPatientRelativeById(patientRelativeId, relation)
 }
 
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
@@ -139,8 +141,14 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 	if err != nil {
 		return []models.PatientRelative{}, err
 	}
+	var relation []models.PatientRelation
 
-	return s.patientRepo.GetRelativeList(relativeUserIds)
+	relation, err = s.patientRepo.GetRelationNameById(relativeUserIds)
+	if err != nil {
+		log.Println("GetRelationNameById Not found :")
+	}
+
+	return s.patientRepo.GetRelativeList(relativeUserIds, relation)
 }
 
 // GetCaregiverList implements PatientService.
