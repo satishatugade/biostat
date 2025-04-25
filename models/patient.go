@@ -37,7 +37,7 @@ func (PatientRelation) TableName() string {
 
 type PatientRelative struct {
 	RelativeId   uint      `json:"relative_id" gorm:"primaryKey"`
-	PatientId    uint      `json:"patient_id"`
+	PatientId    *uint     `json:"patient_id,omitempty"`
 	FirstName    string    `json:"first_name"`
 	LastName     string    `json:"last_name"`
 	Gender       string    `json:"gender"`

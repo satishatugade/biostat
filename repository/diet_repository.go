@@ -11,7 +11,7 @@ type DietRepository interface {
 	CreateDietPlanTemplate(dietPlan *models.DietPlanTemplate) error
 	GetDietPlanTemplates(limit, offset int) ([]models.DietPlanTemplate, int64, error)
 	GetDietPlanById(dietPlanTemplateId string) (models.DietPlanTemplate, error)
-	UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error
+	UpdateDietPlanTemplate(dietPlanTemplateId uint64, dietPlan *models.DietPlanTemplate) error
 	GetPatientDietPlan(patientId string) ([]models.PatientDietPlan, error)
 	AddDiseaseDietMapping(mapping *models.DiseaseDietMapping) error
 }
@@ -56,7 +56,7 @@ func (d *DietRepositoryImpl) GetDietPlanById(dietPlanTemplateId string) (models.
 	return dietPlan, nil
 }
 
-func (d *DietRepositoryImpl) UpdateDietPlanTemplate(dietPlanTemplateId string, dietPlan *models.DietPlanTemplate) error {
+func (d *DietRepositoryImpl) UpdateDietPlanTemplate(dietPlanTemplateId uint64, dietPlan *models.DietPlanTemplate) error {
 	tx := d.db.Begin()
 
 	// Step 1: Update DietPlanTemplate

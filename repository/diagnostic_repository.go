@@ -4,6 +4,8 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,7 +14,7 @@ import (
 type DiagnosticRepository interface {
 
 	//Diagnostic labs
-	CreateLab(lab *models.DiagnosticLab) error
+	CreateLab(tx *gorm.DB, lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
 	GetAllLabs(page int, limit int) ([]models.DiagnosticLab, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
@@ -22,21 +24,21 @@ type DiagnosticRepository interface {
 
 	// DiagnosticTest Repository
 	GetAllDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error)
-	CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error)
+	CreateDiagnosticTest(tx *gorm.DB, diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error)
 	UpdateDiagnosticTest(diagnosticTest *models.DiagnosticTest, updatedBy string) (*models.DiagnosticTest, error)
 	GetSingleDiagnosticTest(diagnosticTestId int) (*models.DiagnosticTest, error)
 	DeleteDiagnosticTest(diagnosticTestId int, updatedBy string) error
 
 	// DiagnosticComponent Repository
 	GetAllDiagnosticComponents(limit int, offset int) ([]models.DiagnosticTestComponent, int64, error)
-	CreateDiagnosticComponent(diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error)
+	CreateDiagnosticComponent(tx *gorm.DB, diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error)
 	UpdateDiagnosticComponent(authUserId string, diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error)
 	GetSingleDiagnosticComponent(diagnosticComponentId int) (*models.DiagnosticTestComponent, error)
 	DeleteDiagnosticTestComponent(diagnosticTestComponetId uint64, updatedBy string) error
 
 	// DiagnosticTestComponentMapping Repository
 	GetAllDiagnosticTestComponentMappings(limit int, offset int) ([]models.DiagnosticTestComponentMapping, int64, error)
-	CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
+	CreateDiagnosticTestComponentMapping(tx *gorm.DB, diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error)
 	DeleteDiagnosticTestComponentMapping(diagnosticTestId uint64, diagnosticComponentId uint64) error
 	AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error
@@ -47,10 +49,29 @@ type DiagnosticRepository interface {
 	GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error)
+	LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64)
+	LoadDiagnosticLabData() map[string]uint64
+	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
+	SavePatientDiagnosticTestInterpretation(tx *gorm.DB, patientDiagnoTest *models.PatientDiagnosticTest) (*models.PatientDiagnosticTest, error)
+	SavePatientReportResultValue(tx *gorm.DB, resultValues *models.PatientDiagnosticTestResultValue) (*models.PatientDiagnosticTestResultValue, error)
 }
 
 type DiagnosticRepositoryImpl struct {
 	db *gorm.DB
+}
+
+func (r *DiagnosticRepositoryImpl) LoadDiagnosticLabData() map[string]uint64 {
+	labMap := make(map[string]uint64)
+
+	var labs []models.DiagnosticLab
+	if err := r.db.Select("diagnostic_lab_id", "lab_name").Find(&labs).Error; err != nil {
+		log.Println("Error loading diagnostic lab data:", err)
+		return nil
+	}
+	for _, lab := range labs {
+		labMap[lab.LabName] = lab.DiagnosticLabId
+	}
+	return labMap
 }
 
 func NewDiagnosticRepository(db *gorm.DB) DiagnosticRepository {
@@ -78,32 +99,8 @@ func (r *DiagnosticRepositoryImpl) GetAllDiagnosticTests(limit int, offset int) 
 	return diagnosticTests, totalRecords, nil
 }
 
-// Diagnostic Test Repository Start
-func (r *DiagnosticRepositoryImpl) CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error) {
-	err := r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(diagnosticTest).Error; err != nil {
-			return err
-		}
-		auditRecord := models.DiagnosticTestAudit{
-			DiagnosticTestId: diagnosticTest.DiagnosticTestId,
-			TestLoincCode:    diagnosticTest.LoincCode,
-			TestName:         diagnosticTest.TestName,
-			TestDescription:  diagnosticTest.Description,
-			Category:         diagnosticTest.Category,
-			Units:            diagnosticTest.Units,
-			Property:         diagnosticTest.Property,
-			TimeAspect:       diagnosticTest.TimeAspect,
-			System:           diagnosticTest.System,
-			Scale:            diagnosticTest.Scale,
-			OperationType:    constant.CREATE,
-			UpdatedBy:        createdBy,
-		}
-		if err := tx.Create(&auditRecord).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
+func (r *DiagnosticRepositoryImpl) CreateDiagnosticTest(tx *gorm.DB, diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error) {
+	if err := tx.Create(diagnosticTest).Error; err != nil {
 		return nil, err
 	}
 	return diagnosticTest, nil
@@ -206,9 +203,8 @@ func (r *DiagnosticRepositoryImpl) GetAllDiagnosticComponents(limit int, offset 
 	return diagnosticComponents, totalRecords, nil
 }
 
-func (r *DiagnosticRepositoryImpl) CreateDiagnosticComponent(diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
-	err := r.db.Create(diagnosticComponent).Error
-	if err != nil {
+func (r *DiagnosticRepositoryImpl) CreateDiagnosticComponent(tx *gorm.DB, diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
+	if err := tx.Create(diagnosticComponent).Error; err != nil {
 		return nil, err
 	}
 	return diagnosticComponent, nil
@@ -218,7 +214,7 @@ func SaveDiagnosticTestComponentAudit(tx *gorm.DB, component *models.DiagnosticT
 	audit := models.DiagnosticTestComponentAudit{
 		DiagnosticTestComponentId: component.DiagnosticTestComponentId,
 		TestComponentLoincCode:    component.LoincCode,
-		TestComponentName:         component.TestComponetName,
+		TestComponentName:         component.TestComponentName,
 		TestComponentType:         component.TestComponentType,
 		Description:               component.Description,
 		Units:                     component.Units,
@@ -248,7 +244,7 @@ func (r *DiagnosticRepositoryImpl) UpdateDiagnosticComponent(authUserId string, 
 			Where("diagnostic_test_component_id = ?", diagnosticComponent.DiagnosticTestComponentId).
 			Updates(map[string]interface{}{
 				"test_component_loinc_code": diagnosticComponent.LoincCode,
-				"test_component_name":       diagnosticComponent.TestComponetName,
+				"test_component_name":       diagnosticComponent.TestComponentName,
 				"description":               diagnosticComponent.Description,
 				"test_component_type":       diagnosticComponent.TestComponentType,
 				"units":                     diagnosticComponent.Units,
@@ -324,9 +320,8 @@ func (r *DiagnosticRepositoryImpl) GetAllDiagnosticTestComponentMappings(limit i
 	return diagnosticTestComponentMappings, totalRecords, nil
 }
 
-func (r *DiagnosticRepositoryImpl) CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
-	err := r.db.Create(diagnosticTestComponentMapping).Error
-	if err != nil {
+func (r *DiagnosticRepositoryImpl) CreateDiagnosticTestComponentMapping(tx *gorm.DB, diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
+	if err := tx.Create(diagnosticTestComponentMapping).Error; err != nil {
 		return nil, err
 	}
 	return diagnosticTestComponentMapping, nil
@@ -378,8 +373,11 @@ func SaveDiagnosticLabAudit(tx *gorm.DB, lab *models.DiagnosticLab, actionType s
 	return tx.Create(&audit).Error
 }
 
-func (r *DiagnosticRepositoryImpl) CreateLab(lab *models.DiagnosticLab) error {
-	return r.db.Create(lab).Error
+func (r *DiagnosticRepositoryImpl) CreateLab(tx *gorm.DB, lab *models.DiagnosticLab) (*models.DiagnosticLab, error) {
+	if err := tx.Create(&lab).Error; err != nil {
+		return nil, err
+	}
+	return lab, nil
 }
 
 func (r *DiagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
@@ -591,4 +589,51 @@ func (r *DiagnosticRepositoryImpl) GetTestReferenceRangeAuditRecord(testReferenc
 	}
 
 	return audits, totalRecords, nil
+}
+
+// LoadDiagnosticTestMasterData loads test and component data from the database into the cache.
+func (s *DiagnosticRepositoryImpl) LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64) {
+	testNameCache := make(map[string]uint64)
+	componentNameCache := make(map[string]uint64)
+
+	var tests []models.DiagnosticTest
+	if err := s.db.Find(&tests).Error; err != nil {
+		log.Printf("Error loading test master data: %v", err)
+		return nil, nil // Return nil maps on error
+	}
+	for _, test := range tests {
+		testNameCache[test.TestName] = test.DiagnosticTestId
+	}
+
+	var components []models.DiagnosticTestComponent
+	if err := s.db.Find(&components).Error; err != nil {
+		log.Printf("Error loading component master data: %v", err)
+		return nil, nil // Return nil maps on error
+	}
+	for _, component := range components {
+		key := fmt.Sprintf("%s_%s", component.TestComponentName, component.Units)
+		componentNameCache[key] = component.DiagnosticTestComponentId
+	}
+	return testNameCache, componentNameCache
+}
+
+func (r *DiagnosticRepositoryImpl) GeneratePatientDiagnosticReport(tx *gorm.DB, report *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error) {
+	if err := tx.Create(report).Error; err != nil {
+		return nil, err
+	}
+	return report, nil
+}
+
+func (r *DiagnosticRepositoryImpl) SavePatientDiagnosticTestInterpretation(tx *gorm.DB, interpretation *models.PatientDiagnosticTest) (*models.PatientDiagnosticTest, error) {
+	if err := tx.Create(interpretation).Error; err != nil {
+		return nil, err
+	}
+	return interpretation, nil
+}
+
+func (r *DiagnosticRepositoryImpl) SavePatientReportResultValue(tx *gorm.DB, resultValues *models.PatientDiagnosticTestResultValue) (*models.PatientDiagnosticTestResultValue, error) {
+	if err := tx.Create(resultValues).Error; err != nil {
+		return nil, err
+	}
+	return resultValues, nil
 }

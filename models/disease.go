@@ -316,7 +316,7 @@ type DiagnosticTest struct {
 type DiagnosticTestComponent struct {
 	DiagnosticTestComponentId uint64                             `gorm:"column:diagnostic_test_component_id;primaryKey" json:"diagnostic_test_component_id"`
 	LoincCode                 string                             `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
-	TestComponetName          string                             `gorm:"column:test_component_name" json:"test_component_name"`
+	TestComponentName         string                             `gorm:"column:test_component_name" json:"test_component_name"`
 	TestComponentType         string                             `gorm:"column:test_component_type" json:"test_component_type"`
 	Description               string                             `gorm:"column:description" json:"description"`
 	Units                     string                             `gorm:"column:units" json:"units"`

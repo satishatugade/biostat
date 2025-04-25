@@ -59,7 +59,9 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var appointmentService = service.NewAppointmentService(appointmentRepo)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService)
+	var apiService = service.NewApiService()
+
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService)
 
 	var emailService = service.NewEmailService()
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService)
@@ -273,6 +275,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		{"Digi Locker", http.MethodPost, constant.SyncDigiLocker, patientController.DigiLockerSyncController},
 		{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadDigiLockerFile},
+
+		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
 	}
 }
 

@@ -172,3 +172,24 @@ type DiagnosticResultRequest struct {
 	ResultDateStart           *time.Time `json:"result_date_start,omitempty"`
 	ResultDateEnd             *time.Time `json:"result_date_end,omitempty"`
 }
+
+type LabReport struct {
+	ReportDetails struct {
+		ReportDate       string `json:"report_date"`
+		LabName          string `json:"lab_name"`
+		LabEmail         string `json:"lab_email"`
+		LabID            string `json:"lab_id"`
+		LabLocation      string `json:"lab_location"`
+		LabContactNumber string `json:"lab_contact_number"`
+	} `json:"report_details"`
+	Tests []struct {
+		TestName       string `json:"test_name"`
+		Interpretation string `json:"interpretation"`
+		Components     []struct {
+			TestComponentName string `json:"test_component_name"`
+			ResultValue       string `json:"result_value"`
+			Units             string `json:"units"`
+		} `json:"components"`
+	} `json:"tests"`
+	RawText string `json:"raw_text"`
+}

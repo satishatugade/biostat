@@ -640,7 +640,12 @@ func (mc *MasterController) UpdateDietPlanTemplate(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
-	dietPlanTemplateId := c.Param("diet_id")
+	dietPlanTemplateIdStr := c.Param("diet_id")
+	dietPlanTemplateId, err := strconv.ParseUint(dietPlanTemplateIdStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid diet_id parameter", nil, err)
+		return
+	}
 	var dietPlan models.DietPlanTemplate
 	if err := c.ShouldBindJSON(&dietPlan); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid diet plan input", nil, err)
@@ -1387,11 +1392,12 @@ func (mc *MasterController) CreateLab(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
 		return
 	}
-	if err := mc.diagnosticService.CreateLab(&lab); err != nil {
+	labInfo, err := mc.diagnosticService.CreateLab(&lab)
+	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create lab", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", lab, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", labInfo, nil, nil)
 }
 
 func (mc *MasterController) GetAllLabs(c *gin.Context) {

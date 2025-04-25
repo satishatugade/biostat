@@ -26,15 +26,20 @@ type PatientController struct {
 	appointmentService   service.AppointmentService
 	diagnosticService    service.DiagnosticService
 	userService          service.UserService
+	apiService           service.ApiService
 }
 
-func NewPatientController(patientService service.PatientService, dietService service.DietService, allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
-	medicationService service.MedicationService, appointmentService service.AppointmentService, diagnosticService service.DiagnosticService, userService service.UserService) *PatientController {
+func NewPatientController(patientService service.PatientService, dietService service.DietService,
+	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
+	medicationService service.MedicationService, appointmentService service.AppointmentService,
+	diagnosticService service.DiagnosticService, userService service.UserService,
+	apiService service.ApiService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
 		diagnosticService: diagnosticService,
 		userService:       userService,
+		apiService:        apiService,
 	}
 }
 
@@ -833,7 +838,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 			{"name": providerUser.FirstName, "email": providerUser.Email},
 		}
 		startTime := utils.ConvertToZoomTime(appointment.AppointmentDate.Format("2006-01-02"), appointment.AppointmentTime)
-		
+
 		zToken, _ := pc.userService.GetSingleTblUserToken(0, "ZOOM")
 		expiresIn := 59 * time.Minute
 
@@ -1128,5 +1133,49 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
-	return
+}
+
+var (
+	testNameCache      map[string]uint64
+	componentNameCache map[string]uint64
+)
+
+func (pc *PatientController) SaveReport(ctx *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(ctx)
+	if !exists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+	log.Printf("Request Content-Type: %v", ctx.Request.Header.Get("Content-Type"))
+	log.Printf("Request Headers: %v", ctx.Request.Header)
+	file, err := ctx.FormFile("image")
+	if err != nil {
+		log.Printf("No image attached or failed to read image: %v", err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to get image from request", nil, err)
+		return
+	}
+	imageFile, err := file.Open()
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to open image file", nil, err)
+		return
+	}
+	defer imageFile.Close()
+
+	reportData, err := pc.apiService.CallGeminiService(imageFile)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
+		return
+	}
+	// log.Println("CallGeminiService Response : reportData : ", reportData)
+	testNameCache, componentNameCache = pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId)
+	if testNameCache == nil || componentNameCache == nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to load master data", componentNameCache, nil)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report data saved successfully", componentNameCache, nil, nil)
 }

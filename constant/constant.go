@@ -148,6 +148,8 @@ const (
 
 	SyncDigiLocker     = "/sync-digilocker"
 	GetMedicalResource = "/get-medical-resource"
+
+	SaveReport = "/save-report"
 )
 
 const (
