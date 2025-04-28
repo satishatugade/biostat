@@ -59,6 +59,7 @@ func (CauseTypeAudit) TableName() string {
 }
 
 type SymptomTypeAudit struct {
+	SymptomTypeAuditId     uint64    `gorm:"column:symptom_type_audit_id;primaryKey;autoIncrement" json:"symptom_type_audit_id"`
 	SymptomTypeId          uint64    `json:"symptom_type_id"`
 	SymptomType            string    `json:"symptom_type"`
 	SymptomTypeDescription string    `json:"symptom_type_description"`

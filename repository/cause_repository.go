@@ -4,6 +4,7 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -205,7 +206,7 @@ func (repo *CauseRepositoryImpl) DeleteCause(causeId uint64, deletedBy string) e
 		return em.ErrorMessage("NoRowsAffected", "Cause", causeId)
 	}
 
-	return em.ErrorMessage("Success", "Cause", causeId)
+	return nil
 }
 
 func (repo *CauseRepositoryImpl) GetAllCauseAuditRecord(limit, offset int) ([]models.CauseAudit, int64, error) {
@@ -258,7 +259,7 @@ func (repo *CauseRepositoryImpl) GetAllCauseTypes(limit int, offset int, isDelet
 		return nil, 0, em.ErrorMessage("CountError", "CauseType", err)
 	}
 
-	if err := query.Limit(limit).Offset(offset).Find(&causeTypes).Error; err != nil {
+	if err := query.Order("cause_type_id desc").Limit(limit).Offset(offset).Find(&causeTypes).Error; err != nil {
 		return nil, 0, em.ErrorMessage("NotFound", "CauseType", err)
 	}
 
@@ -286,7 +287,7 @@ func (repo *CauseRepositoryImpl) UpdateCauseType(updatedCauseType *models.CauseT
 		return nil, em.ErrorMessage("TransactionError", "CauseType", nil)
 	}
 
-	existingCauseType, err := repo.GetCauseTypeById(updatedCauseType.CauseTypeId, 1)
+	existingCauseType, err := repo.GetCauseTypeById(updatedCauseType.CauseTypeId, 0)
 	if err != nil {
 		tx.Rollback()
 		return nil, em.ErrorMessage("NotFound", "CauseType", updatedCauseType.CauseTypeId)
@@ -296,6 +297,7 @@ func (repo *CauseRepositoryImpl) UpdateCauseType(updatedCauseType *models.CauseT
 	result := tx.Model(&models.CauseTypeMaster{}).Where("cause_type_id = ?", updatedCauseType.CauseTypeId).Updates(updatedCauseType)
 	if result.Error != nil {
 		tx.Rollback()
+		fmt.Println("CauseTypeMaster UpdateCauseType failed : ", result.Error)
 		return nil, em.ErrorMessage("UpdateError", "CauseType", updatedCauseType.CauseTypeId)
 	}
 
@@ -304,35 +306,44 @@ func (repo *CauseRepositoryImpl) UpdateCauseType(updatedCauseType *models.CauseT
 		return nil, em.ErrorMessage("NoRowsAffected", "CauseType", updatedCauseType.CauseTypeId)
 	}
 
-	if err := repo.SaveCauseTypeAudit(existingCauseType, constant.UPDATE, authUserId); err != nil {
+	if err := repo.SaveCauseTypeAudit(tx, existingCauseType, constant.UPDATE, authUserId); err != nil {
 		tx.Rollback()
 		return nil, em.ErrorMessage("AuditError", "CauseType", err)
 	}
 
-	var finalUpdatedCauseType models.CauseTypeMaster
-	err = tx.Where("cause_type_id = ?", updatedCauseType.CauseTypeId).First(&finalUpdatedCauseType).Error
-	if err != nil {
+	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
+		return nil, em.ErrorMessage("UpdateError", "CauseType", err)
+	}
+	var finalUpdatedCauseType models.CauseTypeMaster
+	err = repo.db.Where("cause_type_id = ?", updatedCauseType.CauseTypeId).First(&finalUpdatedCauseType).Error
+	if err != nil {
 		return nil, em.ErrorMessage("NotFound", "CauseType", updatedCauseType.CauseTypeId)
 	}
 
-	return &finalUpdatedCauseType, tx.Commit().Error
+	return &finalUpdatedCauseType, nil
 }
 
 func (repo *CauseRepositoryImpl) DeleteCauseType(causeTypeId uint64, deletedBy string) error {
 	return repo.db.Transaction(func(tx *gorm.DB) error {
-		causeType, err := repo.GetCauseTypeById(causeTypeId, 0)
-		if err != nil {
-			return em.ErrorMessage("NotFound", "CauseType", causeTypeId)
+		var causeType models.CauseTypeMaster
+		if err := tx.Where("cause_type_id = ? AND is_deleted = 0", causeTypeId).First(&causeType).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return em.ErrorMessage("NotFound", "CauseType", causeTypeId)
+			}
+			return em.ErrorMessage("FetchError", "CauseType", causeTypeId)
 		}
-		if err := repo.SaveCauseTypeAudit(causeType, constant.DELETE, deletedBy); err != nil {
+		if err := repo.SaveCauseTypeAudit(tx, &causeType, constant.DELETE, deletedBy); err != nil {
 			return em.ErrorMessage("AuditError", "CauseType", err)
 		}
-		result := tx.Model(&models.CauseTypeMaster{}).Where("cause_type_id = ?", causeTypeId).Update("is_deleted", 1)
+
+		result := tx.Model(&models.CauseTypeMaster{}).
+			Where("cause_type_id = ?", causeTypeId).
+			Update("is_deleted", 1)
+
 		if result.Error != nil {
 			return em.ErrorMessage("DeleteError", "CauseType", causeTypeId)
 		}
-
 		if result.RowsAffected == 0 {
 			return em.ErrorMessage("NoRowsAffected", "CauseType", causeTypeId)
 		}
@@ -355,26 +366,24 @@ func (repo *CauseRepositoryImpl) GetCauseTypeById(causeTypeId uint64, isDeleted 
 	return &causeType, nil
 }
 
-func (repo *CauseRepositoryImpl) SaveCauseTypeAudit(causeType *models.CauseTypeMaster, operationType string, updatedBy string) error {
-	return repo.db.Transaction(func(tx *gorm.DB) error {
-		audit := models.CauseTypeAudit{
-			CauseTypeId:          causeType.CauseTypeId,
-			CauseType:            causeType.CauseType,
-			CauseTypeDescription: causeType.CauseTypeDescription,
-			IsDeleted:            causeType.IsDeleted,
-			OperationType:        operationType,
-			CreatedAt:            causeType.CreatedAt,
-			UpdatedAt:            causeType.UpdatedAt,
-			CreatedBy:            causeType.CreatedBy,
-			UpdatedBy:            updatedBy,
-		}
+func (repo *CauseRepositoryImpl) SaveCauseTypeAudit(tx *gorm.DB, causeType *models.CauseTypeMaster, operationType string, updatedBy string) error {
+	audit := models.CauseTypeAudit{
+		CauseTypeId:          causeType.CauseTypeId,
+		CauseType:            causeType.CauseType,
+		CauseTypeDescription: causeType.CauseTypeDescription,
+		IsDeleted:            causeType.IsDeleted,
+		OperationType:        operationType,
+		CreatedAt:            causeType.CreatedAt,
+		UpdatedAt:            causeType.UpdatedAt,
+		CreatedBy:            causeType.CreatedBy,
+		UpdatedBy:            updatedBy,
+	}
 
-		if err := tx.Create(&audit).Error; err != nil {
-			return em.ErrorMessage("AuditError", "CauseType", err)
-		}
+	if err := tx.Create(&audit).Error; err != nil {
+		return em.ErrorMessage("AuditError", "CauseType", err)
+	}
 
-		return nil
-	})
+	return nil
 }
 
 func (r *CauseRepositoryImpl) GetAllCauseTypeAuditRecord(limit int, offset int) ([]models.CauseTypeAudit, int64, error) {
@@ -387,7 +396,7 @@ func (r *CauseRepositoryImpl) GetAllCauseTypeAuditRecord(limit int, offset int) 
 		return nil, 0, err
 	}
 
-	if err := query.Offset(offset).Limit(limit).Find(&causeTypeAudits).Error; err != nil {
+	if err := query.Order("cause_type_audit_id desc").Offset(offset).Limit(limit).Find(&causeTypeAudits).Error; err != nil {
 		return nil, 0, err
 	}
 	return causeTypeAudits, totalRecords, nil

@@ -667,7 +667,7 @@ func (mc *MasterController) DeleteSymptom(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Deletion failed", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Symptom deleted", nil, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Symptom deleted successfully", nil, nil, nil)
 }
 
 func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
