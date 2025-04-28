@@ -19,7 +19,7 @@ type SymptomRepository interface {
 
 	AddDiseaseSymptomMapping(mapping *models.DiseaseSymptomMapping) error
 
-	GetAllSymptomTypes(limit int, offset int) ([]models.SymptomTypeMaster, int64, error)
+	GetAllSymptomTypes(limit int, offset int, isDeleted int) ([]models.SymptomTypeMaster, int64, error)
 	AddSymptomType(symptomType *models.SymptomTypeMaster) (*models.SymptomTypeMaster, error)
 	UpdateSymptomType(symptomType *models.SymptomTypeMaster, userId string) (*models.SymptomTypeMaster, error)
 	DeleteSymptomType(symptomTypeId uint64, userId string) error
@@ -238,18 +238,19 @@ func (r *SymptomRepositoryImpl) AddDiseaseSymptomMapping(mapping *models.Disease
 	return r.db.Create(mapping).Error
 }
 
-func (repo *SymptomRepositoryImpl) GetAllSymptomTypes(limit int, offset int) ([]models.SymptomTypeMaster, int64, error) {
+func (repo *SymptomRepositoryImpl) GetAllSymptomTypes(limit int, offset int, isDeleted int) ([]models.SymptomTypeMaster, int64, error) {
 	var symptomTypes []models.SymptomTypeMaster
 	var totalRecords int64
-
-	if err := repo.db.Model(&models.SymptomTypeMaster{}).Count(&totalRecords).Error; err != nil {
+	query := repo.db.Model(&models.SymptomTypeMaster{})
+	if isDeleted >= 0 {
+		query = query.Where("is_deleted = ?", isDeleted)
+	}
+	if err := query.Count(&totalRecords).Error; err != nil {
 		return nil, 0, err
 	}
-
-	if err := repo.db.Limit(limit).Offset(offset).Find(&symptomTypes).Error; err != nil {
+	if err := query.Limit(limit).Offset(offset).Find(&symptomTypes).Error; err != nil {
 		return nil, 0, err
 	}
-
 	return symptomTypes, totalRecords, nil
 }
 
@@ -344,7 +345,7 @@ func (repo *SymptomRepositoryImpl) DeleteSymptomType(symptomTypeId uint64, delet
 }
 func (repo *SymptomRepositoryImpl) GetSymptomTypeById(symptomTypeId uint64, isDeleted int) (*models.SymptomTypeMaster, error) {
 	var symptomType models.SymptomTypeMaster
-	err := repo.db.Where("symptom_type_id = ?", symptomTypeId).First(&symptomType).Error
+	err := repo.db.Where("symptom_type_id = ? AND is_deleted = ? ", symptomTypeId, isDeleted).First(&symptomType).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, em.ErrorMessage("NotFound", "SymptomType", symptomTypeId)
@@ -355,23 +356,25 @@ func (repo *SymptomRepositoryImpl) GetSymptomTypeById(symptomTypeId uint64, isDe
 }
 
 func (repo *SymptomRepositoryImpl) SaveSymptomTypeAudit(symptomType *models.SymptomTypeMaster, operationType string, updatedBy string) error {
-	audit := models.SymptomTypeAudit{
-		SymptomTypeId:          symptomType.SymptomTypeId,
-		SymptomType:            symptomType.SymptomType,
-		SymptomTypeDescription: symptomType.SymptomTypeDescription,
-		IsDeleted:              symptomType.IsDeleted,
-		OperationType:          operationType,
-		CreatedAt:              symptomType.CreatedAt,
-		UpdatedAt:              symptomType.UpdatedAt,
-		CreatedBy:              symptomType.CreatedBy,
-		UpdatedBy:              updatedBy,
-	}
+	return repo.db.Transaction(func(tx *gorm.DB) error {
+		audit := models.SymptomTypeAudit{
+			SymptomTypeId:          symptomType.SymptomTypeId,
+			SymptomType:            symptomType.SymptomType,
+			SymptomTypeDescription: symptomType.SymptomTypeDescription,
+			IsDeleted:              symptomType.IsDeleted,
+			OperationType:          operationType,
+			CreatedAt:              symptomType.CreatedAt,
+			UpdatedAt:              symptomType.UpdatedAt,
+			CreatedBy:              symptomType.CreatedBy,
+			UpdatedBy:              updatedBy,
+		}
 
-	if err := repo.db.Create(&audit).Error; err != nil {
-		return em.ErrorMessage("AuditError", "SymptomType", err)
-	}
+		if err := tx.Create(&audit).Error; err != nil {
+			return em.ErrorMessage("AuditError", "SymptomType", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (repo *SymptomRepositoryImpl) GetAllSymptomTypeAuditRecord(limit, offset int) ([]models.SymptomTypeAudit, int64, error) {

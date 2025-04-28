@@ -22,7 +22,7 @@ type CauseRepository interface {
 	AddDiseaseCauseMapping(DCMapping *models.DiseaseCauseMapping) error
 
 	//cause type
-	GetAllCauseTypes(limit int, offset int) ([]models.CauseTypeMaster, int64, error)
+	GetAllCauseTypes(limit int, offset int, isDeleted int) ([]models.CauseTypeMaster, int64, error)
 	AddCauseType(causeType *models.CauseTypeMaster) (*models.CauseTypeMaster, error)
 	UpdateCauseType(causeType *models.CauseTypeMaster, authUserId string) (*models.CauseTypeMaster, error)
 	DeleteCauseType(causeTypeId uint64, authUserId string) error
@@ -244,11 +244,15 @@ func (r *CauseRepositoryImpl) AddDiseaseCauseMapping(mapping *models.DiseaseCaus
 	return r.db.Create(mapping).Error
 }
 
-func (repo *CauseRepositoryImpl) GetAllCauseTypes(limit int, offset int) ([]models.CauseTypeMaster, int64, error) {
+func (repo *CauseRepositoryImpl) GetAllCauseTypes(limit int, offset int, isDeleted int) ([]models.CauseTypeMaster, int64, error) {
 	var causeTypes []models.CauseTypeMaster
 	var totalCount int64
 
 	query := repo.db.Model(&models.CauseTypeMaster{})
+
+	if isDeleted >= 0 {
+		query = query.Where("is_deleted = ?", isDeleted)
+	}
 
 	if err := query.Count(&totalCount).Error; err != nil {
 		return nil, 0, em.ErrorMessage("CountError", "CauseType", err)
@@ -316,29 +320,31 @@ func (repo *CauseRepositoryImpl) UpdateCauseType(updatedCauseType *models.CauseT
 }
 
 func (repo *CauseRepositoryImpl) DeleteCauseType(causeTypeId uint64, deletedBy string) error {
-	causeType, err := repo.GetCauseTypeById(causeTypeId, 0)
-	if err != nil {
-		return em.ErrorMessage("NotFound", "CauseType", causeTypeId)
-	}
-	if err := repo.SaveCauseTypeAudit(causeType, constant.DELETE, deletedBy); err != nil {
-		return em.ErrorMessage("AuditError", "CauseType", err)
-	}
-	result := repo.db.Model(&models.CauseTypeMaster{}).Where("cause_type_id = ?", causeTypeId).Update("is_deleted", 1)
-	if result.Error != nil {
-		return em.ErrorMessage("DeleteError", "CauseType", causeTypeId)
-	}
+	return repo.db.Transaction(func(tx *gorm.DB) error {
+		causeType, err := repo.GetCauseTypeById(causeTypeId, 0)
+		if err != nil {
+			return em.ErrorMessage("NotFound", "CauseType", causeTypeId)
+		}
+		if err := repo.SaveCauseTypeAudit(causeType, constant.DELETE, deletedBy); err != nil {
+			return em.ErrorMessage("AuditError", "CauseType", err)
+		}
+		result := tx.Model(&models.CauseTypeMaster{}).Where("cause_type_id = ?", causeTypeId).Update("is_deleted", 1)
+		if result.Error != nil {
+			return em.ErrorMessage("DeleteError", "CauseType", causeTypeId)
+		}
 
-	if result.RowsAffected == 0 {
-		return em.ErrorMessage("NoRowsAffected", "CauseType", causeTypeId)
-	}
+		if result.RowsAffected == 0 {
+			return em.ErrorMessage("NoRowsAffected", "CauseType", causeTypeId)
+		}
 
-	return em.ErrorMessage("Success", "CauseType", causeTypeId)
+		return nil
+	})
 }
 
 func (repo *CauseRepositoryImpl) GetCauseTypeById(causeTypeId uint64, isDeleted int) (*models.CauseTypeMaster, error) {
 	var causeType models.CauseTypeMaster
 
-	err := repo.db.Where("cause_type_id = ?", causeTypeId).First(&causeType).Error
+	err := repo.db.Where("cause_type_id = ? AND is_deleted = ? ", causeTypeId, isDeleted).First(&causeType).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, em.ErrorMessage("NotFound", "CauseType", causeTypeId)
@@ -350,23 +356,25 @@ func (repo *CauseRepositoryImpl) GetCauseTypeById(causeTypeId uint64, isDeleted 
 }
 
 func (repo *CauseRepositoryImpl) SaveCauseTypeAudit(causeType *models.CauseTypeMaster, operationType string, updatedBy string) error {
-	audit := models.CauseTypeAudit{
-		CauseTypeId:          causeType.CauseTypeId,
-		CauseType:            causeType.CauseType,
-		CauseTypeDescription: causeType.CauseTypeDescription,
-		IsDeleted:            causeType.IsDeleted,
-		OperationType:        operationType,
-		CreatedAt:            causeType.CreatedAt,
-		UpdatedAt:            causeType.UpdatedAt,
-		CreatedBy:            causeType.CreatedBy,
-		UpdatedBy:            updatedBy,
-	}
+	return repo.db.Transaction(func(tx *gorm.DB) error {
+		audit := models.CauseTypeAudit{
+			CauseTypeId:          causeType.CauseTypeId,
+			CauseType:            causeType.CauseType,
+			CauseTypeDescription: causeType.CauseTypeDescription,
+			IsDeleted:            causeType.IsDeleted,
+			OperationType:        operationType,
+			CreatedAt:            causeType.CreatedAt,
+			UpdatedAt:            causeType.UpdatedAt,
+			CreatedBy:            causeType.CreatedBy,
+			UpdatedBy:            updatedBy,
+		}
 
-	if err := repo.db.Create(&audit).Error; err != nil {
-		return em.ErrorMessage("AuditError", "CauseType", err)
-	}
+		if err := tx.Create(&audit).Error; err != nil {
+			return em.ErrorMessage("AuditError", "CauseType", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (r *CauseRepositoryImpl) GetAllCauseTypeAuditRecord(limit int, offset int) ([]models.CauseTypeAudit, int64, error) {

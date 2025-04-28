@@ -41,7 +41,7 @@ type DiagnosticService interface {
 	AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error
 	UpdateTestReferenceRange(input *models.DiagnosticTestReferenceRange, updatedBy string) error
 	DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error
-	GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error)
+	GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error)
 	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64) (string, error)
@@ -162,8 +162,8 @@ func (s *DiagnosticServiceImpl) ViewTestReferenceRange(testReferenceRangeId uint
 	return s.diagnosticRepo.ViewTestReferenceRange(testReferenceRangeId)
 }
 
-func (s *DiagnosticServiceImpl) GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error) {
-	return s.diagnosticRepo.GetAllTestRefRangeView(limit, offset)
+func (s *DiagnosticServiceImpl) GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error) {
+	return s.diagnosticRepo.GetAllTestRefRangeView(limit, offset, isDeleted)
 }
 
 func (s *DiagnosticServiceImpl) GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error) {

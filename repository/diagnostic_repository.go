@@ -46,7 +46,7 @@ type DiagnosticRepository interface {
 	AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error
 	UpdateTestReferenceRange(input *models.DiagnosticTestReferenceRange, updatedBy string) error
 	DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error
-	GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error)
+	GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error)
 	LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64)
@@ -549,15 +549,41 @@ func (r *DiagnosticRepositoryImpl) ViewTestReferenceRange(testReferenceRangeId u
 	return ranges, err
 }
 
-func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error) {
-	var results []models.DiagnosticTestReferenceRange
+// func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error) {
+// 	var results []models.DiagnosticTestReferenceRange
+// 	var total int64
+
+// 	query := r.db.Model(&models.DiagnosticTestReferenceRange{})
+// 	if err := query.Count(&total).Error; err != nil {
+// 		return nil, 0, err
+// 	}
+// 	if err := query.Order("test_reference_range_id DESC").Limit(limit).Offset(offset).Find(&results).Error; err != nil {
+// 		return nil, 0, err
+// 	}
+
+// 	return results, total, nil
+// }
+
+func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error) {
+	var results []models.Diagnostic_Test_Component_ReferenceRange
 	var total int64
 
-	query := r.db.Model(&models.DiagnosticTestReferenceRange{})
+	query := r.db.Model(&models.DiagnosticTestReferenceRange{}).
+		Joins("JOIN tbl_disease_profile_diagnostic_test_master AS dt ON dt.diagnostic_test_id = tbl_diagnostic_test_reference_range.diagnostic_test_id").
+		Joins("JOIN tbl_disease_profile_diagnostic_test_component_master AS dtc ON dtc.diagnostic_test_component_id = tbl_diagnostic_test_reference_range.diagnostic_test_component_id").
+		Select("tbl_diagnostic_test_reference_range.*, dt.test_name, dtc.test_component_name")
+
+	if isDeleted >= 0 {
+		query = query.Where("tbl_diagnostic_test_reference_range.is_deleted = ?", isDeleted)
+	}
+
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := query.Order("test_reference_range_id DESC").Limit(limit).Offset(offset).Find(&results).Error; err != nil {
+	if err := query.Order("tbl_diagnostic_test_reference_range.test_reference_range_id DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&results).Error; err != nil {
 		return nil, 0, err
 	}
 

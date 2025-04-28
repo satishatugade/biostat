@@ -33,6 +33,15 @@ func GetPaginationParams(c *gin.Context) (int, int, int) {
 	return page, limit, offset
 }
 
+func GetQueryIntParam(c *gin.Context, paramName string, defaultValue int) (int, bool) {
+	paramStr := c.DefaultQuery(paramName, strconv.Itoa(defaultValue))
+	paramValue, err := strconv.Atoi(paramStr)
+	if err != nil {
+		return 0, false
+	}
+	return paramValue, true
+}
+
 func GetPagination(limit int, page int, offset int, totalRecords int64) *models.Pagination {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 

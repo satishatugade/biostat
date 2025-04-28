@@ -122,6 +122,12 @@ func (PatientDiagnosticTestResultValue) TableName() string {
 	return "tbl_patient_diagnostic_test_result_value"
 }
 
+type Diagnostic_Test_Component_ReferenceRange struct {
+	TestName          string `json:"test_name"`
+	TestComponentName string `json:"test_component_name"`
+	DiagnosticTestReferenceRange
+}
+
 type DiagnosticTestReferenceRange struct {
 	TestReferenceRangeId      uint64    `json:"test_reference_range_id" gorm:"primaryKey;autoIncrement"`
 	DiagnosticTestId          uint64    `json:"diagnostic_test_id"`

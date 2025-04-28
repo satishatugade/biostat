@@ -324,7 +324,11 @@ func (mc *MasterController) GetAllCauseTypes(c *gin.Context) {
 	}
 
 	page, limit, offset := utils.GetPaginationParams(c)
-	causeTypes, totalRecords, err := mc.causeService.GetAllCauseTypes(limit, offset)
+	isDeleted, ok := utils.GetQueryIntParam(c, "is_deleted", 0)
+	if !ok {
+		log.Println("GetAllCauseTypes is deleted status not provided : ", isDeleted)
+	}
+	causeTypes, totalRecords, err := mc.causeService.GetAllCauseTypes(limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve cause types", nil, err)
 		return
@@ -728,7 +732,11 @@ func (mc *MasterController) GetAllSymptomTypes(c *gin.Context) {
 	}
 
 	page, limit, offset := utils.GetPaginationParams(c)
-	symptomTypes, totalRecords, err := mc.symptomService.GetAllSymptomTypes(limit, offset)
+	isDeleted, ok := utils.GetQueryIntParam(c, "is_deleted", 0)
+	if !ok {
+		log.Println("GetAllSymptomTypes is deleted status not provided : ", isDeleted)
+	}
+	symptomTypes, totalRecords, err := mc.symptomService.GetAllSymptomTypes(limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve symptom types", nil, err)
 		return
@@ -2370,7 +2378,11 @@ func (mc *MasterController) GetAllTestReferenceRange(c *gin.Context) {
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
-	referenceRanges, totalRecords, err := mc.diagnosticService.GetAllTestRefRangeView(limit, offset)
+	isDeleted, ok := utils.GetQueryIntParam(c, "is_deleted", 0)
+	if !ok {
+		log.Println("GetAllTestRefRangeView is deleted status not provided : ", isDeleted)
+	}
+	referenceRanges, totalRecords, err := mc.diagnosticService.GetAllTestRefRangeView(limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Unable to fetch reference range.", nil, err)
 		return
@@ -2391,7 +2403,7 @@ func (mc *MasterController) GetTestReferenceRangeAuditRecord(c *gin.Context) {
 		return
 	}
 	var testReferenceRangeId uint64
-	testReferenceRangeStr := c.Query("test_reference_range_audit_id")
+	testReferenceRangeStr := c.Query("test_reference_range_id")
 	if testReferenceRangeStr != "" {
 		parsedTestReferenceRangeId, err := strconv.ParseUint(testReferenceRangeStr, 10, 64)
 		if err != nil {
