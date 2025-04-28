@@ -242,7 +242,7 @@ func (repo *SymptomRepositoryImpl) GetAllSymptomTypes(limit int, offset int, isD
 	var symptomTypes []models.SymptomTypeMaster
 	var totalRecords int64
 	query := repo.db.Model(&models.SymptomTypeMaster{})
-	if isDeleted >= 0 {
+	if isDeleted >= 0 && isDeleted <= 1 {
 		query = query.Where("is_deleted = ?", isDeleted)
 	}
 	if err := query.Count(&totalRecords).Error; err != nil {

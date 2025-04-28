@@ -250,7 +250,7 @@ func (repo *CauseRepositoryImpl) GetAllCauseTypes(limit int, offset int, isDelet
 
 	query := repo.db.Model(&models.CauseTypeMaster{})
 
-	if isDeleted >= 0 {
+	if isDeleted >= 0 && isDeleted <= 1 {
 		query = query.Where("is_deleted = ?", isDeleted)
 	}
 
