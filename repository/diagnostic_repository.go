@@ -558,7 +558,7 @@ func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int,
 		Joins("JOIN tbl_disease_profile_diagnostic_test_component_master AS dtc ON dtc.diagnostic_test_component_id = tbl_diagnostic_test_reference_range.diagnostic_test_component_id").
 		Select("tbl_diagnostic_test_reference_range.*, dt.test_name, dtc.test_component_name")
 
-	if isDeleted >= 0 {
+	if isDeleted >= 0 && isDeleted <= 1 {
 		query = query.Where("tbl_diagnostic_test_reference_range.is_deleted = ?", isDeleted)
 	}
 
