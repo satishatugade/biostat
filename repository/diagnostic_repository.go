@@ -48,7 +48,7 @@ type DiagnosticRepository interface {
 	DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error
 	GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
-	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error)
+	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64)
 	LoadDiagnosticLabData() map[string]uint64
 	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
@@ -549,21 +549,6 @@ func (r *DiagnosticRepositoryImpl) ViewTestReferenceRange(testReferenceRangeId u
 	return ranges, err
 }
 
-// func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int) ([]models.DiagnosticTestReferenceRange, int64, error) {
-// 	var results []models.DiagnosticTestReferenceRange
-// 	var total int64
-
-// 	query := r.db.Model(&models.DiagnosticTestReferenceRange{})
-// 	if err := query.Count(&total).Error; err != nil {
-// 		return nil, 0, err
-// 	}
-// 	if err := query.Order("test_reference_range_id DESC").Limit(limit).Offset(offset).Find(&results).Error; err != nil {
-// 		return nil, 0, err
-// 	}
-
-// 	return results, total, nil
-// }
-
 func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error) {
 	var results []models.Diagnostic_Test_Component_ReferenceRange
 	var total int64
@@ -590,23 +575,28 @@ func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int,
 	return results, total, nil
 }
 
-func (r *DiagnosticRepositoryImpl) GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.DiagnosticTestReferenceRangeAudit, int64, error) {
-	var audits []models.DiagnosticTestReferenceRangeAudit
+func (r *DiagnosticRepositoryImpl) GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error) {
+	var audits []models.Diagnostic_Test_Component_ReferenceRange
 	var totalRecords int64
 
-	query := r.db.Model(&models.DiagnosticTestReferenceRangeAudit{})
+	query := r.db.Table("tbl_diagnostic_test_reference_range_audit AS dtra").
+		Joins("JOIN tbl_disease_profile_diagnostic_test_master AS dt ON dt.diagnostic_test_id = dtra.diagnostic_test_id").
+		Joins("JOIN tbl_disease_profile_diagnostic_test_component_master AS dtc ON dtc.diagnostic_test_component_id = dtra.diagnostic_test_component_id").
+		Select("dtra.*, dt.test_name, dtc.test_component_name")
 
 	if testReferenceRangeId != 0 {
-		query = query.Where("test_reference_range_id = ?", testReferenceRangeId)
+		query = query.Where("dtra.test_reference_range_id = ?", testReferenceRangeId)
 	}
 
 	if auditId != 0 {
-		query = query.Where("test_reference_range_audit_id = ?", auditId)
+		query = query.Where("dtra.test_reference_range_audit_id = ?", auditId)
 	}
+
 	if err := query.Count(&totalRecords).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := query.Limit(limit).Offset(offset).Order("test_reference_range_audit_id DESC").Find(&audits).Error; err != nil {
+
+	if err := query.Limit(limit).Offset(offset).Order("dtra.test_reference_range_audit_id DESC").Find(&audits).Error; err != nil {
 		return nil, 0, err
 	}
 
