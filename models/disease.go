@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type PatientDiseaseProfile struct {
 	PatientDiseaseProfileId uint64    `gorm:"primaryKey;autoIncrement" json:"patient_disease_profile_id"`
@@ -63,15 +65,44 @@ type DiseaseTypeMapping struct {
 }
 
 type Symptom struct {
-	SymptomId   uint64    `json:"symptom_id" gorm:"primaryKey"`
-	SymptomName string    `json:"symptom_name"`
-	SymptomType string    `json:"symptom_type"`
-	Commonality string    `json:"commonality"`
-	Description string    `json:"description"`
-	IsDeleted   int       `json:"is_deleted"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	CreatedBy   string    `json:"created_by"`
+	SymptomId     uint64              `json:"symptom_id" gorm:"primaryKey"`
+	SymptomName   string              `json:"symptom_name"`
+	SymptomTypeId []uint64            `json:"symptom_type_id,omitempty" gorm:"-"`
+	Commonality   string              `json:"commonality"`
+	Description   string              `json:"description"`
+	IsDeleted     int                 `json:"is_deleted"`
+	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
+	CreatedBy     string              `json:"created_by"`
+	SymptomType   []SymptomTypeMaster `gorm:"many2many:tbl_symptom_type_mapping;foreignKey:SymptomId;joinForeignKey:SymptomId;References:SymptomTypeId;joinReferences:SymptomTypeId" json:"symptom_type"`
+}
+
+type SymptomTypeMaster struct {
+	SymptomTypeId          uint64    `gorm:"column:symptom_type_id;primaryKey;autoIncrement" json:"symptom_type_id"`
+	SymptomType            string    `gorm:"column:symptom_type;size:255;not null" json:"symptom_type"`
+	SymptomTypeDescription string    `gorm:"column:symptom_type_description" json:"symptom_type_description"`
+	IsDeleted              int       `gorm:"column:is_deleted" json:"is_deleted"`
+	CreatedAt              time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt              time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at,omitempty"`
+	CreatedBy              string    `gorm:"column:created_by;size:255" json:"created_by"`
+	UpdatedBy              string    `gorm:"column:updated_by;size:255" json:"updated_by"`
+}
+
+func (SymptomTypeMaster) TableName() string {
+	return "tbl_symptom_type_master"
+}
+
+type SymptomTypeMapping struct {
+	SymptomId     uint64     `gorm:"primaryKey;autoIncrement:false;not null" json:"symptom_id"`
+	SymptomTypeId uint64     `gorm:"primaryKey;autoIncrement:false;not null" json:"symptom_type_id"`
+	CreatedAt     time.Time  `gorm:"column:created_at;autoUpdateTime" json:"created_at"`
+	UpdatedAt     *time.Time `gorm:"column:updated_at;" json:"updated_at"`
+	CreatedBy     string     `gorm:"column:created_by;" json:"created_by"`
+	UpdatedBy     string     `gorm:"column:updated_by;" json:"updated_by"`
+}
+
+func (SymptomTypeMapping) TableName() string {
+	return "tbl_symptom_type_mapping"
 }
 
 type DiseaseSymptomMapping struct {
@@ -95,14 +126,43 @@ type Severity struct {
 }
 
 type Cause struct {
-	CauseId     uint64    `json:"cause_id" gorm:"primaryKey"`
-	CauseName   string    `json:"cause_name"`
-	CauseType   string    `json:"cause_type"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	CreatedBy   string    `json:"created_by"`
-	IsDeleted   int       `json:"is_deleted"`
+	CauseId     uint64            `json:"cause_id" gorm:"primaryKey"`
+	CauseName   string            `json:"cause_name"`
+	CauseTypeId []uint64          `json:"cause_type_id,omitempty" gorm:"-"`
+	Description string            `json:"description"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+	CreatedBy   string            `json:"created_by"`
+	IsDeleted   int               `json:"is_deleted"`
+	CauseType   []CauseTypeMaster `gorm:"many2many:tbl_cause_type_mapping;foreignKey:CauseId;joinForeignKey:CauseId;References:CauseTypeId;joinReferences:CauseTypeId" json:"cause_type"`
+}
+
+type CauseTypeMaster struct {
+	CauseTypeId          uint64    `gorm:"column:cause_type_id;primaryKey;autoIncrement" json:"cause_type_id"`
+	CauseType            string    `gorm:"column:cause_type;not null" json:"cause_type"`
+	CauseTypeDescription string    `gorm:"column:cause_type_description" json:"cause_type_description"`
+	IsDeleted            int       `gorm:"column:is_deleted" json:"is_deleted"`
+	CreatedAt            time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at,omitempty"`
+	CreatedBy            string    `gorm:"column:created_by;" json:"created_by"`
+	UpdatedBy            string    `gorm:"column:updated_by;" json:"updated_by"`
+}
+
+func (CauseTypeMaster) TableName() string {
+	return "tbl_cause_type_master"
+}
+
+type CauseTypeMapping struct {
+	CauseId     uint64     `gorm:"primaryKey;autoIncrement:false;not null" json:"cause_id"`
+	CauseTypeId uint64     `gorm:"primaryKey;autoIncrement:false;not null" json:"cause_type_id"`
+	CreatedAt   time.Time  `gorm:"column:created_at;autoUpdateTime" json:"created_at"`
+	UpdatedAt   *time.Time `gorm:"column:updated_at;" json:"updated_at"`
+	CreatedBy   string     `gorm:"column:created_by;" json:"created_by"`
+	UpdatedBy   string     `gorm:"column:updated_by;" json:"updated_by"`
+}
+
+func (CauseTypeMapping) TableName() string {
+	return "tbl_cause_type_mapping"
 }
 
 type DiseaseCauseMapping struct {
@@ -412,7 +472,6 @@ func (c *SupportGroup) SetCreatedBy(userId string) {
 func (c *Hospital) SetCreatedBy(userId string) {
 	c.CreatedBy = userId
 }
-
 func (c *Service) SetCreatedBy(userId string) {
 	c.CreatedBy = userId
 }

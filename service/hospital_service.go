@@ -22,10 +22,10 @@ type HospitalService interface {
 	AddServiceMapping(serviceMapping models.ServiceMapping) error
 
 	GetHospitalAuditRecord(hospitalId uint64, hospitalAuditId uint64) ([]models.HospitalAudit, error)
-	GetAllHospitalAuditRecord(page, limit int) ([]models.HospitalAudit, int64, error)
+	GetAllHospitalAuditRecord(limit, offset int) ([]models.HospitalAudit, int64, error)
 
 	GetServiceAuditRecord(serviceId uint64, serviceAuditId uint64) ([]models.ServiceAudit, error)
-	GetAllServiceAuditRecord(page, limit int) ([]models.ServiceAudit, int64, error)
+	GetAllServiceAuditRecord(limit, offset int) ([]models.ServiceAudit, int64, error)
 }
 
 type HospitalServiceImpl struct {
@@ -84,16 +84,16 @@ func (s *HospitalServiceImpl) UpdateService(service *models.Service, updatedBy s
 	return s.hospitalRepo.UpdateService(service, updatedBy)
 }
 
-func (s *HospitalServiceImpl) GetAllHospitalAuditRecord(page, limit int) ([]models.HospitalAudit, int64, error) {
-	return s.hospitalRepo.GetAllHospitalAuditRecord(page, limit)
+func (s *HospitalServiceImpl) GetAllHospitalAuditRecord(limit, offset int) ([]models.HospitalAudit, int64, error) {
+	return s.hospitalRepo.GetAllHospitalAuditRecord(limit, offset)
 }
 
 func (s *HospitalServiceImpl) GetHospitalAuditRecord(hospitalId, hospitalAuditId uint64) ([]models.HospitalAudit, error) {
 	return s.hospitalRepo.GetHospitalAuditRecord(hospitalId, hospitalAuditId)
 }
 
-func (s *HospitalServiceImpl) GetAllServiceAuditRecord(page, limit int) ([]models.ServiceAudit, int64, error) {
-	return s.hospitalRepo.GetAllServiceAuditRecord(page, limit)
+func (s *HospitalServiceImpl) GetAllServiceAuditRecord(limit, offset int) ([]models.ServiceAudit, int64, error) {
+	return s.hospitalRepo.GetAllServiceAuditRecord(limit, offset)
 }
 
 func (s *HospitalServiceImpl) GetServiceAuditRecord(serviceId, serviceAuditId uint64) ([]models.ServiceAudit, error) {

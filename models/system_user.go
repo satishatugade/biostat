@@ -58,17 +58,18 @@ type UserLoginResponse struct {
 }
 
 type SystemUser_ struct {
-	UserId      uint64     `gorm:"primaryKey;column:user_id" json:"user_id"`
-	AuthUserId  string     `gorm:"column:auth_user_id;type:varchar(100);unique" json:"auth_user_id"`
-	Username    string     `gorm:"column:username;type:varchar(50);unique;not null" json:"username"`
-	Password    string     `gorm:"column:password;type:varchar(255);not null" json:"password"`
-	FirstName   string     `gorm:"column:first_name;type:varchar(50);not null" json:"first_name"`
-	LastName    string     `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
-	Gender      string     `gorm:"column:gender;type:varchar(10)" json:"gender"`
-	DateOfBirth *time.Time `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
-	MobileNo    string     `gorm:"column:mobile_no;type:varchar(50);unique" json:"mobile_no"`
-	Email       string     `gorm:"column:email;type:varchar(100);unique" json:"email"`
-	Address     string     `gorm:"column:address;type:text" json:"address"`
+	UserId      uint64        `gorm:"primaryKey;column:user_id" json:"user_id"`
+	AuthUserId  string        `gorm:"column:auth_user_id;type:varchar(100);unique" json:"auth_user_id"`
+	Username    string        `gorm:"column:username;type:varchar(50);unique;not null" json:"username"`
+	Password    string        `gorm:"column:password;type:varchar(255);not null" json:"password"`
+	FirstName   string        `gorm:"column:first_name;type:varchar(50);not null" json:"first_name"`
+	LastName    string        `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
+	Gender      string        `gorm:"column:gender;type:varchar(10)" json:"gender"`
+	DateOfBirth *time.Time    `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
+	MobileNo    string        `gorm:"column:mobile_no;type:varchar(50);unique" json:"mobile_no"`
+	Email       string        `gorm:"column:email;type:varchar(100);unique" json:"email"`
+	Address     string        `gorm:"column:address;type:text" json:"address"`
+	UserAddress AddressMaster `gorm:"-" json:"user_address"`
 
 	// Patient-Specific Fields
 	EmergencyContact     string `gorm:"column:emergency_contact;type:varchar(50)" json:"emergency_contact,omitempty"`
@@ -111,10 +112,43 @@ type SystemUser_ struct {
 	RoleId     uint64 `gorm:"-" json:"role_id"`
 	RoleName   string `gorm:"-" json:"role_name"`
 	RelationId uint64 `gorm:"-" json:"relation_id"`
+
+	AddressMapping SystemUserAddressMapping `gorm:"foreignKey:UserId;references:UserId" json:"address_mappings"`
 }
 
 func (SystemUser_) TableName() string {
 	return "tbl_system_user_"
+}
+
+func (AddressMaster) TableName() string {
+	return "tbl_address_master"
+}
+
+type AddressMaster struct {
+	AddressId    uint64     `gorm:"column:address_id;primaryKey;autoIncrement" json:"address_id"`
+	AddressLine1 string     `gorm:"column:address_line1" json:"address_line1"`
+	AddressLine2 string     `gorm:"column:address_line2" json:"address_line2"`
+	Landmark     string     `gorm:"column:landmark" json:"landmark"`
+	City         string     `gorm:"column:city" json:"city"`
+	State        string     `gorm:"column:state" json:"state"`
+	Country      string     `gorm:"column:country" json:"country"`
+	PostalCode   string     `gorm:"column:postal_code" json:"postal_code"`
+	Latitude     float64    `gorm:"column:latitude" json:"latitude"`
+	Longitude    float64    `gorm:"column:longitude" json:"longitude"`
+	CreatedAt    time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt    *time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+}
+
+type SystemUserAddressMapping struct {
+	UserId    uint64        `gorm:"column:user_id" json:"user_id"`
+	AddressId uint64        `gorm:"column:address_id" json:"address_id"`
+	CreatedAt time.Time     `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt *time.Time    `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	Address   AddressMaster `gorm:"foreignKey:AddressId;references:AddressId" json:"address"`
+}
+
+func (SystemUserAddressMapping) TableName() string {
+	return "tbl_system_user_address_mapping"
 }
 
 type SupportGroup struct {

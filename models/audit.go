@@ -27,7 +27,7 @@ type CauseAudit struct {
 	CauseAuditId  uint64    `json:"cause_audit_id" gorm:"primaryKey;autoIncrement"`
 	CauseId       uint64    `json:"cause_id" gorm:"primaryKey"`
 	CauseName     string    `json:"cause_name"`
-	CauseType     string    `json:"cause_type"`
+	CauseTypeId   uint64    `json:"cause_type_id"`
 	Description   string    `json:"description"`
 	OperationType string    `json:"operation_type"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -41,11 +41,44 @@ func (CauseAudit) TableName() string {
 	return "tbl_cause_master_audit"
 }
 
+type CauseTypeAudit struct {
+	CauseTypeAuditId     uint64    `gorm:"column:cause_type_audit_id;primaryKey;autoIncrement" json:"cause_type_audit_id"`
+	CauseTypeId          uint64    `gorm:"column:cause_type_id" json:"cause_type_id"`
+	CauseType            string    `gorm:"column:cause_type" json:"cause_type"`
+	CauseTypeDescription string    `gorm:"column:cause_type_description" json:"cause_type_description"`
+	IsDeleted            int       `gorm:"column:is_deleted" json:"is_deleted"`
+	OperationType        string    `gorm:"column:operation_type" json:"operation_type"`
+	CreatedAt            time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy            string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy            string    `gorm:"column:updated_by" json:"updated_by"`
+}
+
+func (CauseTypeAudit) TableName() string {
+	return "tbl_cause_type_audit"
+}
+
+type SymptomTypeAudit struct {
+	SymptomTypeId          uint64    `json:"symptom_type_id"`
+	SymptomType            string    `json:"symptom_type"`
+	SymptomTypeDescription string    `json:"symptom_type_description"`
+	IsDeleted              int       `json:"is_deleted"`
+	OperationType          string    `json:"operation_type"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+	CreatedBy              string    `json:"created_by"`
+	UpdatedBy              string    `json:"updated_by"`
+}
+
+func (SymptomTypeAudit) TableName() string {
+	return "tbl_symptom_type_audit"
+}
+
 type SymptomAudit struct {
 	SymptomAuditId uint64    `json:"symptom_audit_id" gorm:"primaryKey"`
 	SymptomId      uint64    `json:"symptom_id"`
 	SymptomName    string    `json:"symptom_name"`
-	SymptomType    string    `json:"symptom_type"`
+	SymptomTypeId  uint64    `json:"symptom_type_id"`
 	Commonality    string    `json:"commonality"`
 	Description    string    `json:"description"`
 	OperationType  string    `json:"operation_type"`

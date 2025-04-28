@@ -6,6 +6,7 @@ import (
 	"biostat/utils"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 	"time"
 )
@@ -20,7 +21,7 @@ type DiseaseService interface {
 	UpdateDisease(Disease *models.Disease, authUserId string) error
 	DeleteDisease(DiseaseId uint64, authUserId string) error
 	GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditId uint64) ([]models.DiseaseAudit, error)
-	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
+	GetAllDiseaseAuditLogs(limit, offset int) ([]models.DiseaseAudit, int64, error)
 
 	ProcessUploadFromStream(entity, authUserId string, reader io.Reader) (int, error)
 }
@@ -71,8 +72,8 @@ func (s *DiseaseServiceImpl) GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditI
 	return s.diseaseRepo.GetDiseaseAuditLogs(diseaseId, diseaseAuditId)
 }
 
-func (s *DiseaseServiceImpl) GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error) {
-	return s.diseaseRepo.GetAllDiseaseAuditLogs(page, limit)
+func (s *DiseaseServiceImpl) GetAllDiseaseAuditLogs(limit, offset int) ([]models.DiseaseAudit, int64, error) {
+	return s.diseaseRepo.GetAllDiseaseAuditLogs(limit, offset)
 }
 
 func (s *DiseaseServiceImpl) ProcessUploadFromStream(entity, authUserId string, reader io.Reader) (int, error) {
@@ -127,6 +128,17 @@ func SetCreatedByForAll[T any](list []*T, userId string) {
 	for _, item := range list {
 		if setter, ok := any(item).(models.Creator); ok {
 			setter.SetCreatedBy(userId)
+		}
+	}
+}
+
+func SetBulkUpload[T any](ptrList []*T) {
+	for _, item := range ptrList {
+		// Use reflection because `BulkUpload` is a field that can exist in different structs
+		val := reflect.ValueOf(item).Elem()
+		field := val.FieldByName("BulkUpload")
+		if field.IsValid() && field.CanSet() && field.Kind() == reflect.Int {
+			field.SetInt(1)
 		}
 	}
 }

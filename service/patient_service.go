@@ -3,7 +3,6 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
-	"fmt"
 	"log"
 
 	"gorm.io/gorm"
@@ -31,7 +30,6 @@ type PatientService interface {
 	GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
-	// UpdatePrescription(*models.PatientPrescription) error
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
 	GetUserIdBySUB(sub string) (uint64, error)
@@ -45,6 +43,7 @@ type PatientService interface {
 
 type PatientServiceImpl struct {
 	patientRepo repository.PatientRepository
+	userRepo    repository.UserRepository
 }
 
 // Ensure patientRepo is properly initialized
@@ -83,7 +82,19 @@ func (s *PatientServiceImpl) GetUserIdByAuthUserId(authUserId string) (uint64, e
 }
 
 func (s *PatientServiceImpl) UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error) {
-	return s.patientRepo.UpdatePatientById(authUserId, patientData)
+	userId, err := s.patientRepo.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		return &models.Patient{}, err
+	}
+	updatedPatient, err := s.patientRepo.UpdatePatientById(userId, patientData)
+	if err != nil {
+		return &models.Patient{}, err
+	}
+	updatedAddress, err := s.patientRepo.UpdateUserAddressByUserId(userId, patientData.UserAddress)
+	if err != nil {
+		return &models.Patient{}, err
+	}
+	return s.patientRepo.MapSystemUserToPatient(&updatedPatient, updatedAddress), nil
 }
 
 func (s *PatientServiceImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
@@ -180,7 +191,6 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 	if err != nil {
 		return []models.Patient{}, err
 	}
-	fmt.Println("patientUserIds ", patientUserIds)
 	return s.patientRepo.GetPatientList(patientUserIds)
 }
 

@@ -64,6 +64,7 @@ type Service struct {
 	ServiceType string    `gorm:"column:service_type" json:"service_type"`
 	ServiceName string    `gorm:"column:service_name" json:"service_name"`
 	IsDeleted   int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
+	BulkUpload  int       `gorm:"column:bulk_upload;default:0" json:"bulk_upload"`
 	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 	CreatedBy   string    `gorm:"column:created_by" json:"created_by"`

@@ -11,7 +11,7 @@ type MedicationService interface {
 	UpdateMedication(medication *models.Medication, authUserId string) error
 	DeleteMedication(medicationId uint64, authUserId string) error
 	GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error)
-	GetAllMedicationAuditRecord(page, limit int) ([]models.MedicationAudit, int64, error)
+	GetAllMedicationAuditRecord(limit, offset int) ([]models.MedicationAudit, int64, error)
 	AddDiseaseMedicationMapping(mapping *models.DiseaseMedicationMapping) error
 }
 
@@ -43,8 +43,8 @@ func (m *MedicationServiceImpl) DeleteMedication(medicationId uint64, authUserId
 	return m.medicineRepo.DeleteMedication(medicationId, authUserId)
 }
 
-func (s *MedicationServiceImpl) GetAllMedicationAuditRecord(page, limit int) ([]models.MedicationAudit, int64, error) {
-	return s.medicineRepo.GetAllMedicationAuditRecord(page, limit)
+func (s *MedicationServiceImpl) GetAllMedicationAuditRecord(limit, offset int) ([]models.MedicationAudit, int64, error) {
+	return s.medicineRepo.GetAllMedicationAuditRecord(limit, offset)
 }
 
 func (s *MedicationServiceImpl) GetMedicationAuditRecord(medicationId, medicationAuditId uint64) ([]models.MedicationAudit, error) {

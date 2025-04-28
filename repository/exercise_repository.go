@@ -16,7 +16,7 @@ type ExerciseRepository interface {
 	UpdateExercise(authUserId string, exercise *models.Exercise) error
 	DeleteExercise(exerciseId uint64, authUserId string) error
 	GetExerciseAuditRecord(exerciseId, exerciseAuditId uint64) ([]models.ExerciseAudit, error)
-	GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error)
+	GetAllExerciseAuditRecord(limit, offset int) ([]models.ExerciseAudit, int64, error)
 	AddDiseaseExerciseMapping(mapping *models.DiseaseExerciseMapping) error
 }
 
@@ -136,11 +136,9 @@ func (repo *ExerciseRepositoryImpl) GetExerciseAuditRecord(exerciseId, exerciseA
 	return audits, nil
 }
 
-func (repo *ExerciseRepositoryImpl) GetAllExerciseAuditRecord(page, limit int) ([]models.ExerciseAudit, int64, error) {
+func (repo *ExerciseRepositoryImpl) GetAllExerciseAuditRecord(limit, offset int) ([]models.ExerciseAudit, int64, error) {
 	var audits []models.ExerciseAudit
 	var totalRecords int64
-
-	offset := (page - 1) * limit
 	query := repo.db.Model(&models.ExerciseAudit{}).Order("exercise_audit_id desc")
 
 	if err := query.Count(&totalRecords).Error; err != nil {

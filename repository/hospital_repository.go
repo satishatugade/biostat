@@ -24,10 +24,10 @@ type HospitalRepository interface {
 	AddServiceMapping(serviceMapping models.ServiceMapping) error
 
 	GetHospitalAuditRecord(hospitalId uint64, hospitalAuditId uint64) ([]models.HospitalAudit, error)
-	GetAllHospitalAuditRecord(page, limit int) ([]models.HospitalAudit, int64, error)
+	GetAllHospitalAuditRecord(limit, offset int) ([]models.HospitalAudit, int64, error)
 
 	GetServiceAuditRecord(serviceId uint64, serviceAuditId uint64) ([]models.ServiceAudit, error)
-	GetAllServiceAuditRecord(page, limit int) ([]models.ServiceAudit, int64, error)
+	GetAllServiceAuditRecord(limit, offset int) ([]models.ServiceAudit, int64, error)
 }
 
 type HospitalRepositoryImpl struct {
@@ -223,7 +223,7 @@ func (repo *HospitalRepositoryImpl) GetHospitalAuditRecord(hospitalId, hospitalA
 	return auditLogs, nil
 }
 
-func (repo *HospitalRepositoryImpl) GetAllHospitalAuditRecord(page, limit int) ([]models.HospitalAudit, int64, error) {
+func (repo *HospitalRepositoryImpl) GetAllHospitalAuditRecord(limit, offset int) ([]models.HospitalAudit, int64, error) {
 	var totalRecords int64
 	var auditLogs []models.HospitalAudit
 
@@ -232,7 +232,7 @@ func (repo *HospitalRepositoryImpl) GetAllHospitalAuditRecord(page, limit int) (
 		return nil, 0, err
 	}
 
-	err = repo.db.Offset((page - 1) * limit).Limit(limit).Find(&auditLogs).Error
+	err = repo.db.Offset(offset).Limit(limit).Find(&auditLogs).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -258,7 +258,7 @@ func (repo *HospitalRepositoryImpl) GetServiceAuditRecord(serviceId, serviceAudi
 	return auditLogs, nil
 }
 
-func (repo *HospitalRepositoryImpl) GetAllServiceAuditRecord(page, limit int) ([]models.ServiceAudit, int64, error) {
+func (repo *HospitalRepositoryImpl) GetAllServiceAuditRecord(limit, offset int) ([]models.ServiceAudit, int64, error) {
 	var totalRecords int64
 	var auditLogs []models.ServiceAudit
 
@@ -267,7 +267,7 @@ func (repo *HospitalRepositoryImpl) GetAllServiceAuditRecord(page, limit int) ([
 		return nil, 0, err
 	}
 
-	err = repo.db.Offset((page - 1) * limit).Limit(limit).Find(&auditLogs).Error
+	err = repo.db.Offset(offset).Limit(limit).Find(&auditLogs).Error
 	if err != nil {
 		return nil, 0, err
 	}

@@ -19,7 +19,10 @@ type PatientRepository interface {
 	GetPatientDiagnosticResultValue(patientId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
-	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
+	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
+	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
+
+	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(relativeUserIds []uint64, relation []models.PatientRelation) ([]models.PatientRelative, error)
@@ -49,6 +52,7 @@ type PatientRepository interface {
 type PatientRepositoryImpl struct {
 	db                *gorm.DB
 	diseaseRepository DiseaseRepositoryImpl
+	userRepo          UserRepositoryImpl
 }
 
 func NewPatientRepository(db *gorm.DB) PatientRepository {
@@ -171,15 +175,27 @@ func (p *PatientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.
 	return patients, totalRecords, nil
 }
 
-func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
+func (p *PatientRepositoryImpl) MapSystemUserToPatient(user *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient {
 	return &models.Patient{
-		PatientId:          user.UserId,
-		FirstName:          user.FirstName,
-		LastName:           user.LastName,
-		DateOfBirth:        user.DateOfBirth.String(),
-		Gender:             user.Gender,
-		MobileNo:           user.MobileNo,
-		Address:            user.Address,
+		PatientId:   user.UserId,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+		DateOfBirth: user.DateOfBirth.String(),
+		Gender:      user.Gender,
+		MobileNo:    user.MobileNo,
+		Address:     user.Address,
+		UserAddress: models.AddressMaster{
+			AddressId:    updatedAddress.AddressId,
+			AddressLine1: updatedAddress.AddressLine1,
+			AddressLine2: updatedAddress.AddressLine2,
+			Landmark:     updatedAddress.Landmark,
+			City:         updatedAddress.City,
+			State:        updatedAddress.State,
+			Country:      updatedAddress.Country,
+			PostalCode:   updatedAddress.PostalCode,
+			Latitude:     updatedAddress.Latitude,
+			Longitude:    updatedAddress.Longitude,
+		},
 		EmergencyContact:   user.EmergencyContact,
 		AbhaNumber:         user.AbhaNumber,
 		BloodGroup:         user.BloodGroup,
@@ -194,17 +210,47 @@ func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
 	}
 }
 
-func (p *PatientRepositoryImpl) UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error) {
+func (p *PatientRepositoryImpl) UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error) {
 	var user models.SystemUser_
-	err := p.db.Where("auth_user_id = ?", authUserId).First(&user).Error
+	err := p.db.Where("user_id = ?", userId).First(&user).Error
 	if err != nil {
-		return nil, err
+		return models.SystemUser_{}, err
 	}
 	err = p.db.Model(&user).Updates(patientData).Error
 	if err != nil {
-		return nil, err
+		return models.SystemUser_{}, err
 	}
-	return MapSystemUserToPatient(&user), nil
+	return user, nil
+}
+
+func (p *PatientRepositoryImpl) UpdateUserAddressByUserId(userId uint64, newAddress models.AddressMaster) (models.AddressMaster, error) {
+	var user models.SystemUser_
+	err := p.db.Where("user_id = ?", userId).First(&user).Error
+	if err != nil {
+		return models.AddressMaster{}, err
+	}
+	var addressMapping models.SystemUserAddressMapping
+	err = p.db.Where("user_id = ?", user.UserId).First(&addressMapping).Error
+	if err != nil {
+		newAddress, err = p.userRepo.CreateSystemUserAddress(p.db, newAddress)
+		if err != nil {
+			return models.AddressMaster{}, err
+		}
+		addressMapping = models.SystemUserAddressMapping{
+			UserId:    user.UserId,
+			AddressId: newAddress.AddressId,
+		}
+		MappingErr := p.userRepo.CreateSystemUserAddressMapping(p.db, addressMapping)
+		if MappingErr != nil {
+			return models.AddressMaster{}, err
+		}
+	} else {
+		err = p.db.Model(&newAddress).Where("address_id = ?", addressMapping.AddressId).Updates(newAddress).Error
+		if err != nil {
+			return models.AddressMaster{}, err
+		}
+	}
+	return newAddress, nil
 }
 
 func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error) {
@@ -248,14 +294,24 @@ func (p *PatientRepositoryImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *mod
 func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64) ([]models.PatientDiagnosticReport, error) {
 	var reports []models.PatientDiagnosticReport
 
-	query := p.db.
-		Preload("DiagnosticLab").
-		Preload("DiagnosticLab.PatientReportAttachments").
-		Preload("DiagnosticLab.PatientDiagnosticTests").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
+	query := p.db.Debug().
+		// Preload("DiagnosticLab").
+		// Preload("DiagnosticLab", func(db *gorm.DB) *gorm.DB {
+		// 	return db.Clauses(clause.OrConditions{
+		// 		Exprs: []clause.Expression{
+		// 			clause.Eq{
+		// 				Column: clause.Column{Table: "tbl_diagnostic_lab", Name: "diagnostic_lab_id"},
+		// 				Value:  clause.Column{Table: "tbl_patient_diagnostic_report", Name: "diagnostic_lab_id"},
+		// 			},
+		// 		},
+		// 	})
+		// }).
+		Preload("PatientDiagnosticTests").
+		Preload("PatientReportAttachments").
+		Preload("PatientDiagnosticTests.DiagnosticTest").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
 
 	if patientId > 0 {
 		query = query.Where("patient_id = ?", patientId)
@@ -497,12 +553,11 @@ func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.
 	return doctors, nil
 }
 
-// GetPatientList implements PatientRepository.
 func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]models.Patient, error) {
 	var patients []models.Patient
 
 	if len(patientUserIds) == 0 {
-		return patients, nil // Return empty slice if no patient IDs
+		return patients, nil
 	}
 
 	err := p.db.
@@ -537,7 +592,7 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 
 func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
 	var user models.SystemUser_
-	err := p.db.Model(&models.SystemUser_{}).Where("user_id=?", user_id).First(&user).Error
+	err := p.db.Model(&models.SystemUser_{}).Preload("AddressMapping.Address").Where("user_id=?", user_id).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

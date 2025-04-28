@@ -13,6 +13,8 @@ type UserRepository interface {
 	GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error)
 	DeleteTblUserToken(id uint64, updatedBy string) error
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
+	CreateSystemUserAddress(tx *gorm.DB, systemUserAddress models.AddressMaster) (models.AddressMaster, error)
+	CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error
 }
 
 type UserRepositoryImpl struct {
@@ -75,4 +77,18 @@ func (r *UserRepositoryImpl) CreateSystemUser(tx *gorm.DB, systemUser models.Sys
 		return models.SystemUser_{}, err
 	}
 	return systemUser, nil
+}
+
+func (r *UserRepositoryImpl) CreateSystemUserAddress(tx *gorm.DB, systemUserAddress models.AddressMaster) (models.AddressMaster, error) {
+	if err := tx.Create(&systemUserAddress).Error; err != nil {
+		return models.AddressMaster{}, err
+	}
+	return systemUserAddress, nil
+}
+
+func (r *UserRepositoryImpl) CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error {
+	if err := tx.Create(&userAddressMapping).Error; err != nil {
+		return err
+	}
+	return nil
 }

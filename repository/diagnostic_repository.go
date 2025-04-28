@@ -15,11 +15,11 @@ type DiagnosticRepository interface {
 
 	//Diagnostic labs
 	CreateLab(tx *gorm.DB, lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
-	GetAllLabs(page int, limit int) ([]models.DiagnosticLab, int64, error)
+	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
-	GetAllDiagnosticLabAuditRecords(page, limit int) ([]models.DiagnosticLabAudit, int64, error)
+	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
 
 	// DiagnosticTest Repository
@@ -380,11 +380,9 @@ func (r *DiagnosticRepositoryImpl) CreateLab(tx *gorm.DB, lab *models.Diagnostic
 	return lab, nil
 }
 
-func (r *DiagnosticRepositoryImpl) GetAllLabs(page, limit int) ([]models.DiagnosticLab, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error) {
 	var labs []models.DiagnosticLab
 	var total int64
-
-	offset := (page - 1) * limit
 	query := r.db.Model(&models.DiagnosticLab{}).Where("is_deleted = ?", 0)
 
 	err := query.Count(&total).Error
@@ -454,11 +452,9 @@ func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 	})
 }
 
-func (r *DiagnosticRepositoryImpl) GetAllDiagnosticLabAuditRecords(page, limit int) ([]models.DiagnosticLabAudit, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error) {
 	var records []models.DiagnosticLabAudit
 	var total int64
-
-	offset := (page - 1) * limit
 	query := r.db.Model(&models.DiagnosticLabAudit{}).Order("diagnostic_lab_audit_id desc")
 
 	err := query.Count(&total).Limit(limit).Offset(offset).Find(&records).Error

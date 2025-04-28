@@ -697,9 +697,9 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
 		return
 	}
-	sub, subExists := ctx.Get("sub")
-	if !subExists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
+	authUserId, exists := utils.GetUserDataContext(ctx)
+	if !exists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
 
@@ -712,7 +712,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	user_id, _ := pc.patientService.GetUserIdBySUB(authUserId)
 
 	user, err := pc.patientService.GetUserProfileByUserId(user_id)
 	if err != nil {
@@ -1150,11 +1150,6 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
 }
 
-var (
-	testNameCache      map[string]uint64
-	componentNameCache map[string]uint64
-)
-
 func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(ctx)
 	if !exists {
@@ -1187,12 +1182,12 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		return
 	}
 	// log.Println("CallGeminiService Response : reportData : ", reportData)
-	testNameCache, componentNameCache = pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId)
-	if testNameCache == nil || componentNameCache == nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to load master data", componentNameCache, nil)
+	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, nil)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report data saved successfully", componentNameCache, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report data saved successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {

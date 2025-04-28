@@ -157,7 +157,7 @@ func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Disease audit record not found"
 	if diseaseId == 0 && diseaseAuditId == 0 {
-		data, totalRecords, err := mc.diseaseService.GetAllDiseaseAuditLogs(page, limit)
+		data, totalRecords, err := mc.diseaseService.GetAllDiseaseAuditLogs(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
 			return
@@ -308,12 +308,98 @@ func (mc *MasterController) AddDiseaseCause(c *gin.Context) {
 	}
 	cause.CreatedBy = authUserId
 	log.Println("AddDiseaseCause request data : ", cause)
-	err := mc.causeService.AddDiseaseCause(&cause)
+	savedCause, err := mc.causeService.AddDiseaseCause(&cause)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add cause", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Cause type does not exists.", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Cause added successfully", cause, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Cause added successfully", savedCause, nil, nil)
+}
+
+func (mc *MasterController) GetAllCauseTypes(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	page, limit, offset := utils.GetPaginationParams(c)
+	causeTypes, totalRecords, err := mc.causeService.GetAllCauseTypes(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve cause types", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(causeTypes),
+		"Cause types retrieved successfully",
+		"Cause types not found",
+	)
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	models.SuccessResponse(c, constant.Success, statusCode, message, causeTypes, pagination, nil)
+}
+
+func (mc *MasterController) AddCauseType(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	var causeType models.CauseTypeMaster
+	if err := c.ShouldBindJSON(&causeType); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid cause type input", nil, err)
+		return
+	}
+	causeType.CreatedBy = authUserId
+	log.Println("AddCauseType request data : ", causeType)
+	savedCauseType, err := mc.causeService.AddCauseType(&causeType)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Cause type could not be added.", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Cause type added successfully", savedCauseType, nil, nil)
+}
+
+func (mc *MasterController) UpdateCauseType(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	var causeType models.CauseTypeMaster
+	if err := c.ShouldBindJSON(&causeType); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid cause type input", nil, err)
+		return
+	}
+
+	causeType.UpdatedBy = authUserId
+	log.Println("UpdateCauseType request data:", causeType)
+
+	updatedCauseType, err := mc.causeService.UpdateCauseType(&causeType, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause type updated successfully", updatedCauseType, nil, nil)
+}
+
+func (mc *MasterController) DeleteCauseType(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	causeTypeId, ok := utils.ParseUintParam(c, "cause_type_id")
+	if !ok {
+		return
+	}
+	if err := mc.causeService.DeleteCauseType(causeTypeId, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause type deleted successfully", nil, nil, nil)
 }
 
 func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
@@ -332,12 +418,12 @@ func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
 		return
 	}
 	log.Println("UpdateCause request data : ", cause)
-	err := mc.causeService.UpdateCause(&cause, authUserId)
+	updatedCause, err := mc.causeService.UpdateCause(&cause, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update cause", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause updated successfully", cause, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause updated successfully", updatedCause, nil, nil)
 }
 
 func (mc *MasterController) DeleteCause(c *gin.Context) {
@@ -352,9 +438,9 @@ func (mc *MasterController) DeleteCause(c *gin.Context) {
 		return
 	}
 	log.Println("DeleteCause data By Id : ", causeId)
-	err = mc.causeService.DeleteCause(causeId, authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete cause", nil, err)
+	DeleteErr := mc.causeService.DeleteCause(causeId, authUserId)
+	if DeleteErr != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, DeleteErr.Error(), nil, DeleteErr)
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Cause deleted successfully", nil, nil, nil)
@@ -386,7 +472,7 @@ func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Cause audit record not found"
 	if causeId == 0 && causeAuditId == 0 {
-		data, totalRecords, err := mc.causeService.GetAllCauseAuditRecord(page, limit)
+		data, totalRecords, err := mc.causeService.GetAllCauseAuditRecord(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
 			return
@@ -403,6 +489,64 @@ func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
 	auditRecord, err := mc.causeService.GetCauseAuditRecord(causeId, causeAuditId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit record", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) GetCauseTypeAuditRecord(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	var causeTypeId uint64
+	causeTypeIdStr := c.Query("cause_type_id")
+	if causeTypeIdStr != "" {
+		parsedCauseTypeId, err := strconv.ParseUint(causeTypeIdStr, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid cause type ID", nil, err)
+			return
+		}
+		causeTypeId = parsedCauseTypeId
+	}
+
+	var causeTypeAuditId uint64
+	if auditIdStr := c.Query("cause_type_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 64)
+		if err == nil {
+			causeTypeAuditId = auditId
+		}
+	}
+
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Cause type audit record not found"
+
+	if causeTypeId == 0 && causeTypeAuditId == 0 {
+		data, totalRecords, err := mc.causeService.GetAllCauseTypeAuditRecord(limit, offset)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve cause type audit logs", nil, err)
+			return
+		}
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+
+	auditRecord, err := mc.causeService.GetCauseTypeAuditRecord(causeTypeId, causeTypeAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve cause type audit record", nil, err)
 		return
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
@@ -447,13 +591,13 @@ func (mc *MasterController) AddSymptom(c *gin.Context) {
 	}
 	symptom.CreatedBy = authUserId
 	log.Println("AddDiseaseSymptom request data : ", symptom)
-	err := mc.symptomService.AddDiseaseSymptom(&symptom)
+	savedSymptoms, err := mc.symptomService.AddDiseaseSymptom(&symptom)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add symptom", nil, err)
 		return
 	}
 
-	models.SuccessResponse(c, constant.Success, http.StatusCreated, "symptom added successfully", symptom, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "symptom added successfully", savedSymptoms, nil, nil)
 }
 
 func (mc *MasterController) AddDiseaseSymptomMapping(c *gin.Context) {
@@ -494,12 +638,12 @@ func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
 		return
 	}
 	log.Println("UpdateSymptom request data : ", symptom)
-	err := mc.symptomService.UpdateSymptom(&symptom, authUserId)
+	updatedSymptoms, err := mc.symptomService.UpdateSymptom(&symptom, authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update symptom data", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "symptom updated successfully", symptom, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "symptom updated successfully", updatedSymptoms, nil, nil)
 }
 
 func (mc *MasterController) DeleteSymptom(c *gin.Context) {
@@ -549,7 +693,7 @@ func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Symptom audit record not found"
 	if symptomId == 0 && symptomAuditId == 0 {
-		data, totalRecords, err := mc.symptomService.GetAllSymptomAuditRecord(page, limit)
+		data, totalRecords, err := mc.symptomService.GetAllSymptomAuditRecord(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
 			return
@@ -566,6 +710,149 @@ func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
 	auditRecord, err := mc.symptomService.GetSymptomAuditRecord(symptomId, symptomAuditId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit record", nil, err)
+		return
+	}
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(auditRecord),
+		constant.AuditSuccessMessage,
+		constant.AuditErrorMessage,
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) GetAllSymptomTypes(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	page, limit, offset := utils.GetPaginationParams(c)
+	symptomTypes, totalRecords, err := mc.symptomService.GetAllSymptomTypes(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve symptom types", nil, err)
+		return
+	}
+
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(symptomTypes),
+		"Symptom types retrieved successfully",
+		"Symptom types not found",
+	)
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	models.SuccessResponse(c, constant.Success, statusCode, message, symptomTypes, pagination, nil)
+}
+
+func (mc *MasterController) AddSymptomType(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	var symptomType models.SymptomTypeMaster
+	if err := c.ShouldBindJSON(&symptomType); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid symptom type input", nil, err)
+		return
+	}
+	symptomType.CreatedBy = authUserId
+	log.Println("AddSymptomType request data : ", symptomType)
+	savedSymptomType, err := mc.symptomService.AddSymptomType(&symptomType)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Symptom type could not be added.", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Symptom type added successfully", savedSymptomType, nil, nil)
+}
+
+func (mc *MasterController) UpdateSymptomType(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	var symptomType models.SymptomTypeMaster
+	if err := c.ShouldBindJSON(&symptomType); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid symptom type input", nil, err)
+		return
+	}
+
+	symptomType.UpdatedBy = authUserId
+	log.Println("UpdateSymptomType request data:", symptomType)
+
+	updatedSymptomType, err := mc.symptomService.UpdateSymptomType(&symptomType, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Symptom type updated successfully", updatedSymptomType, nil, nil)
+}
+
+func (mc *MasterController) DeleteSymptomType(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	symptomTypeId, ok := utils.ParseUintParam(c, "symptom_type_id")
+	if !ok {
+		return
+	}
+	if err := mc.symptomService.DeleteSymptomType(symptomTypeId, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Symptom type deleted successfully", nil, nil, nil)
+}
+
+func (mc *MasterController) GetSymptomTypeAuditRecord(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	var symptomTypeId uint64
+	symptomTypeIdStr := c.Query("symptom_type_id")
+	if symptomTypeIdStr != "" {
+		parsedSymptomTypeId, err := strconv.ParseUint(symptomTypeIdStr, 10, 64)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid symptom type ID", nil, err)
+			return
+		}
+		symptomTypeId = parsedSymptomTypeId
+	}
+
+	var symptomTypeAuditId uint64
+	if auditIdStr := c.Query("symptom_type_audit_id"); auditIdStr != "" {
+		auditId, err := strconv.ParseUint(auditIdStr, 10, 64)
+		if err == nil {
+			symptomTypeAuditId = auditId
+		}
+	}
+
+	page, limit, offset := utils.GetPaginationParams(c)
+	message := "Symptom type audit record not found"
+
+	if symptomTypeId == 0 && symptomTypeAuditId == 0 {
+		data, totalRecords, err := mc.symptomService.GetAllSymptomTypeAuditRecord(limit, offset)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve symptom type audit logs", nil, err)
+			return
+		}
+		pagination := utils.GetPagination(limit, page, offset, totalRecords)
+		statusCode, message := utils.GetResponseStatusMessage(
+			len(data),
+			constant.AuditSuccessMessage,
+			constant.AuditErrorMessage,
+		)
+		models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+		return
+	}
+	auditRecord, err := mc.symptomService.GetSymptomTypeAuditRecord(symptomTypeId, symptomTypeAuditId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve symptom type audit record", nil, err)
 		return
 	}
 	statusCode, message := utils.GetResponseStatusMessage(
@@ -826,7 +1113,7 @@ func (mc *MasterController) GetExerciseAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Exercise audit record not found"
 	if exerciseId == 0 && exerciseAuditId == 0 {
-		data, totalRecords, err := mc.exerciseService.GetAllExerciseAuditRecord(page, limit)
+		data, totalRecords, err := mc.exerciseService.GetAllExerciseAuditRecord(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit record", nil, err)
 			return
@@ -991,7 +1278,7 @@ func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Medication audit record not found"
 	if medicationId == 0 && medicationAuditId == 0 {
-		data, totalRecords, err := mc.medicationService.GetAllMedicationAuditRecord(page, limit)
+		data, totalRecords, err := mc.medicationService.GetAllMedicationAuditRecord(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit record", nil, err)
 			return
@@ -1407,7 +1694,7 @@ func (mc *MasterController) GetAllLabs(c *gin.Context) {
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
-	data, totalRecords, err := mc.diagnosticService.GetAllLabs(page, limit)
+	data, totalRecords, err := mc.diagnosticService.GetAllLabs(limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve labs", nil, err)
 		return
@@ -1505,7 +1792,7 @@ func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Diagnostic lab audit record not found"
 	if labId == 0 && labAuditId == 0 {
-		data, totalRecords, err := mc.diagnosticService.GetAllDiagnosticLabAuditRecords(page, limit)
+		data, totalRecords, err := mc.diagnosticService.GetAllDiagnosticLabAuditRecords(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
 			return
@@ -1771,7 +2058,7 @@ func (mc *MasterController) DeleteHospital(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospital deleted successfully", nil, nil, nil)
 }
 
-func (sc *MasterController) CreateService(c *gin.Context) {
+func (mc *MasterController) CreateService(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "User not found", nil, nil)
@@ -1783,7 +2070,7 @@ func (sc *MasterController) CreateService(c *gin.Context) {
 		return
 	}
 	service.CreatedBy = authUserId
-	if err := sc.hospitalService.AddService(&service); err != nil {
+	if err := mc.hospitalService.AddService(&service); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create service", nil, err)
 		return
 	}
@@ -1791,13 +2078,13 @@ func (sc *MasterController) CreateService(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service created successfully", service, nil, nil)
 }
 
-func (sc *MasterController) GetAllServices(c *gin.Context) {
+func (mc *MasterController) GetAllServices(c *gin.Context) {
 	_, exists := utils.GetUserDataContext(c)
 	if !exists {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
-	services, err := sc.hospitalService.GetAllServices()
+	services, err := mc.hospitalService.GetAllServices()
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch services", nil, err)
 		return
@@ -1805,14 +2092,14 @@ func (sc *MasterController) GetAllServices(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Services fetched successfully", services, nil, nil)
 }
 
-func (sc *MasterController) GetServiceById(c *gin.Context) {
+func (mc *MasterController) GetServiceById(c *gin.Context) {
 	_, exists := utils.GetUserDataContext(c)
 	if !exists {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
 	serviceId := c.Param("service_id")
-	service, err := sc.hospitalService.GetServiceById(serviceId)
+	service, err := mc.hospitalService.GetServiceById(serviceId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Service not found", nil, err)
 		return
@@ -1820,7 +2107,7 @@ func (sc *MasterController) GetServiceById(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service fetched successfully", service, nil, nil)
 }
 
-func (sc *MasterController) UpdateService(c *gin.Context) {
+func (mc *MasterController) UpdateService(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
@@ -1831,14 +2118,14 @@ func (sc *MasterController) UpdateService(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request", nil, err)
 		return
 	}
-	if err := sc.hospitalService.UpdateService(&service, authUserId); err != nil {
+	if err := mc.hospitalService.UpdateService(&service, authUserId); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update service", nil, err)
 		return
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Service updated successfully", service, nil, nil)
 }
 
-func (sc *MasterController) DeleteService(c *gin.Context) {
+func (mc *MasterController) DeleteService(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
@@ -1850,7 +2137,7 @@ func (sc *MasterController) DeleteService(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid service ID", nil, err)
 		return
 	}
-	if err := sc.hospitalService.DeleteService(serviceId, authUserId); err != nil {
+	if err := mc.hospitalService.DeleteService(serviceId, authUserId); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete service", nil, err)
 		return
 	}
@@ -1883,7 +2170,7 @@ func (mc *MasterController) GetHospitalAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Hospital audit record not found"
 	if hospitalId == 0 && hospitalAuditId == 0 {
-		data, totalRecords, err := mc.hospitalService.GetAllHospitalAuditRecord(page, limit)
+		data, totalRecords, err := mc.hospitalService.GetAllHospitalAuditRecord(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
 			return
@@ -1938,7 +2225,7 @@ func (mc *MasterController) GetServiceAuditRecord(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	message := "Service audit record not found"
 	if serviceId == 0 && serviceAuditId == 0 {
-		data, totalRecords, err := mc.hospitalService.GetAllServiceAuditRecord(page, limit)
+		data, totalRecords, err := mc.hospitalService.GetAllServiceAuditRecord(limit, offset)
 		if err != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve audit logs", nil, err)
 			return

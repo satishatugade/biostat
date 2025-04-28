@@ -20,7 +20,7 @@ type DiseaseRepository interface {
 	UpdateDisease(updatedDisease *models.Disease, authUserId string) error
 	DeleteDisease(DiseaseId uint64, authUserId string) error
 	GetDiseaseAuditLogs(diseaseId uint64, diseaseAuditId uint64) ([]models.DiseaseAudit, error)
-	GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error)
+	GetAllDiseaseAuditLogs(limit, offset int) ([]models.DiseaseAudit, int64, error)
 	IsDiseaseProfileExists(diseaseProfileId uint) (bool, error)
 
 	InsertMedication(medication *models.Medication) error
@@ -269,7 +269,7 @@ func (repo *DiseaseRepositoryImpl) GetDiseaseAuditLogs(diseaseId uint64, disease
 	return auditLogs, nil
 }
 
-func (repo *DiseaseRepositoryImpl) GetAllDiseaseAuditLogs(page, limit int) ([]models.DiseaseAudit, int64, error) {
+func (repo *DiseaseRepositoryImpl) GetAllDiseaseAuditLogs(limit, offset int) ([]models.DiseaseAudit, int64, error) {
 	var auditLogs []models.DiseaseAudit
 	var totalRecords int64
 
@@ -277,7 +277,7 @@ func (repo *DiseaseRepositoryImpl) GetAllDiseaseAuditLogs(page, limit int) ([]mo
 	repo.db.Model(&models.DiseaseAudit{}).Count(&totalRecords)
 
 	// Fetch data with pagination
-	err := repo.db.Limit(limit).Offset((page - 1) * limit).Find(&auditLogs).Error
+	err := repo.db.Limit(limit).Offset(offset).Find(&auditLogs).Error
 	return auditLogs, totalRecords, err
 }
 

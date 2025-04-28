@@ -63,7 +63,9 @@ type PatientDiagnosticReport struct {
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
-	DiagnosticLab DiagnosticLab `gorm:"foreignKey:DiagnosticLabId" json:"diagnostic_lab"`
+	PatientDiagnosticTests   []PatientDiagnosticTest   `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
+	PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
+	// DiagnosticLab DiagnosticLab `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId"`
 }
 
 func (PatientDiagnosticReport) TableName() string {

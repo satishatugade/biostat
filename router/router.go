@@ -109,13 +109,26 @@ func getMasterRoutes(masterController *controller.MasterController, patientContr
 		Route{"Causes", http.MethodPost, constant.DeleteCause, masterController.DeleteCause},
 		Route{"Causes", http.MethodPost, constant.CauseAudit, masterController.GetCauseAuditRecord},
 
+		Route{"Causes-Type", http.MethodPost, constant.CauseType, masterController.GetAllCauseTypes},
+		Route{"Causes-Type", http.MethodPost, constant.AddCauseType, masterController.AddCauseType},
+		Route{"Causes-Type", http.MethodPut, constant.UpdateCauseType, masterController.UpdateCauseType},
+		Route{"Causes-Type", http.MethodPost, constant.DeleteCauseType, masterController.DeleteCauseType},
+		Route{"Causes-Type-Audit", http.MethodPost, constant.CauseTypeAudit, masterController.GetCauseTypeAuditRecord},
+
 		//symptoms master
 		Route{"Symptom", http.MethodPost, constant.DSMapping, masterController.AddDiseaseSymptomMapping},
 		Route{"Symptom", http.MethodPost, constant.Symptom, masterController.GetAllSymptom},
 		Route{"Symptom", http.MethodPost, constant.AddSymptom, masterController.AddSymptom},
 		Route{"Symptom", http.MethodPut, constant.UpdateSymptom, masterController.UpdateDiseaseSymptom},
 		Route{"Symptom", http.MethodPost, constant.DeleteSymptom, masterController.DeleteSymptom},
-		Route{"Causes", http.MethodPost, constant.SymptomAudit, masterController.GetSymptomAuditRecord},
+		Route{"Symptom", http.MethodPost, constant.SymptomAudit, masterController.GetSymptomAuditRecord},
+
+		//symptoms-Type
+		Route{"Symptom-Type", http.MethodPost, constant.SymptomType, masterController.GetAllSymptomTypes},
+		Route{"Symptom-Type", http.MethodPost, constant.AddSymptomType, masterController.AddSymptomType},
+		Route{"Symptom-Type", http.MethodPut, constant.UpdateSymptomType, masterController.UpdateSymptomType},
+		Route{"Symptom-Type", http.MethodPost, constant.DeleteSymptomType, masterController.DeleteSymptomType},
+		Route{"Symptom-Type-Audit", http.MethodPost, constant.SymptomTypeAudit, masterController.GetSymptomTypeAuditRecord},
 
 		// Allergy master
 		Route{"Allergy", http.MethodPost, constant.AllergyMaster, masterController.GetAllergyRestrictions},
