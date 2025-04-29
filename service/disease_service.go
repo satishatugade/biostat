@@ -16,6 +16,7 @@ type DiseaseService interface {
 	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
 	CreateDiseaseProfile(profile models.DiseaseProfile) error
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
+	GetDynamicDiseaseProfiles(limit int, offset int, preloadFields []string) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
 	UpdateDisease(Disease *models.Disease, authUserId string) error
@@ -54,6 +55,10 @@ func (s *DiseaseServiceImpl) CreateDiseaseProfile(profile models.DiseaseProfile)
 
 func (s *DiseaseServiceImpl) GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error) {
 	return s.diseaseRepo.GetDiseaseProfiles(limit, offset)
+}
+
+func (s *DiseaseServiceImpl) GetDynamicDiseaseProfiles(limit int, offset int, preloadFields []string) ([]models.DiseaseProfile, int64, error) {
+	return s.diseaseRepo.GetDynamicDiseaseProfiles(limit, offset, preloadFields)
 }
 
 func (s *DiseaseServiceImpl) CreateDisease(disease *models.Disease) error {

@@ -430,3 +430,19 @@ func ConvertToZoomTime(dateStr, timeStr string) time.Time {
 	}
 	return startTime
 }
+
+func ToDiseaseProfileSummaryDTO(profile models.DiseaseProfile) models.DiseaseProfileSummary {
+	return models.DiseaseProfileSummary{
+		DiseaseProfileId: profile.DiseaseProfileId,
+		DiseaseName:      profile.Disease.DiseaseName,
+		Description:      profile.Disease.Description,
+	}
+}
+
+func ToDiseaseProfileSummaryDTOs(profiles []models.DiseaseProfile) []models.DiseaseProfileSummary {
+	summaries := make([]models.DiseaseProfileSummary, len(profiles))
+	for i, p := range profiles {
+		summaries[i] = ToDiseaseProfileSummaryDTO(p)
+	}
+	return summaries
+}

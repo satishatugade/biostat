@@ -15,6 +15,7 @@ type DiseaseRepository interface {
 	GetAllDiseases(limit int, offset int) ([]models.Disease, int64, error)
 	CreateDiseaseProfile(profile models.DiseaseProfile) error
 	GetDiseaseProfiles(limit int, offset int) ([]models.DiseaseProfile, int64, error)
+	GetDynamicDiseaseProfiles(limit int, offset int, preloadFields []string) ([]models.DiseaseProfile, int64, error)
 	GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error)
 	CreateDisease(disease *models.Disease) error
 	UpdateDisease(updatedDisease *models.Disease, authUserId string) error
@@ -159,6 +160,36 @@ func (r *DiseaseRepositoryImpl) GetDiseaseProfiles(limit int, offset int) ([]mod
 	}
 
 	return diseaseProfiles, totalRecords, nil
+}
+
+func (r *DiseaseRepositoryImpl) GetDynamicDiseaseProfiles(limit int, offset int, preloadFields []string) ([]models.DiseaseProfile, int64, error) {
+	query := r.db.Model(&models.DiseaseProfile{})
+
+	for _, field := range preloadFields {
+		query = query.Preload(field)
+	}
+
+	var diseaseProfiles []models.DiseaseProfile
+	var totalRecords int64
+
+	if err := query.Count(&totalRecords).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query = query.Order("disease_profile_id DESC").Limit(limit).Offset(offset)
+	if err := query.Find(&diseaseProfiles).Error; err != nil {
+		return nil, 0, err
+	}
+	for i := range diseaseProfiles {
+		for _, field := range preloadFields {
+			if field == "Disease.DiseaseTypeMapping.DiseaseType" {
+				diseaseProfiles[i].Disease.DiseaseType = diseaseProfiles[i].Disease.DiseaseTypeMapping.DiseaseType
+			}
+		}
+	}
+
+	return diseaseProfiles, totalRecords, nil
+
 }
 
 func (r *DiseaseRepositoryImpl) GetDiseaseProfileById(diseaseProfileId string) (*models.DiseaseProfile, error) {

@@ -27,19 +27,21 @@ type PatientController struct {
 	diagnosticService    service.DiagnosticService
 	userService          service.UserService
 	apiService           service.ApiService
+	diseaseService       service.DiseaseService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
 	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
 	medicationService service.MedicationService, appointmentService service.AppointmentService,
 	diagnosticService service.DiagnosticService, userService service.UserService,
-	apiService service.ApiService) *PatientController {
+	apiService service.ApiService, diseaseService service.DiseaseService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
 		diagnosticService: diagnosticService,
 		userService:       userService,
 		apiService:        apiService,
+		diseaseService:    diseaseService,
 	}
 }
 
@@ -1266,5 +1268,27 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health data saved successfully", savedHealthProfile, nil, nil)
+	return
+}
+
+func (pc *PatientController) GetDiseaseProfiles(ctx *gin.Context) {
+	var diseaseProfiles []models.DiseaseProfile
+	var totalRecords int64
+	page, limit, offset := utils.GetPaginationParams(ctx)
+
+	diseaseProfiles, totalRecords, err := pc.diseaseService.GetDynamicDiseaseProfiles(limit, offset, []string{"Disease"})
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve disease profile", nil, err)
+		return
+	}
+
+	summaryDiseaseProfiles := utils.ToDiseaseProfileSummaryDTOs(diseaseProfiles)
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+
+	message := "Diseases profile not found"
+	if len(diseaseProfiles) > 0 {
+		message = "Diseases profile info retrieved successfully"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, summaryDiseaseProfiles, pagination, nil)
 	return
 }

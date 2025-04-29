@@ -190,6 +190,12 @@ func (DiseaseTypeMapping) TableName() string {
 	return "tbl_disease_type_mapping"
 }
 
+type DiseaseProfileSummary struct {
+	DiseaseProfileId uint64 `json:"disease_profile_id"`
+	DiseaseName      string `json:"disease_name"`
+	Description      string `json:"description"`
+}
+
 type Medication struct {
 	MedicationId    uint64           `json:"medication_id" gorm:"column:medication_id;primaryKey"`
 	MedicationName  string           `json:"medication_name" gorm:"column:medication_name"`
