@@ -25,11 +25,11 @@ type PatientRepository interface {
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
-	GetRelativeList(relativeUserIds []uint64, relation []models.PatientRelation) ([]models.PatientRelative, error)
+	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.PatientRelative, error)
 	GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
-	FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]uint64, error)
+	FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]models.UserRelation, error)
 	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
 	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
@@ -400,40 +400,54 @@ func (p *PatientRepositoryImpl) CheckPatientRelativeMapping(relativeId uint64, p
 }
 
 func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relations []models.PatientRelation) (models.PatientRelative, error) {
-	var relative models.PatientRelative
+	relatives, err := p.fetchRelatives([]uint64{relativeId})
+	if err != nil || len(relatives) == 0 {
+		return models.PatientRelative{}, err
+	}
 
-	// Fetch the patient relative details
-	err := p.db.
-		Table("tbl_system_user_").
-		Select(`user_id AS relative_id, 
-		        first_name, 
-		        last_name, 
-		        gender, 
-		        date_of_birth, 
-		        mobile_no AS mobile_no, 
-		        email, 
-		        created_at, 
-		        updated_at`).
-		Where("user_id = ?", relativeId).
-		Scan(&relative).Error
+	relative := relatives[0]
+	for _, r := range relations {
+		if relativeId == r.RelationId {
+			relative.Relationship = r.RelationShip
+			break
+		}
+	}
 
-	// If the relative is found, we need to set the relationship
-	if err == nil {
-		for _, r := range relations {
-			// Cast relativeId to uint to match r.RelationId type
-			if uint(relativeId) == r.RelationId {
-				relative.Relationship = r.RelationShip
-				break
+	return relative, nil
+}
+
+func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRelations []models.UserRelation, relationData []models.PatientRelation) ([]models.PatientRelative, error) {
+	relativeInfo, err := p.fetchRelatives(relativeUserIds)
+	if err != nil {
+		return nil, err
+	}
+	relationMap := make(map[uint64]string)
+	for _, r := range relationData {
+		relationMap[r.RelationId] = r.RelationShip
+	}
+
+	userToRelationIdMap := make(map[uint64]uint64)
+	for _, ur := range userRelations {
+		userToRelationIdMap[ur.UserId] = ur.RelationId
+	}
+
+	for i := range relativeInfo {
+		uid := relativeInfo[i].RelativeId
+		if relId, ok := userToRelationIdMap[uid]; ok {
+			if relationName, ok := relationMap[relId]; ok {
+				relativeInfo[i].RelationId = relId
+				relativeInfo[i].Relationship = relationName
 			}
 		}
 	}
-	return relative, err
+
+	return relativeInfo, nil
 }
 
-func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, relation []models.PatientRelation) ([]models.PatientRelative, error) {
+func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.PatientRelative, error) {
 	var relatives []models.PatientRelative
 
-	if len(relativeUserIds) == 0 {
+	if len(userIds) == 0 {
 		return relatives, nil
 	}
 
@@ -448,39 +462,25 @@ func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, relati
 		        email, 
 		        created_at, 
 		        updated_at`).
-		Where("user_id IN ?", relativeUserIds).
+		Where("user_id IN ?", userIds).
 		Scan(&relatives).Error
 
-	if err != nil {
-		return nil, err
-	}
-
-	// Set the Relationship field for each relative based on the RelationId
-	for i := range relatives {
-		for _, r := range relation {
-			// Cast relativeUserIds to uint to match r.RelationId type
-			if uint(relativeUserIds[i]) == r.RelationId {
-				relatives[i].Relationship = r.RelationShip
-				break
-			}
-		}
-	}
-
-	return relatives, nil
+	return relatives, err
 }
 
-func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]uint64, error) {
-	var relativeUserIds []uint64
+func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]models.UserRelation, error) {
+	var userRelations []models.UserRelation
+
 	db := p.db.Table("tbl_system_user_role_mapping")
 	if patientId != nil {
 		db = db.Where("patient_id = ?", *patientId)
 	}
 	db = db.Where("mapping_type = ? AND is_self = ?", mappingType, isSelf)
-	err := db.Pluck("user_id", &relativeUserIds).Error
+	err := db.Select("user_id,relation_id").Scan(&userRelations).Error
 	if err != nil {
 		return nil, err
 	}
-	return relativeUserIds, nil
+	return userRelations, nil
 }
 
 // GetCaregiverList implements PatientRepository.
@@ -780,13 +780,38 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	return results, nil
 }
 
-func (p *PatientRepositoryImpl) GetRelationNameById(relationIds []uint64) ([]models.PatientRelation, error) {
+func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.PatientRelation, error) {
+	uniqueIds := make(map[uint64]struct{})
+	for _, id := range ids {
+		uniqueIds[id] = struct{}{}
+	}
+
+	var relationIds []uint64
+	for id := range uniqueIds {
+		relationIds = append(relationIds, id)
+	}
+
+	relationMap := make(map[uint64]string)
 	var relations []models.PatientRelation
-	// Use "IN" clause to fetch multiple relations based on relationIds
-	if err := p.db.Where("relation_id IN ?", relationIds).Find(&relations).Error; err != nil {
+	err := p.db.Where("relation_id IN ?", relationIds).Find(&relations).Error
+	if err != nil {
 		return nil, err
 	}
-	return relations, nil
+	for _, r := range relations {
+		relationMap[r.RelationId] = r.RelationShip
+	}
+
+	var orderedRelations []models.PatientRelation
+	for _, id := range ids {
+		if relationName, ok := relationMap[id]; ok {
+			orderedRelations = append(orderedRelations, models.PatientRelation{
+				RelationId:   id,
+				RelationShip: relationName,
+			})
+		}
+	}
+
+	return orderedRelations, nil
 }
 
 func (p *PatientRepositoryImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {

@@ -3,6 +3,7 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"fmt"
 	"log"
 
 	"gorm.io/gorm"
@@ -136,7 +137,6 @@ func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint64, patientId
 		return models.PatientRelative{}, err
 	}
 	relationeIds := []uint64{relativeId}
-	// patientRelativeIds := []uint64{patientRelativeId}
 	var relation []models.PatientRelation
 	if relationeId != 0 {
 		relation, err = s.patientRepo.GetRelationNameById(relationeIds)
@@ -147,28 +147,47 @@ func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint64, patientId
 	return s.patientRepo.GetPatientRelativeById(patientRelativeId, relation)
 }
 
+func ExtractUserAndRelationIds(userRelations []models.UserRelation) ([]uint64, []uint64) {
+	var userIds []uint64
+	var relationIds []uint64
+
+	for _, ur := range userRelations {
+		userIds = append(userIds, ur.UserId)
+		relationIds = append(relationIds, ur.RelationId)
+	}
+
+	return userIds, relationIds
+}
+
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
-	relativeUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "R", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "R", false)
 	if err != nil {
 		return []models.PatientRelative{}, err
 	}
+	if len(userRelationIds) == 0 {
+		return []models.PatientRelative{}, nil
+	}
+	relativeUserIds, relationIds := ExtractUserAndRelationIds(userRelationIds)
 	var relation []models.PatientRelation
-
-	relation, err = s.patientRepo.GetRelationNameById(relativeUserIds)
+	relation, err = s.patientRepo.GetRelationNameById(relationIds)
 	if err != nil {
 		log.Println("GetRelationNameById Not found :")
 	}
-
-	return s.patientRepo.GetRelativeList(relativeUserIds, relation)
+	return s.patientRepo.GetRelativeList(relativeUserIds, userRelationIds, relation)
 }
 
 // GetCaregiverList implements PatientService.
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
 
-	caregiverUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "C", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "C", false)
 	if err != nil {
 		return []models.Caregiver{}, err
 	}
+	if len(userRelationIds) == 0 {
+		return []models.Caregiver{}, nil
+	}
+	fmt.Println("relativeUserIds ", userRelationIds)
+	caregiverUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 
 	return s.patientRepo.GetCaregiverList(caregiverUserIds)
 }
@@ -176,21 +195,28 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 // GetDoctorList implements PatientService.
 func (s *PatientServiceImpl) GetDoctorList(patientId *uint64) ([]models.Doctor, error) {
 
-	doctorUserIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
 	if err != nil {
 		return []models.Doctor{}, err
 	}
-
+	if len(userRelationIds) == 0 {
+		return []models.Doctor{}, nil
+	}
+	doctorUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 	return s.patientRepo.GetDoctorList(doctorUserIds)
 }
 
 // GetPatientList implements PatientService.
 func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
-	patientUserIds, err := s.patientRepo.FetchUserIdByPatientId(nil, "S", true)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(nil, "S", true)
 	if err != nil {
 		return []models.Patient{}, err
 	}
+	if len(userRelationIds) == 0 {
+		return []models.Patient{}, nil
+	}
+	patientUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 	return s.patientRepo.GetPatientList(patientUserIds)
 }
 

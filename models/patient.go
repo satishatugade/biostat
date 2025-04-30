@@ -28,7 +28,7 @@ type Patient struct {
 }
 
 type PatientRelation struct {
-	RelationId   uint   `json:"relation_id" gorm:"column:relation_id"`
+	RelationId   uint64 `json:"relation_id" gorm:"column:relation_id"`
 	RelationShip string `json:"relationship" gorm:"column:relationship"`
 }
 
@@ -37,12 +37,13 @@ func (PatientRelation) TableName() string {
 }
 
 type PatientRelative struct {
-	RelativeId   uint      `json:"relative_id"`
+	RelativeId   uint64    `json:"relative_id"`
 	PatientId    *uint     `json:"patient_id,omitempty"`
 	FirstName    string    `json:"first_name"`
 	LastName     string    `json:"last_name"`
 	Gender       string    `json:"gender"`
 	DateOfBirth  string    `json:"date_of_birth"`
+	RelationId   uint64    `json:"relation_id"`
 	Relationship string    `json:"relationship"`
 	MobileNo     string    `json:"mobile_no"`
 	Email        string    `json:"email"`
