@@ -293,6 +293,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
 
 		Route{"Disease profile", http.MethodPost, constant.DiseaseProfile, patientController.GetDiseaseProfiles},
+		Route{"Disease profile", http.MethodPost, constant.AttachDiseaseProfile, patientController.AttachDiseaseProfileTOPatient},
 	}
 }
 

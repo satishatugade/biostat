@@ -1292,3 +1292,59 @@ func (pc *PatientController) GetDiseaseProfiles(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, summaryDiseaseProfiles, pagination, nil)
 	return
 }
+
+func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Authentication token is missing or invalid", nil, errors.New("unable to retrieve user 'sub' from context"))
+		return
+	}
+
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
+		return
+	}
+
+	type UserRequest struct {
+		DiseaseProfileID uint64 `json:"disease_profile_id"`
+	}
+	var userReq UserRequest
+	if err := ctx.ShouldBindJSON(&userReq); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to initiate transaction", nil, tx.Error)
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in SaveHealthProfile:", r)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to save health details", nil, errors.New("Failed to save health details"))
+			return
+		}
+	}()
+
+	_, err = pc.diseaseService.GetDiseaseProfileById(strconv.FormatUint(userReq.DiseaseProfileID, 10))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Disease profile not found", nil, err)
+		return
+	}
+
+	diseaseProfile, err := pc.patientService.AddPatientDiseaseProfile(tx, &models.PatientDiseaseProfile{PatientId: user_id, DiseaseProfileId: userReq.DiseaseProfileID})
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to save disease profile", nil, err)
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Disease Profile attached", diseaseProfile, nil, nil)
+	return
+}

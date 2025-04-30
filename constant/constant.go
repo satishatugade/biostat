@@ -75,6 +75,7 @@ const (
 	SymptomAudit                         = "/symptom-audit"
 	SymptomTypeAudit                     = "/symptom-type-audit"
 	DiseaseProfile                       = "/disease-profile"
+	AttachDiseaseProfile                 = "/attach-disease-profile"
 	SingleDiseaseProfile                 = "/disease-profile/:disease_profile_id"
 	DiagnosticTests                      = "/diagnostic-tests"
 	DDTMapping                           = "/ddt-mapping"
