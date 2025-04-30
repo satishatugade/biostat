@@ -33,9 +33,9 @@ func GetPaginationParams(c *gin.Context) (int, int, int) {
 	return page, limit, offset
 }
 
-func GetQueryIntParam(c *gin.Context, paramName string, defaultValue int) (int, bool) {
+func GetQueryIntParam(c *gin.Context, paramName string, defaultValue int) (uint64, bool) {
 	paramStr := c.DefaultQuery(paramName, strconv.Itoa(defaultValue))
-	paramValue, err := strconv.Atoi(paramStr)
+	paramValue, err := strconv.ParseUint(paramStr, 10, 64)
 	if err != nil {
 		return 0, false
 	}

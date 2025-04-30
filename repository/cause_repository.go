@@ -23,7 +23,7 @@ type CauseRepository interface {
 	AddDiseaseCauseMapping(DCMapping *models.DiseaseCauseMapping) error
 
 	//cause type
-	GetAllCauseTypes(limit int, offset int, isDeleted int) ([]models.CauseTypeMaster, int64, error)
+	GetAllCauseTypes(limit int, offset int, isDeleted uint64) ([]models.CauseTypeMaster, int64, error)
 	AddCauseType(causeType *models.CauseTypeMaster) (*models.CauseTypeMaster, error)
 	UpdateCauseType(causeType *models.CauseTypeMaster, authUserId string) (*models.CauseTypeMaster, error)
 	DeleteCauseType(causeTypeId uint64, authUserId string) error
@@ -107,8 +107,14 @@ func (repo *CauseRepositoryImpl) UpdateCause(updatedCause *models.Cause, authUse
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	existingTypeIds := make(map[uint64]bool)
-	existingCause, err := repo.GetDiseaseCauseById(updatedCause.CauseId, 1)
+	existingCause, err := repo.GetDiseaseCauseById(updatedCause.CauseId, 0)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -159,13 +165,17 @@ func (repo *CauseRepositoryImpl) UpdateCause(updatedCause *models.Cause, authUse
 			}
 		}
 	}
-	var finalUpdatedCause models.Cause
-	err = tx.Preload("CauseType").Where("cause_id = ?", updatedCause.CauseId).First(&finalUpdatedCause).Error
-	if err != nil {
-		tx.Rollback()
+
+	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
-	return &finalUpdatedCause, tx.Commit().Error
+
+	var finalUpdatedCause models.Cause
+	err = repo.db.Preload("CauseType").Where("cause_id = ?", updatedCause.CauseId).First(&finalUpdatedCause).Error
+	if err != nil {
+		return nil, err
+	}
+	return &finalUpdatedCause, nil
 }
 
 func (repo *CauseRepositoryImpl) SaveCauseAudit(existingCause *models.Cause, CauseTypeId *uint64, operationType string, updatedBy string) error {
@@ -245,7 +255,7 @@ func (r *CauseRepositoryImpl) AddDiseaseCauseMapping(mapping *models.DiseaseCaus
 	return r.db.Create(mapping).Error
 }
 
-func (repo *CauseRepositoryImpl) GetAllCauseTypes(limit int, offset int, isDeleted int) ([]models.CauseTypeMaster, int64, error) {
+func (repo *CauseRepositoryImpl) GetAllCauseTypes(limit int, offset int, isDeleted uint64) ([]models.CauseTypeMaster, int64, error) {
 	var causeTypes []models.CauseTypeMaster
 	var totalCount int64
 

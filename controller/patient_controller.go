@@ -148,14 +148,18 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
+	patientDiagnosticReportId, ok := utils.GetQueryIntParam(c, "patient_report_id", 0)
+	if !ok {
+		log.Println("GetPatientDiagnosticResultValue patientDiagnosticReportId status not provided : ", patientDiagnosticReportId)
+	}
 
-	diseaseProfiles, err := pc.patientService.GetPatientDiagnosticResultValue(patientId)
+	reportValues, err := pc.patientService.GetPatientDiagnosticResultValue(patientId, patientDiagnosticReportId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err)
 		return
 	}
 
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report fetch successfully", diseaseProfiles, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report fetch successfully", reportValues, nil, nil)
 }
 
 func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {

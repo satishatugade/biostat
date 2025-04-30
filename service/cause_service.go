@@ -15,7 +15,7 @@ type CauseService interface {
 	AddDiseaseCauseMapping(DCMapping *models.DiseaseCauseMapping) error
 
 	//Cause Type
-	GetAllCauseTypes(limit int, offset int, isDeleted int) ([]models.CauseTypeMaster, int64, error)
+	GetAllCauseTypes(limit int, offset int, isDeleted uint64) ([]models.CauseTypeMaster, int64, error)
 	AddCauseType(causeType *models.CauseTypeMaster) (*models.CauseTypeMaster, error)
 	UpdateCauseType(causeType *models.CauseTypeMaster, authUserId string) (*models.CauseTypeMaster, error)
 	DeleteCauseType(causeTypeId uint64, authUserId string) error
@@ -71,7 +71,7 @@ func (s *CauseServiceImpl) DeleteCauseType(causeTypeId uint64, authUserId string
 	return s.causeRepo.DeleteCauseType(causeTypeId, authUserId)
 }
 
-func (s *CauseServiceImpl) GetAllCauseTypes(limit int, offset int, isDeleted int) ([]models.CauseTypeMaster, int64, error) {
+func (s *CauseServiceImpl) GetAllCauseTypes(limit int, offset int, isDeleted uint64) ([]models.CauseTypeMaster, int64, error) {
 	return s.causeRepo.GetAllCauseTypes(limit, offset, isDeleted)
 }
 

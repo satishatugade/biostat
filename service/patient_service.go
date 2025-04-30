@@ -17,7 +17,7 @@ type PatientService interface {
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
-	GetPatientDiagnosticResultValue(PatientId uint64) ([]models.PatientDiagnosticReport, error)
+	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientId(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
@@ -194,12 +194,30 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 	return s.patientRepo.GetPatientList(patientUserIds)
 }
 
-func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64) ([]models.PatientDiagnosticReport, error) {
-	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId)
+func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
+	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+	// reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+	// if err != nil {
+	// 	return []models.PatientDiagnosticReport{}, err
+	// }
+	// if summary == true {
+	// 	user, err := s.patientRepo.GetUserProfileByUserId(PatientId)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	data = models.PatientBasicInfo{
+	// 		PatientName: user.FirstName + user.LastName,
+	// 		DateOfBirth: *user.DateOfBirth,
+	// 		Gender:      user.Gender,
+	// 		BloodGroup:  user.BloodGroup,
+	// 	}
+
+	// }
+
 }
 
-func (s *PatientServiceImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
-	user, err := s.patientRepo.GetUserProfileByUserId(user_id)
+func (s *PatientServiceImpl) GetUserProfileByUserId(userId uint64) (*models.SystemUser_, error) {
+	user, err := s.patientRepo.GetUserProfileByUserId(userId)
 	if err != nil {
 		return nil, err
 	}

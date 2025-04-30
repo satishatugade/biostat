@@ -16,7 +16,7 @@ type PatientRepository interface {
 	GetPrescriptionByPatientId(patientId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
-	GetPatientDiagnosticResultValue(patientId uint64) ([]models.PatientDiagnosticReport, error)
+	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
@@ -291,38 +291,30 @@ func (p *PatientRepositoryImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *mod
 	return input, nil
 }
 
-func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64) ([]models.PatientDiagnosticReport, error) {
+func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
 	var reports []models.PatientDiagnosticReport
 
 	query := p.db.Debug().
-		// Preload("DiagnosticLab").
-		// Preload("DiagnosticLab", func(db *gorm.DB) *gorm.DB {
-		// 	return db.Clauses(clause.OrConditions{
-		// 		Exprs: []clause.Expression{
-		// 			clause.Eq{
-		// 				Column: clause.Column{Table: "tbl_diagnostic_lab", Name: "diagnostic_lab_id"},
-		// 				Value:  clause.Column{Table: "tbl_patient_diagnostic_report", Name: "diagnostic_lab_id"},
-		// 			},
-		// 		},
-		// 	})
-		// }).
-		Preload("PatientDiagnosticTests").
-		Preload("PatientReportAttachments").
-		Preload("PatientDiagnosticTests.DiagnosticTest").
-		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
-		Preload("PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
-		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
+		Model(&models.PatientDiagnosticReport{}).
+		Preload("DiagnosticLab").
+		Preload("DiagnosticLab.PatientDiagnosticTests").
+		Preload("DiagnosticLab.PatientReportAttachments").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
 
 	if patientId > 0 {
 		query = query.Where("patient_id = ?", patientId)
-		// query = query.Where("patient_diagnostic_report_id = ?", patientDiagnosticReportId)
+	}
+	if patientDiagnosticReportId > 0 {
+		query = query.Where("patient_diagnostic_report_id = ?", patientDiagnosticReportId)
 	}
 
 	err := query.Order("patient_diagnostic_report_id ASC").Find(&reports).Error
 	if err != nil {
 		return nil, err
 	}
-
 	return reports, nil
 }
 

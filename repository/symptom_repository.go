@@ -19,7 +19,7 @@ type SymptomRepository interface {
 
 	AddDiseaseSymptomMapping(mapping *models.DiseaseSymptomMapping) error
 
-	GetAllSymptomTypes(limit int, offset int, isDeleted int) ([]models.SymptomTypeMaster, int64, error)
+	GetAllSymptomTypes(limit int, offset int, isDeleted uint64) ([]models.SymptomTypeMaster, int64, error)
 	AddSymptomType(symptomType *models.SymptomTypeMaster) (*models.SymptomTypeMaster, error)
 	UpdateSymptomType(symptomType *models.SymptomTypeMaster, userId string) (*models.SymptomTypeMaster, error)
 	DeleteSymptomType(symptomTypeId uint64, userId string) error
@@ -238,7 +238,7 @@ func (r *SymptomRepositoryImpl) AddDiseaseSymptomMapping(mapping *models.Disease
 	return r.db.Create(mapping).Error
 }
 
-func (repo *SymptomRepositoryImpl) GetAllSymptomTypes(limit int, offset int, isDeleted int) ([]models.SymptomTypeMaster, int64, error) {
+func (repo *SymptomRepositoryImpl) GetAllSymptomTypes(limit int, offset int, isDeleted uint64) ([]models.SymptomTypeMaster, int64, error) {
 	var symptomTypes []models.SymptomTypeMaster
 	var totalRecords int64
 	query := repo.db.Model(&models.SymptomTypeMaster{})

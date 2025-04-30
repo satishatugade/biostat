@@ -46,7 +46,7 @@ type DiagnosticRepository interface {
 	AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error
 	UpdateTestReferenceRange(input *models.DiagnosticTestReferenceRange, updatedBy string) error
 	DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error
-	GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
+	GetAllTestRefRangeView(limit int, offset int, isDeleted uint64) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64)
@@ -549,7 +549,7 @@ func (r *DiagnosticRepositoryImpl) ViewTestReferenceRange(testReferenceRangeId u
 	return ranges, err
 }
 
-func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int, isDeleted int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error) {
+func (r *DiagnosticRepositoryImpl) GetAllTestRefRangeView(limit int, offset int, isDeleted uint64) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error) {
 	var results []models.Diagnostic_Test_Component_ReferenceRange
 	var total int64
 

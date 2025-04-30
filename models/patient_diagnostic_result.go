@@ -63,9 +63,9 @@ type PatientDiagnosticReport struct {
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
-	PatientDiagnosticTests   []PatientDiagnosticTest   `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
-	PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
-	// DiagnosticLab DiagnosticLab `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId"`
+	// PatientDiagnosticTests   []PatientDiagnosticTest   `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
+	// PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
+	DiagnosticLab DiagnosticLab `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId"`
 }
 
 func (PatientDiagnosticReport) TableName() string {
@@ -200,4 +200,72 @@ type LabReport struct {
 		} `json:"components"`
 	} `json:"tests"`
 	RawText string `json:"raw_text"`
+}
+
+type PatientData struct {
+	Patient PatientBasicInfo `json:"patient"`
+}
+
+type PatientBasicInfo struct {
+	PatientName string    `json:"patient_name"`
+	DateOfBirth time.Time `json:"date_of_birth"`
+	Gender      string    `json:"gender"`
+	BloodGroup  string    `json:"blood_group"`
+	Reports     []Report  `json:"reports"`
+}
+
+type Report struct {
+	DiseaseName   string              `json:"disease_name"`
+	PaymentStatus string              `json:"payment_status"`
+	CollectedDate time.Time           `json:"collected_date"`
+	CollectedAt   string              `json:"collected_at"`
+	ProcessedAt   string              `json:"processed_at"`
+	ReportDate    time.Time           `json:"report_date"`
+	ReportStatus  string              `json:"report_status"`
+	Observation   string              `json:"observation"`
+	Comments      string              `json:"comments"`
+	DiagnosticLab DiagnosticLabCenter `json:"diagnostic_lab"`
+}
+
+type DiagnosticLabCenter struct {
+	LabNo                 string                       `json:"lab_no"`
+	LabName               string                       `json:"lab_name"`
+	LabAddress            string                       `json:"lab_address"`
+	LabContactNumber      string                       `json:"lab_contact_number"`
+	LabEmail              string                       `json:"lab_email"`
+	PatientDiagnosticTest []PatientDiagnosticTestInput `json:"patient_diagnostic_test"`
+}
+
+type PatientDiagnosticTestInput struct {
+	TestNote        string                `json:"test_note"`
+	TestDate        time.Time             `json:"test_date"`
+	DiagnosticTests []DiagnosticTestInput `json:"diagnostic_test"`
+}
+
+type DiagnosticTestInput struct {
+	TestLoincCode   string          `json:"test_loinc_code"`
+	TestName        string          `json:"test_name"`
+	TestType        string          `json:"test_type"`
+	TestDescription string          `json:"test_description"`
+	Category        string          `json:"category"`
+	Units           string          `json:"units"`
+	TestComponents  []TestComponent `json:"test_components"`
+}
+
+type TestComponent struct {
+	TestComponentLoincCode string            `json:"test_component_loinc_code"`
+	TestComponentName      string            `json:"test_component_name"`
+	TestComponentType      string            `json:"test_component_type"`
+	Description            string            `json:"description"`
+	Units                  string            `json:"units"`
+	TestComponentFrequency string            `json:"test_component_frequency"`
+	TestResultValues       []TestResultValue `json:"test_result_value"`
+}
+
+type TestResultValue struct {
+	ResultValue   float64   `json:"result_value"`
+	ResultStatus  string    `json:"result_status"`
+	ResultDate    time.Time `json:"result_date"`
+	ResultComment string    `json:"result_comment"`
+	Udf1          string    `json:"udf1"`
 }

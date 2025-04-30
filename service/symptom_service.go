@@ -15,7 +15,7 @@ type SymptomService interface {
 
 	AddDiseaseSymptomMapping(mapping *models.DiseaseSymptomMapping) error
 
-	GetAllSymptomTypes(limit int, offset int, isDeleted int) ([]models.SymptomTypeMaster, int64, error)
+	GetAllSymptomTypes(limit int, offset int, isDeleted uint64) ([]models.SymptomTypeMaster, int64, error)
 	AddSymptomType(symptomType *models.SymptomTypeMaster) (*models.SymptomTypeMaster, error)
 	UpdateSymptomType(symptomType *models.SymptomTypeMaster, userId string) (*models.SymptomTypeMaster, error)
 	DeleteSymptomType(symptomTypeId uint64, userId string) error
@@ -60,7 +60,7 @@ func (s *SymptomServiceImpl) AddDiseaseSymptomMapping(mapping *models.DiseaseSym
 	return s.symptomRepo.AddDiseaseSymptomMapping(mapping)
 }
 
-func (ss *SymptomServiceImpl) GetAllSymptomTypes(limit int, offset int, isDeleted int) ([]models.SymptomTypeMaster, int64, error) {
+func (ss *SymptomServiceImpl) GetAllSymptomTypes(limit int, offset int, isDeleted uint64) ([]models.SymptomTypeMaster, int64, error) {
 	return ss.symptomRepo.GetAllSymptomTypes(limit, offset, isDeleted)
 }
 
