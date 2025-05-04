@@ -2019,12 +2019,14 @@ func (mc *MasterController) GetAllHospitals(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
-	hospitals, err := mc.hospitalService.GetAllHospitals(nil)
+	page, limit, offset := utils.GetPaginationParams(c)
+	hospitals, totalRecords, err := mc.hospitalService.GetAllHospitals(nil, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch hospitals", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospitals fetched successfully", hospitals, nil, nil)
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Hospitals fetched successfully", hospitals, pagination, nil)
 }
 
 func (mc *MasterController) GetHospitalById(c *gin.Context) {

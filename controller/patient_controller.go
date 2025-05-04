@@ -1,11 +1,14 @@
 package controller
 
 import (
+	"biostat/auth"
 	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -28,13 +31,14 @@ type PatientController struct {
 	userService          service.UserService
 	apiService           service.ApiService
 	diseaseService       service.DiseaseService
+	smsService           service.SmsService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
 	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
 	medicationService service.MedicationService, appointmentService service.AppointmentService,
 	diagnosticService service.DiagnosticService, userService service.UserService,
-	apiService service.ApiService, diseaseService service.DiseaseService) *PatientController {
+	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -42,6 +46,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		userService:       userService,
 		apiService:        apiService,
 		diseaseService:    diseaseService,
+		smsService:        smsService,
 	}
 }
 
@@ -437,35 +442,39 @@ func (pc *PatientController) GetPatientDoctorList(c *gin.Context) {
 		}
 		patientId = &id
 	}
+	page, limit, offset := utils.GetPaginationParams(c)
 
-	doctors, err := pc.patientService.GetDoctorList(patientId)
+	doctors, totalRecords, err := pc.patientService.GetDoctorList(patientId, page, limit)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
 		return
 	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(doctors),
 		"Patient doctor retrieved successfully",
 		"Doctor not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, doctors, nil, nil)
+	models.SuccessResponse(c, constant.Success, statusCode, message, doctors, pagination, nil)
 }
 
 func (pc *PatientController) GetDoctorList(c *gin.Context) {
-
-	doctors, err := pc.patientService.GetDoctorList(nil)
+	page, limit, offset := utils.GetPaginationParams(c)
+	doctors, totalRecords, err := pc.patientService.GetDoctorList(nil, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
 		return
 	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	doctorProfile := utils.MapUsersToSchema(doctors, "doctor")
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(doctors),
 		"Doctor list retrieved successfully",
 		"Doctor not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, doctors, nil, nil)
+	models.SuccessResponse(c, constant.Success, statusCode, message, doctorProfile, pagination, nil)
 }
 
 func (pc *PatientController) GetPatientList(c *gin.Context) {
@@ -790,18 +799,19 @@ func (mc *PatientController) GetMedication(c *gin.Context) {
 
 func (pc *PatientController) GetNursesList(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
-	nurses, totalRecords, err := pc.patientService.GetNursesList(limit, offset)
+	nurses, totalRecords, err := pc.patientService.GetNursesList(nil, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch nurses", nil, err)
 		return
 	}
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	nursesData := utils.MapUsersToSchema(nurses, "nurse")
 	statusCode, message := utils.GetResponseStatusMessage(
 		len(nurses),
 		"Nurses list retrieved successfully",
 		"Nurses not found",
 	)
-	models.SuccessResponse(c, constant.Success, statusCode, message, nurses, pagination, nil)
+	models.SuccessResponse(c, constant.Success, statusCode, message, nursesData, pagination, nil)
 }
 
 func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
@@ -1350,5 +1360,47 @@ func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Disease Profile attached", diseaseProfile, nil, nil)
-	return
+}
+
+var shortURLMap = make(map[string]string) // Simulated in-memory store
+
+func generateShortCode() string {
+	b := make([]byte, 6)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)[:6]
+}
+
+type SendSMSRequest struct {
+	MobileNo string `json:"mobile_no" binding:"required"`
+}
+
+func (pc *PatientController) SendSMS(c *gin.Context) {
+	_, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	var req SendSMSRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	authHeader := c.GetHeader("Authorization") // Bearer <token>
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	exchanged, err := auth.ExchangeToken(token)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Token exchange failed", nil, err)
+		return
+	}
+	longLink := fmt.Sprintf("http://localhost:3000/shared-report?token=%s", exchanged.AccessToken)
+	shortCode := generateShortCode()
+	shortURLMap[shortCode] = longLink
+	shortURL := fmt.Sprintf("http://localhost:5500/v1/user/r/%s", shortCode)
+	err1 := pc.smsService.SendSMS(req.MobileNo, shortURL)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send SMS", nil, err1)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "SMS sent successfully", exchanged, nil, nil)
 }

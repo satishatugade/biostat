@@ -353,3 +353,14 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 }
+
+func (pc *UserController) UserRedirect(c *gin.Context) {
+	code := c.Param("code")
+	log.Println("Short Code Map:", shortURLMap)
+	longURL, ok := shortURLMap[code]
+	if !ok {
+		c.String(http.StatusNotFound, "Invalid or expired link")
+		return
+	}
+	c.Redirect(http.StatusTemporaryRedirect, longURL)
+}

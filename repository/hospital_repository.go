@@ -11,7 +11,7 @@ import (
 type HospitalRepository interface {
 	AddHospital(hospital *models.Hospital) error
 	UpdateHospital(hospital *models.Hospital, updatedBy string) error
-	GetAllHospitals(isDeleted *int) ([]models.Hospital, error)
+	GetAllHospitals(isDeleted *int, limit, offset int) ([]models.Hospital, int64, error)
 	DeleteHospitalById(hospitalId int64, updatedBy string) error
 	GetHospitalById(hospitalId uint64) (models.Hospital, error)
 
@@ -81,9 +81,9 @@ func (r *HospitalRepositoryImpl) InsertHospitalAudit(tx *gorm.DB, h *models.Hosp
 		UpdatedAt:     time.Now(),
 		HospitalName:  h.HospitalName,
 		Address:       h.Address,
-		Area:          h.Area,
+		State:         h.State,
 		City:          h.City,
-		Pincode:       h.Pincode,
+		PostalCode:    h.PostalCode,
 		Latitude:      h.Latitude,
 		Longitude:     h.Longitude,
 		PhoneNumber:   h.PhoneNumber,
@@ -100,16 +100,18 @@ func (r *HospitalRepositoryImpl) InsertHospitalAudit(tx *gorm.DB, h *models.Hosp
 	return nil
 }
 
-func (r *HospitalRepositoryImpl) GetAllHospitals(isDeleted *int) ([]models.Hospital, error) {
+func (r *HospitalRepositoryImpl) GetAllHospitals(isDeleted *int, limit, offset int) ([]models.Hospital, int64, error) {
 	var hospitals []models.Hospital
-	query := r.db
-
-	if isDeleted != nil {
-		query = query.Where("is_deleted = ?", *isDeleted)
+	var total int64
+	query := r.db.Model(&models.Hospital{})
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-
-	err := query.Order("hospital_id DESC").Find(&hospitals).Error
-	return hospitals, err
+	err := query.Order("hospital_id DESC").Limit(limit).Offset(offset).Find(&hospitals).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return hospitals, total, nil
 }
 
 func (r *HospitalRepositoryImpl) DeleteHospitalById(id int64, updatedBy string) error {

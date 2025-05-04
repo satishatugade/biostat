@@ -28,7 +28,7 @@ type Routes []Route
 var ProtectedRoutes = map[string][]string{
 	"/v1/master":                    {"admin"},
 	"/v1/master/get-diagnostic-lab": {"admin", "patient"},
-	"/v1/patient":                   {"patient"},
+	"/v1/patient":                   {"patient", "admin"},
 	"/v1/patient/user-profile":      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 	"/v1/user":                      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 }
@@ -115,4 +115,11 @@ func Routing() {
 	db := database.GetDBConn()
 	InitializeRoutes(apiGroup, db)
 	r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
+	// err := r.router.RunTLS(":"+os.Getenv("GO_SERVER_PORT"),
+	// 	"/etc/letsencrypt/live/biostat.catseye.cloud/fullchain.pem",
+	// 	"/etc/letsencrypt/live/biostat.catseye.cloud/privkey.pem")
+
+	// if err != nil {
+	// 	log.Fatal("Failed to start HTTPS server: ", err)
+	// }
 }

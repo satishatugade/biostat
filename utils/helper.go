@@ -204,6 +204,120 @@ func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
 	}
 }
 
+func MapUsersToSchema(users []models.SystemUser_, roleName string) []interface{} {
+	var mappedUsers []interface{}
+
+	role := strings.ToLower(roleName)
+	for _, user := range users {
+		switch role {
+		case "nurse":
+			mappedUsers = append(mappedUsers, models.Nurse{
+				NurseId:       user.UserId,
+				FirstName:     user.FirstName,
+				LastName:      user.LastName,
+				Gender:        user.Gender,
+				MobileNo:      user.MobileNo,
+				Email:         user.Email,
+				Specialty:     user.Specialty,
+				LicenseNumber: user.LicenseNumber,
+				ClinicName:    user.ClinicName,
+				ClinicAddress: user.ClinicAddress,
+				UserAddress: models.AddressMaster{
+					AddressId:    user.AddressMapping.AddressId,
+					AddressLine1: user.AddressMapping.Address.AddressLine1,
+					AddressLine2: user.AddressMapping.Address.AddressLine2,
+					Landmark:     user.AddressMapping.Address.Landmark,
+					City:         user.AddressMapping.Address.City,
+					State:        user.AddressMapping.Address.State,
+					Country:      user.AddressMapping.Address.Country,
+					PostalCode:   user.AddressMapping.Address.PostalCode,
+					Latitude:     user.AddressMapping.Address.Latitude,
+					Longitude:    user.AddressMapping.Address.Longitude,
+				},
+				YearsOfExperience: derefInt(user.YearsOfExperience),
+				ConsultationFee:   derefFloat(user.ConsultationFee),
+				WorkingHours:      user.WorkingHours,
+				CreatedAt:         user.CreatedAt,
+				UpdatedAt:         user.UpdatedAt,
+			})
+		case "doctor":
+			mappedUsers = append(mappedUsers, models.Doctor{
+				DoctorId:      user.UserId,
+				FirstName:     user.FirstName,
+				LastName:      user.LastName,
+				Specialty:     user.Specialty,
+				Gender:        user.Gender,
+				MobileNo:      user.MobileNo,
+				LicenseNumber: user.LicenseNumber,
+				ClinicName:    user.ClinicName,
+				ClinicAddress: user.ClinicAddress,
+				UserAddress: models.AddressMaster{
+					AddressId:    user.AddressMapping.AddressId,
+					AddressLine1: user.AddressMapping.Address.AddressLine1,
+					AddressLine2: user.AddressMapping.Address.AddressLine2,
+					Landmark:     user.AddressMapping.Address.Landmark,
+					City:         user.AddressMapping.Address.City,
+					State:        user.AddressMapping.Address.State,
+					Country:      user.AddressMapping.Address.Country,
+					PostalCode:   user.AddressMapping.Address.PostalCode,
+					Latitude:     user.AddressMapping.Address.Latitude,
+					Longitude:    user.AddressMapping.Address.Longitude,
+				},
+				Email:             user.Email,
+				YearsOfExperience: derefInt(user.YearsOfExperience),
+				ConsultationFee:   derefFloat(user.ConsultationFee),
+				WorkingHours:      user.WorkingHours,
+				CreatedAt:         user.CreatedAt,
+				UpdatedAt:         user.UpdatedAt,
+			})
+		case "admin":
+			mappedUsers = append(mappedUsers, models.Admin{
+				UserId:    user.UserId,
+				FirstName: user.FirstName,
+				LastName:  user.LastName,
+				RoleName:  user.RoleName,
+				MobileNo:  user.MobileNo,
+				Email:     user.Email,
+			})
+		default:
+			mappedUsers = append(mappedUsers, models.Patient{
+				PatientId:   user.UserId,
+				FirstName:   user.FirstName,
+				LastName:    user.LastName,
+				DateOfBirth: user.DateOfBirth.String(),
+				Gender:      user.Gender,
+				MobileNo:    user.MobileNo,
+				Address:     user.Address,
+				UserAddress: models.AddressMaster{
+					AddressId:    user.AddressMapping.AddressId,
+					AddressLine1: user.AddressMapping.Address.AddressLine1,
+					AddressLine2: user.AddressMapping.Address.AddressLine2,
+					Landmark:     user.AddressMapping.Address.Landmark,
+					City:         user.AddressMapping.Address.City,
+					State:        user.AddressMapping.Address.State,
+					Country:      user.AddressMapping.Address.Country,
+					PostalCode:   user.AddressMapping.Address.PostalCode,
+					Latitude:     user.AddressMapping.Address.Latitude,
+					Longitude:    user.AddressMapping.Address.Longitude,
+				},
+				EmergencyContact:   user.EmergencyContact,
+				AbhaNumber:         user.AbhaNumber,
+				BloodGroup:         user.BloodGroup,
+				Nationality:        user.Nationality,
+				CitizenshipStatus:  user.CitizenshipStatus,
+				PassportNumber:     user.PassportNumber,
+				CountryOfResidence: user.CountryOfResidence,
+				IsIndianOrigin:     user.IsIndianOrigin,
+				Email:              user.Email,
+				CreatedAt:          user.CreatedAt,
+				UpdatedAt:          user.UpdatedAt,
+			})
+		}
+	}
+
+	return mappedUsers
+}
+
 func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 	role := strings.ToLower(roleName)
 	switch role {

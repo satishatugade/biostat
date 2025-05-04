@@ -61,7 +61,21 @@ func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]mod
 
 func (s *DiagnosticServiceImpl) CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error) {
 	tx := database.DB.Begin()
-	return s.diagnosticRepo.CreateDiagnosticTest(tx, diagnosticTest, createdBy)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	createdTest, err := s.diagnosticRepo.CreateDiagnosticTest(tx, diagnosticTest, createdBy)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return createdTest, nil
 }
 
 func (s *DiagnosticServiceImpl) UpdateDiagnosticTest(diagnosticTest *models.DiagnosticTest, updatedBy string) (*models.DiagnosticTest, error) {
@@ -82,7 +96,22 @@ func (s *DiagnosticServiceImpl) GetAllDiagnosticComponents(limit int, offset int
 
 func (s *DiagnosticServiceImpl) CreateDiagnosticComponent(diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
 	tx := database.DB.Begin()
-	return s.diagnosticRepo.CreateDiagnosticComponent(tx, diagnosticComponent)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	createdComponent, err := s.diagnosticRepo.CreateDiagnosticComponent(tx, diagnosticComponent)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return createdComponent, nil
 }
 
 func (s *DiagnosticServiceImpl) UpdateDiagnosticComponent(authUserId string, diagnosticComponent *models.DiagnosticTestComponent) (*models.DiagnosticTestComponent, error) {
@@ -103,7 +132,22 @@ func (s *DiagnosticServiceImpl) GetAllDiagnosticTestComponentMappings(limit int,
 
 func (s *DiagnosticServiceImpl) CreateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
 	tx := database.DB.Begin()
-	return s.diagnosticRepo.CreateDiagnosticTestComponentMapping(tx, diagnosticTestComponentMapping)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	createdMapping, err := s.diagnosticRepo.CreateDiagnosticTestComponentMapping(tx, diagnosticTestComponentMapping)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return createdMapping, nil
 }
 
 func (s *DiagnosticServiceImpl) UpdateDiagnosticTestComponentMapping(diagnosticTestComponentMapping *models.DiagnosticTestComponentMapping) (*models.DiagnosticTestComponentMapping, error) {
@@ -116,7 +160,21 @@ func (s *DiagnosticServiceImpl) DeleteDiagnosticTestComponentMapping(diagnosticT
 
 func (s *DiagnosticServiceImpl) CreateLab(lab *models.DiagnosticLab) (*models.DiagnosticLab, error) {
 	tx := database.DB.Begin()
-	return s.diagnosticRepo.CreateLab(tx, lab)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	createdLab, err := s.diagnosticRepo.CreateLab(tx, lab)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return createdLab, nil
 }
 
 func (s *DiagnosticServiceImpl) GetLabById(id uint64) (*models.DiagnosticLab, error) {

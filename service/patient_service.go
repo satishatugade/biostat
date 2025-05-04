@@ -26,7 +26,7 @@ type PatientService interface {
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
-	GetDoctorList(patientId *uint64) ([]models.Doctor, error)
+	GetDoctorList(patientId *uint64, limit, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientList() ([]models.Patient, error)
 	GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
@@ -36,7 +36,7 @@ type PatientService interface {
 	GetUserIdBySUB(sub string) (uint64, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
-	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
+	GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
@@ -193,17 +193,18 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 }
 
 // GetDoctorList implements PatientService.
-func (s *PatientServiceImpl) GetDoctorList(patientId *uint64) ([]models.Doctor, error) {
+func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, limit, offset int) ([]models.SystemUser_, int64, error) {
 
 	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
 	if err != nil {
-		return []models.Doctor{}, err
+		return []models.SystemUser_{}, 0, err
 	}
 	if len(userRelationIds) == 0 {
-		return []models.Doctor{}, nil
+		return []models.SystemUser_{}, 0, nil
 	}
 	doctorUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
-	return s.patientRepo.GetDoctorList(doctorUserIds)
+	// return s.patientRepo.GetDoctorList(doctorUserIds)
+	return s.patientRepo.GetUserDataUserId(doctorUserIds, limit, offset)
 }
 
 // GetPatientList implements PatientService.
@@ -273,8 +274,17 @@ func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, boo
 	return basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, nil
 }
 
-func (s *PatientServiceImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {
-	return s.patientRepo.GetNursesList(limit, offset)
+func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {
+	//return s.patientRepo.GetNursesList(limit, offset)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "N", false)
+	if err != nil {
+		return []models.SystemUser_{}, 0, err
+	}
+	if len(userRelationIds) == 0 {
+		return []models.SystemUser_{}, 0, nil
+	}
+	nurseUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
+	return s.patientRepo.GetUserDataUserId(nurseUserIds, limit, offset)
 }
 
 func (s *PatientServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {

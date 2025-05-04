@@ -161,7 +161,9 @@ const (
 	SyncDigiLocker     = "/sync-digilocker"
 	GetMedicalResource = "/get-medical-resource"
 
-	SaveReport = "/save-report"
+	SaveReport  = "/save-report"
+	SendSMS     = "/send-sms"
+	RedirectURL = "/r/:code"
 )
 
 const (

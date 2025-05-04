@@ -39,6 +39,7 @@ type PatientRepository interface {
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
+	GetUserDataUserId(userId []uint64, limit, offset int) ([]models.SystemUser_, int64, error)
 	GetUserIdBySUB(SUB string) (uint64, error)
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
@@ -513,12 +514,13 @@ func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]m
 	return caregivers, nil
 }
 
-// GetDoctorList implements PatientRepository.
 func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error) {
 	var doctors []models.Doctor
+
 	if len(doctorUserIds) == 0 {
 		return doctors, nil
 	}
+
 	err := p.db.
 		Table("tbl_system_user_").
 		Select(`user_id AS doctor_id,
@@ -526,7 +528,7 @@ func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.
 	        last_name,
 	        specialty,
 	        gender,
-			mobile_no,
+	        mobile_no,
 	        license_number,
 	        clinic_name,
 	        clinic_address,
@@ -542,6 +544,16 @@ func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.
 	if err != nil {
 		return nil, err
 	}
+
+	// Fetch address for each doctor separately
+	for i, doc := range doctors {
+		var address models.AddressMaster
+		err := p.db.Where("user_id = ?", doc.DoctorId).First(&address).Error
+		if err == nil {
+			doctors[i].UserAddress = address
+		}
+	}
+
 	return doctors, nil
 }
 
@@ -589,6 +601,24 @@ func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (p *PatientRepositoryImpl) GetUserDataUserId(user_ids []uint64, limit, offset int) ([]models.SystemUser_, int64, error) {
+	var users []models.SystemUser_
+	var total int64
+	query := p.db.Model(&models.SystemUser_{}).
+		Preload("AddressMapping.Address").
+		Where("user_id IN ?", user_ids)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.Limit(limit).Offset(offset).Find(&users).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
 }
 
 func (p *PatientRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {

@@ -7,6 +7,9 @@ type DiagnosticLab struct {
 	LabNo            string    `gorm:"column:lab_no" json:"lab_no"`
 	LabName          string    `gorm:"column:lab_name" json:"lab_name"`
 	LabAddress       string    `gorm:"column:lab_address" json:"lab_address"`
+	City             string    `gorm:"column:city" json:"city"`
+	State            string    `gorm:"column:state" json:"state"`
+	PostalCode       string    `gorm:"column:postal_code" json:"postal_code"`
 	LabContactNumber string    `gorm:"column:lab_contact_number" json:"lab_contact_number"`
 	LabEmail         string    `gorm:"column:lab_email" json:"lab_email"`
 	IsDeleted        int       `gorm:"column:is_deleted" json:"is_deleted"`
@@ -29,6 +32,9 @@ type DiagnosticLabAudit struct {
 	LabNo                string    `gorm:"column:lab_no" json:"lab_no"`
 	LabName              string    `gorm:"column:lab_name" json:"lab_name"`
 	LabAddress           string    `gorm:"column:lab_address" json:"lab_address"`
+	City                 string    `gorm:"column:city" json:"city"`
+	State                string    `gorm:"column:state" json:"state"`
+	PostalCode           string    `gorm:"column:postal_code" json:"postal_code"`
 	LabContactNumber     string    `gorm:"column:lab_contact_number" json:"lab_contact_number"`
 	LabEmail             string    `gorm:"column:lab_email" json:"lab_email"`
 	IsDeleted            int       `gorm:"column:is_deleted" json:"is_deleted"`

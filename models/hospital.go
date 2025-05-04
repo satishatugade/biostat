@@ -3,20 +3,20 @@ package models
 import "time"
 
 type Hospital struct {
-	HospitalId   uint64 `gorm:"column:hospital_id;primaryKey;autoIncrement" json:"hospital_id"`
-	HospitalName string `gorm:"column:hospital_name" json:"hospital_name"`
-	Address      string `gorm:"column:address" json:"address"`
-	Area         string `gorm:"column:area" json:"area"`
-	City         string `gorm:"column:city" json:"city"`
-	Pincode      string `gorm:"column:pincode" json:"pincode"`
-	Latitude     string `gorm:"column:latitude" json:"latitude"`
-	Longitude    string `gorm:"column:longitude" json:"longitude"`
-	PhoneNumber  string `gorm:"column:phone_number" json:"phone_number"`
-	Rating       string `gorm:"column:rating" json:"rating"`
-	TotalReviews string `gorm:"column:total_reviews" json:"total_reviews"`
-	IsVerified   string `gorm:"column:is_verified" json:"is_verified"`
-	IsOpenNow    string `gorm:"column:is_open_now" json:"is_open_now"`
-	WebsiteURL   string `gorm:"column:website_url" json:"website_url"`
+	HospitalId   uint64  `gorm:"column:hospital_id;primaryKey;autoIncrement" json:"hospital_id"`
+	HospitalName string  `gorm:"column:hospital_name" json:"hospital_name"`
+	Address      string  `gorm:"column:address" json:"address"`
+	State        string  `gorm:"column:state" json:"state"`
+	City         string  `gorm:"column:city" json:"city"`
+	PostalCode   string  `gorm:"column:postal_code" json:"postal_code"`
+	Latitude     *string `gorm:"column:latitude" json:"latitude"`
+	Longitude    *string `gorm:"column:longitude" json:"longitude"`
+	PhoneNumber  string  `gorm:"column:phone_number" json:"phone_number"`
+	Rating       *string `gorm:"column:rating" json:"rating"`
+	TotalReviews *string `gorm:"column:total_reviews" json:"total_reviews"`
+	IsVerified   *string `gorm:"column:is_verified" json:"is_verified"`
+	IsOpenNow    *string `gorm:"column:is_open_now" json:"is_open_now"`
+	WebsiteURL   string  `gorm:"column:website_url" json:"website_url"`
 	// DiscountOffer  string    `gorm:"column:discount_offer" json:"discount_offer"`
 	// PaidStatus     bool      `gorm:"column:paid_status" json:"paid_status"`
 	// OperationHours string    `gorm:"column:operation_hours" json:"operation_hour"`
@@ -36,16 +36,16 @@ type HospitalAudit struct {
 	HospitalId      uint64    `gorm:"column:hospital_id" json:"hospital_id"`
 	HospitalName    string    `gorm:"column:hospital_name" json:"hospital_name"`
 	Address         string    `gorm:"column:address" json:"address"`
-	Area            string    `gorm:"column:area" json:"area"`
+	State           string    `gorm:"column:state" json:"state"`
 	City            string    `gorm:"column:city" json:"city"`
-	Pincode         string    `gorm:"column:pincode" json:"pincode"`
-	Latitude        string    `gorm:"column:latitude" json:"latitude"`
-	Longitude       string    `gorm:"column:longitude" json:"longitude"`
+	PostalCode      string    `gorm:"column:postal_code" json:"postal_code"`
+	Latitude        *string   `gorm:"column:latitude" json:"latitude"`
+	Longitude       *string   `gorm:"column:longitude" json:"longitude"`
 	PhoneNumber     string    `gorm:"column:phone_number" json:"phone_number"`
-	Rating          string    `gorm:"column:rating" json:"rating"`
-	TotalReviews    string    `gorm:"column:total_reviews" json:"total_reviews"`
-	IsVerified      string    `gorm:"column:is_verified" json:"is_verified"`
-	IsOpenNow       string    `gorm:"column:is_open_now" json:"is_open_now"`
+	Rating          *string   `gorm:"column:rating" json:"rating"`
+	TotalReviews    *string   `gorm:"column:total_reviews" json:"total_reviews"`
+	IsVerified      *string   `gorm:"column:is_verified" json:"is_verified"`
+	IsOpenNow       *string   `gorm:"column:is_open_now" json:"is_open_now"`
 	WebsiteURL      string    `gorm:"column:website_url" json:"website_url"`
 	IsDeleted       int       `gorm:"column:is_deleted" json:"is_deleted"`
 	OperationType   string    `gorm:"column:operation_type" json:"operation_type"`

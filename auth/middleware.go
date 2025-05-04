@@ -5,10 +5,16 @@ import (
 	"biostat/models"
 	"biostat/utils"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
+	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 )
 
@@ -107,4 +113,52 @@ func Authenticate(path string, protectedRoutes map[string][]string, handler gin.
 		}
 	}
 	return handler
+}
+
+type TokenExchangeResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+}
+
+var Client *gocloak.GoCloak
+
+func ExchangeToken(subjectToken string) (*TokenExchangeResponse, error) {
+	formData := url.Values{}
+	// formData.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
+	formData.Set("grant_type", "client_credentials")
+	formData.Set("subject_token", subjectToken)
+	formData.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	formData.Set("client_id", os.Getenv("KEYCLOAK_CLIENT_ID"))
+	formData.Set("client_secret", os.Getenv("KEYCLOAK_CLIENT_SECRET"))
+
+	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token",
+		os.Getenv("KEYCLOAK_AUTH_URL"),
+		os.Getenv("KEYCLOAK_REALM"),
+	)
+
+	// Make the POST request
+	resp, err := http.PostForm(tokenURL, formData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// fmt.Println("Response Body:", string(body))
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("token exchange failed: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResponse TokenExchangeResponse
+	if err := json.Unmarshal(body, &tokenResponse); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &tokenResponse, nil
 }

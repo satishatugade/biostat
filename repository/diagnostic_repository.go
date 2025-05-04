@@ -383,7 +383,7 @@ func (r *DiagnosticRepositoryImpl) CreateLab(tx *gorm.DB, lab *models.Diagnostic
 func (r *DiagnosticRepositoryImpl) GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error) {
 	var labs []models.DiagnosticLab
 	var total int64
-	query := r.db.Model(&models.DiagnosticLab{}).Where("is_deleted = ?", 0)
+	query := r.db.Model(&models.DiagnosticLab{})
 
 	err := query.Count(&total).Error
 	if err != nil {

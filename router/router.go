@@ -61,7 +61,9 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var apiService = service.NewApiService()
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService)
+	var smsService = service.NewSmsService()
+
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService)
 
 	var emailService = service.NewEmailService()
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService)
@@ -294,6 +296,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"Disease profile", http.MethodPost, constant.DiseaseProfile, patientController.GetDiseaseProfiles},
 		Route{"Disease profile", http.MethodPost, constant.AttachDiseaseProfile, patientController.AttachDiseaseProfileTOPatient},
+
+		Route{"send-sms", http.MethodPost, constant.SendSMS, patientController.SendSMS},
 	}
 }
 
@@ -303,6 +307,7 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.UserRegistrationByPatient, userController.UserRegisterByPatient},
 		Route{"User", http.MethodPost, constant.AuthUser, userController.LoginUser},
 		Route{"User", http.MethodPost, constant.LogoutUser, userController.LogoutUser},
+		Route{"redirect", http.MethodGet, constant.RedirectURL, userController.UserRedirect},
 	}
 }
 
