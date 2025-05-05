@@ -54,7 +54,7 @@ type DoctorInfo struct {
 	DoctorId          uint64 `json:"doctor_id"`
 	FirstName         string `json:"first_name"`
 	LastName          string `json:"last_name"`
-	Specialty         string `json:"specialty"`
+	Speciality        string `json:"speciality"`
 	Gender            string `json:"gender"`
 	MobileNo          string `json:"mobile_no"`
 	ClinicName        string `json:"clinic_name"`
@@ -69,7 +69,7 @@ type NurseInfo struct {
 	LastName          string `json:"last_name"`
 	Gender            string `json:"gender"`
 	MobileNo          string `json:"mobile_no"`
-	Specialty         string `json:"specialty"`
+	Speciality        string `json:"speciality"`
 	ClinicName        string `json:"clinic_name"`
 	ClinicAddress     string `json:"clinic_address"`
 	YearsOfExperience int    `json:"years_of_experience"`

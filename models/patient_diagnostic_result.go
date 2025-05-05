@@ -221,16 +221,16 @@ type PatientBasicInfo struct {
 }
 
 type Report struct {
-	DiseaseName   string              `json:"disease_name"`
-	PaymentStatus string              `json:"payment_status"`
-	CollectedDate time.Time           `json:"collected_date"`
-	CollectedAt   string              `json:"collected_at"`
-	ProcessedAt   string              `json:"processed_at"`
-	ReportDate    time.Time           `json:"report_date"`
-	ReportStatus  string              `json:"report_status"`
-	Observation   string              `json:"observation"`
-	Comments      string              `json:"comments"`
-	DiagnosticLab DiagnosticLabCenter `json:"diagnostic_lab"`
+	DiseaseName       string              `json:"disease_name"`
+	PaymentStatus     string              `json:"payment_status"`
+	CollectedDate     time.Time           `json:"collected_date"`
+	CollectedAt       string              `json:"collected_at"`
+	ProcessedAt       string              `json:"processed_at"`
+	ReportDate        time.Time           `json:"report_date"`
+	ReportStatus      string              `json:"report_status"`
+	Observation       string              `json:"observation"`
+	Comments          string              `json:"comments"`
+	DiagnosticLabInfo DiagnosticLabCenter `json:"diagnostic_lab"`
 }
 
 type DiagnosticLabCenter struct {
@@ -244,7 +244,9 @@ type DiagnosticLabCenter struct {
 
 type PatientDiagnosticTestInput struct {
 	TestNote        string                `json:"test_note"`
+	TestName        string                `json:"test_name"`
 	TestDate        time.Time             `json:"test_date"`
+	TestComponents  []TestComponent       `json:"test_components"`
 	DiagnosticTests []DiagnosticTestInput `json:"diagnostic_test"`
 }
 

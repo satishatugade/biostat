@@ -157,14 +157,26 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 	if !ok {
 		log.Println("GetPatientDiagnosticResultValue patientDiagnosticReportId status not provided : ", patientDiagnosticReportId)
 	}
-
-	reportValues, err := pc.patientService.GetPatientDiagnosticResultValue(patientId, patientDiagnosticReportId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err)
-		return
+	summaryParam := c.DefaultQuery("summary", "false")
+	summary := false
+	if parsed, err := strconv.ParseBool(summaryParam); err == nil {
+		summary = parsed
 	}
-
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report fetch successfully", reportValues, nil, nil)
+	if summary {
+		reportSummaryData, err1 := pc.patientService.GetPatientDiagnosticReportSummary(patientId, patientDiagnosticReportId, summary)
+		if err1 != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err1)
+			return
+		}
+		models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report summary fetch successfully", reportSummaryData, nil, nil)
+	} else {
+		reportValues, err := pc.patientService.GetPatientDiagnosticResultValue(patientId, patientDiagnosticReportId)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err)
+			return
+		}
+		models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report fetched successfully", reportValues, nil, nil)
+	}
 }
 
 func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {

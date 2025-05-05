@@ -6,7 +6,7 @@ type Doctor struct {
 	DoctorId          uint64        `json:"doctor_id"`
 	FirstName         string        `json:"first_name"`
 	LastName          string        `json:"last_name"`
-	Specialty         string        `json:"specialty"`
+	Speciality        string        `json:"speciality"`
 	Gender            string        `json:"gender"`
 	MobileNo          string        `json:"mobile_no"`
 	LicenseNumber     string        `json:"license_number"`

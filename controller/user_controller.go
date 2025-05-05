@@ -10,7 +10,6 @@ import (
 	"log"
 	"strconv"
 
-	"fmt"
 	"net/http"
 
 	"github.com/Nerzal/gocloak/v13"
@@ -109,7 +108,6 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 
 func createUserInKeycloak(user models.SystemUser_) (string, error) {
 	client := utils.Client
-	fmt.Println("client keycloak ", client)
 	ctx := context.Background()
 	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
 	if err != nil {
@@ -139,7 +137,7 @@ func createUserInKeycloak(user models.SystemUser_) (string, error) {
 
 	userID, err := client.CreateUser(ctx, token.AccessToken, utils.KeycloakRealm, newuser)
 	if err != nil {
-		return "Unable to create user at keycloak server", err
+		return "Username or email already exists.", err
 	}
 
 	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})

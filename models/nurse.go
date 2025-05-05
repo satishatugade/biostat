@@ -6,7 +6,7 @@ type Nurse struct {
 	NurseId           uint64        `json:"nurse_id"`
 	FirstName         string        `json:"first_name"`
 	LastName          string        `json:"last_name"`
-	Specialty         string        `json:"specialty"`
+	Speciality        string        `json:"speciality"`
 	Gender            string        `json:"gender"`
 	MobileNo          string        `json:"mobile_no"`
 	LicenseNumber     string        `json:"license_number"`

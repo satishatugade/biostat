@@ -83,7 +83,7 @@ type SystemUser_ struct {
 	IsIndianOrigin       bool   `gorm:"column:is_indian_origin;default:false" json:"is_indian_origin,omitempty"`
 
 	// Doctor-Specific Fields
-	Specialty         string   `gorm:"column:specialty;type:varchar(100)" json:"specialty,omitempty"`
+	Speciality        string   `gorm:"column:speciality;type:varchar(100)" json:"speciality,omitempty"`
 	LicenseNumber     string   `gorm:"column:license_number;type:varchar(50);unique" json:"license_number,omitempty"`
 	ClinicName        string   `gorm:"column:clinic_name;type:varchar(100)" json:"clinic_name,omitempty"`
 	ClinicAddress     string   `gorm:"column:clinic_address;type:text" json:"clinic_address,omitempty"`

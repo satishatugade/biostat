@@ -19,6 +19,8 @@ type PatientService interface {
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
+	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.PatientBasicInfo, error)
+
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientId(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
@@ -223,24 +225,79 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
 func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
 	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
-	// reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
-	// if err != nil {
-	// 	return []models.PatientDiagnosticReport{}, err
-	// }
-	// if summary == true {
-	// 	user, err := s.patientRepo.GetUserProfileByUserId(PatientId)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	data = models.PatientBasicInfo{
-	// 		PatientName: user.FirstName + user.LastName,
-	// 		DateOfBirth: *user.DateOfBirth,
-	// 		Gender:      user.Gender,
-	// 		BloodGroup:  user.BloodGroup,
-	// 	}
+}
 
-	// }
+func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.PatientBasicInfo, error) {
+	reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+	if err != nil {
+		return models.PatientBasicInfo{}, err
+	}
+	var reports []models.Report
+	if summary {
+		user, err := s.patientRepo.GetUserProfileByUserId(PatientId)
+		if err != nil {
+			return models.PatientBasicInfo{}, err
+		}
 
+		for _, r := range reportData {
+			var testDetails []models.PatientDiagnosticTestInput
+			for _, test := range r.DiagnosticLab.PatientDiagnosticTests {
+				var components []models.TestComponent
+				for _, c := range test.DiagnosticTest.Components {
+					var resultValues []models.TestResultValue
+
+					for _, rv := range c.TestResultValue {
+						resultValues = append(resultValues, models.TestResultValue{
+							ResultValue:   rv.ResultValue,
+							ResultStatus:  rv.ResultStatus,
+							ResultDate:    rv.ResultDate,
+							ResultComment: rv.ResultComment,
+							Udf1:          rv.UDF1,
+						})
+					}
+
+					components = append(components, models.TestComponent{
+						TestComponentName: c.TestComponentName,
+						TestComponentType: c.TestComponentType,
+						Units:             c.Units,
+						TestResultValues:  resultValues,
+					})
+				}
+
+				testDetails = append(testDetails, models.PatientDiagnosticTestInput{
+					TestNote:       test.TestNote,
+					TestDate:       test.TestDate,
+					TestName:       test.DiagnosticTest.TestName,
+					TestComponents: components,
+				})
+			}
+			report := models.Report{
+				PaymentStatus: r.PaymentStatus,
+				CollectedDate: r.CollectedDate,
+				CollectedAt:   r.CollectedAt,
+				ProcessedAt:   r.ProcessedAt,
+				ReportDate:    r.ReportDate,
+				ReportStatus:  r.ReportStatus,
+				Observation:   r.Observation,
+				Comments:      r.Comments,
+				DiagnosticLabInfo: models.DiagnosticLabCenter{
+					LabName:               r.DiagnosticLab.LabName,
+					LabAddress:            r.DiagnosticLab.LabAddress,
+					PatientDiagnosticTest: testDetails,
+				},
+			}
+			reports = append(reports, report)
+		}
+		data := models.PatientBasicInfo{
+			PatientName: user.FirstName + user.LastName,
+			DateOfBirth: *user.DateOfBirth,
+			Gender:      user.Gender,
+			BloodGroup:  user.BloodGroup,
+			Reports:     reports,
+		}
+		return data, nil
+	}
+	return models.PatientBasicInfo{}, nil
 }
 
 func (s *PatientServiceImpl) GetUserProfileByUserId(userId uint64) (*models.SystemUser_, error) {
