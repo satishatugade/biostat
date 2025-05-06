@@ -391,7 +391,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Println("ERROR committing transaction:", err.Error)
+		log.Println("ERROR committing transaction:", err)
 		tx.Rollback()
 		return "Error : while committing last transaction ", nil
 	}

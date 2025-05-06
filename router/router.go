@@ -38,14 +38,18 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo)
 
+	var apiService = service.NewApiService()
+
+	var smsService = service.NewSmsService()
+
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
-	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo)
+	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService)
 
 	var roleRepo = repository.NewRoleRepository(db)
 	var roleService = service.NewRoleService(roleRepo)
 
 	var patientRepo = repository.NewPatientRepository(db)
-	var patientService = service.NewPatientService(patientRepo)
+	var patientService = service.NewPatientService(patientRepo, apiService)
 
 	var userRepo = repository.NewTblUserTokenRepository(db)
 	var userService = service.NewTblUserTokenService(userRepo)
@@ -58,10 +62,6 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var appointmentService = service.NewAppointmentService(appointmentRepo)
-
-	var apiService = service.NewApiService()
-
-	var smsService = service.NewSmsService()
 
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService)
 

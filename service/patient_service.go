@@ -19,7 +19,7 @@ type PatientService interface {
 	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
-	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.PatientBasicInfo, error)
+	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error)
 
 	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
@@ -47,11 +47,12 @@ type PatientService interface {
 type PatientServiceImpl struct {
 	patientRepo repository.PatientRepository
 	userRepo    repository.UserRepository
+	apiService  ApiService
 }
 
 // Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository) PatientService {
-	return &PatientServiceImpl{patientRepo: repo}
+func NewPatientService(repo repository.PatientRepository, apiService ApiService) PatientService {
+	return &PatientServiceImpl{patientRepo: repo, apiService: apiService}
 }
 
 // GetAllRelation implements PatientService.
@@ -227,78 +228,77 @@ func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, p
 	return s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
 }
 
-func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.PatientBasicInfo, error) {
-	reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
-	if err != nil {
-		return models.PatientBasicInfo{}, err
-	}
-	var reports []models.Report
-	if summary {
-		user, err := s.patientRepo.GetUserProfileByUserId(PatientId)
-		if err != nil {
-			return models.PatientBasicInfo{}, err
-		}
+// func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.PatientBasicInfo, error) {
+// 	reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+// 	if err != nil {
+// 		return models.PatientBasicInfo{}, err
+// 	}
+// 	var reports []models.Report
+// 	if summary {
+// 		user, err := s.patientRepo.GetUserProfileByUserId(PatientId)
+// 		if err != nil {
+// 			return models.PatientBasicInfo{}, err
+// 		}
 
-		for _, r := range reportData {
-			var testDetails []models.PatientDiagnosticTestInput
-			for _, test := range r.DiagnosticLab.PatientDiagnosticTests {
-				var components []models.TestComponent
-				for _, c := range test.DiagnosticTest.Components {
-					var resultValues []models.TestResultValue
+// 		for _, r := range reportData {
+// 			var testDetails []models.PatientDiagnosticTestInput
+// 			for _, test := range r.DiagnosticLab.PatientDiagnosticTests {
+// 				var components []models.TestComponent
+// 				for _, c := range test.DiagnosticTest.Components {
+// 					var resultValues []models.TestResultValue
+// 					for _, rv := range c.TestResultValue {
+// 						resultValues = append(resultValues, models.TestResultValue{
+// 							ResultValue:   rv.ResultValue,
+// 							ResultStatus:  rv.ResultStatus,
+// 							ResultDate:    rv.ResultDate,
+// 							ResultComment: rv.ResultComment,
+// 							Udf1:          rv.UDF1,
+// 						})
+// 					}
 
-					for _, rv := range c.TestResultValue {
-						resultValues = append(resultValues, models.TestResultValue{
-							ResultValue:   rv.ResultValue,
-							ResultStatus:  rv.ResultStatus,
-							ResultDate:    rv.ResultDate,
-							ResultComment: rv.ResultComment,
-							Udf1:          rv.UDF1,
-						})
-					}
+// 					components = append(components, models.TestComponent{
+// 						TestComponentName: c.TestComponentName,
+// 						TestComponentType: c.TestComponentType,
+// 						Units:             c.Units,
+// 						TestResultValues:  resultValues,
+// 					})
+// 				}
 
-					components = append(components, models.TestComponent{
-						TestComponentName: c.TestComponentName,
-						TestComponentType: c.TestComponentType,
-						Units:             c.Units,
-						TestResultValues:  resultValues,
-					})
-				}
-
-				testDetails = append(testDetails, models.PatientDiagnosticTestInput{
-					TestNote:       test.TestNote,
-					TestDate:       test.TestDate,
-					TestName:       test.DiagnosticTest.TestName,
-					TestComponents: components,
-				})
-			}
-			report := models.Report{
-				PaymentStatus: r.PaymentStatus,
-				CollectedDate: r.CollectedDate,
-				CollectedAt:   r.CollectedAt,
-				ProcessedAt:   r.ProcessedAt,
-				ReportDate:    r.ReportDate,
-				ReportStatus:  r.ReportStatus,
-				Observation:   r.Observation,
-				Comments:      r.Comments,
-				DiagnosticLabInfo: models.DiagnosticLabCenter{
-					LabName:               r.DiagnosticLab.LabName,
-					LabAddress:            r.DiagnosticLab.LabAddress,
-					PatientDiagnosticTest: testDetails,
-				},
-			}
-			reports = append(reports, report)
-		}
-		data := models.PatientBasicInfo{
-			PatientName: user.FirstName + user.LastName,
-			DateOfBirth: *user.DateOfBirth,
-			Gender:      user.Gender,
-			BloodGroup:  user.BloodGroup,
-			Reports:     reports,
-		}
-		return data, nil
-	}
-	return models.PatientBasicInfo{}, nil
-}
+// 				testDetails = append(testDetails, models.PatientDiagnosticTestInput{
+// 					TestNote:       test.TestNote,
+// 					TestDate:       test.TestDate,
+// 					TestName:       test.DiagnosticTest.TestName,
+// 					TestComponents: components,
+// 				})
+// 			}
+// 			report := models.Report{
+// 				PaymentStatus: r.PaymentStatus,
+// 				CollectedDate: r.CollectedDate,
+// 				CollectedAt:   r.CollectedAt,
+// 				ProcessedAt:   r.ProcessedAt,
+// 				ReportDate:    r.ReportDate,
+// 				ReportStatus:  r.ReportStatus,
+// 				Observation:   r.Observation,
+// 				Comments:      r.Comments,
+// 				DiagnosticLabInfo: models.DiagnosticLabCenter{
+// 					LabName:               r.DiagnosticLab.LabName,
+// 					LabAddress:            r.DiagnosticLab.LabAddress,
+// 					PatientDiagnosticTest: testDetails,
+// 				},
+// 			}
+// 			reports = append(reports, report)
+// 		}
+// 		data := models.PatientBasicInfo{
+// 			PatientName: user.FirstName + user.LastName,
+// 			DateOfBirth: *user.DateOfBirth,
+// 			Gender:      user.Gender,
+// 			BloodGroup:  user.BloodGroup,
+// 			Reports:     reports,
+// 		}
+// 		return data, nil
+// 	}
+// 	return models.PatientBasicInfo{}, nil
+// }
 
 func (s *PatientServiceImpl) GetUserProfileByUserId(userId uint64) (*models.SystemUser_, error) {
 	user, err := s.patientRepo.GetUserProfileByUserId(userId)
@@ -366,4 +366,132 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(input models.Diagno
 
 func (ps *PatientServiceImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {
 	return ps.patientRepo.SaveUserHealthProfile(tx, input)
+}
+
+func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error) {
+	reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+	if err != nil {
+		return models.ResultSummary{}, err
+	}
+
+	if !summary {
+		return models.ResultSummary{}, nil
+	}
+
+	user, err := s.patientRepo.GetUserProfileByUserId(PatientId)
+	if err != nil {
+		return models.ResultSummary{}, err
+	}
+
+	reports := s.processReportData(reportData)
+
+	data := models.PatientBasicInfo{
+		PatientName: user.FirstName + user.LastName,
+		DateOfBirth: *user.DateOfBirth,
+		Gender:      user.Gender,
+		BloodGroup:  user.BloodGroup,
+		Reports:     reports,
+	}
+	summaryText, err := s.apiService.CallSummarizeReportService(data)
+	if err != nil {
+		return models.ResultSummary{}, err
+	}
+	return summaryText, nil
+}
+
+func (s *PatientServiceImpl) processReportData(reportData []models.PatientDiagnosticReport) []models.Report {
+	var reports []models.Report
+	for _, r := range reportData {
+		report := s.createReport(r)
+		reports = append(reports, report)
+	}
+	return reports
+}
+
+func (s *PatientServiceImpl) createReport(r models.PatientDiagnosticReport) models.Report {
+	testDetails := s.processPatientDiagnosticTests(r.DiagnosticLab.PatientDiagnosticTests)
+
+	report := models.Report{
+		PaymentStatus:     r.PaymentStatus,
+		CollectedDate:     r.CollectedDate,
+		CollectedAt:       r.CollectedAt,
+		ProcessedAt:       r.ProcessedAt,
+		ReportDate:        r.ReportDate,
+		ReportStatus:      r.ReportStatus,
+		Observation:       r.Observation,
+		Comments:          r.Comments,
+		DiagnosticLabInfo: s.createDiagnosticLabInfo(r.DiagnosticLab, testDetails),
+	}
+	return report
+}
+
+func (s *PatientServiceImpl) createDiagnosticLabInfo(dl models.DiagnosticLab, testDetails []models.PatientDiagnosticTestInput) models.DiagnosticLabCenter {
+	return models.DiagnosticLabCenter{
+		LabName:               dl.LabName,
+		LabAddress:            dl.LabAddress,
+		PatientDiagnosticTest: testDetails,
+	}
+}
+
+func (s *PatientServiceImpl) processPatientDiagnosticTests(patientDiagnosticTests []models.PatientDiagnosticTest) []models.PatientDiagnosticTestInput {
+	var testDetails []models.PatientDiagnosticTestInput
+	for _, test := range patientDiagnosticTests {
+		testInput := s.createPatientDiagnosticTestInput(test)
+		testDetails = append(testDetails, testInput)
+	}
+	return testDetails
+}
+
+func (s *PatientServiceImpl) createPatientDiagnosticTestInput(test models.PatientDiagnosticTest) models.PatientDiagnosticTestInput {
+	components := s.processTestComponents(test.DiagnosticTest.Components)
+
+	testInput := models.PatientDiagnosticTestInput{
+		TestNote:       test.TestNote,
+		TestDate:       test.TestDate,
+		TestName:       test.DiagnosticTest.TestName,
+		TestComponents: components,
+	}
+	return testInput
+}
+
+func (s *PatientServiceImpl) processTestComponents(componentsData []models.DiagnosticTestComponent) []models.TestComponent {
+	var components []models.TestComponent
+	for _, c := range componentsData {
+		component := s.createTestComponent(c)
+		components = append(components, component)
+	}
+	return components
+}
+
+func (s *PatientServiceImpl) createTestComponent(c models.DiagnosticTestComponent) models.TestComponent {
+	resultValues := s.processTestResultValues(c.TestResultValue)
+
+	component := models.TestComponent{
+		TestComponentName: c.TestComponentName,
+		TestComponentType: c.TestComponentType,
+		Units:             c.Units,
+		TestResultValues:  resultValues,
+	}
+	return component
+}
+
+func (s *PatientServiceImpl) processTestResultValues(resultValuesData []models.PatientDiagnosticTestResultValue) []models.TestResultValue {
+	var resultValues []models.TestResultValue
+	for _, rv := range resultValuesData {
+		// if rv.DiagnosticTestId == targetTestID && rv.DiagnosticTestComponentId == targetComponentID {
+		resultValue := s.createTestResultValue(rv)
+		resultValues = append(resultValues, resultValue)
+		// }
+	}
+	return resultValues
+}
+
+func (s *PatientServiceImpl) createTestResultValue(rv models.PatientDiagnosticTestResultValue) models.TestResultValue {
+	return models.TestResultValue{
+		ResultValue:   rv.ResultValue,
+		ResultStatus:  rv.ResultStatus,
+		ResultDate:    rv.ResultDate,
+		ResultComment: rv.ResultComment,
+		Udf1:          rv.UDF1,
+	}
 }

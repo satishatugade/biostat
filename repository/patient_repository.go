@@ -296,20 +296,21 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 	var reports []models.PatientDiagnosticReport
 
 	query := p.db.Debug().
-		Model(&models.PatientDiagnosticReport{}).
+		Model(&models.PatientDiagnosticReport{}).Where("patient_id = ?", patientId).
 		Preload("DiagnosticLab").
 		Preload("DiagnosticLab.PatientDiagnosticTests").
 		Preload("DiagnosticLab.PatientReportAttachments").
 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
+		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange")
+	// Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
 
-	if patientId > 0 {
-		query = query.Where("patient_id = ?", patientId)
-	}
-	if patientDiagnosticReportId > 0 {
-		query = query.Where("patient_diagnostic_report_id = ?", patientDiagnosticReportId)
+	if patientId > 0 && patientDiagnosticReportId > 0 {
+		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
+			"patient_id = ? AND patient_diagnostic_report_id = ?", patientId, patientDiagnosticReportId)
+	} else {
+		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
+			"patient_id = ?", patientId)
 	}
 
 	err := query.Order("patient_diagnostic_report_id ASC").Find(&reports).Error

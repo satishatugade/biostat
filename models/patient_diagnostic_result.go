@@ -187,6 +187,10 @@ type DiagnosticResultRequest struct {
 	ResultDateEnd             *time.Time `json:"result_date_end,omitempty"`
 }
 
+type ResultSummary struct {
+	Summary string `json:"summary"`
+}
+
 type LabReport struct {
 	ReportDetails struct {
 		ReportDate       string `json:"report_date"`

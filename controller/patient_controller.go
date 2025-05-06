@@ -656,7 +656,7 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	newRecord.SourceAccount = userDigiToken.ProviderId
 	newRecord.UploadedBy = user_id
 
-	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id)
+	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, file)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
@@ -1191,20 +1191,15 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	}
 	log.Printf("Request Content-Type: %v", ctx.Request.Header.Get("Content-Type"))
 	log.Printf("Request Headers: %v", ctx.Request.Header)
-	file, err := ctx.FormFile("image")
+	file, _, err := ctx.Request.FormFile("image")
 	if err != nil {
 		log.Printf("No image attached or failed to read image: %v", err)
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to get image from request", nil, err)
 		return
 	}
-	imageFile, err := file.Open()
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to open image file", nil, err)
-		return
-	}
-	defer imageFile.Close()
+	defer file.Close()
 
-	reportData, err := pc.apiService.CallGeminiService(imageFile)
+	reportData, err := pc.apiService.CallGeminiService(file)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
 		return

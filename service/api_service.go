@@ -13,17 +13,20 @@ import (
 
 type ApiService interface {
 	CallGeminiService(image io.Reader) (models.LabReport, error)
+	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
 }
 
 type ApiServiceImpl struct {
-	GeminiAPIURL string
-	client       *http.Client
+	GeminiAPIURL     string
+	ReportSummaryAPI string
+	client           *http.Client
 }
 
 func NewApiService() ApiService {
 	return &ApiServiceImpl{
-		GeminiAPIURL: os.Getenv("GEMINI_API_URL"),
-		client:       &http.Client{},
+		GeminiAPIURL:     os.Getenv("GEMINI_API_URL"),
+		ReportSummaryAPI: os.Getenv("REPORT_SUMMARY_API"),
+		client:           &http.Client{},
 	}
 }
 
@@ -69,4 +72,36 @@ func (s *ApiServiceImpl) CallGeminiService(image io.Reader) (models.LabReport, e
 	}
 
 	return reportData, nil
+}
+
+func (a *ApiServiceImpl) CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error) {
+	// jsonData, err := json.Marshal(data)
+	// if err != nil {
+	// 	return "", err
+	// }
+	var result models.ResultSummary
+	payload := map[string]int{
+		"patient_id": 1,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return models.ResultSummary{}, err
+	}
+
+	resp, err := http.Post(a.ReportSummaryAPI, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return models.ResultSummary{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return models.ResultSummary{}, fmt.Errorf("API returned status: %s", resp.Status)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return models.ResultSummary{}, fmt.Errorf("error decoding response: %w", err)
+	}
+
+	return result, nil
 }

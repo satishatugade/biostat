@@ -3,12 +3,14 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"fmt"
+	"mime/multipart"
 )
 
 type TblMedicalRecordService interface {
 	GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error)
 	GetUserMedicalRecords(userID int64) ([]models.TblMedicalRecord, error)
-	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64) (*models.TblMedicalRecord, error)
+	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, file multipart.File) (*models.TblMedicalRecord, error)
 	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
 	GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error)
@@ -17,10 +19,12 @@ type TblMedicalRecordService interface {
 
 type tblMedicalRecordServiceImpl struct {
 	tblMedicalRecordRepo repository.TblMedicalRecordRepository
+	apiService           ApiService
+	diagnosticService    DiagnosticService
 }
 
-func NewTblMedicalRecordService(repo repository.TblMedicalRecordRepository) TblMedicalRecordService {
-	return &tblMedicalRecordServiceImpl{tblMedicalRecordRepo: repo}
+func NewTblMedicalRecordService(repo repository.TblMedicalRecordRepository, apiService ApiService, diagnosticService DiagnosticService) TblMedicalRecordService {
+	return &tblMedicalRecordServiceImpl{tblMedicalRecordRepo: repo, apiService: apiService, diagnosticService: diagnosticService}
 }
 
 func (s *tblMedicalRecordServiceImpl) GetUserMedicalRecords(userID int64) ([]models.TblMedicalRecord, error) {
@@ -31,7 +35,8 @@ func (s *tblMedicalRecordServiceImpl) GetAllTblMedicalRecords(limit int, offset 
 	return s.tblMedicalRecordRepo.GetAllTblMedicalRecords(limit, offset)
 }
 
-func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, file multipart.File) (*models.TblMedicalRecord, error) {
+	fmt.Println("file data", file)
 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(data)
 	if err != nil {
 		return nil, err
@@ -45,8 +50,32 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 	if err != nil {
 		return nil, err
 	}
-	return record, nil
 
+	// if record.RecordCategory == "Test Reports" {
+	// 	var imageCopy bytes.Buffer
+	// 	if _, err := io.Copy(&imageCopy, file); err != nil {
+	// 		log.Printf("Failed to copy image buffer for async call (record %d): %v", record.RecordId, err)
+	// 		return record, nil
+	// 	}
+
+	// 	go func(imageBuf bytes.Buffer, recordID, userID uint64) {
+	// 		reportData, err := s.apiService.CallGeminiService(&imageBuf)
+	// 		if err != nil {
+	// 			log.Printf("Gemini Service Error for record %d: %v", recordID, err)
+	// 			return
+	// 		}
+
+	// 		message, err := s.diagnosticService.DigitizeDiagnosticReport(reportData, userID)
+	// 		if err != nil {
+	// 			log.Printf("Digitize error for record %d: %v", recordID, err)
+	// 			return
+	// 		}
+
+	// 		log.Printf("Digitization result for record %d: %v", recordID, message)
+	// 	}(imageCopy, uint64(record.RecordId), createdBy)
+	// }
+
+	return record, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMedicalRecord, userId uint64) error {
