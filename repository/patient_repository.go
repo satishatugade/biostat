@@ -634,7 +634,7 @@ func (p *PatientRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {
 func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool, error) {
 	var user models.SystemUser_
 	isComplete := false
-	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "address", "abha_number", "emergency_contact", "gender", "date_of_birth").
+	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "abha_number", "gender", "date_of_birth").
 		Where("user_id = ?", user_id).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -642,7 +642,7 @@ func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool
 		}
 		return false, err
 	}
-	isComplete = user.Gender != "" && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != "" && user.Address != "" && user.AbhaNumber != "" && user.EmergencyContact != ""
+	isComplete = user.Gender != "" && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != "" && user.AbhaNumber != ""
 	return isComplete, nil
 }
 
