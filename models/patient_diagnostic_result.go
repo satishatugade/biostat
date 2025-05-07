@@ -207,6 +207,10 @@ type LabReport struct {
 			TestComponentName string `json:"test_component_name"`
 			ResultValue       string `json:"result_value"`
 			Units             string `json:"units"`
+			ReferenceRange    struct {
+				Min string `json:"min"`
+				Max string `json:"max"`
+			} `json:"reference_range"`
 		} `json:"components"`
 	} `json:"tests"`
 	RawText string `json:"raw_text"`

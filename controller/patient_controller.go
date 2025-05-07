@@ -1204,13 +1204,12 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
 		return
 	}
-	// log.Println("CallGeminiService Response : reportData : ", reportData)
 	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, nil)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report data saved successfully", nil, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {

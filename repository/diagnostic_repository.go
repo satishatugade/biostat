@@ -4,8 +4,8 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"errors"
-	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -69,7 +69,7 @@ func (r *DiagnosticRepositoryImpl) LoadDiagnosticLabData() map[string]uint64 {
 		return nil
 	}
 	for _, lab := range labs {
-		labMap[lab.LabName] = lab.DiagnosticLabId
+		labMap[strings.ToLower(lab.LabName)] = lab.DiagnosticLabId
 	}
 	return labMap
 }
@@ -603,7 +603,6 @@ func (r *DiagnosticRepositoryImpl) GetTestReferenceRangeAuditRecord(testReferenc
 	return audits, totalRecords, nil
 }
 
-// LoadDiagnosticTestMasterData loads test and component data from the database into the cache.
 func (s *DiagnosticRepositoryImpl) LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64) {
 	testNameCache := make(map[string]uint64)
 	componentNameCache := make(map[string]uint64)
@@ -611,20 +610,20 @@ func (s *DiagnosticRepositoryImpl) LoadDiagnosticTestMasterData() (map[string]ui
 	var tests []models.DiagnosticTest
 	if err := s.db.Find(&tests).Error; err != nil {
 		log.Printf("Error loading test master data: %v", err)
-		return nil, nil // Return nil maps on error
+		return nil, nil
 	}
 	for _, test := range tests {
-		testNameCache[test.TestName] = test.DiagnosticTestId
+		testNameCache[strings.ToLower(test.TestName)] = test.DiagnosticTestId
 	}
 
 	var components []models.DiagnosticTestComponent
 	if err := s.db.Find(&components).Error; err != nil {
 		log.Printf("Error loading component master data: %v", err)
-		return nil, nil // Return nil maps on error
+		return nil, nil
 	}
 	for _, component := range components {
-		key := fmt.Sprintf("%s_%s", component.TestComponentName, component.Units)
-		componentNameCache[key] = component.DiagnosticTestComponentId
+		// key := fmt.Sprintf("%s_%s", component.TestComponentName, component.Units)
+		componentNameCache[strings.ToLower(component.TestComponentName)] = component.DiagnosticTestComponentId
 	}
 	return testNameCache, componentNameCache
 }
