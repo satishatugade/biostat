@@ -41,7 +41,7 @@ func FetchEmailsWithAttachments(service *gmail.Service, userId uint64, accessTok
 		return nil, err
 	}
 	userEmail := profile.EmailAddress
-	query := fmt.Sprintf("subject:report has:attachment")
+	query := fmt.Sprintf(`subject:"health record" has:attachment`)
 	results, err := service.Users.Messages.List("me").Q(query).Do()
 	if err != nil {
 		return nil, err
