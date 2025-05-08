@@ -1020,6 +1020,96 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 	return
 }
 
+func (pc *PatientController) UpdateUserAppointment(ctx *gin.Context) {
+	var updateReq models.UpdateAppointmentRequest
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting "))
+		return
+	}
+	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		return
+	}
+	if err := ctx.ShouldBindJSON(&updateReq); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in UpdateAppointment:", r)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update appointment", nil, errors.New("Failed to update appointment"))
+			return
+		}
+	}()
+
+	existing, err := pc.appointmentService.FindAppointmentByID(tx, updateReq.AppointmentID)
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Appointment could not be updated", nil, err)
+		return
+	}
+	if updateReq.UpdateType == 1 {
+		existing.AppointmentDate = updateReq.AppointmentDate
+		existing.AppointmentTime = updateReq.AppointmentTime
+	}
+
+	updated, err := pc.appointmentService.UpdateAppointmentByType(tx, existing, updateReq.UpdateType, user_id)
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Appointment could not be updated", nil, err)
+		return
+	}
+
+	var providerInfo interface{}
+	if existing.ProviderType == "lab" {
+		lab, _ := pc.diagnosticService.GetLabById(existing.ProviderID)
+		providerInfo = utils.MapUserToPublicProviderInfo(*lab, "lab")
+	} else {
+		user, _ := pc.patientService.GetUserProfileByUserId(existing.ProviderID)
+		providerInfo = utils.MapUserToPublicProviderInfo(*user, existing.ProviderType)
+	}
+
+	appointmentResponse := models.AppointmentResponse{
+		AppointmentID:   updated.AppointmentID,
+		PatientID:       updated.PatientID,
+		ProviderType:    updated.ProviderType,
+		ProviderInfo:    providerInfo,
+		ScheduledBy:     updated.ScheduledBy,
+		AppointmentType: updated.AppointmentType,
+		AppointmentDate: updated.AppointmentDate,
+		AppointmentTime: updated.AppointmentTime,
+		DurationMinutes: updated.DurationMinutes,
+		IsInperson:      updated.IsInperson,
+		Status:          updated.Status,
+		MeetingUrl:      updated.MeetingUrl,
+		PaymentStatus:   updated.PaymentStatus,
+		Notes:           updated.Notes,
+		PaymentID:       updated.PaymentID,
+		CreatedAt:       updated.CreatedAt,
+		UpdatedAt:       updated.UpdatedAt,
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
+		return
+	}
+
+	var message string
+	if updateReq.UpdateType == 1 {
+		message = "Appointment rescheduled successfully"
+	} else {
+		message = "Appointment cancelled"
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, appointmentResponse, nil, nil)
+	return
+}
+
 func (mc *PatientController) GetAllLabs(c *gin.Context) {
 	_, exists := utils.GetUserDataContext(c)
 	if !exists {

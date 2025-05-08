@@ -91,3 +91,41 @@ type PatientInfo struct {
 	LastName   string `json:"last_name"`
 	BloodGroup string `json:"blood_group"`
 }
+
+type UpdateAppointmentRequest struct {
+	UpdateType      int       `json:"update_type"`
+	AppointmentID   uint64    `json:"appointment_id"`
+	AppointmentDate time.Time `json:"appointment_date,omitempty"`
+	AppointmentTime string    `json:"appointment_time,omitempty"`
+	DurationMinutes int       `json:"duration_minutes,omitempty"`
+}
+
+type AppointmentAudit struct {
+	AuditID         uint64    `gorm:"column:audit_id;primaryKey;autoIncrement" json:"audit_id"`
+	Action          string    `gorm:"column:action;size:20;not null" json:"action"`
+	ChangedBy       uint64    `gorm:"column:changed_by;not null" json:"changed_by"`
+	ChangeTimestamp time.Time `gorm:"column:change_timestamp;autoCreateTime" json:"change_timestamp"`
+
+	AppointmentID   uint64    `gorm:"column:appointment_id" json:"appointment_id"`
+	PatientID       uint64    `gorm:"column:patient_id" json:"patient_id"`
+	ProviderID      uint64    `gorm:"column:provider_id" json:"provider_id"`
+	ProviderType    string    `gorm:"column:provider_type;size:20" json:"provider_type"`
+	ScheduledBy     uint64    `gorm:"column:scheduled_by" json:"scheduled_by"`
+	AppointmentType string    `gorm:"column:appointment_type" json:"appointment_type"`
+	AppointmentDate time.Time `gorm:"column:appointment_date;type:date" json:"appointment_date"`
+	AppointmentTime string    `gorm:"column:appointment_time;type:time" json:"appointment_time"`
+	DurationMinutes int       `gorm:"column:duration_minutes" json:"duration_minutes"`
+	IsInperson      int       `gorm:"column:is_inperson" json:"is_inperson"`
+	MeetingUrl      string    `gorm:"column:meeting_url" json:"meeting_url"`
+	Status          string    `gorm:"column:status;size:20" json:"status"`
+	PaymentStatus   string    `gorm:"column:payment_status;size:20" json:"payment_status"`
+	PaymentID       uint64    `gorm:"column:payment_id" json:"payment_id"`
+	Notes           string    `gorm:"column:notes" json:"notes"`
+	CreatedAt       time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at" json:"updated_at"`
+	IsDeleted       int       `gorm:"column:is_deleted" json:"is_deleted"`
+}
+
+func (AppointmentAudit) TableName() string {
+	return "tbl_appointment_audit"
+}

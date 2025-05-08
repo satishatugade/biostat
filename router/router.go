@@ -286,7 +286,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		{"Appointments", http.MethodPost, constant.ScheduleAppointment, patientController.ScheduleAppointment},
 		{"Appointments", http.MethodPost, constant.GetAppointments, patientController.GetUserAppointments},
-
+		{"Appointments", http.MethodPut, constant.ScheduleAppointment, patientController.UpdateUserAppointment},
+		
 		{"Digi Locker", http.MethodPost, constant.SyncDigiLocker, patientController.DigiLockerSyncController},
 		{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadDigiLockerFile},
 
