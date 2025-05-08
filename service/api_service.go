@@ -75,20 +75,11 @@ func (s *ApiServiceImpl) CallGeminiService(image io.Reader) (models.LabReport, e
 }
 
 func (a *ApiServiceImpl) CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error) {
-	// jsonData, err := json.Marshal(data)
-	// if err != nil {
-	// 	return "", err
-	// }
-	var result models.ResultSummary
-	payload := map[string]int{
-		"patient_id": 1,
-	}
-
-	jsonData, err := json.Marshal(payload)
+	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return models.ResultSummary{}, err
 	}
-
+	var result models.ResultSummary
 	resp, err := http.Post(a.ReportSummaryAPI, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return models.ResultSummary{}, err

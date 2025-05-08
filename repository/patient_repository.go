@@ -3,6 +3,8 @@ package repository
 import (
 	"biostat/models"
 	"errors"
+	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -292,35 +294,134 @@ func (p *PatientRepositoryImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *mod
 	return input, nil
 }
 
+// func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
+// 	var reports []models.PatientDiagnosticReport
+
+// 	query := p.db.Debug().
+// 		Model(&models.PatientDiagnosticReport{}).Where("patient_id = ?", patientId).
+// 		Preload("DiagnosticLab").
+// 		Preload("DiagnosticLab.PatientDiagnosticTests").
+// 		Preload("DiagnosticLab.PatientReportAttachments").
+// 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
+// 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
+// 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange")
+
+// 	if patientId > 0 && patientDiagnosticReportId > 0 {
+// 		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
+// 			"patient_id = ? AND patient_diagnostic_report_id = ?", patientId, patientDiagnosticReportId)
+// 	} else {
+// 		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
+// 			"patient_id = ?", patientId)
+// 	}
+
+// 	err := query.Order("patient_diagnostic_report_id ASC").Find(&reports).Error
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return reports, nil
+// }
+
 func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
-	var reports []models.PatientDiagnosticReport
 
-	query := p.db.Debug().
-		Model(&models.PatientDiagnosticReport{}).Where("patient_id = ?", patientId).
-		Preload("DiagnosticLab").
-		Preload("DiagnosticLab.PatientDiagnosticTests").
-		Preload("DiagnosticLab.PatientReportAttachments").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
-		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange")
-	// Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue")
-
-	if patientId > 0 && patientDiagnosticReportId > 0 {
-		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
-			"patient_id = ? AND patient_diagnostic_report_id = ?", patientId, patientDiagnosticReportId)
-	} else {
-		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
-			"patient_id = ?", patientId)
-	}
-
-	err := query.Order("patient_diagnostic_report_id ASC").Find(&reports).Error
+	_, uniqueReportIds, err := p.GetPatientDiagnosticReportIds(patientId, patientDiagnosticReportId)
 	if err != nil {
-		return nil, err
+		log.Printf("Failed to get patient diagnostic report and lab: %v", err)
 	}
-	return reports, nil
+	reportsWithDetails, err := p.GetPatientDiagnosticTestResult(uniqueReportIds)
+	if err != nil {
+		log.Fatalf("Failed to get patient diagnostic tests: %v", err)
+	}
+	return reportsWithDetails, nil
 }
 
-// AddPatientRelative implements PatientRepository.
+func (p *PatientRepositoryImpl) RestructurePatientDiagnosticReport(reports []models.PatientDiagnosticReport) []map[string]interface{} {
+	restructuredResponse := make([]map[string]interface{}, len(reports))
+	for i, report := range reports {
+		restructured := map[string]interface{}{
+			"patient_diagnostic_report_id": report.PatientDiagnosticReportId,
+			"patient_id":                   report.PatientId,
+			"payment_status":               report.PaymentStatus,
+			"report_name":                  report.ReportName,
+			"collected_date":               report.CollectedDate,
+			"collected_at":                 report.CollectedAt,
+			"processed_at":                 report.ProcessedAt,
+			"report_date":                  report.ReportDate,
+			"report_status":                report.ReportStatus,
+			"observation":                  report.Observation,
+			"comments":                     report.Comments,
+			"review_by":                    report.ReviewBy,
+			"review_date":                  report.ReviewDate,
+			"shared_flag":                  report.SharedFlag,
+			"shared_with":                  report.SharedWith,
+			"diagnostic_lab":               report.DiagnosticLabs,
+		}
+		if lab, ok := restructured["diagnostic_lab"].(models.DiagnosticLab); ok {
+			lab.PatientDiagnosticTests = report.PatientDiagnosticTests
+			restructured["diagnostic_lab"] = lab
+		} else if labs, ok := restructured["diagnostic_lab"].([]models.DiagnosticLab); ok && len(labs) > 0 {
+			labs[0].PatientDiagnosticTests = report.PatientDiagnosticTests
+			restructured["diagnostic_lab"] = labs[0]
+		}
+		restructuredResponse[i] = restructured
+	}
+	return restructuredResponse
+}
+
+func (p *PatientRepositoryImpl) GetPatientDiagnosticReportIds(patientId uint64, reportId uint64) (map[uint64]models.PatientDiagnosticReport, []uint64, error) {
+	var reports []models.PatientDiagnosticReport
+	query := p.db.Debug().Joins("DiagnosticLabs").Where("patient_id = ?", patientId)
+
+	if reportId > 0 {
+		query = query.Where("patient_diagnostic_report_id = ?", reportId)
+	}
+
+	result := query.Find(&reports)
+
+	if result.Error != nil {
+		log.Printf("GORM error fetching report and lab: %v", result.Error)
+		return nil, nil, fmt.Errorf("error fetching report and lab: %w", result.Error)
+	}
+
+	reportsMap := make(map[uint64]models.PatientDiagnosticReport)
+	uniqueReportIDs := make([]uint64, 0)
+	reportIDSet := make(map[uint64]bool)
+
+	for _, report := range reports {
+		reportsMap[report.PatientDiagnosticReportId] = report
+		if !reportIDSet[report.PatientDiagnosticReportId] {
+			uniqueReportIDs = append(uniqueReportIDs, report.PatientDiagnosticReportId)
+			reportIDSet[report.PatientDiagnosticReportId] = true
+		}
+	}
+
+	return reportsMap, uniqueReportIDs, nil
+}
+
+func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(reportIds []uint64) ([]models.PatientDiagnosticReport, error) {
+	var patientReport []models.PatientDiagnosticReport
+	result := p.db.Debug().Model(&models.PatientDiagnosticReport{}).
+		Preload("DiagnosticLabs").
+		Preload("DiagnosticLabs.PatientReportAttachments").
+		Preload("PatientDiagnosticTests.DiagnosticTest").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
+		Where("patient_diagnostic_report_id IN (?)", reportIds).
+		Find(&patientReport)
+
+	if result.Error != nil {
+		log.Printf("GORM error fetching patient diagnostic tests: %v", result.Error)
+		return nil, fmt.Errorf("error fetching patient diagnostic tests: %w", result.Error)
+	}
+
+	// reportMap := make(map[uint64]models.PatientDiagnosticReport)
+	// for _, test := range patientReport {
+	// 	reportMap[test.PatientDiagnosticReportId] = test
+	// }
+
+	return patientReport, nil
+}
+
 func (p *PatientRepositoryImpl) AddPatientRelative(relative *models.PatientRelative) error {
 	return p.db.Create(relative).Error
 }

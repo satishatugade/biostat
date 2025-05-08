@@ -54,7 +54,7 @@ type PatientDiagnosticReport struct {
 	DiagnosticLabId           uint64    `gorm:"column:diagnostic_lab_id" json:"diagnostic_lab_id"`
 	PatientId                 uint64    `gorm:"column:patient_id" json:"patient_id"`
 	PaymentStatus             string    `gorm:"column:payment_status" json:"payment_status"`
-	DoctorId                  uint64    `gorm:"column:doctor_id" json:"doctor_id"`
+	ReportName                string    `gorm:"column:report_name" json:"report_name"`
 	CollectedDate             time.Time `gorm:"column:collected_date" json:"collected_date"`
 	CollectedAt               string    `gorm:"column:collected_at" json:"collected_at"`
 	ProcessedAt               string    `gorm:"column:processed_at" json:"processed_at"`
@@ -69,9 +69,9 @@ type PatientDiagnosticReport struct {
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
-	// PatientDiagnosticTests   []PatientDiagnosticTest   `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
+	PatientDiagnosticTests []PatientDiagnosticTest `gorm:"foreignKey:PatientDiagnosticReportId;references:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
 	// PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
-	DiagnosticLab DiagnosticLab `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId"`
+	DiagnosticLabs DiagnosticLab `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId" json:"diagnostic_lab"`
 }
 
 func (PatientDiagnosticReport) TableName() string {
@@ -87,7 +87,8 @@ type PatientDiagnosticTest struct {
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
-	DiagnosticTest DiagnosticTest `gorm:"foreignKey:DiagnosticTestId;references:DiagnosticTestId" json:"diagnostic_test"`
+	PatientDiagnosticReport PatientDiagnosticReport `gorm:"foreignKey:PatientDiagnosticReportId;references:PatientDiagnosticReportId" json:"-"`
+	DiagnosticTest          DiagnosticTest          `gorm:"foreignKey:DiagnosticTestId;references:DiagnosticTestId" json:"diagnostic_test"`
 }
 
 func (PatientDiagnosticTest) TableName() string {
@@ -193,6 +194,7 @@ type ResultSummary struct {
 
 type LabReport struct {
 	ReportDetails struct {
+		ReportName       string `json:"report_name"`
 		ReportDate       string `json:"report_date"`
 		LabName          string `json:"lab_name"`
 		LabEmail         string `json:"lab_email"`
@@ -251,11 +253,11 @@ type DiagnosticLabCenter struct {
 }
 
 type PatientDiagnosticTestInput struct {
-	TestNote        string                `json:"test_note"`
-	TestName        string                `json:"test_name"`
-	TestDate        time.Time             `json:"test_date"`
-	TestComponents  []TestComponent       `json:"test_components"`
-	DiagnosticTests []DiagnosticTestInput `json:"diagnostic_test"`
+	TestNote       string          `json:"test_note"`
+	TestName       string          `json:"test_name"`
+	TestDate       time.Time       `json:"test_date"`
+	TestComponents []TestComponent `json:"test_components"`
+	// DiagnosticTests []DiagnosticTestInput `json:"diagnostic_test"`
 }
 
 type DiagnosticTestInput struct {

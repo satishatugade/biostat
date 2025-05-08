@@ -284,7 +284,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		DiagnosticLabId: diagnosticLabId,
 		PatientId:       patientId,
 		PaymentStatus:   "Pending",
-		DoctorId:        2,
+		ReportName:      reportData.ReportDetails.ReportName,
 		CollectedDate:   parsedDate,
 		ReportDate:      parsedDate,
 		Observation:     "",
