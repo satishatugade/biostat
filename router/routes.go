@@ -4,6 +4,7 @@ import (
 	"biostat/auth"
 	"biostat/controller"
 	"biostat/database"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -97,7 +98,7 @@ func GmailSyncRoutes(g *gin.RouterGroup, gmailSyncController *controller.GmailSy
 	}
 }
 
-func Routing() {
+func Routing(envFile string) {
 	r := routes{
 		router: gin.Default(),
 	}
@@ -114,12 +115,15 @@ func Routing() {
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	db := database.GetDBConn()
 	InitializeRoutes(apiGroup, db)
-	r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
-	// err := r.router.RunTLS(":"+os.Getenv("GO_SERVER_PORT"),
-	// 	"/etc/letsencrypt/live/biostat.catseye.cloud/fullchain.pem",
-	// 	"/etc/letsencrypt/live/biostat.catseye.cloud/privkey.pem")
+	if envFile == "dev" {
+		r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
+	} else {
+		err := r.router.RunTLS(":"+os.Getenv("GO_SERVER_PORT"),
+			"/etc/letsencrypt/live/biostat.catseye.cloud/fullchain.pem",
+			"/etc/letsencrypt/live/biostat.catseye.cloud/privkey.pem")
 
-	// if err != nil {
-	// 	log.Fatal("Failed to start HTTPS server: ", err)
-	// }
+		if err != nil {
+			log.Fatal("Failed to start HTTPS server: ", err)
+		}
+	}
 }

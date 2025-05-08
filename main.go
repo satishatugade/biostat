@@ -13,28 +13,26 @@ import (
 )
 
 func main() {
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Fatalf("Error loading .env file: %v", err)
-	// }
-	// env := os.Getenv("APP_ENV")
-	// var envFile string
-
-	// switch env {
-	// case "dev":
-	// 	envFile = ".env.dev"
-	// case "uat":
-	// 	envFile = ".env.uat"
-	// case "prod":
-	// 	envFile = ".env.prod"
-	// default:
-	// 	log.Println("No environment set or environment is not supported, using default .env.dev")
-	// 	envFile = ".env.dev"
-	// }
-	// fmt.Println("ENV profile active ", envFile)
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
+	}
+	env := os.Getenv("APP_ENV")
+	var envFile string
+
+	switch env {
+	case "dev":
+		envFile = ".env.dev"
+	case "uat":
+		envFile = ".env.uat"
+	case "prod":
+		envFile = ".env.prod"
+	default:
+		log.Println("No environment set or environment is not supported, using default .env.dev")
+		envFile = ".env.dev"
+	}
+	if err := godotenv.Load(envFile); err != nil {
+		log.Fatalf("Error loading %s file: %v", envFile, err)
 	}
 	logDir := os.Getenv("LOG_DIRECTORY")
 	logFile := os.Getenv("LOG_FILE")
@@ -49,17 +47,18 @@ func main() {
 	defer file.Close()
 	log.SetFlags(log.Ldate | log.Ltime)
 	log.SetOutput(file)
+	log.Println("ENV profile active ", envFile)
 	log.Println("Biostat Application Started.....")
 	utils.InitKeycloak()
 	database.InitDB()
 
-	router.Routing()
+	router.Routing(env)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit // Wait for termination signal
+	<-quit
 
 	log.Println("Shutting down server...")
-	database.GracefulShutdown() // Close database connection
+	database.GracefulShutdown()
 	log.Println("Server gracefully stopped.")
 }

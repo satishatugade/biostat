@@ -5,7 +5,6 @@ import (
 	"biostat/controller"
 	"biostat/repository"
 	"biostat/service"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +12,6 @@ import (
 )
 
 func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
-	log.Println("Inside InitializeRoutes.....")
 	var allergyRepo = repository.NewAllergyRepository(db)
 	var allergyService = service.NewAllergyService(allergyRepo)
 

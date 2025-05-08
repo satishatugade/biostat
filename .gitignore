@@ -1,4 +1,7 @@
 .env 
+.env.dev
+.env.prod
+.env.uat
 vendor/ 
 logs/
 test.go
