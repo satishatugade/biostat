@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 )
 
 type ApiService interface {
-	CallGeminiService(image io.Reader) (models.LabReport, error)
+	CallGeminiService(file io.Reader, filename string) (models.LabReport, error)
 	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
 }
 
@@ -30,21 +32,41 @@ func NewApiService() ApiService {
 	}
 }
 
-func (s *ApiServiceImpl) CallGeminiService(image io.Reader) (models.LabReport, error) {
+func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (models.LabReport, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	// Create a form file field with dummy filename
-	part, err := writer.CreateFormFile("image", "report_image.jpg")
+	buf := make([]byte, 512)
+	n, err := file.Read(buf)
 	if err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to create form file: %w", err)
+		return models.LabReport{}, fmt.Errorf("failed to read file for MIME detection: %w", err)
 	}
-	if _, err := io.Copy(part, image); err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to copy image data: %w", err)
-	}
-	writer.Close()
+	mimeType := http.DetectContentType(buf[:n])
+	log.Printf("Detected MIME type: %s", mimeType)
 
-	// Create and send request
+	// Reconstruct the file reader
+	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
+
+	// Prepare custom header
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
+	h.Set("Content-Type", mimeType)
+
+	// 👇 Create the part with proper MIME type
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return models.LabReport{}, fmt.Errorf("failed to create form part: %w", err)
+	}
+
+	// Copy file content to form part
+	if _, err := io.Copy(part, fileReader); err != nil {
+		return models.LabReport{}, fmt.Errorf("failed to copy file data: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return models.LabReport{}, fmt.Errorf("failed to close writer: %w", err)
+	}
+
 	req, err := http.NewRequest("POST", s.GeminiAPIURL, body)
 	if err != nil {
 		return models.LabReport{}, fmt.Errorf("failed to create request: %w", err)
@@ -57,18 +79,14 @@ func (s *ApiServiceImpl) CallGeminiService(image io.Reader) (models.LabReport, e
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		return models.LabReport{}, fmt.Errorf("Python service returned error: %s, body: %s", resp.Status, string(respBody))
+		respBody, _ := io.ReadAll(resp.Body)
+		return models.LabReport{}, fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
 	}
 
 	var reportData models.LabReport
-	if err := json.Unmarshal(respBody, &reportData); err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to parse JSON response: %w, body: %s", err, string(respBody))
+	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
+		return models.LabReport{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
 	return reportData, nil

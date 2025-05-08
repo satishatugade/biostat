@@ -1036,7 +1036,7 @@ func (pc *PatientController) UpdateUserAppointment(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	
+
 	tx := database.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -1281,7 +1281,7 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	}
 	log.Printf("Request Content-Type: %v", ctx.Request.Header.Get("Content-Type"))
 	log.Printf("Request Headers: %v", ctx.Request.Header)
-	file, _, err := ctx.Request.FormFile("image")
+	file, fileHeader, err := ctx.Request.FormFile("file")
 	if err != nil {
 		log.Printf("No image attached or failed to read image: %v", err)
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to get image from request", nil, err)
@@ -1289,7 +1289,19 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	}
 	defer file.Close()
 
-	reportData, err := pc.apiService.CallGeminiService(file)
+	contentType := fileHeader.Header.Get("Content-Type")
+	allowedTypes := map[string]bool{
+		"image/jpeg":      true,
+		"image/png":       true,
+		"application/pdf": true,
+	}
+
+	if !allowedTypes[contentType] {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Unsupported file type. Only JPEG, PNG, and PDF are allowed", nil, nil)
+		return
+	}
+
+	reportData, err := pc.apiService.CallGeminiService(file, fileHeader.Filename)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
 		return

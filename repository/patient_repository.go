@@ -825,7 +825,6 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		pdr.collected_date,
 		pdr.report_date,
 		pdr.report_status,
-		pdt.patient_test_id,
 		pdt.test_note,
 		pdt.test_date,
 		pdtrv.diagnostic_test_id,
@@ -843,7 +842,7 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	INNER JOIN tbl_patient_diagnostic_test pdt 
 		ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
 	INNER JOIN tbl_patient_diagnostic_test_result_value pdtrv 
-		ON pdt.patient_diagnostic_report_id = pdtrv.patient_diagnostic_report_id
+		ON pdt.diagnostic_test_id = pdtrv.diagnostic_test_id
 	LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
 		ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
 	LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
