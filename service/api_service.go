@@ -35,6 +35,7 @@ func NewApiService() ApiService {
 func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (models.LabReport, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
+	log.Println("File Name : ", filename)
 
 	buf := make([]byte, 512)
 	n, err := file.Read(buf)
@@ -44,21 +45,17 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 	mimeType := http.DetectContentType(buf[:n])
 	log.Printf("Detected MIME type: %s", mimeType)
 
-	// Reconstruct the file reader
 	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
 
-	// Prepare custom header
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
 	h.Set("Content-Type", mimeType)
 
-	// 👇 Create the part with proper MIME type
 	part, err := writer.CreatePart(h)
 	if err != nil {
 		return models.LabReport{}, fmt.Errorf("failed to create form part: %w", err)
 	}
 
-	// Copy file content to form part
 	if _, err := io.Copy(part, fileReader); err != nil {
 		return models.LabReport{}, fmt.Errorf("failed to copy file data: %w", err)
 	}

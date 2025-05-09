@@ -7,10 +7,12 @@ import (
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -633,9 +635,17 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		return
 	}
 
-	fileData, err := utils.ReadFileBytes(file)
+	// fileData, err := utils.ReadFileBytes(file)
+	// if err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+	// 	return
+	// }
+	var fileBuf bytes.Buffer
+	tee := io.TeeReader(file, &fileBuf)
+
+	fileData, err := io.ReadAll(tee)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to read file", nil, err)
 		return
 	}
 
@@ -656,7 +666,7 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	newRecord.SourceAccount = userDigiToken.ProviderId
 	newRecord.UploadedBy = user_id
 
-	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, file)
+	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, &fileBuf, header.Filename)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return

@@ -347,7 +347,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					PatientId:                 patientId,
 					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
 				}
-				log.Println("PatientDiagnosticTestResultValue saved result ", result)
 				_, err := s.diagnosticRepo.SavePatientReportResultValue(tx, &result)
 				if err != nil {
 					log.Println("ERROR saving test result:", err)
@@ -400,7 +399,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					PatientId:                 patientId,
 					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
 				}
-				log.Println("PatientDiagnosticTestResultValue saved result else condition ", result)
 				_, resultValueErr := s.diagnosticRepo.SavePatientReportResultValue(tx, &result)
 				if resultValueErr != nil {
 					log.Println("ERROR saving test result:", resultValueErr)
