@@ -29,10 +29,9 @@ const (
 
 	NursesList = "/nurse-list"
 
-	// PatientDiseaseCondition = "/patient-disease-condition/:patient_disease_profile_id"
 	PatientResultValue        = "/diagnostic-value"
 	FilterResultValue         = "/filter-result-value"
-	PatientDiseaseCondition   = "/patient-disease-condition/:patient_id"
+	PatientDiseaseCondition   = "/patient-disease-condition"
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
 	PatientRegistration       = "/patient-registration"
 	PatientPrescription       = "/patient-prescription"
@@ -76,6 +75,7 @@ const (
 	SymptomTypeAudit                     = "/symptom-type-audit"
 	DiseaseProfile                       = "/disease-profile"
 	AttachDiseaseProfile                 = "/attach-disease-profile"
+	UpdateDiseaseProfile                 = "/update-disease-profile"
 	SingleDiseaseProfile                 = "/disease-profile/:disease_profile_id"
 	DiagnosticTests                      = "/diagnostic-tests"
 	DDTMapping                           = "/ddt-mapping"

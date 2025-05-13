@@ -8,8 +8,8 @@ type PatientDiseaseProfile struct {
 	PatientDiseaseProfileId uint64    `gorm:"primaryKey;autoIncrement" json:"patient_disease_profile_id"`
 	PatientId               uint64    `gorm:"not null" json:"patient_id"`
 	DiseaseProfileId        uint64    `gorm:"not null" json:"disease_profile_id"`
-	ReminderFlag            *bool     `json:"reminder_flag"`        // Nullable
-	DietPlanSubscribed      *bool     `json:"diet_plan_subscribed"` // Nullable
+	ReminderFlag            *bool     `json:"reminder_flag"`
+	DietPlanSubscribed      *bool     `json:"diet_plan_subscribed"`
 	AttachedDate            time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"attached_date"`
 	UpdatedAt               time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	AttachedFlag            int       `json:"attached_flag"`
@@ -433,6 +433,14 @@ type DiseaseDiagnosticTestMapping struct {
 
 func (DiseaseDiagnosticTestMapping) TableName() string {
 	return "tbl_disease_diagnostic_test_mapping"
+}
+
+type DPRequest struct {
+	DiseaseProfileId  uint64 `json:"disease_profile_id" binding:"required"`
+	AttachedFlag      uint64 `json:"attached_flag"`
+	ReminderFlag      *bool  `json:"reminder_flag"`
+	DietPlanSubscibed *bool  `json:"diet_plan_subscribed"`
+	Flag              string `json:"flag"`
 }
 
 func (d *Disease) SetCreatedBy(userId string) {

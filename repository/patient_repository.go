@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"biostat/database"
 	"biostat/models"
 	"errors"
 	"fmt"
@@ -16,8 +17,9 @@ type PatientRepository interface {
 	AddPatientPrescription(*models.PatientPrescription) error
 	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionByPatientId(patientId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
-	GetPatientDiseaseProfiles(patientId string) ([]models.PatientDiseaseProfile, error)
+	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
+	UpdateFlag(patientId uint64, req *models.DPRequest) error
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
 	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
@@ -256,7 +258,7 @@ func (p *PatientRepositoryImpl) UpdateUserAddressByUserId(userId uint64, newAddr
 	return newAddress, nil
 }
 
-func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error) {
+func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error) {
 	var patientDiseaseProfiles []models.PatientDiseaseProfile
 
 	err := p.db.Preload("DiseaseProfile").
@@ -276,7 +278,7 @@ func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId string) ([]m
 		Preload("DiseaseProfile.Disease.DiagnosticTests").
 		Preload("DiseaseProfile.Disease.DiagnosticTests.Components").
 		// Where("patient_disease_profile_id = ?", PatientDiseaseProfileId).
-		Where("patient_id = ?", PatientId).
+		Where("patient_id = ? AND attached_flag = ?", PatientId, AttachedFlag).
 		Find(&patientDiseaseProfiles).Error
 
 	if err != nil {
@@ -292,6 +294,46 @@ func (p *PatientRepositoryImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *mod
 		return nil, err
 	}
 	return input, nil
+}
+
+func (ps *PatientRepositoryImpl) UpdateFlag(patientId uint64, req *models.DPRequest) error {
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in UpdateFlag:", r)
+		}
+	}()
+
+	query := tx.Model(&models.PatientDiseaseProfile{}).
+		Where("patient_id = ? AND disease_profile_id = ?", patientId, req.DiseaseProfileId)
+
+	switch req.Flag {
+	case "profile":
+		if err := query.Update("attached_flag", req.AttachedFlag).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	case "diet":
+		if err := query.Update("diet_plan_subscribed", req.DietPlanSubscibed).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	case "reminder":
+		if err := query.Update("reminder_flag", req.ReminderFlag).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	default:
+		tx.Rollback()
+		return fmt.Errorf("invalid flag: %s", req.Flag)
+	}
+
+	return tx.Commit().Error
 }
 
 // func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {

@@ -16,8 +16,9 @@ type PatientService interface {
 	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
-	GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error)
+	GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
+	UpdateFlag(patientId uint64, req *models.DPRequest) error
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]map[string]interface{}, error)
 	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error)
 
@@ -106,15 +107,18 @@ func (s *PatientServiceImpl) AddPatientPrescription(prescription *models.Patient
 	return s.patientRepo.AddPatientPrescription(prescription)
 }
 
-func (s *PatientServiceImpl) GetPatientDiseaseProfiles(PatientId string) ([]models.PatientDiseaseProfile, error) {
-	return s.patientRepo.GetPatientDiseaseProfiles(PatientId)
+func (s *PatientServiceImpl) GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error) {
+	return s.patientRepo.GetPatientDiseaseProfiles(PatientId, 0)
 }
 
 func (s *PatientServiceImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error) {
 	return s.patientRepo.AddPatientDiseaseProfile(tx, input)
 }
 
-// AddPatientRelative implements PatientService.
+func (s *PatientServiceImpl) UpdateFlag(patientId uint64, req *models.DPRequest) error {
+	return s.patientRepo.UpdateFlag(patientId, req)
+}
+
 func (s *PatientServiceImpl) AddPatientRelative(relative *models.PatientRelative) error {
 	return s.patientRepo.AddPatientRelative(relative)
 

@@ -132,9 +132,18 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientDiseaseProfiles(c *gin.Context) {
-	PatientId := c.Param("patient_id")
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
 
-	diseaseProfiles, err := pc.patientService.GetPatientDiseaseProfiles(PatientId)
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+	diseaseProfiles, err := pc.patientService.GetPatientDiseaseProfiles(patientId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient disease profiles not found", nil, err)
 		return
@@ -1422,17 +1431,15 @@ func (pc *PatientController) GetDiseaseProfiles(ctx *gin.Context) {
 		message = "Diseases profile info retrieved successfully"
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, summaryDiseaseProfiles, pagination, nil)
-	return
 }
 
 func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
-	sub, subExists := ctx.Get("sub")
-	if !subExists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Authentication token is missing or invalid", nil, errors.New("unable to retrieve user 'sub' from context"))
+	authUserId, exists := utils.GetUserDataContext(ctx)
+	if !exists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
-
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	user_id, err := pc.patientService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
 		return
@@ -1467,7 +1474,7 @@ func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
 		return
 	}
 
-	diseaseProfile, err := pc.patientService.AddPatientDiseaseProfile(tx, &models.PatientDiseaseProfile{PatientId: user_id, DiseaseProfileId: userReq.DiseaseProfileID})
+	diseaseProfile, err := pc.patientService.AddPatientDiseaseProfile(tx, &models.PatientDiseaseProfile{PatientId: user_id, DiseaseProfileId: userReq.DiseaseProfileID, AttachedFlag: 0})
 	if err != nil {
 		tx.Rollback()
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to save disease profile", nil, err)
@@ -1480,7 +1487,33 @@ func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Disease Profile attached", diseaseProfile, nil, nil)
 }
 
-var shortURLMap = make(map[string]string) // Simulated in-memory store
+func (pc *PatientController) UpdateDiseaseProfile(ctx *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(ctx)
+	if !exists {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	user_id, err := pc.patientService.GetUserIdBySUB(authUserId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
+		return
+	}
+	var req models.DPRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	err = pc.patientService.UpdateFlag(user_id, &req)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to detach disease profile", nil, err)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Disease profile updated", nil, nil, nil)
+}
+
+var shortURLMap = make(map[string]string)
 
 func generateShortCode() string {
 	b := make([]byte, 6)
