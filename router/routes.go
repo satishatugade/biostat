@@ -106,7 +106,7 @@ func Routing(envFile string) {
 	r.router.Use(cors.New(cors.Config{
 		AllowOrigins:     corsOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
-		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "Cache-Control"},
+		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "delegate_user_id", "Cache-Control"},
 		AllowCredentials: true,
 	}))
 	r.router.GET("/", func(ctx *gin.Context) {

@@ -35,7 +35,7 @@ type PatientService interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
-	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, int64, int64, int64, int64, error)
+	GetUserOnboardingStatusByUID(uid uint64) (bool, bool, bool, int64, int64, int64, int64, error)
 	GetUserSUBByID(ID uint64) (string, error)
 	GetUserIdBySUB(sub string) (uint64, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
@@ -247,12 +247,7 @@ func (s *PatientServiceImpl) GetUserProfileByUserId(userId uint64) (*models.Syst
 	return user, nil
 }
 
-func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, int64, int64, int64, int64, error) {
-	uid, err := s.patientRepo.GetUserIdBySUB(SUB)
-	if err != nil {
-		return false, false, false, 0, 0, 0, 0, err
-	}
-
+func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(uid uint64) (bool, bool, bool, int64, int64, int64, int64, error) {
 	basicDetailsAdded, err := s.patientRepo.IsUserBasicProfileComplete(uid)
 	if err != nil {
 		return false, false, false, 0, 0, 0, 0, err

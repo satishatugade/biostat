@@ -3,6 +3,7 @@ package utils
 import (
 	"biostat/constant"
 	"biostat/models"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -559,4 +560,22 @@ func ToDiseaseProfileSummaryDTOs(profiles []models.DiseaseProfile) []models.Dise
 		summaries[i] = ToDiseaseProfileSummaryDTO(p)
 	}
 	return summaries
+}
+
+func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (uint64, error) {
+	sub, subExists := ctx.Get("sub")
+	if !subExists {
+		return 0, errors.New("User not found")
+	}
+
+	delegateUserID := ctx.GetHeader("delegate_user_id")
+	if delegateUserID != "" {
+		id, err := strconv.ParseUint(delegateUserID, 10, 64)
+		if err != nil {
+			return 0, errors.New("Invalid delegate_user_id")
+		}
+		return id, nil
+	}
+
+	return getUserIdBySubFunc(sub.(string))
 }
