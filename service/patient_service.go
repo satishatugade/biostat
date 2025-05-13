@@ -35,7 +35,8 @@ type PatientService interface {
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
-	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error)
+	GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, int64, int64, int64, int64, error)
+	GetUserSUBByID(ID uint64) (string, error)
 	GetUserIdBySUB(sub string) (uint64, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
@@ -246,27 +247,56 @@ func (s *PatientServiceImpl) GetUserProfileByUserId(userId uint64) (*models.Syst
 	return user, nil
 }
 
-func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, error) {
+func (s *PatientServiceImpl) GetUserOnboardingStatusByUID(SUB string) (bool, bool, bool, int64, int64, int64, int64, error) {
 	uid, err := s.patientRepo.GetUserIdBySUB(SUB)
 	if err != nil {
-		return false, false, false, err
+		return false, false, false, 0, 0, 0, 0, err
 	}
 
 	basicDetailsAdded, err := s.patientRepo.IsUserBasicProfileComplete(uid)
 	if err != nil {
-		return false, false, false, err
+		return false, false, false, 0, 0, 0, 0, err
 	}
 
 	familyDetailsAdded, err := s.patientRepo.IsUserFamilyDetailsComplete(uid)
 	if err != nil {
-		return false, false, false, err
+		return false, false, false, 0, 0, 0, 0, err
 	}
 
 	healthDetailsAdded, err := s.patientRepo.IsUserHealthDetailsComplete(uid)
 	if err != nil {
-		return false, false, false, err
+		return false, false, false, 0, 0, 0, 0, err
 	}
-	return basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, nil
+
+	noOfUpcomingAppointments, err := s.patientRepo.NoOfUpcomingAppointments(uid)
+	if err != nil {
+		return false, false, false, 0, 0, 0, 0, err
+	}
+
+	noOfMedicationsForDashboard, err := s.patientRepo.NoOfMedicationsForDashboard(uid)
+	if err != nil {
+		return false, false, false, 0, 0, 0, 0, err
+	}
+
+	noOfMessagesForDashboard, err := s.patientRepo.NoOfMessagesForDashboard(uid)
+	if err != nil {
+		return false, false, false, 0, 0, 0, 0, err
+	}
+
+	noOfLabReusltsForDashboard, err := s.patientRepo.NoOfLabReusltsForDashboard(uid)
+	if err != nil {
+		return false, false, false, 0, 0, 0, 0, err
+	}
+
+	return basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, noOfUpcomingAppointments, noOfMedicationsForDashboard, noOfMessagesForDashboard, noOfLabReusltsForDashboard, nil
+}
+
+func (s *PatientServiceImpl) GetUserSUBByID(id uint64) (string, error) {
+	sub, err := s.patientRepo.GetUserSUBByID(id)
+	if err != nil {
+		return "", err
+	}
+	return sub, nil
 }
 
 func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {

@@ -50,6 +50,11 @@ type PatientRepository interface {
 	IsUserHealthDetailsComplete(user_id uint64) (bool, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 	FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
+	GetUserSUBByID(ID uint64) (string, error)
+	NoOfUpcomingAppointments(patientID uint64) (int64, error)
+	NoOfMedicationsForDashboard(patientID uint64) (int64, error)
+	NoOfMessagesForDashboard(patientID uint64) (int64, error)
+	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 }
@@ -993,4 +998,46 @@ func (p *PatientRepositoryImpl) SaveUserHealthProfile(tx *gorm.DB, input *models
 		return nil, err
 	}
 	return input, nil
+}
+
+func (p *PatientRepositoryImpl) NoOfUpcomingAppointments(patientID uint64) (int64, error) {
+	var count int64
+	err := p.db.Table("tbl_appointment_master").
+		Where("patient_id = ? AND appointment_date > CURRENT_DATE AND is_deleted = 0 AND status NOT IN ?",
+			patientID, []string{"cancelled", "completed"}).
+		Count(&count).Error
+
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (p *PatientRepositoryImpl) NoOfMedicationsForDashboard(patientID uint64) (int64, error) {
+	return 0, nil
+}
+
+func (p *PatientRepositoryImpl) NoOfMessagesForDashboard(patientID uint64) (int64, error) {
+	return 0, nil
+}
+
+func (p *PatientRepositoryImpl) NoOfLabReusltsForDashboard(patientID uint64) (int64, error) {
+	var count int64
+	err := p.db.Table("tbl_patient_diagnostic_report").
+		Where("patient_id = ?", patientID).
+		Count(&count).Error
+
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (p *PatientRepositoryImpl) GetUserSUBByID(ID uint64) (string, error) {
+	var user models.SystemUser_
+	err := p.db.Select("auth_user_id").Where("user_id=?", ID).First(&user).Error
+	if err != nil {
+		return "", err
+	}
+	return user.AuthUserId, nil
 }

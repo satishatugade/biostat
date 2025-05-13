@@ -776,7 +776,7 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
 		return
 	}
-	basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, err := pc.patientService.GetUserOnboardingStatusByUID(sub.(string))
+	basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, noOfUpcomingAppointments, noOfMedicationsForDashboard, noOfMessagesForDashboard, noOfLabReusltsForDashboard, err := pc.patientService.GetUserOnboardingStatusByUID(sub.(string))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while gwtting Onboarding status", nil, err)
 		return
@@ -808,7 +808,13 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 			status.IsDLExpired = false
 		}
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully", gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded, "health_details": healthDetailsAdded, "DigiLocker": status.DigiLockerPresent, "IsDLExpired": status.IsDLExpired, "GmailPresent": status.GmailPresent}, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Onboarding details retrieved successfully",
+		gin.H{"basic_details": basicDetailsAdded, "family_details": familyDetailsAdded,
+			"health_details": healthDetailsAdded, "DigiLocker": status.DigiLockerPresent,
+			"IsDLExpired": status.IsDLExpired, "GmailPresent": status.GmailPresent,
+			"no_of_upcoming_appointments": noOfUpcomingAppointments, "no_of_medications_for_dashboard": noOfMedicationsForDashboard,
+			"no_of_messages_for_dashboard": noOfMessagesForDashboard, "no_of_lab_reuslts_for_dashboard": noOfLabReusltsForDashboard,
+		}, nil, nil)
 	return
 }
 
