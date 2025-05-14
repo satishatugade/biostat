@@ -1614,11 +1614,11 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 
 	authHeader := c.GetHeader("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	exchanged, err := auth.ExchangeToken(token)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Token exchange failed", nil, err)
-		return
-	}
+	// exchanged, err := auth.ExchangeToken(token)
+	// if err != nil {
+	// 	models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Token exchange failed", nil, err)
+	// 	return
+	// }
 
 	baseURL := os.Getenv("SHARE_REPORT_BASE_URL")
 	if baseURL == "" {
@@ -1626,7 +1626,7 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 		return
 	}
 
-	longLink := fmt.Sprintf("%s/shared-report?token=%s", baseURL, exchanged.AccessToken)
+	longLink := fmt.Sprintf("%s/shared-report?token=%s", baseURL, token)
 	shortCode := generateShortCode()
 	shortURLMap[shortCode] = longLink
 	shortURL := fmt.Sprintf("%s/v1/user/r/%s", os.Getenv("SHORT_URL_BASE"), shortCode)
