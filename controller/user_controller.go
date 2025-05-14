@@ -89,7 +89,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		return
 	}
 	log.Println("System User Created in DB with ID:", systemUser.UserId)
-	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName, nil)
+	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser.UserId, nil, roleMaster.RoleId, roleMaster.RoleName, nil)
 	if mappingError != nil {
 		tx.Rollback()
 		log.Println("Error while adding user mapping", mappingError)
@@ -256,8 +256,6 @@ func GetAllUsersInfo(c *gin.Context) {
 func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
 	patientUserIdParam := c.Param("user_id")
-
-	// Convert to uint64 (handle conversion errors)
 	var patientUserId *uint64
 	if patientUserIdParam != "" {
 		id, err := strconv.ParseUint(patientUserIdParam, 10, 64)
@@ -273,8 +271,6 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-
-	// Ensure only relative or caregiver roles are allowed
 	if req.RoleName != "relative" && req.RoleName != "caregiver" {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role. Only relative or caregiver can be registered.", nil, nil)
 		return
@@ -335,7 +331,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}
 
 	relationId := int(relation.RelationId)
-	err = uc.roleService.AddSystemUserMapping(tx, patientUserId, systemUser.UserId, roleMaster.RoleId, roleMaster.RoleName, &relationId)
+	err = uc.roleService.AddSystemUserMapping(tx, patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relationId)
 	if err != nil {
 		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)

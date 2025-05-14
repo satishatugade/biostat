@@ -13,7 +13,6 @@ type PatientService interface {
 	GetAllRelation() ([]models.PatientRelation, error)
 	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
-	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error)
@@ -82,9 +81,6 @@ func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patien
 	return s.patientRepo.GetAllPatients(limit, offset)
 }
 
-func (s *PatientServiceImpl) GetPatientById(patientId *uint64) (*models.Patient, error) {
-	return s.patientRepo.GetPatientById(patientId)
-}
 func (s *PatientServiceImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
 	return s.patientRepo.GetUserIdByAuthUserId(authUserId)
 }

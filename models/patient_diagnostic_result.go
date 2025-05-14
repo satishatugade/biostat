@@ -287,3 +287,14 @@ type TestResultValue struct {
 	ResultComment string    `json:"result_comment"`
 	Udf1          string    `json:"udf1"`
 }
+
+type TestResultAlert struct {
+	ResultValue       float64   `json:"result_value"`
+	NormalMin         float64   `json:"normal_min"`
+	NormalMax         float64   `json:"normal_max"`
+	ResultStatus      string    `json:"result_status"`
+	TestName          string    `json:"test_name"`
+	TestComponentName string    `json:"test_component_name"`
+	ResultComment     string    `json:"result_comment"`
+	ResultDate        time.Time `json:"result_date"`
+}

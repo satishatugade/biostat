@@ -48,14 +48,17 @@ type DiagnosticService interface {
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64) (string, error)
+	NotifyAbnormalResult(patientId uint64) error
 }
 
 type DiagnosticServiceImpl struct {
 	diagnosticRepo repository.DiagnosticRepository
+	emailService   EmailService
+	patientService PatientService
 }
 
-func NewDiagnosticService(repo repository.DiagnosticRepository) DiagnosticService {
-	return &DiagnosticServiceImpl{diagnosticRepo: repo}
+func NewDiagnosticService(repo repository.DiagnosticRepository, emailService EmailService, patientService PatientService) DiagnosticService {
+	return &DiagnosticServiceImpl{diagnosticRepo: repo, emailService: emailService, patientService: patientService}
 }
 
 func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
@@ -415,4 +418,24 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		return "", err
 	}
 	return "Diagnostic report created!", nil
+}
+
+func (ds *DiagnosticServiceImpl) NotifyAbnormalResult(patientId uint64) error {
+	patient, err := ds.patientService.GetUserProfileByUserId(patientId)
+	if err != nil {
+		log.Printf("GetUserProfileByUserId failed: %v", err)
+	}
+	alerts, err := ds.diagnosticRepo.GetAbnormalValue(patientId)
+	if err != nil {
+		log.Printf("failed to get abnormal values: %v", err)
+	}
+	if len(alerts) == 0 {
+		return nil
+	}
+	err = ds.emailService.SendReportResultsEmail(patient, alerts)
+	if err != nil {
+		log.Printf("failed to send alert email: %v", err)
+	}
+	log.Println("SendReportResultsEmail success")
+	return nil
 }

@@ -21,7 +21,6 @@ type PatientRepository interface {
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
-	GetPatientById(patientId *uint64) (*models.Patient, error)
 	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
 	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
@@ -142,16 +141,6 @@ func (p *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.P
 	}
 
 	return prescriptions, totalRecords, nil
-}
-
-// GetPatientById implements PatientRepository.
-func (p *PatientRepositoryImpl) GetPatientById(patientId *uint64) (*models.Patient, error) {
-	var patient models.Patient
-	err := p.db.Where("patient_id = ?", &patientId).First(&patient).Error
-	if err != nil {
-		return nil, err
-	}
-	return &patient, nil
 }
 
 func (p *PatientRepositoryImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
@@ -756,6 +745,7 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 }
 
 func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
+	log.Println("GetUserProfileByUserId userId : ", user_id)
 	var user models.SystemUser_
 	err := p.db.Model(&models.SystemUser_{}).Preload("AddressMapping.Address").Where("user_id=?", user_id).First(&user).Error
 	if err != nil {

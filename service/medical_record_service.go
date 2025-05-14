@@ -73,7 +73,9 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 				log.Printf("Digitize error for record %d: %v", recordID, err)
 				return
 			}
-
+			if err := s.diagnosticService.NotifyAbnormalResult(userID); err != nil {
+				log.Printf("NotifyAbnormalResult error: %v", err)
+			}
 			log.Printf("Digitization result for record %d: %v", recordID, message)
 		}(imageCopy, uint64(record.RecordId), createdBy)
 	}

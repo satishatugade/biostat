@@ -33,10 +33,14 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var exerciseRepo = repository.NewExerciseRepository(db)
 	var exerciseService = service.NewExerciseService(exerciseRepo)
 
-	var diagnosticRepo = repository.NewDiagnosticRepository(db)
-	var diagnosticService = service.NewDiagnosticService(diagnosticRepo)
-
+	var emailService = service.NewEmailService()
 	var apiService = service.NewApiService()
+
+	var patientRepo = repository.NewPatientRepository(db)
+	var patientService = service.NewPatientService(patientRepo, apiService)
+
+	var diagnosticRepo = repository.NewDiagnosticRepository(db)
+	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, *emailService, patientService)
 
 	var smsService = service.NewSmsService()
 
@@ -45,9 +49,6 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var roleRepo = repository.NewRoleRepository(db)
 	var roleService = service.NewRoleService(roleRepo)
-
-	var patientRepo = repository.NewPatientRepository(db)
-	var patientService = service.NewPatientService(patientRepo, apiService)
 
 	var userRepo = repository.NewTblUserTokenRepository(db)
 	var userService = service.NewTblUserTokenService(userRepo)
@@ -61,9 +62,8 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var appointmentService = service.NewAppointmentService(appointmentRepo)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService)
 
-	var emailService = service.NewEmailService()
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
@@ -224,7 +224,6 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Relations", http.MethodPost, constant.Relation, patientController.GetAllRelation},
 
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
-		Route{"patient", http.MethodPost, constant.SinglePatient, patientController.GetPatientByID},
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
 		Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
 		Route{"patient", http.MethodPost, constant.Relative, patientController.GetPatientRelativeList},

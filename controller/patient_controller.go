@@ -34,13 +34,14 @@ type PatientController struct {
 	apiService           service.ApiService
 	diseaseService       service.DiseaseService
 	smsService           service.SmsService
+	emailService         *service.EmailService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
 	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
 	medicationService service.MedicationService, appointmentService service.AppointmentService,
 	diagnosticService service.DiagnosticService, userService service.UserService,
-	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService) *PatientController {
+	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService, emailService *service.EmailService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -49,6 +50,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		apiService:        apiService,
 		diseaseService:    diseaseService,
 		smsService:        smsService,
+		emailService:      emailService,
 	}
 }
 
@@ -91,22 +93,6 @@ func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 		message = "Patient info retrieved successfully"
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, patients, pagination, nil)
-}
-
-func (pc *PatientController) GetPatientByID(c *gin.Context) {
-	patientIdStr := c.Param("patient_id")
-	patientId, err := strconv.ParseUint(patientIdStr, 10, 32)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient ID", nil, err)
-		return
-	}
-
-	patient, err := pc.patientService.GetPatientById(&patientId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
-		return
-	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient info retrieved successfully", patient, nil, nil)
 }
 
 func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
@@ -690,7 +676,6 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record created successfully", data, nil, nil)
-	return
 }
 
 func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
@@ -1011,6 +996,16 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		CreatedAt:       appointment.CreatedAt,
 		UpdatedAt:       appointment.UpdatedAt,
 	}
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+	userProfile := utils.MapUserToRoleSchema(*user, "patient")
+	err = pc.emailService.SendAppointmentMail(appointmentResponse, userProfile)
+	if err != nil {
+		log.Println("Error sending appointment email:", err)
+	}
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusCreated, "Appointment created scheduled", appointmentResponse, nil, nil)
 	return
@@ -1164,7 +1159,7 @@ func (mc *PatientController) GetAllLabs(c *gin.Context) {
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
-	data, totalRecords, err := mc.diagnosticService.GetAllLabs(page, limit)
+	data, totalRecords, err := mc.diagnosticService.GetAllLabs(limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve labs", nil, err)
 		return
@@ -1358,6 +1353,12 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, err)
 		return
 	}
+	go func(pid uint64) {
+		if err := pc.diagnosticService.NotifyAbnormalResult(pid); err != nil {
+			log.Printf("NotifyAbnormalResult error: %v", err)
+		}
+	}(patientId)
+
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", nil, nil, nil)
 }
 

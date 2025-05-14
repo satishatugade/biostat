@@ -54,6 +54,7 @@ type DiagnosticRepository interface {
 	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
 	SavePatientDiagnosticTestInterpretation(tx *gorm.DB, patientDiagnoTest *models.PatientDiagnosticTest) (*models.PatientDiagnosticTest, error)
 	SavePatientReportResultValue(tx *gorm.DB, resultValues *models.PatientDiagnosticTestResultValue) (*models.PatientDiagnosticTestResultValue, error)
+	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -647,4 +648,44 @@ func (r *DiagnosticRepositoryImpl) SavePatientReportResultValue(tx *gorm.DB, res
 		return nil, err
 	}
 	return resultValues, nil
+}
+
+func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error) {
+
+	var alerts []models.TestResultAlert
+	err := ds.db.Raw(`
+		SELECT
+			pdtrv.result_value,
+			dtrr.normal_min,
+			dtrr.normal_max,
+			pdtrv.result_status,
+			dpdtm.test_name,
+			dpdtcm.test_component_name,
+			pdtrv.result_date,
+			CASE
+				WHEN pdtrv.result_value < dtrr.normal_min THEN 'Below Range'
+				WHEN pdtrv.result_value > dtrr.normal_max THEN 'Above Range'
+				ELSE 'Within Range'
+			END AS result_comment
+		FROM tbl_patient_diagnostic_test_result_value pdtrv
+		JOIN tbl_diagnostic_test_reference_range dtrr
+			ON pdtrv.diagnostic_test_id = dtrr.diagnostic_test_id
+			AND pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
+		JOIN tbl_disease_profile_diagnostic_test_master dpdtm
+			ON pdtrv.diagnostic_test_id = dpdtm.diagnostic_test_id
+		JOIN tbl_disease_profile_diagnostic_test_component_master dpdtcm
+			ON pdtrv.diagnostic_test_component_id = dpdtcm.diagnostic_test_component_id
+		WHERE (
+			pdtrv.result_value < dtrr.normal_min OR
+			pdtrv.result_value > dtrr.normal_max
+		)
+		AND pdtrv.result_value IS NOT NULL
+		AND pdtrv.patient_id = ?
+	`, patientId).Scan(&alerts).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return alerts, nil
 }
