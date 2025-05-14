@@ -277,9 +277,12 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	if err != nil {
 		parsedDate, err = time.Parse("02-Jan-06", reportData.ReportDetails.ReportDate)
 		if err != nil {
-			log.Println("Invalid date format:", err)
-			tx.Rollback()
-			return "", fmt.Errorf("invalid date format: %w", err)
+			parsedDate, err = time.Parse("02/01/2006", reportData.ReportDetails.ReportDate)
+			if err != nil {
+				log.Println("Invalid date format:", err)
+				tx.Rollback()
+				return "", fmt.Errorf("invalid date format: %w", err)
+			}
 		}
 	}
 
@@ -376,7 +379,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					tx.Rollback()
 					return "", fmt.Errorf("error while creating diagnostic test component mapping: %w", err) // Wrap error
 				}
-				fmt.Println("diagnosticComponentId ", diagnosticComponentId)
 				referenceRange := models.DiagnosticTestReferenceRange{
 					DiagnosticTestId:          diagnosticTestId,
 					DiagnosticTestComponentId: diagnosticComponentId,
@@ -386,7 +388,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 				}
 				refRangeErr := s.diagnosticRepo.AddTestReferenceRange(&referenceRange)
 				if refRangeErr != nil {
-					fmt.Println("ERROR saving test Ref. range:", refRangeErr)
+					log.Println("ERROR saving test Ref. range:", refRangeErr)
 					tx.Rollback()
 					return "", fmt.Errorf("error while saving test reference range: %w", refRangeErr) // Wrap error
 				}

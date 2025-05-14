@@ -336,13 +336,13 @@ func (pc *PatientController) GetPatientRelativeList(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient relatives", nil, err)
 		return
 	}
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(relatives),
 		"Patient relatives retrieved successfully",
 		"Relatives not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, relatives, nil, nil)
 }
 
 func (pc *PatientController) GetRelativeList(c *gin.Context) {

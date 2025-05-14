@@ -14,7 +14,7 @@ type PatientDiseaseProfile struct {
 	UpdatedAt               time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	AttachedFlag            int       `json:"attached_flag"`
 	// Relations
-	DiseaseProfile DiseaseProfile `gorm:"foreignKey:DiseaseProfileId" json:"disease_profile"`
+	DiseaseProfile DiseaseProfile `gorm:"foreignKey:DiseaseProfileId;references:DiseaseProfileId" json:"disease_profile"`
 }
 
 type DiseaseProfile struct {

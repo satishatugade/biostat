@@ -294,11 +294,23 @@ func (p *PatientRepositoryImpl) GetPatientDiseaseProfiles(PatientId uint64, Atta
 }
 
 func (p *PatientRepositoryImpl) AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error) {
-	err := tx.Create(input).Error
+	var existingProfile models.PatientDiseaseProfile
+	err := tx.Where("patient_id = ? AND disease_profile_id = ?", input.PatientId, input.DiseaseProfileId).First(&existingProfile).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := tx.Create(input).Error; err != nil {
+				return nil, err
+			}
+			return input, nil
+		}
+		return nil, err
+	}
+	err = tx.Model(&existingProfile).Update("attached_flag", 0).Error
 	if err != nil {
 		return nil, err
 	}
-	return input, nil
+
+	return &existingProfile, nil
 }
 
 func (ps *PatientRepositoryImpl) UpdateFlag(patientId uint64, req *models.DPRequest) error {
