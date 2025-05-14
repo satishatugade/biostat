@@ -241,6 +241,34 @@ func MapUsersToSchema(users []models.SystemUser_, roleName string) []interface{}
 				CreatedAt:         user.CreatedAt,
 				UpdatedAt:         user.UpdatedAt,
 			})
+		case "pharmacist":
+			mappedUsers = append(mappedUsers, models.Pharmacist{
+				PharmacistId:  user.UserId,
+				FirstName:     user.FirstName,
+				LastName:      user.LastName,
+				Gender:        user.Gender,
+				MobileNo:      user.MobileNo,
+				Email:         user.Email,
+				Speciality:    user.Speciality,
+				LicenseNumber: user.LicenseNumber,
+				UserAddress: models.AddressMaster{
+					AddressId:    user.AddressMapping.AddressId,
+					AddressLine1: user.AddressMapping.Address.AddressLine1,
+					AddressLine2: user.AddressMapping.Address.AddressLine2,
+					Landmark:     user.AddressMapping.Address.Landmark,
+					City:         user.AddressMapping.Address.City,
+					State:        user.AddressMapping.Address.State,
+					Country:      user.AddressMapping.Address.Country,
+					PostalCode:   user.AddressMapping.Address.PostalCode,
+					Latitude:     user.AddressMapping.Address.Latitude,
+					Longitude:    user.AddressMapping.Address.Longitude,
+				},
+				YearsOfExperience: derefInt(user.YearsOfExperience),
+				ConsultationFee:   derefFloat(user.ConsultationFee),
+				WorkingHours:      user.WorkingHours,
+				CreatedAt:         user.CreatedAt,
+				UpdatedAt:         user.UpdatedAt,
+			})
 		case "doctor":
 			mappedUsers = append(mappedUsers, models.Doctor{
 				DoctorId:      user.UserId,
@@ -334,6 +362,34 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			LicenseNumber: user.LicenseNumber,
 			ClinicName:    user.ClinicName,
 			ClinicAddress: user.ClinicAddress,
+			UserAddress: models.AddressMaster{
+				AddressId:    user.AddressMapping.AddressId,
+				AddressLine1: user.AddressMapping.Address.AddressLine1,
+				AddressLine2: user.AddressMapping.Address.AddressLine2,
+				Landmark:     user.AddressMapping.Address.Landmark,
+				City:         user.AddressMapping.Address.City,
+				State:        user.AddressMapping.Address.State,
+				Country:      user.AddressMapping.Address.Country,
+				PostalCode:   user.AddressMapping.Address.PostalCode,
+				Latitude:     user.AddressMapping.Address.Latitude,
+				Longitude:    user.AddressMapping.Address.Longitude,
+			},
+			YearsOfExperience: derefInt(user.YearsOfExperience),
+			ConsultationFee:   derefFloat(user.ConsultationFee),
+			WorkingHours:      user.WorkingHours,
+			CreatedAt:         user.CreatedAt,
+			UpdatedAt:         user.UpdatedAt,
+		}
+	case "pharmacist":
+		return models.Pharmacist{
+			PharmacistId:  user.UserId,
+			FirstName:     user.FirstName,
+			LastName:      user.LastName,
+			Gender:        user.Gender,
+			MobileNo:      user.MobileNo,
+			Email:         user.Email,
+			Speciality:    user.Speciality,
+			LicenseNumber: user.LicenseNumber,
 			UserAddress: models.AddressMaster{
 				AddressId:    user.AddressMapping.AddressId,
 				AddressLine1: user.AddressMapping.Address.AddressLine1,

@@ -861,6 +861,23 @@ func (pc *PatientController) GetNursesList(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, nursesData, pagination, nil)
 }
 
+func (pc *PatientController) GetPharmacistList(c *gin.Context) {
+	page, limit, offset := utils.GetPaginationParams(c)
+	pharmacists, totalRecords, err := pc.patientService.GetPharmacistList(nil, limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch pharmacists", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	pharmacistsData := utils.MapUsersToSchema(pharmacists, "pharmacist")
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(pharmacists),
+		"Pharmacists list retrieved successfully",
+		"Pharmacists not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, pharmacistsData, pagination, nil)
+}
+
 func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 	sub, subExists := ctx.Get("sub")
 	if !subExists {
@@ -1041,12 +1058,12 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 		}
 		responses = append(responses, appointmentResponse)
 	}
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(responses),
 		"Appointments retrieved successfully",
 		"Appointments not found",
 	)
-	models.SuccessResponse(ctx, constant.Success, statusCode, message, responses, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, responses, nil, nil)
 	return
 }
 

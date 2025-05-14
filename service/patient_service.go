@@ -41,6 +41,7 @@ type PatientService interface {
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
 	GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
+	GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
@@ -305,6 +306,18 @@ func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset 
 	}
 	nurseUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 	return s.patientRepo.GetUserDataUserId(nurseUserIds, limit, offset)
+}
+
+func (s *PatientServiceImpl) GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "P", false)
+	if err != nil {
+		return []models.SystemUser_{}, 0, err
+	}
+	if len(userRelationIds) == 0 {
+		return []models.SystemUser_{}, 0, nil
+	}
+	chemistUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
+	return s.patientRepo.GetUserDataUserId(chemistUserIds, limit, offset)
 }
 
 func (s *PatientServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {

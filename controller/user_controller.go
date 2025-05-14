@@ -42,7 +42,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	var hashedPassword []byte
 	var err error
 
-	if user.RoleName == "doctor" || user.RoleName == "caregiver" || user.RoleName == "nurse" {
+	if user.RoleName == "doctor" || user.RoleName == "caregiver" || user.RoleName == "nurse" || user.RoleName == "pharmacist" {
 		rawPassword = utils.GenerateRandomPassword()
 	} else {
 		rawPassword = user.Password

@@ -27,7 +27,8 @@ const (
 	Doctor     = "/get-doctor/:patient_id"
 	DoctorList = "/doctor-list"
 
-	NursesList = "/nurse-list"
+	NursesList  = "/nurse-list"
+	ChemistList = "/pharmacist-list"
 
 	PatientResultValue        = "/diagnostic-value"
 	FilterResultValue         = "/filter-result-value"
