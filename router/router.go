@@ -299,6 +299,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Disease profile", http.MethodPost, constant.UpdateDiseaseProfile, patientController.UpdateDiseaseProfile},
 
 		Route{"send-sms", http.MethodPost, constant.SendSMS, patientController.SendSMS},
+		Route{"send-sms", http.MethodPost, constant.ShareReport, patientController.ShareReport},
 	}
 }
 

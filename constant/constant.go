@@ -164,6 +164,7 @@ const (
 
 	SaveReport  = "/save-report"
 	SendSMS     = "/send-sms"
+	ShareReport = "/share-report"
 	RedirectURL = "/r/:code"
 )
 

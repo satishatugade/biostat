@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -1583,4 +1584,58 @@ func (pc *PatientController) SendSMS(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "SMS sent successfully", exchanged, nil, nil)
+}
+
+type SendEmailRequest struct {
+	Email []string `json:"email" binding:"required"`
+}
+
+func (pc *PatientController) ShareReport(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	var req SendEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+	userDetails, err := pc.patientService.GetUserProfileByUserId(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+
+	authHeader := c.GetHeader("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	exchanged, err := auth.ExchangeToken(token)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Token exchange failed", nil, err)
+		return
+	}
+
+	baseURL := os.Getenv("SHARE_REPORT_BASE_URL")
+	if baseURL == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Missing base URL in environment variables", nil, nil)
+		return
+	}
+
+	longLink := fmt.Sprintf("%s/shared-report?token=%s", baseURL, exchanged.AccessToken)
+	shortCode := generateShortCode()
+	shortURLMap[shortCode] = longLink
+	shortURL := fmt.Sprintf("%s/v1/user/r/%s", os.Getenv("SHORT_URL_BASE"), shortCode)
+
+	err1 := pc.emailService.ShareReportEmail(req.Email, userDetails.FirstName+" "+userDetails.LastName, shortURL)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send email", nil, err1)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Email sent successfully", nil, nil, nil)
 }

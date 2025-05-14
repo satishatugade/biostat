@@ -196,3 +196,31 @@ func (e *EmailService) SendReportResultsEmail(patientInfo *models.SystemUser_, a
 	log.Println("Report abnormal values body prepared")
 	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, to, []byte(body.String()))
 }
+
+func (e *EmailService) ShareReportEmail(recipientEmail []string, recipientName, shortURL string) error {
+	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
+
+	message := fmt.Sprintf("Subject: Diagnostic Report\r\n"+
+		"From: Biostat Healthcare <%s>\r\n"+
+		"MIME-Version: 1.0\r\n"+
+		"Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"+
+		"<html><body>"+
+		"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto;'>"+
+		"<h2 style='color: #2c3e50;'>Hello !</h2>"+
+		"<p style='font-size: 16px; color: #333;'>You have received a diagnostic report link from your patient %s. Please access the report using the secure link below:</p>"+
+		"<p style='text-align: center;'>"+
+		"<a href='%s' style='background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px;'>Access Report</a>"+
+		"</p>"+
+		"<p style='font-size: 14px; color: #555;'>If the button above doesn't work, copy and paste the following URL into your browser:</p>"+
+		"<p style='word-break: break-all; color: #007BFF;'>%s</p>"+
+		"<hr style='margin-top: 30px;'>"+
+		"<p style='font-size: 14px; color: #999;'>This message was sent by Biostat Healthcare System</p>"+
+		"</div></body></html>",
+		e.SenderEmail,
+		recipientName,
+		shortURL,
+		shortURL,
+	)
+
+	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, recipientEmail, []byte(message))
+}
