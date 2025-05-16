@@ -21,9 +21,8 @@ type PatientService interface {
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]map[string]interface{}, error)
 	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error)
 
-	AddPatientPrescription(patientPrescription *models.PatientPrescription) error
-	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
-	GetPrescriptionByPatientId(PatientDiseaseProfileId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
+	GetPrescriptionByPatientId(PatientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
@@ -68,13 +67,8 @@ func (s *PatientServiceImpl) GetRelationById(relationId int) (models.PatientRela
 	return s.patientRepo.GetRelationById(relationId)
 }
 
-// GetAllPatientPrescription implements PatientService.
-func (s *PatientServiceImpl) GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error) {
-	return s.patientRepo.GetAllPrescription(limit, offset)
-}
-
-func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
-	return s.patientRepo.GetPrescriptionByPatientId(patientID, limit, offset)
+func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
+	return s.patientRepo.GetPrescriptionByPatientId(patientId, limit, offset)
 }
 
 func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patient, int64, error) {
@@ -101,8 +95,8 @@ func (s *PatientServiceImpl) UpdatePatientById(authUserId string, patientData *m
 	return s.patientRepo.MapSystemUserToPatient(&updatedPatient, updatedAddress), nil
 }
 
-func (s *PatientServiceImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
-	return s.patientRepo.AddPatientPrescription(prescription)
+func (s *PatientServiceImpl) AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error {
+	return s.patientRepo.AddPatientPrescription(createdBy, prescription)
 }
 
 func (s *PatientServiceImpl) GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error) {

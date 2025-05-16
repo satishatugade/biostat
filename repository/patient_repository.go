@@ -14,9 +14,8 @@ type PatientRepository interface {
 	GetAllRelation() ([]models.PatientRelation, error)
 	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
-	AddPatientPrescription(*models.PatientPrescription) error
-	GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error)
-	GetPrescriptionByPatientId(patientId string, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
+	GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
@@ -84,55 +83,39 @@ func (p *PatientRepositoryImpl) GetRelationById(relationId int) (models.PatientR
 	return relation, err
 }
 
-func (p *PatientRepositoryImpl) AddPatientPrescription(prescription *models.PatientPrescription) error {
-	if err := p.db.Create(prescription).Error; err != nil {
+func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error {
+	tx := p.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := tx.Create(&prescription).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
-	return nil
-}
-
-func (p *PatientRepositoryImpl) GetAllPrescription(limit int, offset int) ([]models.PatientPrescription, int64, error) {
-	var prescriptions []models.PatientPrescription
-	var totalRecords int64
-
-	query := p.db.
-		Preload("PrescriptionDetails").
-		Find(&prescriptions).
-		Count(&totalRecords)
-
-	if query.Error != nil {
-		return nil, 0, query.Error
+	for i := range prescription.PrescriptionDetails {
+		prescription.PrescriptionDetails[i].PrescriptionId = prescription.PrescriptionId
+		prescription.PrescriptionDetails[i].CreatedBy = createdBy
+		prescription.PrescriptionDetails[i].PrescriptionDetailId = 0
 	}
 
-	return prescriptions, totalRecords, nil
+	if len(prescription.PrescriptionDetails) > 0 {
+		if err := tx.Create(&prescription.PrescriptionDetails).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit().Error
 }
 
-func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientID string, limit int, offset int) ([]models.PatientPrescription, int64, error) {
+func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
 	query := p.db.
-		Where("patient_id = ?", patientID).
+		Where("patient_id = ?", patientId).
 		Preload("PrescriptionDetails").
 		Limit(limit).
 		Offset(offset).
-		Find(&prescriptions).
-		Count(&totalRecords)
-
-	if query.Error != nil {
-		return nil, 0, query.Error
-	}
-
-	return prescriptions, totalRecords, nil
-}
-
-func (p *PatientRepositoryImpl) GetAllPatientPrescription(prescription *models.PatientPrescription) ([]models.PatientPrescription, int64, error) {
-	var prescriptions []models.PatientPrescription
-	var totalRecords int64
-
-	query := p.db.
-		Preload("PrescriptionDetails").
-		Where("patient_id = ?", prescription.PatientId).
 		Find(&prescriptions).
 		Count(&totalRecords)
 

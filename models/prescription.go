@@ -4,11 +4,10 @@ import (
 	"time"
 )
 
-// PatientPrescription represents the main prescription record
 type PatientPrescription struct {
-	PrescriptionId            uint      `gorm:"primaryKey;column:prescription_id" json:"prescription_id"`
-	PatientId                 uint      `gorm:"column:patient_id" json:"patient_id"`
-	DoctorId                  uint      `gorm:"column:doctor_id" json:"doctor_id"`
+	PrescriptionId            uint64    `gorm:"primaryKey;column:prescription_id" json:"prescription_id"`
+	PatientId                 uint64    `gorm:"column:patient_id" json:"patient_id"`
+	DoctorId                  uint64    `gorm:"column:doctor_id" json:"doctor_id"`
 	PrescriptionName          string    `gorm:"column:prescription_name" json:"prescription_name"`
 	Description               string    `gorm:"column:description" json:"description"`
 	PrescriptionDate          time.Time `gorm:"column:prescription_date" json:"prescription_date"`
@@ -25,17 +24,22 @@ func (PatientPrescription) TableName() string {
 
 // PrescriptionDetail represents the details of each prescription
 type PrescriptionDetail struct {
-	PrescriptionDetailId uint    `gorm:"primaryKey;column:prescription_detail_id" json:"prescription_detail_id"`
-	PrescriptionId       uint    `gorm:"column:prescription_id" json:"prescription_id"`
-	PrescriptionType     string  `gorm:"column:prescription_type" json:"prescription_type"`
-	DoseQuantity         float64 `gorm:"column:dose_quantity" json:"dose_quantity"`
-	Duration             int     `gorm:"column:duration" json:"duration"`
-	UnitValue            float64 `gorm:"column:unit_value" json:"unit_value"`
-	UnitType             string  `gorm:"column:unit_type" json:"unit_type"`
-	Frequency            int     `gorm:"column:frequency" json:"frequency"`
-	TimesPerDay          int     `gorm:"column:times_per_day" json:"times_per_day"`
-	IntervalHour         int     `gorm:"column:interval_hour" json:"interval_hour"`
-	Instruction          string  `gorm:"column:instruction" json:"instruction"`
+	PrescriptionDetailId uint64    `gorm:"primaryKey;autoIncrement;column:prescription_detail_id" json:"prescription_detail_id"`
+	PrescriptionId       uint64    `gorm:"column:prescription_id" json:"prescription_id"`
+	MedicineName         string    `gorm:"column:medicine_name" json:"medicine_name"`
+	PrescriptionType     string    `gorm:"column:prescription_type" json:"prescription_type"`
+	DoseQuantity         float64   `gorm:"column:dose_quantity" json:"dose_quantity"`
+	Duration             int       `gorm:"column:duration" json:"duration"`
+	UnitValue            float64   `gorm:"column:unit_value" json:"unit_value"`
+	UnitType             string    `gorm:"column:unit_type" json:"unit_type"`
+	Frequency            int       `gorm:"column:frequency" json:"frequency"`
+	TimesPerDay          int       `gorm:"column:times_per_day" json:"times_per_day"`
+	IntervalHour         int       `gorm:"column:interval_hour" json:"interval_hour"`
+	Instruction          string    `gorm:"column:instruction" json:"instruction"`
+	CreatedAt            time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy            string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy            string    `gorm:"column:updated_by" json:"updated_by"`
 }
 
 // TableName for PrescriptionDetail

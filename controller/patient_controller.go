@@ -201,42 +201,44 @@ func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
 	var prescription models.PatientPrescription
-
+	prescription.PatientId = patientId
 	if err := c.ShouldBindJSON(&prescription); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
 		return
 	}
-	err := pc.patientService.AddPatientPrescription(&prescription)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add patient prescription", nil, err)
+	err1 := pc.patientService.AddPatientPrescription(authUserId, &prescription)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add patient prescription", nil, err1)
 		return
 	}
-	message := "Patient prescription added."
-	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescription, nil, nil)
-}
-
-func (pc *PatientController) GetAllPrescription(c *gin.Context) {
-	page, limit, offset := utils.GetPaginationParams(c)
-	prescription, totalRecords, err := pc.patientService.GetAllPrescription(limit, offset)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve prescription", nil, err)
-		return
-	}
-	pagination := utils.GetPagination(limit, page, offset, totalRecords)
-	statusCode, message := utils.GetResponseStatusMessage(
-		len(prescription),
-		"prescription info retrieved successfully",
-		"Prescription info not found",
-	)
-	models.SuccessResponse(c, constant.Success, statusCode, message, prescription, pagination, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient prescription added.", prescription, nil, nil)
 }
 
 func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
-	patientID := c.Param("patient_id")
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
 	page, limit, offset := utils.GetPaginationParams(c)
 
-	prescriptions, totalRecords, err := pc.patientService.GetPrescriptionByPatientId(patientID, limit, offset)
+	prescriptions, totalRecords, err := pc.patientService.GetPrescriptionByPatientId(patientId, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve prescriptions", nil, err)
 		return
@@ -1360,7 +1362,7 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		}
 	}(patientId)
 
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", nil, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", reportData, nil, nil)
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
