@@ -7,7 +7,7 @@ import (
 type PatientPrescription struct {
 	PrescriptionId            uint64    `gorm:"primaryKey;column:prescription_id" json:"prescription_id"`
 	PatientId                 uint64    `gorm:"column:patient_id" json:"patient_id"`
-	DoctorId                  uint64    `gorm:"column:doctor_id" json:"doctor_id"`
+	PrescribedBy              string    `gorm:"column:prescribed_by" json:"prescribed_by"`
 	PrescriptionName          string    `gorm:"column:prescription_name" json:"prescription_name"`
 	Description               string    `gorm:"column:description" json:"description"`
 	PrescriptionDate          time.Time `gorm:"column:prescription_date" json:"prescription_date"`

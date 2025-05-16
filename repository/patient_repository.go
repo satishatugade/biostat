@@ -88,22 +88,19 @@ func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescri
 	if tx.Error != nil {
 		return tx.Error
 	}
+
+	// Set IDs and metadata
+	for i := range prescription.PrescriptionDetails {
+		prescription.PrescriptionDetails[i].PrescriptionDetailId = 0 // safety
+		prescription.PrescriptionDetails[i].CreatedBy = createdBy
+	}
+
+	// Only this line is needed to insert prescription and its details
 	if err := tx.Create(&prescription).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	for i := range prescription.PrescriptionDetails {
-		prescription.PrescriptionDetails[i].PrescriptionId = prescription.PrescriptionId
-		prescription.PrescriptionDetails[i].CreatedBy = createdBy
-		prescription.PrescriptionDetails[i].PrescriptionDetailId = 0
-	}
 
-	if len(prescription.PrescriptionDetails) > 0 {
-		if err := tx.Create(&prescription.PrescriptionDetails).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
 	return tx.Commit().Error
 }
 

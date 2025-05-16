@@ -37,7 +37,6 @@ const (
 	PatientRegistration       = "/patient-registration"
 	PatientPrescription       = "/patient-prescription"
 	PrescriptionByPatientId   = "/get-prescription"
-	UpdatePrescription        = "/patient-prescription/:prescription_id"
 	User                      = "/getuser"
 	RegisterUser              = "/register"
 	UserRegistrationByPatient = "/create-by-patient/:user_id"
