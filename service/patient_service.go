@@ -192,7 +192,6 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 	return s.patientRepo.GetCaregiverList(caregiverUserIds)
 }
 
-// GetDoctorList implements PatientService.
 func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, limit, offset int) ([]models.SystemUser_, int64, error) {
 
 	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
@@ -203,11 +202,9 @@ func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, limit, offset int)
 		return []models.SystemUser_{}, 0, nil
 	}
 	doctorUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
-	// return s.patientRepo.GetDoctorList(doctorUserIds)
 	return s.patientRepo.GetUserDataUserId(doctorUserIds, limit, offset)
 }
 
-// GetPatientList implements PatientService.
 func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
 	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(nil, "S", true)
@@ -409,7 +406,7 @@ func (s *PatientServiceImpl) processPatientDiagnosticTests(patientDiagnosticTest
 }
 
 func (s *PatientServiceImpl) createPatientDiagnosticTestInput(test models.PatientDiagnosticTest) models.PatientDiagnosticTestInput {
-	components := s.processTestComponents(test.DiagnosticTest.Components)
+	components := s.processTestComponents(test.PatientDiagnosticReportId, test.DiagnosticTest.Components)
 
 	testInput := models.PatientDiagnosticTestInput{
 		TestNote:       test.TestNote,
@@ -420,17 +417,17 @@ func (s *PatientServiceImpl) createPatientDiagnosticTestInput(test models.Patien
 	return testInput
 }
 
-func (s *PatientServiceImpl) processTestComponents(componentsData []models.DiagnosticTestComponent) []models.TestComponent {
+func (s *PatientServiceImpl) processTestComponents(PatientDiagnosticReportId uint64, componentsData []models.DiagnosticTestComponent) []models.TestComponent {
 	var components []models.TestComponent
 	for _, c := range componentsData {
-		component := s.createTestComponent(c)
+		component := s.createTestComponent(c, PatientDiagnosticReportId)
 		components = append(components, component)
 	}
 	return components
 }
 
-func (s *PatientServiceImpl) createTestComponent(c models.DiagnosticTestComponent) models.TestComponent {
-	resultValues := s.processTestResultValues(c.TestResultValue)
+func (s *PatientServiceImpl) createTestComponent(c models.DiagnosticTestComponent, PatientDiagnosticReportId uint64) models.TestComponent {
+	resultValues := s.processTestResultValues(PatientDiagnosticReportId, c.TestResultValue)
 
 	component := models.TestComponent{
 		TestComponentName: c.TestComponentName,
@@ -441,13 +438,13 @@ func (s *PatientServiceImpl) createTestComponent(c models.DiagnosticTestComponen
 	return component
 }
 
-func (s *PatientServiceImpl) processTestResultValues(resultValuesData []models.PatientDiagnosticTestResultValue) []models.TestResultValue {
+func (s *PatientServiceImpl) processTestResultValues(PatientDiagnosticReportId uint64, resultValuesData []models.PatientDiagnosticTestResultValue) []models.TestResultValue {
 	var resultValues []models.TestResultValue
 	for _, rv := range resultValuesData {
-		// if rv.DiagnosticTestId == targetTestID && rv.DiagnosticTestComponentId == targetComponentID {
-		resultValue := s.createTestResultValue(rv)
-		resultValues = append(resultValues, resultValue)
-		// }
+		if PatientDiagnosticReportId == rv.PatientDiagnosticReportId {
+			resultValue := s.createTestResultValue(rv)
+			resultValues = append(resultValues, resultValue)
+		}
 	}
 	return resultValues
 }

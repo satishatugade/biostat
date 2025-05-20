@@ -24,8 +24,7 @@ const (
 	Caregiver     = "/get-caregiver/:patient_id"
 	CaregiverList = "/caregiver-list"
 
-	Doctor     = "/get-doctor/:patient_id"
-	DoctorList = "/doctor-list"
+	DoctorList = "/doctor-list/:user"
 
 	NursesList  = "/nurse-list"
 	ChemistList = "/pharmacist-list"
@@ -39,7 +38,7 @@ const (
 	PrescriptionByPatientId   = "/get-prescription"
 	User                      = "/getuser"
 	RegisterUser              = "/register"
-	UserRegistrationByPatient = "/create-by-patient/:user_id"
+	UserRegistrationByPatient = "/create-by-patient"
 
 	AuthUser                             = "/auth/login"
 	LogoutUser                           = "/logout"

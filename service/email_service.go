@@ -35,19 +35,19 @@ func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, passw
 	var additionalInfo string
 	if patient != nil {
 		additionalInfo = fmt.Sprintf(
-			"<p style='text-align: left;'>You’ve been successfully added as a <strong>%s</strong> by patient <strong>%s %s</strong> in the Biostat Healthcare System.</p>",
+			"<p style='text-align: left;'>You’ve been successfully added as a <strong>%s</strong> by patient <strong>%s %s</strong> in the Biostack Healthcare System.</p>",
 			systemUser.RoleName, patient.FirstName, patient.LastName,
 		)
 	}
 
 	// HTML Email Body with Login and Reset Password Links
-	message := fmt.Sprintf("Subject: Welcome to our Biostat Healthcare System\r\n"+
-		"From: Biostat Healthcare <%s>\r\n"+
+	message := fmt.Sprintf("Subject: Welcome to our Biostack Healthcare System\r\n"+
+		"From: Biostack Healthcare <%s>\r\n"+
 		"MIME-Version: 1.0\r\n"+
 		"Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"+
 		"<html><body>"+
 		"<div style='text-align: center;'>"+
-		"<h3>Welcome to our Biostat Healthcare System</h3>"+
+		"<h3>Welcome to our Biostack Healthcare System</h3>"+
 		"<p style='text-align: left;'>Hello %s %s,</p>"+
 		"%s"+
 		"<p><strong>Username:</strong> %s</p>"+
@@ -56,7 +56,7 @@ func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, passw
 		"<p><a href='%s' style='background-color:blue;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;'>Login Here</a></p>"+
 		"<p>If you need to reset your password, click below:</p>"+
 		"<p><a href='%s' style='background-color:red;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;'>Reset Password</a></p>"+
-		"<div><br>Best Regards,<br>Biostat Healthcare Team</div>"+
+		"<div><br>Best Regards,<br>Biostack Healthcare Team</div>"+
 		"</div></body></html>",
 		e.SenderEmail,
 		systemUser.FirstName, systemUser.LastName,
@@ -91,7 +91,7 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 		providerEmail = email
 		providerName = fmt.Sprintf("%s %s", firstName, lastName)
 	default:
-		providerName = "Biostat healthcare"
+		providerName = "Biostack healthcare"
 		providerEmail = "satish123@yopmail.com"
 	}
 
@@ -100,7 +100,7 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 	mode := map[int]string{0: "Online", 1: "In-Person"}[appointment.IsInperson]
 
 	message := fmt.Sprintf("Subject: %s\r\n"+
-		"From: Biostat Healthcare <%s>\r\n"+
+		"From: Biostack Healthcare <%s>\r\n"+
 		"MIME-Version: 1.0\r\n"+
 		"Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"+
 		"<html><body style='font-family: Arial, sans-serif; color: #333;'>"+
@@ -136,8 +136,8 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 		)
 	}
 
-	message += "<p style='margin-top: 30px;'>Thank you for choosing Biostat Healthcare.<br>We look forward to assisting you.</p>" +
-		"<p style='margin-top: 20px;'>Best regards,<br><strong>Biostat Healthcare Team</strong></p>" +
+	message += "<p style='margin-top: 30px;'>Thank you for choosing Biostack Healthcare.<br>We look forward to assisting you.</p>" +
+		"<p style='margin-top: 20px;'>Best regards,<br><strong>Biostack Healthcare Team</strong></p>" +
 		"</div></body></html>"
 
 	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, to, []byte(message))
@@ -156,7 +156,7 @@ func (e *EmailService) SendReportResultsEmail(patientInfo *models.SystemUser_, a
 
 	var body strings.Builder
 	body.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
-	body.WriteString(fmt.Sprintf("From: Biostat Healthcare <%s>\r\n", e.SenderEmail))
+	body.WriteString(fmt.Sprintf("From: Biostack Healthcare <%s>\r\n", e.SenderEmail))
 	body.WriteString("MIME-Version: 1.0\r\n")
 	body.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n")
 	body.WriteString("<html><body style='font-family: Arial, sans-serif; color: #333;'>")
@@ -191,7 +191,7 @@ func (e *EmailService) SendReportResultsEmail(patientInfo *models.SystemUser_, a
 	body.WriteString("</table>")
 
 	body.WriteString("<p style='margin-top: 20px;'>We strongly recommend consulting your doctor regarding these results.</p>")
-	body.WriteString("<p style='margin-top: 20px;'>Best regards,<br><strong>Biostat Healthcare Team</strong></p>")
+	body.WriteString("<p style='margin-top: 20px;'>Best regards,<br><strong>Biostack Healthcare Team</strong></p>")
 	body.WriteString("</div></body></html>")
 	log.Println("Report abnormal values body prepared")
 	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, to, []byte(body.String()))
@@ -201,7 +201,7 @@ func (e *EmailService) ShareReportEmail(recipientEmail []string, recipientName, 
 	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
 
 	message := fmt.Sprintf("Subject: Diagnostic Report\r\n"+
-		"From: Biostat Healthcare <%s>\r\n"+
+		"From: Biostack Healthcare <%s>\r\n"+
 		"MIME-Version: 1.0\r\n"+
 		"Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"+
 		"<html><body>"+
@@ -214,7 +214,7 @@ func (e *EmailService) ShareReportEmail(recipientEmail []string, recipientName, 
 		"<p style='font-size: 14px; color: #555;'>If the button above doesn't work, copy and paste the following URL into your browser:</p>"+
 		"<p style='word-break: break-all; color: #007BFF;'>%s</p>"+
 		"<hr style='margin-top: 30px;'>"+
-		"<p style='font-size: 14px; color: #999;'>This message was sent by Biostat Healthcare System</p>"+
+		"<p style='font-size: 14px; color: #999;'>This message was sent by Biostack Healthcare System</p>"+
 		"</div></body></html>",
 		e.SenderEmail,
 		recipientName,

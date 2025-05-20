@@ -88,19 +88,14 @@ func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescri
 	if tx.Error != nil {
 		return tx.Error
 	}
-
-	// Set IDs and metadata
 	for i := range prescription.PrescriptionDetails {
-		prescription.PrescriptionDetails[i].PrescriptionDetailId = 0 // safety
+		prescription.PrescriptionDetails[i].PrescriptionDetailId = 0
 		prescription.PrescriptionDetails[i].CreatedBy = createdBy
 	}
-
-	// Only this line is needed to insert prescription and its details
 	if err := tx.Create(&prescription).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-
 	return tx.Commit().Error
 }
 
@@ -357,7 +352,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 	}
 	reportsWithDetails, err := p.GetPatientDiagnosticTestResult(uniqueReportIds)
 	if err != nil {
-		log.Fatalf("Failed to get patient diagnostic tests: %v", err)
+		log.Printf("Failed to get patient diagnostic tests: %v", err)
 	}
 	return reportsWithDetails, nil
 }
@@ -725,7 +720,6 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 }
 
 func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error) {
-	log.Println("GetUserProfileByUserId userId : ", user_id)
 	var user models.SystemUser_
 	err := p.db.Model(&models.SystemUser_{}).Preload("AddressMapping.Address").Where("user_id=?", user_id).First(&user).Error
 	if err != nil {
@@ -737,7 +731,7 @@ func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.
 func (p *PatientRepositoryImpl) GetUserDataUserId(user_ids []uint64, limit, offset int) ([]models.SystemUser_, int64, error) {
 	var users []models.SystemUser_
 	var total int64
-	query := p.db.Model(&models.SystemUser_{}).
+	query := p.db.Debug().Model(&models.SystemUser_{}).
 		Preload("AddressMapping.Address").
 		Where("user_id IN ?", user_ids)
 

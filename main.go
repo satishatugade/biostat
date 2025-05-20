@@ -48,7 +48,7 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime)
 	log.SetOutput(file)
 	log.Println("ENV profile active ", envFile)
-	log.Println("Biostat Application Started.....")
+	log.Println("Biostack Application Started.....")
 	utils.InitKeycloak()
 	database.InitDB()
 

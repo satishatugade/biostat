@@ -123,27 +123,6 @@ func GetUserDataContext(c *gin.Context) (string, bool) {
 	return subStr, true
 }
 
-// UserId, exists := utils.GetUserDataContext(c)
-// if !exists {
-// 	return
-// }
-
-// user, err := client.GetUserByID(ctx, tokenStr, utils.KeycloakRealm, UserId)
-// if err != nil {
-// 	fmt.Println("User data ", user)
-// 	log.Println("User data ", user)
-// 	log.Println("User data email ", user.Email)
-// 	return
-// }
-
-// func Logger(msg string) {
-// 	if log.GetLevel() == log.DebugLevel {
-// 		log.Debug(msg)
-// 	} else {
-// 		log.Info(msg)
-// 	}
-// }
-
 func ParseExcelFromReader[T any](reader io.Reader) ([]T, error) {
 	var results []T
 
@@ -623,18 +602,17 @@ func ToDiseaseProfileSummaryDTOs(profiles []models.DiseaseProfile) []models.Dise
 func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (uint64, error) {
 	sub, subExists := ctx.Get("sub")
 	if !subExists {
-		return 0, errors.New("User not found")
+		return 0, errors.New("user not found")
 	}
 
 	delegateUserID := ctx.GetHeader("delegate_user_id")
 	if delegateUserID != "" {
 		id, err := strconv.ParseUint(delegateUserID, 10, 64)
 		if err != nil {
-			return 0, errors.New("Invalid delegate_user_id")
+			return 0, errors.New("invalid delegate_user_id")
 		}
 		return id, nil
 	}
-
 	return getUserIdBySubFunc(sub.(string))
 }
 

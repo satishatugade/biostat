@@ -31,7 +31,7 @@ var ProtectedRoutes = map[string][]string{
 	"/v1/master/get-diagnostic-lab": {"admin", "patient"},
 	"/v1/patient":                   {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 	"/v1/patient/user-profile":      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
-	"/v1/user":                      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
+	"/v1/user/create-by-patient":    {"patient", "relative"},
 }
 
 func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {
@@ -70,12 +70,12 @@ func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientCont
 func UserRoutes(g *gin.RouterGroup, userController *controller.UserController) {
 	user := g.Group("/user")
 	for _, userRoute := range getUserRoutes(userController) {
-		// protectedHandler := auth.Authenticate(user.BasePath(), ProtectedRoutes, userRoute.HandleFunc)
+		protectedHandler := auth.Authenticate(user.BasePath()+userRoute.Path, ProtectedRoutes, userRoute.HandleFunc)
 		switch userRoute.Method {
 		case http.MethodPost:
-			user.POST(userRoute.Path, userRoute.HandleFunc)
+			user.POST(userRoute.Path, protectedHandler)
 		case http.MethodGet:
-			user.GET(userRoute.Path, userRoute.HandleFunc)
+			user.GET(userRoute.Path, protectedHandler)
 		}
 	}
 }
@@ -110,7 +110,7 @@ func Routing(envFile string) {
 		AllowCredentials: true,
 	}))
 	r.router.GET("/", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"message": "Biostat server running..."})
+		ctx.JSON(http.StatusOK, gin.H{"message": "Biostack server running..."})
 	})
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	db := database.GetDBConn()

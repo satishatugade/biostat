@@ -448,37 +448,19 @@ func (pc *PatientController) GetCaregiverList(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, caregivers, nil, nil)
 }
 
-func (pc *PatientController) GetPatientDoctorList(c *gin.Context) {
-	patientIdParam := c.Param("patient_id")
-	var patientId *uint64
-	if patientIdParam != "" {
-		id, err := strconv.ParseUint(patientIdParam, 10, 64)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
-			return
-		}
-		patientId = &id
-	}
-	page, limit, offset := utils.GetPaginationParams(c)
-
-	doctors, totalRecords, err := pc.patientService.GetDoctorList(patientId, page, limit)
+func (pc *PatientController) GetDoctorList(c *gin.Context) {
+	User := c.Param("user")
+	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	pagination := utils.GetPagination(limit, page, offset, totalRecords)
-	statusCode, message := utils.GetResponseStatusMessage(
-		len(doctors),
-		"Patient doctor retrieved successfully",
-		"Doctor not found",
-	)
-
-	models.SuccessResponse(c, constant.Success, statusCode, message, doctors, pagination, nil)
-}
-
-func (pc *PatientController) GetDoctorList(c *gin.Context) {
+	var filterUserId *uint64
+	if User == "patient" {
+		filterUserId = &user_id
+	}
 	page, limit, offset := utils.GetPaginationParams(c)
-	doctors, totalRecords, err := pc.patientService.GetDoctorList(nil, limit, offset)
+	doctors, totalRecords, err := pc.patientService.GetDoctorList(filterUserId, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
 		return

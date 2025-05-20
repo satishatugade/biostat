@@ -8,7 +8,6 @@ import (
 	"biostat/utils"
 	"context"
 	"log"
-	"strconv"
 
 	"net/http"
 
@@ -233,50 +232,24 @@ func (uc *UserController) LogoutUser(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User logged out successfully", nil, nil, nil)
 }
 
-func GetUserInfoById(c *gin.Context) {
-	var user models.Patient
-	userID := c.Param("id")
-
-	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"data": user})
-}
-
-func GetAllUsersInfo(c *gin.Context) {
-	var users []models.Patient
-	if err := database.DB.Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve users"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"data": users})
-}
-
 func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
-	patientUserIdParam := c.Param("user_id")
-	var patientUserId *uint64
-	if patientUserIdParam != "" {
-		id, err := strconv.ParseUint(patientUserIdParam, 10, 64)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
-			return
-		}
-		patientUserId = &id
+	patientUserId, err := utils.GetUserIDFromContext(c, uc.patientService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
 	}
-
 	var req models.SystemUser_
 	if err := c.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	if req.RoleName != "relative" && req.RoleName != "caregiver" {
+	if req.RoleName != "relative" && req.RoleName != "caregiver" && req.RoleName != "doctor" {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role. Only relative or caregiver can be registered.", nil, nil)
 		return
 	}
 
-	patient, err := uc.patientService.GetUserProfileByUserId(*patientUserId)
+	patient, err := uc.patientService.GetUserProfileByUserId(patientUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
@@ -331,7 +304,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}
 
 	relationId := int(relation.RelationId)
-	err = uc.roleService.AddSystemUserMapping(tx, patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relationId)
+	err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relationId)
 	if err != nil {
 		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
