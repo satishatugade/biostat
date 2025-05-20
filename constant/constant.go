@@ -159,10 +159,11 @@ const (
 	SyncDigiLocker     = "/sync-digilocker"
 	GetMedicalResource = "/get-medical-resource"
 
-	SaveReport  = "/save-report"
-	SendSMS     = "/send-sms"
-	ShareReport = "/share-report"
-	RedirectURL = "/r/:code"
+	SaveReport              = "/save-report"
+	SendSMS                 = "/send-sms"
+	ShareReport             = "/share-report"
+	RedirectURL             = "/r/:code"
+	ValidateUserEmailMobile = "/checkUserMobileEmailExist"
 )
 
 const (

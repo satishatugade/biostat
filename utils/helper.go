@@ -686,3 +686,25 @@ func MappedRelationAccordingRelationship(userInfo *models.SystemUser_, relationI
 	log.Printf("Mapped relation ID: %d based on gender: %s", newRelationId, gender)
 	return newRelationId, nil
 }
+
+func CalculatePatientBMI(weightKg, heightCm float64) (float64, string) {
+	if heightCm <= 0 {
+		log.Println("Height must be greater than 0")
+	}
+	heightM := heightCm / 100
+	bmi := weightKg / (heightM * heightM)
+	var category string
+	switch {
+	case bmi < 18.5:
+		category = "Underweight"
+	case bmi >= 18.5 && bmi < 24.9:
+		category = "Normal weight"
+	case bmi >= 25.0 && bmi < 29.9:
+		category = "Overweight"
+	case bmi >= 30.0:
+		category = "Obese"
+	default:
+		category = "Unknown"
+	}
+	return bmi, category
+}

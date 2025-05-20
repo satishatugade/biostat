@@ -42,6 +42,7 @@ type PatientService interface {
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
+	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 }
 
 type PatientServiceImpl struct {
@@ -469,4 +470,8 @@ func (s *PatientServiceImpl) createTestResultValue(rv models.PatientDiagnosticTe
 		ResultComment: rv.ResultComment,
 		Udf1:          rv.UDF1,
 	}
+}
+
+func (ps *PatientServiceImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error) {
+	return ps.patientRepo.CheckUserEmailMobileExist(input)
 }

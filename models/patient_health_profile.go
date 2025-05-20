@@ -4,9 +4,11 @@ import "time"
 
 type TblPatientHealthProfile struct {
 	PatientHealthProfileID uint64    `gorm:"column:patient_health_profile_id;primaryKey;autoIncrement" json:"patient_health_profile_id"`
-	PatientID              uint64    `gorm:"column:patient_id;not null;unique" json:"patient_id"`
+	PatientId              uint64    `gorm:"column:patient_id;not null;unique" json:"patient_id"`
 	HeightCM               float64   `gorm:"column:height_cm" json:"height_cm"`
 	WeightKG               float64   `gorm:"column:weight_kg" json:"weight_kg"`
+	BMI                    float64   `gorm:"column:bmi" json:"bmi"`
+	BmiCategory            string    `gorm:"column:bmi_category" json:"bmi_category"`
 	BloodType              string    `gorm:"column:blood_type;size:3" json:"blood_type"`
 	SmokingStatus          string    `gorm:"column:smoking_status;size:50" json:"smoking_status"`
 	AlcoholConsumption     string    `gorm:"column:alcohol_consumption;size:50" json:"alcohol_consumption"`

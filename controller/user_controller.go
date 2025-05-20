@@ -8,6 +8,7 @@ import (
 	"biostat/utils"
 	"context"
 	"log"
+	"strings"
 
 	"net/http"
 
@@ -321,7 +322,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 }
 
-func (pc *UserController) UserRedirect(c *gin.Context) {
+func (uc *UserController) UserRedirect(c *gin.Context) {
 	code := c.Param("code")
 	log.Println("Short Code Map:", shortURLMap)
 	longURL, ok := shortURLMap[code]
@@ -330,4 +331,42 @@ func (pc *UserController) UserRedirect(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusTemporaryRedirect, longURL)
+}
+
+func (uc *UserController) CheckUserEmailMobileExist(c *gin.Context) {
+	var input models.CheckUserMobileEmail
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+	result, err := uc.patientService.CheckUserEmailMobileExist(&input)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to check user contact", nil, err)
+		return
+	}
+
+	messages := []string{}
+
+	if input.Mobile != "" {
+		if result {
+			messages = append(messages, "Mobile already exists")
+		} else {
+			messages = append(messages, "Mobile does not exist")
+		}
+	}
+
+	if input.Email != "" {
+		if result {
+			messages = append(messages, "Email already exists")
+		} else {
+			messages = append(messages, "Email does not exist")
+		}
+	}
+
+	finalMessage := "No input provided"
+	if len(messages) > 0 {
+		finalMessage = strings.Join(messages, "; ")
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, finalMessage, result, nil, nil)
 }

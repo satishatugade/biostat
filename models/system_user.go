@@ -202,3 +202,8 @@ type SupportGroupMember struct {
 func (SupportGroupMember) TableName() string {
 	return "tbl_support_group_member"
 }
+
+type CheckUserMobileEmail struct {
+	Mobile string `json:"mobile" binding:"omitempty"`
+	Email  string `json:"email" binding:"omitempty,email"`
+}

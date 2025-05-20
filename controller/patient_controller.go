@@ -1348,9 +1348,9 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
-	sub, subExists := ctx.Get("sub")
-	if !subExists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Authentication token is missing or invalid", nil, errors.New("unable to retrieve user 'sub' from context"))
+	user_id, err := utils.GetUserIDFromContext(ctx, pc.patientService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	var userReq models.PatientHealthProfileRequest
@@ -1358,13 +1358,6 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request format: please check the data you're sending", nil, err)
 		return
 	}
-
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
-		return
-	}
-
 	tx := database.DB.Begin()
 	if tx.Error != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to initiate transaction", nil, tx.Error)
@@ -1378,11 +1371,14 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 			return
 		}
 	}()
+	bmi, category := utils.CalculatePatientBMI(userReq.WeightKg, userReq.HeightCm)
 
 	healthData := &models.TblPatientHealthProfile{
-		PatientID:             user_id,
+		PatientId:             user_id,
 		HeightCM:              userReq.HeightCm,
 		WeightKG:              userReq.WeightKg,
+		BMI:                   bmi,
+		BmiCategory:           category,
 		BloodType:             userReq.BloodType,
 		SmokingStatus:         userReq.SmokingStatus,
 		AlcoholConsumption:    userReq.AlcoholConsumption,
