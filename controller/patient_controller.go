@@ -467,7 +467,7 @@ func (pc *PatientController) GetDoctorList(c *gin.Context) {
 	}
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
 	doctorProfile := utils.MapUsersToSchema(doctors, "doctor")
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(doctors),
 		"Doctor list retrieved successfully",
 		"Doctor not found",
