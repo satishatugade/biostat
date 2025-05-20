@@ -3,7 +3,6 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
-	"fmt"
 	"log"
 
 	"gorm.io/gorm"
@@ -27,7 +26,7 @@ type PatientService interface {
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
-	GetDoctorList(patientId *uint64, limit, offset int) ([]models.SystemUser_, int64, error)
+	GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientList() ([]models.Patient, error)
 	GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error)
 	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
@@ -176,7 +175,6 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 	return s.patientRepo.GetRelativeList(relativeUserIds, userRelationIds, relation)
 }
 
-// GetCaregiverList implements PatientService.
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
 
 	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "C", false)
@@ -186,13 +184,12 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 	if len(userRelationIds) == 0 {
 		return []models.Caregiver{}, nil
 	}
-	fmt.Println("relativeUserIds ", userRelationIds)
 	caregiverUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 
 	return s.patientRepo.GetCaregiverList(caregiverUserIds)
 }
 
-func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, limit, offset int) ([]models.SystemUser_, int64, error) {
+func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error) {
 
 	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
 	if err != nil {
@@ -201,8 +198,23 @@ func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, limit, offset int)
 	if len(userRelationIds) == 0 {
 		return []models.SystemUser_{}, 0, nil
 	}
-	doctorUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
-	return s.patientRepo.GetUserDataUserId(doctorUserIds, limit, offset)
+	if User != "patient" {
+		filteredDoctorIds := make([]uint64, 0)
+		for _, rel := range userRelationIds {
+			if rel.UserId == rel.PatientId {
+				filteredDoctorIds = append(filteredDoctorIds, rel.UserId)
+			}
+		}
+
+		if len(filteredDoctorIds) == 0 {
+			return []models.SystemUser_{}, 0, nil
+		}
+		return s.patientRepo.GetUserDataUserId(filteredDoctorIds, limit, offset)
+	} else {
+		doctorUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
+		return s.patientRepo.GetUserDataUserId(doctorUserIds, limit, offset)
+	}
+
 }
 
 func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {

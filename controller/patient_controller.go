@@ -460,7 +460,7 @@ func (pc *PatientController) GetDoctorList(c *gin.Context) {
 		filterUserId = &user_id
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
-	doctors, totalRecords, err := pc.patientService.GetDoctorList(filterUserId, limit, offset)
+	doctors, totalRecords, err := pc.patientService.GetDoctorList(filterUserId, User, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient doctor", nil, err)
 		return
@@ -473,7 +473,7 @@ func (pc *PatientController) GetDoctorList(c *gin.Context) {
 		"Doctor not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, doctorProfile, pagination, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, doctorProfile, pagination, nil)
 }
 
 func (pc *PatientController) GetPatientList(c *gin.Context) {

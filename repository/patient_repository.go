@@ -602,7 +602,7 @@ func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappin
 		db = db.Where("patient_id = ?", *patientId)
 	}
 	db = db.Where("mapping_type = ? AND is_self = ?", mappingType, isSelf)
-	err := db.Select("user_id,relation_id").Scan(&userRelations).Error
+	err := db.Select("user_id,patient_id,relation_id").Scan(&userRelations).Error
 	if err != nil {
 		return nil, err
 	}
