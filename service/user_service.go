@@ -13,6 +13,7 @@ type UserService interface {
 	UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error)
 	GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error)
 	DeleteTblUserToken(id uint64, updatedBy string) error
+	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 }
@@ -66,4 +67,8 @@ func (s *UserServiceImpl) CreateSystemUser(tx *gorm.DB, systemUser models.System
 		return models.SystemUser_{}, err
 	}
 	return createdUser, nil
+}
+
+func (s *UserServiceImpl) FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error) {
+	return s.userRepo.FetchAddressByPincode(postalcode)
 }

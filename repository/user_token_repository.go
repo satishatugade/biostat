@@ -15,6 +15,7 @@ type UserRepository interface {
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 	CreateSystemUserAddress(tx *gorm.DB, systemUserAddress models.AddressMaster) (models.AddressMaster, error)
 	CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error
+	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 }
 
 type UserRepositoryImpl struct {
@@ -91,4 +92,12 @@ func (r *UserRepositoryImpl) CreateSystemUserAddressMapping(tx *gorm.DB, userAdd
 		return err
 	}
 	return nil
+}
+
+func (ds *UserRepositoryImpl) FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error) {
+	var addresses []models.PincodeMaster
+	if err := ds.db.Where("pincode = ?", postalcode).Find(&addresses).Error; err != nil {
+		return nil, err
+	}
+	return addresses, nil
 }

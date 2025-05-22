@@ -149,8 +149,6 @@ func ExchangeToken(subjectToken string) (*TokenExchangeResponse, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// fmt.Println("Response Body:", string(body))
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("token exchange failed: status %d, body: %s", resp.StatusCode, string(body))
 	}
@@ -161,4 +159,27 @@ func ExchangeToken(subjectToken string) (*TokenExchangeResponse, error) {
 	}
 
 	return &tokenResponse, nil
+}
+
+func ResetPasswordInKeycloak(username, newPassword string) error {
+	ctx := context.Background()
+	token, err := utils.Client.LoginAdmin(ctx, utils.KeycloakAdminUser, utils.KeycloakAdminPassword, "master")
+	if err != nil {
+		return fmt.Errorf("admin login failed: %w", err)
+	}
+	users, err := utils.Client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
+		Username: gocloak.StringP(username),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch user: %w", err)
+	}
+	if len(users) == 0 || users[0].ID == nil {
+		return fmt.Errorf("user '%s' not found in Keycloak", username)
+	}
+	userID := *users[0].ID
+	err = utils.Client.SetPassword(ctx, token.AccessToken, userID, utils.KeycloakRealm, newPassword, false)
+	if err != nil {
+		return fmt.Errorf("failed to reset password: %w", err)
+	}
+	return nil
 }

@@ -121,7 +121,7 @@ func (SystemUser_) TableName() string {
 }
 
 func (AddressMaster) TableName() string {
-	return "tbl_address_master"
+	return "Biostack"
 }
 
 type AddressMaster struct {
@@ -206,4 +206,17 @@ func (SupportGroupMember) TableName() string {
 type CheckUserMobileEmail struct {
 	Mobile string `json:"mobile" binding:"omitempty"`
 	Email  string `json:"email" binding:"omitempty,email"`
+}
+
+type PincodeMaster struct {
+	ID       uint   `gorm:"primaryKey;autoIncrement" json:"id"`
+	Pincode  string `json:"pincode"`
+	City     string `json:"city"`
+	District string `json:"district"`
+	State    string `json:"state"`
+	Country  string `json:"country"`
+}
+
+func (PincodeMaster) TableName() string {
+	return "tbl_pincode_master"
 }

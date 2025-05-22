@@ -308,6 +308,9 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.LogoutUser, userController.LogoutUser},
 		Route{"redirect", http.MethodGet, constant.RedirectURL, userController.UserRedirect},
 		Route{"User", http.MethodPost, constant.ValidateUserEmailMobile, userController.CheckUserEmailMobileExist},
+		Route{"User", http.MethodPost, constant.ResetPassword, userController.ResetUserPassword},
+		//postal code
+		Route{"Postalcode", http.MethodPost, constant.Postalcode, userController.FetchAddressByPincode},
 	}
 }
 

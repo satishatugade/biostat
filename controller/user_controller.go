@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"biostat/auth"
 	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
@@ -369,4 +370,40 @@ func (uc *UserController) CheckUserEmailMobileExist(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, finalMessage, result, nil, nil)
+}
+
+func (uc *UserController) ResetUserPassword(c *gin.Context) {
+	var req struct {
+		Username    string `json:"username" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request payload", nil, err)
+		return
+	}
+	if err := auth.ResetPasswordInKeycloak(req.Username, req.NewPassword); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Password reset failed", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Password reset successfully", nil, nil, nil)
+}
+
+func (uc *UserController) FetchAddressByPincode(c *gin.Context) {
+	type PostalCodeRequest struct {
+		PostalCode string `json:"postal_code" binding:"required"`
+	}
+	var req PostalCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.PostalCode == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Postal code is required", nil, err)
+		return
+	}
+
+	addressData, err := uc.userService.FetchAddressByPincode(req.PostalCode)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Pincode not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Address fetched successfully", addressData, nil, nil)
 }
