@@ -3,9 +3,12 @@ package auth
 import (
 	"biostat/constant"
 	"biostat/models"
+	"biostat/repository"
+	"biostat/service"
 	"biostat/utils"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,10 +16,67 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 )
+
+type AuthService interface {
+	SendResetPasswordLink(email string) error
+}
+
+type AuthServiceImpl struct {
+	userRepo         repository.UserRepository
+	userTokenService service.UserService
+	emailService     *service.EmailService
+}
+
+func NewAuthService(repo repository.UserRepository, userTokenService service.UserService, emailService *service.EmailService) AuthService {
+	return &AuthServiceImpl{
+		userRepo:         repo,
+		userTokenService: userTokenService,
+		emailService:     emailService,
+	}
+}
+
+type TokenData struct {
+	AuthUserID string
+	ExpiresAt  time.Time
+}
+
+var (
+	tokenStore = make(map[string]TokenData)
+	tokenMutex = sync.RWMutex{}
+)
+
+func StoreToken(token, AuthuserID string, duration time.Duration) {
+	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
+	tokenStore[token] = TokenData{
+		AuthUserID: AuthuserID,
+		ExpiresAt:  time.Now().Add(duration),
+	}
+}
+
+func GetTokenData(token string) (TokenData, bool) {
+	tokenMutex.RLock()
+	defer tokenMutex.RUnlock()
+	data, found := tokenStore[token]
+	if !found || time.Now().After(data.ExpiresAt) {
+		return TokenData{}, false
+	}
+	return data, true
+}
+
+func DeleteToken(token string) {
+	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
+	delete(tokenStore, token)
+}
 
 func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -180,6 +240,31 @@ func ResetPasswordInKeycloak(username, newPassword string) error {
 	err = utils.Client.SetPassword(ctx, token.AccessToken, userID, utils.KeycloakRealm, newPassword, false)
 	if err != nil {
 		return fmt.Errorf("failed to reset password: %w", err)
+	}
+	return nil
+}
+
+func (as *AuthServiceImpl) SendResetPasswordLink(email string) error {
+	userInfo, err := as.userRepo.GetUserInfoByEmailId(email)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	token := uuid.New().String()
+	// tokenData := &models.TblUserToken{
+	// 	UserId:    userInfo.UserId,
+	// 	AuthToken: token,
+	// 	Provider:  "Email",
+	// 	ExpiresAt: time.Now().Add(15 * time.Minute),
+	// }
+	// _, err1 := as.userTokenService.CreateTblUserToken(tokenData)
+	// if err1 != nil {
+	// 	return errors.New("reset password token not saved")
+	// }
+	StoreToken(token, userInfo.AuthUserId, 15*time.Minute)
+
+	MailErr := as.emailService.SendResetPasswordMail(userInfo, token, email)
+	if MailErr != nil {
+		return errors.New("reset password email not sent")
 	}
 	return nil
 }

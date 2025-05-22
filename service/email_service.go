@@ -17,11 +17,10 @@ type EmailService struct {
 	SenderPass  string
 }
 
-// NewEmailService initializes the email service
 func NewEmailService() *EmailService {
 	return &EmailService{
-		SMTPHost:    os.Getenv("SMTP_HOST"), // e.g., "smtp.gmail.com"
-		SMTPPort:    os.Getenv("SMTP_PORT"), // e.g., "587"
+		SMTPHost:    os.Getenv("SMTP_HOST"),
+		SMTPPort:    os.Getenv("SMTP_PORT"),
 		SenderEmail: os.Getenv("SMTP_EMAIL"),
 		SenderPass:  os.Getenv("SMTP_PASSWORD"),
 	}
@@ -29,8 +28,8 @@ func NewEmailService() *EmailService {
 
 func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient) error {
 	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
-	APPURL := os.Getenv("APP_URL")                                                  // Application Login URL
-	RESETURL := fmt.Sprintf("%s/reset-password?email=%s", APPURL, systemUser.Email) // Password Reset URL
+	APPURL := os.Getenv("APP_URL")
+	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
 
 	var additionalInfo string
 	if patient != nil {
@@ -223,4 +222,35 @@ func (e *EmailService) ShareReportEmail(recipientEmail []string, recipientName, 
 	)
 
 	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, recipientEmail, []byte(message))
+}
+
+func (e *EmailService) SendResetPasswordMail(user *models.SystemUser_, token string, recipientEmail string) error {
+	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
+	APPURL := os.Getenv("APP_URL")
+	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s", APPURL, token)
+
+	message := fmt.Sprintf("Subject: Password Reset Request\r\n"+
+		"From: Biostack Healthcare <%s>\r\n"+
+		"MIME-Version: 1.0\r\n"+
+		"Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"+
+		"<html><body>"+
+		"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto;'>"+
+		"<h2 style='color: #2c3e50;'>Hello %s,</h2>"+
+		"<p style='font-size: 16px; color: #333;'>We received a request to reset your password. Click the button below to set a new password:</p>"+
+		"<p style='text-align: center;'>"+
+		"<a href='%s' style='background-color: #007BFF; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px;'>Reset Password</a>"+
+		"</p>"+
+		"<p style='font-size: 14px; color: #555;'>If the button doesn't work, copy and paste the following URL into your browser:</p>"+
+		"<p style='word-break: break-all; color: #007BFF;'>%s</p>"+
+		"<p style='font-size: 14px; color: #999;'>This link will expire in 15 minutes.</p>"+
+		"<hr style='margin-top: 30px;'>"+
+		"<p style='font-size: 14px; color: #999;'>This message was sent by Biostack Healthcare System</p>"+
+		"</div></body></html>",
+		e.SenderEmail,
+		user.FirstName,
+		resetURL,
+		resetURL,
+	)
+
+	return smtp.SendMail(e.SMTPHost+":"+e.SMTPPort, auth, e.SenderEmail, []string{recipientEmail}, []byte(message))
 }

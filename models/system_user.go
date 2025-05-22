@@ -98,6 +98,8 @@ type SystemUser_ struct {
 	AuthDate           time.Time  `gorm:"column:auth_date;default:CURRENT_TIMESTAMP" json:"auth_date"`
 	ActivationFlag     bool       `gorm:"column:activation_flag;default:false" json:"activation_flag"`
 	FirstLoginFlag     bool       `gorm:"column:first_login_flag;default:false" json:"first_login_flag"`
+	LoginCount         int        `gorm:"column:login_count" json:"login_count"`
+	LastLoginIP        string     `gorm:"column:last_login_ip" json:"last_login_ip"`
 	AccountExpired     bool       `gorm:"column:account_expired;default:false" json:"account_expired"`
 	AccountLocked      bool       `gorm:"column:account_locked;default:false" json:"account_locked"`
 	CredentialsExpired bool       `gorm:"column:credentials_expired;default:false" json:"credentials_expired"`
@@ -120,8 +122,14 @@ func (SystemUser_) TableName() string {
 	return "tbl_system_user_"
 }
 
+type UserLoginInfo struct {
+	AuthUserID string
+	Password   string
+	LoginCount int
+}
+
 func (AddressMaster) TableName() string {
-	return "Biostack"
+	return "tbl_address_master"
 }
 
 type AddressMaster struct {

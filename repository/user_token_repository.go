@@ -16,6 +16,10 @@ type UserRepository interface {
 	CreateSystemUserAddress(tx *gorm.DB, systemUserAddress models.AddressMaster) (models.AddressMaster, error)
 	CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
+	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
+	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
+	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
+	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 }
 
 type UserRepositoryImpl struct {
@@ -100,4 +104,76 @@ func (ds *UserRepositoryImpl) FetchAddressByPincode(postalcode string) ([]models
 		return nil, err
 	}
 	return addresses, nil
+}
+
+func (ur *UserRepositoryImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error) {
+	var count int64
+
+	if input.Mobile != "" {
+		err := ur.db.Model(&models.SystemUser_{}).
+			Where("mobile_no = ?", input.Mobile).
+			Count(&count).Error
+		if err != nil {
+			return false, err
+		}
+		if count > 0 {
+			return true, nil
+		}
+	}
+	if input.Email != "" {
+		err := ur.db.Model(&models.SystemUser_{}).
+			Where("email = ?", input.Email).
+			Count(&count).Error
+		if err != nil {
+			return false, err
+		}
+		if count > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (ur *UserRepositoryImpl) GetUserInfoByUserName(username string) (*models.UserLoginInfo, error) {
+	var info models.UserLoginInfo
+
+	err := ur.db.Debug().
+		Model(&models.SystemUser_{}).
+		Select("auth_user_id", "password", "login_count").
+		Where("username = ?", username).
+		Scan(&info).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &info, nil
+}
+
+func (ur *UserRepositoryImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error) {
+	var user models.SystemUser_
+
+	err := ur.db.Where("email = ?", emailId).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (ur *UserRepositoryImpl) UpdateUserInfo(userID string, updates map[string]interface{}) error {
+	tx := ur.db.Begin()
+
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	if err := tx.Model(&models.SystemUser_{}).
+		Where("auth_user_id = ?", userID).
+		Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }

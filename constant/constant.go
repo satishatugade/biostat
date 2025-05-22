@@ -165,12 +165,18 @@ const (
 	RedirectURL             = "/r/:code"
 	ValidateUserEmailMobile = "/checkUserMobileEmailExist"
 	ResetPassword           = "/reset-password"
+	SentLink                = "/reset-password-link"
 	Postalcode              = "/address/postalcode"
 )
 
 const (
 	Success = "success"
 	Failure = "failure"
+)
+
+const (
+	Active   = "Active"
+	InActive = "Inactive"
 )
 
 const (

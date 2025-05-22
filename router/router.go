@@ -1,6 +1,7 @@
 package router
 
 import (
+	"biostat/auth"
 	"biostat/constant"
 	"biostat/controller"
 	"biostat/repository"
@@ -68,7 +69,8 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController(patientService, roleService, userService, emailService)
+	var authService = auth.NewAuthService(userRepo, userService, emailService)
+	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService)
 	UserRoutes(apiGroup, userController)
 
 	var gmailRecordsController = controller.NewGmailSyncController(medicalRecordService, userService)
@@ -309,6 +311,7 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"redirect", http.MethodGet, constant.RedirectURL, userController.UserRedirect},
 		Route{"User", http.MethodPost, constant.ValidateUserEmailMobile, userController.CheckUserEmailMobileExist},
 		Route{"User", http.MethodPost, constant.ResetPassword, userController.ResetUserPassword},
+		Route{"User", http.MethodPost, constant.SentLink, userController.SendResetPasswordLink},
 		//postal code
 		Route{"Postalcode", http.MethodPost, constant.Postalcode, userController.FetchAddressByPincode},
 	}

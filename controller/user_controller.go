@@ -10,6 +10,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"time"
 
 	"net/http"
 
@@ -23,14 +24,13 @@ type UserController struct {
 	roleService    service.RoleService
 	userService    service.UserService
 	emailService   *service.EmailService
+	authService    auth.AuthService
 }
 
-// var emailService = service.NewEmailService()
-
 func NewUserController(patientService service.PatientService, roleService service.RoleService,
-	userService service.UserService, emailService *service.EmailService) *UserController {
+	userService service.UserService, emailService *service.EmailService, authService auth.AuthService) *UserController {
 	return &UserController{patientService: patientService, roleService: roleService,
-		userService: userService, emailService: emailService}
+		userService: userService, emailService: emailService, authService: authService}
 }
 
 func (uc *UserController) RegisterUser(c *gin.Context) {
@@ -159,6 +159,16 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Username password required.", nil, err)
 		return
 	}
+	loginInfo, err := uc.userService.GetUserInfoByUserName(input.Username)
+	if err != nil {
+		log.Println("User not found with this username in database : ", input.Username)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)
+	}
+	if !ComparePasswords(loginInfo.Password, input.Password) {
+		log.Println("Password not match with hashpassword ")
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid password", nil, nil)
+		return
+	}
 	client := utils.Client
 	ctx := context.Background()
 	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, input.Username, input.Password)
@@ -196,6 +206,17 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User role not found", nil, err)
 		return
+	}
+	logindata := map[string]interface{}{
+		"last_login":       time.Now(),
+		"first_login_flag": true,
+		"user_state":       constant.Active,
+		"login_count":      loginInfo.LoginCount + 1,
+		"last_login_ip":    c.ClientIP(),
+	}
+	updateError := uc.userService.UpdateUserInfo(user.AuthUserId, logindata)
+	if updateError != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotModified, "User login details not updated", nil, err)
 	}
 	userLoginResponse := models.UserLoginResponse{
 		AccessToken:  token.AccessToken,
@@ -340,7 +361,7 @@ func (uc *UserController) CheckUserEmailMobileExist(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
 		return
 	}
-	result, err := uc.patientService.CheckUserEmailMobileExist(&input)
+	result, err := uc.userService.CheckUserEmailMobileExist(&input)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to check user contact", nil, err)
 		return
@@ -372,20 +393,76 @@ func (uc *UserController) CheckUserEmailMobileExist(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, finalMessage, result, nil, nil)
 }
 
-func (uc *UserController) ResetUserPassword(c *gin.Context) {
-	var req struct {
-		Username    string `json:"username" binding:"required"`
-		NewPassword string `json:"new_password" binding:"required"`
+func ComparePasswords(hashedPassword string, plainPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
+	return err == nil
+}
+
+func (ac *UserController) SendResetPasswordLink(c *gin.Context) {
+
+	var req models.CheckUserMobileEmail
+	if err := c.ShouldBindJSON(&req); err != nil || req.Email == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Valid email is required", nil, err)
+		return
 	}
 
+	err := ac.authService.SendResetPasswordLink(req.Email)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send reset link", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Reset link sent successfully", nil, nil, nil)
+}
+
+func (uc *UserController) ResetUserPassword(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Reset token is required", nil, nil)
+		return
+	}
+
+	tokenData, valid := auth.GetTokenData(token)
+	if !valid {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid or expired reset token", nil, nil)
+		return
+	}
+	var req struct {
+		Password string `json:"password" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request payload", nil, err)
 		return
 	}
-	if err := auth.ResetPasswordInKeycloak(req.Username, req.NewPassword); err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Password reset failed", nil, err)
+	userId, err := uc.patientService.GetUserIdByAuthUserId(tokenData.AuthUserID)
+	if err != nil {
+		log.Println("User not found with this authuserId :", tokenData.AuthUserID)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)
 		return
 	}
+	userInfo, err := uc.patientService.GetUserProfileByUserId(userId)
+	if err != nil {
+		log.Println("User not found with this ID:", userId)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)
+		return
+	}
+	if err := auth.ResetPasswordInKeycloak(userInfo.Username, req.Password); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Password reset failed in Keycloak", nil, err)
+		return
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to hash password", nil, err)
+		return
+	}
+	updateData := map[string]interface{}{
+		"password": hashedPassword,
+	}
+	if err := uc.userService.UpdateUserInfo(userInfo.AuthUserId, updateData); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update password in database", nil, err)
+		return
+	}
+	// auth.DeleteToken(token)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Password reset successfully", nil, nil, nil)
 }
 

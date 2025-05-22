@@ -55,7 +55,6 @@ type PatientRepository interface {
 	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
-	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 }
 
 type PatientRepositoryImpl struct {
@@ -1017,32 +1016,4 @@ func (p *PatientRepositoryImpl) GetUserSUBByID(ID uint64) (string, error) {
 		return "", err
 	}
 	return user.AuthUserId, nil
-}
-
-func (pr *PatientRepositoryImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error) {
-	var count int64
-
-	if input.Mobile != "" {
-		err := pr.db.Model(&models.SystemUser_{}).
-			Where("mobile_no = ?", input.Mobile).
-			Count(&count).Error
-		if err != nil {
-			return false, err
-		}
-		if count > 0 {
-			return true, nil
-		}
-	}
-	if input.Email != "" {
-		err := pr.db.Model(&models.SystemUser_{}).
-			Where("email = ?", input.Email).
-			Count(&count).Error
-		if err != nil {
-			return false, err
-		}
-		if count > 0 {
-			return true, nil
-		}
-	}
-	return false, nil
 }

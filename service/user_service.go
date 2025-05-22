@@ -16,6 +16,10 @@ type UserService interface {
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
+	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
+	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
+	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
+	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 }
 
 type UserServiceImpl struct {
@@ -71,4 +75,20 @@ func (s *UserServiceImpl) CreateSystemUser(tx *gorm.DB, systemUser models.System
 
 func (s *UserServiceImpl) FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error) {
 	return s.userRepo.FetchAddressByPincode(postalcode)
+}
+
+func (ps *UserServiceImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error) {
+	return ps.userRepo.CheckUserEmailMobileExist(input)
+}
+
+func (s *UserServiceImpl) GetUserInfoByUserName(username string) (*models.UserLoginInfo, error) {
+	return s.userRepo.GetUserInfoByUserName(username)
+}
+
+func (s *UserServiceImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error) {
+	return s.userRepo.GetUserInfoByEmailId(emailId)
+}
+
+func (s *UserServiceImpl) UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error {
+	return s.userRepo.UpdateUserInfo(authUserId, updateInfo)
 }
