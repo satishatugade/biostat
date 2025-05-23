@@ -3,6 +3,8 @@ package utils
 import (
 	"biostat/constant"
 	"biostat/models"
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -707,4 +710,56 @@ func CalculatePatientBMI(weightKg, heightCm float64) (float64, string) {
 		category = "Unknown"
 	}
 	return bmi, category
+}
+
+func MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error) {
+	var requestBody io.Reader
+
+	if body != nil {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to marshal body: %w", err)
+		}
+		requestBody = bytes.NewBuffer(jsonData)
+	}
+
+	req, err := http.NewRequest(method, url, requestBody)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var responseData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
+		return resp.StatusCode, nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return resp.StatusCode, responseData, nil
+}
+
+func GenerateGoogleCalendarLink(title, description, location string, start, end time.Time) string {
+	base := "https://calendar.google.com/calendar/render?action=TEMPLATE"
+
+	startStr := start.UTC().Format("20060102T150405Z")
+	endStr := end.UTC().Format("20060102T150405Z")
+
+	query := url.Values{}
+	query.Set("text", title)
+	query.Set("dates", fmt.Sprintf("%s/%s", startStr, endStr))
+	query.Set("details", description)
+	query.Set("location", location)
+
+	return fmt.Sprintf("%s&%s", base, query.Encode())
 }

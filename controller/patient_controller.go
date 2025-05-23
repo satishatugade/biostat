@@ -978,13 +978,13 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		CreatedAt:       appointment.CreatedAt,
 		UpdatedAt:       appointment.UpdatedAt,
 	}
-	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	user, err := pc.patientService.GetUserProfileByUserId(appointment.PatientID)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
 		return
 	}
-	userProfile := utils.MapUserToRoleSchema(*user, "patient")
-	err = pc.emailService.SendAppointmentMail(appointmentResponse, userProfile)
+	userProfile := utils.MapSystemUserToPatient(user)
+	err = pc.emailService.SendAppointmentMail(appointmentResponse, *userProfile, providerInfo)
 	if err != nil {
 		log.Println("Error sending appointment email:", err)
 	}
@@ -1629,7 +1629,7 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 	shortURLMap[shortCode] = longLink
 	shortURL := fmt.Sprintf("%s/v1/user/r/%s", os.Getenv("SHORT_URL_BASE"), shortCode)
 
-	err1 := pc.emailService.ShareReportEmail(req.Email, userDetails.FirstName+" "+userDetails.LastName, shortURL)
+	err1 := pc.emailService.ShareReportEmail(req.Email, userDetails, shortURL)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send email", nil, err1)
 		return
