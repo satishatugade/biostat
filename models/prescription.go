@@ -37,9 +37,9 @@ type PrescriptionDetail struct {
 	IntervalHour         int       `gorm:"column:interval_hour" json:"interval_hour"`
 	Instruction          string    `gorm:"column:instruction" json:"instruction"`
 	CreatedAt            time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt            time.Time `gorm:"column:updated_at" json:"updated_at"`
-	CreatedBy            string    `gorm:"column:created_by" json:"created_by"`
-	UpdatedBy            string    `gorm:"column:updated_by" json:"updated_by"`
+	UpdatedAt            time.Time `gorm:"column:updated_at" json:"-"`
+	CreatedBy            string    `gorm:"column:created_by" json:"-"`
+	UpdatedBy            string    `gorm:"column:updated_by" json:"-"`
 }
 
 // TableName for PrescriptionDetail

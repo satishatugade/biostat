@@ -254,6 +254,33 @@ func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, prescriptions, pagination, nil)
 }
 
+func (pc *PatientController) PrescriptionInfobyAIModel(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+	var request struct {
+		PrescriptionId uint64 `json:"prescription_id"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+	prescriptionSummary, err := pc.patientService.GetPrescriptionInfo(request.PrescriptionId, patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch prescription details", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Prescription explanation fetched.", prescriptionSummary, nil, nil)
+}
+
 func (pc *PatientController) GetPatientDietPlan(c *gin.Context) {
 	patientId := c.Param("patient_id")
 
@@ -377,48 +404,18 @@ func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient relative retrieved successfully", relative, nil, nil)
 }
 
-func (pc *PatientController) UpdatePatientRelative(c *gin.Context) {
-	_, exists := utils.GetUserDataContext(c)
+func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
 		return
 	}
-	relativeIdStr := c.Param("relative_id")
-
-	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 64)
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid relative ID", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
-
-	var updatedRelative models.PatientRelative
-	if err := c.ShouldBindJSON(&updatedRelative); err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
-		return
-	}
-
-	patientRelative, err := pc.patientService.UpdatePatientRelative(uint(relativeId), &updatedRelative)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient relative", nil, err)
-		return
-	}
-
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient relative updated successfully", patientRelative, nil, nil)
-}
-
-func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
-	patientIdParam := c.Param("patient_id")
-	var patientId *uint64
-	if patientIdParam != "" {
-		id, err := strconv.ParseUint(patientIdParam, 10, 64)
-		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
-			return
-		}
-		patientId = &id
-	}
-
-	caregivers, err := pc.patientService.GetCaregiverList(patientId)
+	caregivers, err := pc.patientService.GetCaregiverList(&patientId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient caregivers", nil, err)
 		return
@@ -1345,6 +1342,27 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	}(patientId)
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", reportData, nil, nil)
+}
+
+func (pc *PatientController) AddPatientReportNote(ctx *gin.Context) {
+	type UpdateReportCommentRequest struct {
+		PatientReportId uint64 `json:"patient_diagnostic_report_id" binding:"required"`
+		PatientId       uint64 `json:"patient_id" binding:"required"`
+		Comment         string `json:"comments" binding:"required"`
+	}
+	var req UpdateReportCommentRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request", nil, err)
+		return
+	}
+
+	err := pc.diseaseService.AddPatientReportNote(req.PatientReportId, req.PatientId, req.Comment)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update report comment", nil, err)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Comment updated successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {

@@ -16,12 +16,11 @@ const (
 	Relative             = "/get-relative/:patient_id"
 	RelativeList         = "/relative-list"
 	SingleRelative       = "/relative/:relative_id"
-	UpdateRealtiveInfo   = "/patient-relative/:relative_id"
 	UserProfile          = "/user-profile"
 	UserOnboardingStatus = "/user-onboarding-status"
 	UserHealthDetails    = "/user-health-details"
 
-	Caregiver     = "/get-caregiver/:patient_id"
+	Caregiver     = "/get-caregiver"
 	CaregiverList = "/caregiver-list"
 
 	DoctorList = "/doctor-list/:user"
@@ -36,6 +35,7 @@ const (
 	PatientRegistration       = "/patient-registration"
 	PatientPrescription       = "/patient-prescription"
 	PrescriptionByPatientId   = "/get-prescription"
+	PrescriptionInfo          = "/prescription-info"
 	User                      = "/getuser"
 	RegisterUser              = "/register"
 	UserRegistrationByPatient = "/create-by-patient"
@@ -160,6 +160,7 @@ const (
 	GetMedicalResource = "/get-medical-resource"
 
 	SaveReport              = "/save-report"
+	AddNote                 = "/add-report-note"
 	SendSMS                 = "/send-sms"
 	ShareReport             = "/share-report"
 	RedirectURL             = "/r/:code"

@@ -15,6 +15,7 @@ type PatientRepository interface {
 	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
+	GetSinglePrescription(prescriptiuonId uint64, patientId uint64) (models.PatientPrescription, error)
 	GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
@@ -35,9 +36,7 @@ type PatientRepository interface {
 	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
 	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
-	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
-	// UpdatePrescription(*models.PatientPrescription) error
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
@@ -116,6 +115,21 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 	}
 
 	return prescriptions, totalRecords, nil
+}
+
+func (pr *PatientRepositoryImpl) GetSinglePrescription(prescriptionId uint64, patientId uint64) (models.PatientPrescription, error) {
+	var prescription models.PatientPrescription
+
+	err := pr.db.
+		Preload("PrescriptionDetails").
+		Where("prescription_id = ? AND patient_id = ?", prescriptionId, patientId).
+		First(&prescription).Error
+
+	if err != nil {
+		return models.PatientPrescription{}, err
+	}
+
+	return prescription, nil
 }
 
 func (p *PatientRepositoryImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
@@ -453,23 +467,6 @@ func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.P
 	var relatives []models.PatientRelative
 	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
 	return relatives, err
-}
-
-func (p *PatientRepositoryImpl) UpdatePatientRelative(relativeId uint, updatedRelative *models.PatientRelative) (models.PatientRelative, error) {
-	var relative models.PatientRelative
-
-	// Find the existing relative
-	if err := p.db.First(&relative, "relative_id = ?", relativeId).Error; err != nil {
-		return models.PatientRelative{}, err
-	}
-
-	// Update the fields
-	if err := p.db.Model(&relative).Updates(updatedRelative).Error; err != nil {
-		return models.PatientRelative{}, err
-	}
-
-	// Return the updated relative
-	return relative, nil
 }
 
 func (s *PatientRepositoryImpl) IsPatientExists(patientID uint) (bool, error) {

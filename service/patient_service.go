@@ -22,6 +22,7 @@ type PatientService interface {
 
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
 	GetPrescriptionByPatientId(PatientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPrescriptionInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
@@ -29,7 +30,6 @@ type PatientService interface {
 	GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientList() ([]models.Patient, error)
 	GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error)
-	UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserOnboardingStatusByUID(uid uint64) (bool, bool, bool, int64, int64, int64, int64, error)
@@ -68,6 +68,19 @@ func (s *PatientServiceImpl) GetRelationById(relationId int) (models.PatientRela
 
 func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	return s.patientRepo.GetPrescriptionByPatientId(patientId, limit, offset)
+}
+
+func (s *PatientServiceImpl) GetPrescriptionInfo(prescriptionId uint64, patientId uint64) (string, error) {
+	data, err := s.patientRepo.GetSinglePrescription(prescriptionId, patientId)
+	if err != nil {
+		return "", err
+	}
+	summaryText, err := s.apiService.AnalyzePrescriptionWithAI(data)
+	if err != nil {
+		return "", err
+	}
+	return summaryText, nil
+
 }
 
 func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patient, int64, error) {
@@ -118,10 +131,6 @@ func (s *PatientServiceImpl) AddPatientRelative(relative *models.PatientRelative
 // GetPatientRelatives implements PatientService.
 func (s *PatientServiceImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
 	return s.patientRepo.GetPatientRelative(patientId)
-}
-
-func (s *PatientServiceImpl) UpdatePatientRelative(relativeId uint, relative *models.PatientRelative) (models.PatientRelative, error) {
-	return s.patientRepo.UpdatePatientRelative(relativeId, relative)
 }
 
 // AddPatientClinicalRange implements PatientService.

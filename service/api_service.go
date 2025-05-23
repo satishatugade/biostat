@@ -16,11 +16,13 @@ import (
 type ApiService interface {
 	CallGeminiService(file io.Reader, filename string) (models.LabReport, error)
 	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
+	AnalyzePrescriptionWithAI(data models.PatientPrescription) (string, error)
 }
 
 type ApiServiceImpl struct {
 	GeminiAPIURL     string
 	ReportSummaryAPI string
+	PrescriptionAPI  string
 	client           *http.Client
 }
 
@@ -28,6 +30,7 @@ func NewApiService() ApiService {
 	return &ApiServiceImpl{
 		GeminiAPIURL:     os.Getenv("GEMINI_API_URL"),
 		ReportSummaryAPI: os.Getenv("REPORT_SUMMARY_API"),
+		PrescriptionAPI:  os.Getenv("PRESCRIPTION_API"),
 		client:           &http.Client{},
 	}
 }
@@ -110,4 +113,39 @@ func (a *ApiServiceImpl) CallSummarizeReportService(data models.PatientBasicInfo
 	}
 
 	return result, nil
+}
+
+func (api *ApiServiceImpl) AnalyzePrescriptionWithAI(prescription models.PatientPrescription) (string, error) {
+
+	jsonData, err := json.Marshal(prescription)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, api.PrescriptionAPI, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("AI service responded with status code %d", resp.StatusCode)
+	}
+
+	var response struct {
+		Summary string `json:"pharmacodynamics_explanation"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", err
+	}
+
+	return response.Summary, nil
 }
