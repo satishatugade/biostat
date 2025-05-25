@@ -746,6 +746,10 @@ func MakeRESTRequest(method, url string, body interface{}, headers map[string]st
 		return resp.StatusCode, nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	if errMsg, ok := responseData["error"].(string); ok && errMsg != "" {
+		return resp.StatusCode, responseData, fmt.Errorf("API error: %s", errMsg)
+	}
+
 	return resp.StatusCode, responseData, nil
 }
 

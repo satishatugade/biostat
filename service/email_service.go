@@ -45,7 +45,10 @@ func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, passw
 			"resetURL":        RESETURL,
 		},
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, nil)
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
+	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 	return sendErr
 }
 
@@ -130,7 +133,7 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 
 	sendBody := map[string]interface{}{
 		"user_id":           appointment.PatientID,
-		"recipient_mail_id": []string{userProfile.Email},
+		"recipient_mail_id": userProfile.Email,
 		"template_code":     6,
 		"channels":          []string{"email", "whatsapp"},
 		"data": map[string]interface{}{
@@ -141,12 +144,15 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 			"calendarLink":        calendarLink,
 		},
 	}
-	sendStatus, sendData, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, nil)
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
+	sendStatus, sendData, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 
 	scheduleTime := start.Add(-30 * time.Minute).Format(time.RFC3339)
 	scheduleBody := map[string]interface{}{
 		"user_id":           appointment.PatientID,
-		"recipient_mail_id": []string{userProfile.Email},
+		"recipient_mail_id": userProfile.Email,
 		"template_code":     2,
 		"channels":          []string{"email"},
 		"repeat_interval":   0,
@@ -163,7 +169,7 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 		},
 	}
 
-	scheduleStatus, scheduleData, scheduleErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, nil)
+	scheduleStatus, scheduleData, scheduleErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
 
 	var errs []string
 	if sendErr != nil {
@@ -206,13 +212,19 @@ func (e *EmailService) SendReportResultsEmail(patientInfo *models.SystemUser_, a
 			"alerts":   alertData,
 		},
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, nil)
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
+	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 
 	return sendErr
 }
 
 func (e *EmailService) ShareReportEmail(recipientEmail []string, userDetails *models.SystemUser_, shortURL string) error {
 	var errs []string
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
 	for _, email := range recipientEmail {
 		sendBody := map[string]interface{}{
 			"user_id":           userDetails.UserId,
@@ -224,7 +236,7 @@ func (e *EmailService) ShareReportEmail(recipientEmail []string, userDetails *mo
 				"reportLink": shortURL,
 			},
 		}
-		_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, nil)
+		_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 		if sendErr != nil {
 			errs = append(errs, fmt.Sprintf("send failed for %v: %v", email, sendErr))
 		}
@@ -238,7 +250,9 @@ func (e *EmailService) ShareReportEmail(recipientEmail []string, userDetails *mo
 func (e *EmailService) SendResetPasswordMail(systemUser *models.SystemUser_, token string, recipientEmail string) error {
 	APPURL := os.Getenv("APP_URL")
 	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s", APPURL, token)
-
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
 	sendBody := map[string]interface{}{
 		"user_id":           systemUser.UserId,
 		"recipient_mail_id": systemUser.Email,
@@ -249,6 +263,6 @@ func (e *EmailService) SendResetPasswordMail(systemUser *models.SystemUser_, tok
 			"resetURL": resetURL,
 		},
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, nil)
+	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 	return sendErr
 }
