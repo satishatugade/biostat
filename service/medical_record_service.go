@@ -14,8 +14,9 @@ type TblMedicalRecordService interface {
 	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, file *bytes.Buffer, filename string) (*models.TblMedicalRecord, error)
 	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
-	GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error)
+	GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
+	IsRecordBelongsToUser(userID uint64, recordID int64) (bool, error)
 }
 
 type tblMedicalRecordServiceImpl struct {
@@ -115,10 +116,14 @@ func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(data *models.TblMed
 	return s.tblMedicalRecordRepo.UpdateTblMedicalRecord(data, updatedBy)
 }
 
-func (s *tblMedicalRecordServiceImpl) GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error) {
 	return s.tblMedicalRecordRepo.GetSingleTblMedicalRecord(id)
 }
 
 func (s *tblMedicalRecordServiceImpl) DeleteTblMedicalRecord(id int, updatedBy string) error {
 	return s.tblMedicalRecordRepo.DeleteTblMedicalRecordWithMappings(id, updatedBy)
+}
+
+func (s *tblMedicalRecordServiceImpl) IsRecordBelongsToUser(userID uint64, recordID int64) (bool, error) {
+	return s.tblMedicalRecordRepo.IsRecordBelongsToUser(userID, recordID)
 }
