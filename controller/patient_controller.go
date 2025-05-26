@@ -16,11 +16,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type PatientController struct {
@@ -643,41 +645,41 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		return
 	}
 
-	userDigiToken, err := c.userService.GetSingleTblUserToken(user_id, "DigiLocker")
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Digilocker Token not found", nil, err)
+	originalName := strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
+	extension := filepath.Ext(header.Filename)
+	uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
+	safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
+	destinationPath := filepath.Join("uploads", safeFileName)
+
+	if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create uploads directory", nil, err)
 		return
 	}
 
-	// fileData, err := utils.ReadFileBytes(file)
-	// if err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
-	// 	return
-	// }
+	if err := ctx.SaveUploadedFile(header, destinationPath); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to save file", nil, err)
+		return
+	}
+	newRecord := &models.TblMedicalRecord{
+		RecordName:        safeFileName,
+		RecordSize:        int64(header.Size),
+		FileType:          header.Header.Get("Content-Type"),
+		RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
+		UploadDestination: "LocalServer",
+		FetchedAt:         time.Now(),
+	}
 	var fileBuf bytes.Buffer
 	tee := io.TeeReader(file, &fileBuf)
 
-	fileData, err := io.ReadAll(tee)
+	_, err = io.ReadAll(tee)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to read file", nil, err)
 		return
 	}
-
-	newRecord, err := service.SaveRecordToDigiLocker(userDigiToken.AuthToken, fileData, header.Filename, header.Header.Get("Content-Type"))
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to Upload user record to Digilocker", nil, err)
-		return
-	}
-
-	// payload, err := utils.ProcessFileUpload(ctx)
-	// if err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "File processing failed", nil, err)
-	// 	return
-	// }
 	newRecord.UploadSource = ctx.PostForm("upload_source")
 	newRecord.Description = ctx.PostForm("description")
 	newRecord.RecordCategory = ctx.PostForm("record_category")
-	newRecord.SourceAccount = userDigiToken.ProviderId
+	newRecord.SourceAccount = fmt.Sprint(user_id)
 	newRecord.UploadedBy = user_id
 
 	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, &fileBuf, header.Filename)

@@ -4,7 +4,6 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"bytes"
-	"fmt"
 	"io"
 	"log"
 )
@@ -38,7 +37,6 @@ func (s *tblMedicalRecordServiceImpl) GetAllTblMedicalRecords(limit int, offset 
 }
 
 func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, fileBuf *bytes.Buffer, filename string) (*models.TblMedicalRecord, error) {
-	fmt.Println("file data", fileBuf)
 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(data)
 	if err != nil {
 		return nil, err
