@@ -4,7 +4,6 @@ import (
 	"biostat/models"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -41,7 +40,7 @@ func FetchEmailsWithAttachments(service *gmail.Service, userId uint64, accessTok
 		return nil, err
 	}
 	userEmail := profile.EmailAddress
-	query := fmt.Sprintf(`subject:"health record" has:attachment`)
+	query := `("health report" OR "lab result" OR "medical" OR "blood test" OR "diagnosis") has:attachment filename:(pdf OR doc OR docx)`
 	results, err := service.Users.Messages.List("me").Q(query).Do()
 	if err != nil {
 		return nil, err

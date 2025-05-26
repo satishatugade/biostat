@@ -15,6 +15,7 @@ type AppointmentRepository interface {
 	FindAppointmentByID(tx *gorm.DB, appointmentID uint64) (*models.Appointment, error)
 	UpdateAppointment(tx *gorm.DB, appointment *models.Appointment) error
 	CreateAuditSnapshot(tx *gorm.DB, appointment *models.Appointment, action string, changedBy uint64) error
+	MarkCompletedAppointments() error
 }
 
 type AppointmentRepositoryImpl struct {
@@ -96,4 +97,15 @@ func (r *AppointmentRepositoryImpl) CreateAuditSnapshot(tx *gorm.DB, appointment
 		IsDeleted:       appointment.IsDeleted,
 	}
 	return tx.Create(audit).Error
+}
+
+func (r *AppointmentRepositoryImpl) MarkCompletedAppointments() error {
+    query := `
+        UPDATE tbl_appointment_master
+        SET status = 'completed',
+            updated_at = NOW()
+        WHERE status NOT IN ('completed', 'cancelled')
+          AND (appointment_date + appointment_time + (duration_minutes || ' minutes')::interval) < NOW()
+    `
+    return r.db.Exec(query).Error
 }
