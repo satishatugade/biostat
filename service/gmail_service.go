@@ -4,10 +4,14 @@ import (
 	"biostat/models"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -63,7 +67,6 @@ func FetchEmailsWithAttachments(service *gmail.Service, userId uint64, accessTok
 
 func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64, accessToken string) []models.TblMedicalRecord {
 	var records []models.TblMedicalRecord
-
 	for _, part := range message.Payload.Parts {
 		if part.Filename != "" {
 			attachmentData, err := DownloadAttachment(service, message.Id, part.Body.AttachmentId)
@@ -71,17 +74,37 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 				log.Println("Failed to download attachment %s: %v", part.Filename, err)
 				continue
 			}
-			newRecord, err := SaveRecordToDigiLocker(accessToken, attachmentData, part.Filename, part.MimeType)
-			if err != nil {
-				log.Println("Failed to Save attachment to digiLocker %s: %v %v", part.Filename, userId, err)
+			originalName := strings.TrimSuffix(part.Filename, filepath.Ext(part.Filename))
+			extension := filepath.Ext(part.Filename)
+			uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
+			safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
+			destinationPath := filepath.Join("uploads", safeFileName)
+
+			if err := os.WriteFile(destinationPath, attachmentData, 0644); err != nil {
+				log.Printf("Failed to save attachment locally %s: %v", part.Filename, err)
 				continue
 			}
-			newRecord.Description = getHeader(message.Payload.Headers, "Subject")
-			newRecord.UploadSource = "Gmail"
-			newRecord.SourceAccount = userEmail
-			newRecord.UploadedBy = userId
-			newRecord.RecordCategory = "report"
-			newRecord.UpdatedAt = time.Now()
+
+			newRecord := &models.TblMedicalRecord{
+				RecordName:        safeFileName,
+				RecordSize:        int64(len(attachmentData)),
+				FileType:          part.MimeType,
+				RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
+				UploadDestination: "LocalServer",
+				Description:       getHeader(message.Payload.Headers, "Subject"),
+				UploadSource:      "Gmail",
+				RecordCategory:    "report",
+				SourceAccount:     userEmail,
+				UploadedBy:        userId,
+				FetchedAt:         time.Now(),
+			}
+
+			// newRecord, err := SaveRecordToDigiLocker(accessToken, attachmentData, part.Filename, part.MimeType)
+			// if err != nil {
+			// 	log.Println("Failed to Save attachment to digiLocker %s: %v %v", part.Filename, userId, err)
+			// 	continue
+			// }
+
 			// record := models.TblMedicalRecord{
 			// 	RecordName:     part.Filename,
 			// 	RecordSize:     int64(len(attachmentData)),
