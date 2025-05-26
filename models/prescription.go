@@ -46,3 +46,30 @@ type PrescriptionDetail struct {
 func (PrescriptionDetail) TableName() string {
 	return "tbl_prescription_detail"
 }
+
+type PatientPrescriptionData struct {
+	PrescriptionId            uint64               `json:"prescription_id"`
+	PatientId                 uint64               `json:"patient_id"`
+	PrescribedBy              string               `json:"prescribed_by"`
+	PrescriptionName          string               `json:"prescription_name"`
+	Description               string               `json:"description"`
+	PrescriptionDate          string               `json:"prescription_date"`
+	PrescriptionAttachmentUrl string               `json:"prescription_attachment_url"`
+	PrescriptionDetails       []PrescriptionDetail `json:"prescription_details"`
+}
+
+type PrescriptionDetailData struct {
+	PrescriptionDetailId uint64    `json:"prescription_detail_id"`
+	PrescriptionId       uint64    `json:"prescription_id"`
+	MedicineName         string    `json:"medicine_name"`
+	PrescriptionType     string    `json:"prescription_type"`
+	DoseQuantity         float64   `json:"dose_quantity"`
+	Duration             int       `json:"duration"`
+	UnitValue            float64   `json:"unit_value"`
+	UnitType             string    `json:"unit_type"`
+	Frequency            int       `json:"frequency"`
+	TimesPerDay          int       `json:"times_per_day"`
+	IntervalHour         int       `json:"interval_hour"`
+	Instruction          string    `json:"instruction"`
+	CreatedAt            time.Time `json:"created_at"`
+}

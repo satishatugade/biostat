@@ -21,6 +21,7 @@ type PatientService interface {
 	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error)
 
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
+	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
 	GetPrescriptionByPatientId(PatientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	AddPatientRelative(relative *models.PatientRelative) error
@@ -110,6 +111,10 @@ func (s *PatientServiceImpl) UpdatePatientById(authUserId string, patientData *m
 
 func (s *PatientServiceImpl) AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error {
 	return s.patientRepo.AddPatientPrescription(createdBy, prescription)
+}
+
+func (s *PatientServiceImpl) UpdatePatientPrescription(createdBy string, prescription *models.PatientPrescription) error {
+	return s.patientRepo.UpdatePatientPrescription(createdBy, prescription)
 }
 
 func (s *PatientServiceImpl) GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error) {

@@ -15,6 +15,7 @@ type PatientRepository interface {
 	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
+	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
 	GetSinglePrescription(prescriptiuonId uint64, patientId uint64) (models.PatientPrescription, error)
 	GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
@@ -97,6 +98,43 @@ func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescri
 		tx.Rollback()
 		return err
 	}
+	return tx.Commit().Error
+}
+
+func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error {
+	tx := ps.db.Begin()
+
+	if err := tx.Model(&models.PatientPrescription{}).
+		Where("prescription_id = ? AND patient_id = ?", prescription.PrescriptionId, prescription.PatientId).
+		Updates(map[string]interface{}{
+			"prescribed_by":               prescription.PrescribedBy,
+			"prescription_name":           prescription.PrescriptionName,
+			"description":                 prescription.Description,
+			"prescription_date":           prescription.PrescriptionDate,
+			"prescription_attachment_url": prescription.PrescriptionAttachmentUrl,
+		}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Where("prescription_id = ?", prescription.PrescriptionId).
+		Delete(&models.PrescriptionDetail{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for i := range prescription.PrescriptionDetails {
+		prescription.PrescriptionDetails[i].PrescriptionId = prescription.PrescriptionId
+		prescription.PrescriptionDetails[i].UpdatedBy = authUserId
+	}
+
+	if len(prescription.PrescriptionDetails) > 0 {
+		if err := tx.Create(&prescription.PrescriptionDetails).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
 	return tx.Commit().Error
 }
 

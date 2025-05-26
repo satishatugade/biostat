@@ -228,3 +228,7 @@ type PincodeMaster struct {
 func (PincodeMaster) TableName() string {
 	return "tbl_pincode_master"
 }
+
+type SendOTPRequest struct {
+	Email string `json:"email" binding:"required"`
+}

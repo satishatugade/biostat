@@ -4,6 +4,8 @@ import (
 	"biostat/models"
 	"biostat/utils"
 	"fmt"
+	"log"
+	"net/smtp"
 	"os"
 	"strings"
 	"time"
@@ -265,4 +267,34 @@ func (e *EmailService) SendResetPasswordMail(systemUser *models.SystemUser_, tok
 	}
 	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 	return sendErr
+}
+
+func (e *EmailService) SendEmail(to string, subject string, body string) error {
+	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
+
+	// Build email headers
+	headers := make(map[string]string)
+	headers["From"] = fmt.Sprintf("%s <%s>", e.SenderEmail, e.SenderEmail)
+	headers["To"] = to
+	headers["Subject"] = subject
+	headers["MIME-Version"] = "1.0"
+	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
+
+	// Combine headers and body
+	var msg strings.Builder
+	for k, v := range headers {
+		msg.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	}
+	msg.WriteString("\r\n" + body)
+
+	// Send the email
+	address := fmt.Sprintf("%s:%s", e.SMTPHost, e.SMTPPort)
+	err := smtp.SendMail(address, auth, e.SenderEmail, []string{to}, []byte(msg.String()))
+	if err != nil {
+		log.Printf("SMTP error: %v", err)
+		return err
+	}
+
+	log.Printf("Email successfully sent to %s", to)
+	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,6 +28,8 @@ import (
 
 type AuthService interface {
 	SendResetPasswordLink(email string) error
+	SendOTP(email string) error
+	VerifyOTPAndLogin(email string, otp string) (map[string]interface{}, error)
 }
 
 type AuthServiceImpl struct {
@@ -225,6 +228,7 @@ func ResetPasswordInKeycloak(username, newPassword string) error {
 	ctx := context.Background()
 	token, err := utils.Client.LoginAdmin(ctx, utils.KeycloakAdminUser, utils.KeycloakAdminPassword, "master")
 	if err != nil {
+		log.Println("ResetPasswordInKeycloak Failed to login to admin ", err)
 		return fmt.Errorf("admin login failed: %w", err)
 	}
 	users, err := utils.Client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
@@ -267,4 +271,155 @@ func (as *AuthServiceImpl) SendResetPasswordLink(email string) error {
 		return errors.New("reset password email not sent")
 	}
 	return nil
+}
+
+func GenerateOTP() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%04d", rand.Intn(10000))
+}
+
+var otpStore = make(map[string]string)
+
+func (a *AuthServiceImpl) SendOTP(email string) error {
+	otp := GenerateOTP()
+	otpStore[email] = otp
+
+	// recipient := getEmailByPhone(email) // implement this
+	subject := "Your OTP Code"
+	body := fmt.Sprintf("<h2>Your OTP code is: <strong>%s</strong></h2><p>This OTP is valid for 5 minutes.</p>", otp)
+
+	if err := a.emailService.SendEmail(email, subject, body); err != nil {
+		log.Printf("Failed to send OTP email: %v", err)
+		return fmt.Errorf("email sending failed")
+	}
+
+	fmt.Println("OTP sent to:", email)
+	return nil
+}
+
+// func (a *AuthServiceImpl) VerifyOTPAndLogin(email, otp string) (map[string]interface{}, error) {
+// 	expectedOTP, ok := otpStore[email]
+// 	fmt.Println("otp ", expectedOTP)
+// 	if !ok || expectedOTP != otp {
+// 		return nil, fmt.Errorf("invalid or expired OTP")
+// 	}
+
+// 	// Step 1: Get Admin Token
+// 	adminToken, err := getAdminToken()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get admin token: %v", err)
+// 	}
+
+// 	// Step 2: Find User by Email
+// 	userID, err := findUserByEmail(email, adminToken)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to find user: %v", err)
+// 	}
+
+// 	// Step 3: Impersonate User
+// 	token, err := impersonateUser(userID, adminToken)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("impersonation failed: %v", err)
+// 	}
+
+// 	return token, nil
+// }
+
+func (a *AuthServiceImpl) VerifyOTPAndLogin(email, otp string) (map[string]interface{}, error) {
+	expectedOTP, ok := otpStore[email]
+	if !ok || expectedOTP != otp {
+		return nil, fmt.Errorf("invalid or expired OTP")
+	}
+
+	client := gocloak.NewClient(os.Getenv("KEYCLOAK_AUTH_URL"))
+	// ctx := context.Background()
+	// Instead of impersonate, call token endpoint with username & password or OTP
+	token, err := client.Login(
+		context.Background(),
+		utils.KeycloakClientID,
+		utils.KeycloakClientSecret,
+		utils.KeycloakRealm,
+		email,
+		"user-password-or-otp-if-supported",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to login user: %v", err)
+	}
+
+	// Return access and refresh tokens
+	return map[string]interface{}{
+		"access_token":  token.AccessToken,
+		"refresh_token": token.RefreshToken,
+	}, nil
+}
+
+func getAdminToken() (string, error) {
+	client := gocloak.NewClient(os.Getenv("KEYCLOAK_AUTH_URL"))
+	ctx := context.Background()
+	token, err := client.LoginClient(ctx, os.Getenv("KEYCLOAK_CLIENT_ID"), os.Getenv("KEYCLOAK_CLIENT_SECRET"), os.Getenv("KEYCLOAK_REALM"))
+	if err != nil {
+		return "", fmt.Errorf("admin token error: %w", err)
+	}
+	return token.AccessToken, nil
+}
+
+func findUserByEmail(email, adminToken string) (string, error) {
+	url := fmt.Sprintf("%s/admin/realms/%s/users?email=%s",
+		os.Getenv("KEYCLOAK_AUTH_URL"),
+		os.Getenv("KEYCLOAK_REALM"),
+		email)
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("find user failed: %s", string(body))
+	}
+
+	var users []map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&users)
+
+	if len(users) == 0 {
+		return "", fmt.Errorf("no user found with email %s", email)
+	}
+
+	return users[0]["id"].(string), nil
+}
+
+func impersonateUser(userID, adminToken string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/admin/realms/%s/users/%s/impersonation",
+		os.Getenv("KEYCLOAK_AUTH_URL"),
+		os.Getenv("KEYCLOAK_REALM"),
+		userID)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("impersonation failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("impersonation error: %s", string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode impersonation response")
+	}
+
+	return result, nil
 }

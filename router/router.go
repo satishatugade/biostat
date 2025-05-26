@@ -47,7 +47,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var smsService = service.NewSmsService()
 
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
-	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService)
+	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService)
 
 	var roleRepo = repository.NewRoleRepository(db)
 	var roleService = service.NewRoleService(roleRepo)
@@ -274,6 +274,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"patient diet", http.MethodPost, constant.PatientDietPlan, patientController.GetPatientDietPlan},
 		Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},
+		Route{"patient prescription", http.MethodPost, constant.UpdatePrescription, patientController.UpdatePrescription},
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionByPatientId, patientController.GetPrescriptionByPatientId},
 		Route{"prescription explanation", http.MethodPost, constant.PrescriptionInfo, patientController.PrescriptionInfobyAIModel},
 		Route{"Patient Allergy", http.MethodPost, constant.PatientAllergy, patientController.AddPatientAllergyRestriction},
@@ -319,6 +320,9 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.ValidateUserEmailMobile, userController.CheckUserEmailMobileExist},
 		Route{"User", http.MethodPost, constant.ResetPassword, userController.ResetUserPassword},
 		Route{"User", http.MethodPost, constant.SentLink, userController.SendResetPasswordLink},
+		Route{"User", http.MethodPost, constant.SentOTP, userController.SendOTP},
+		Route{"User", http.MethodPost, constant.VerifyOTP, userController.VerifyOTP},
+
 		//postal code
 		Route{"Postalcode", http.MethodPost, constant.Postalcode, userController.FetchAddressByPincode},
 	}

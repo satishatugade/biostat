@@ -35,6 +35,7 @@ const (
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
 	PatientRegistration       = "/patient-registration"
 	PatientPrescription       = "/patient-prescription"
+	UpdatePrescription        = "/update-prescription"
 	PrescriptionByPatientId   = "/get-prescription"
 	PrescriptionInfo          = "/prescription-info"
 	User                      = "/getuser"
@@ -168,6 +169,8 @@ const (
 	ValidateUserEmailMobile = "/checkUserMobileEmailExist"
 	ResetPassword           = "/reset-password"
 	SentLink                = "/reset-password-link"
+	SentOTP                 = "/send-otp"
+	VerifyOTP               = "/verify-otp"
 	Postalcode              = "/address/postalcode"
 )
 

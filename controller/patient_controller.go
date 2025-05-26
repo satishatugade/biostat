@@ -255,6 +255,40 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient prescription added.", prescription, nil, nil)
 }
 
+func (pc *PatientController) UpdatePrescription(c *gin.Context) {
+	authUserId, exists := utils.GetUserDataContext(c)
+	if !exists {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, constant.KeyCloakErrorMessage, nil, nil)
+		return
+	}
+
+	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		return
+	}
+
+	var prescription models.PatientPrescription
+	if err := c.ShouldBindJSON(&prescription); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+
+	if prescription.PrescriptionId == 0 {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Prescription ID is required", nil, nil)
+		return
+	}
+
+	prescription.PatientId = patientId
+	err = pc.patientService.UpdatePatientPrescription(authUserId, &prescription)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update prescription", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient prescription updated.", prescription, nil, nil)
+}
+
 func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {
@@ -682,7 +716,7 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	newRecord.SourceAccount = fmt.Sprint(user_id)
 	newRecord.UploadedBy = user_id
 
-	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, &fileBuf, header.Filename)
+	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, authUserId, &fileBuf, header.Filename)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
