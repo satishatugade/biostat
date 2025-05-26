@@ -200,6 +200,34 @@ func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient reports fetched successfully", results, nil, nil)
 }
 
+func (pc *PatientController) GetDiagnosticResults(c *gin.Context) {
+
+	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+
+	var filter models.DiagnosticReportFilter
+	if err := c.ShouldBindJSON(&filter); err != nil {
+		// c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// return
+	}
+
+	results, err := pc.patientService.FetchPatientDiagnosticReports(user.UserId, filter)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Failed to fetch diagnostic results", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "report load successfully", results, nil, nil)
+}
+
 func (pc *PatientController) AddPrescription(c *gin.Context) {
 	authUserId, exists := utils.GetUserDataContext(c)
 	if !exists {

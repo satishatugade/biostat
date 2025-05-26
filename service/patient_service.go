@@ -40,6 +40,7 @@ type PatientService interface {
 	GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
+	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 }
@@ -478,4 +479,14 @@ func (s *PatientServiceImpl) createTestResultValue(rv models.PatientDiagnosticTe
 		ResultComment: rv.ResultComment,
 		Udf1:          rv.UDF1,
 	}
+}
+
+func (ps *PatientServiceImpl) FetchPatientDiagnosticReports(patientId uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error) {
+	data, err := ps.patientRepo.FetchPatientDiagnosticReports(patientId, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	nestedResults := ps.patientRepo.RestructureDiagnosticReports(data)
+	return nestedResults, nil
 }

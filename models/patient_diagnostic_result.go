@@ -298,3 +298,39 @@ type TestResultAlert struct {
 	ResultComment     string    `json:"result_comment"`
 	ResultDate        time.Time `json:"result_date"`
 }
+
+type DiagnosticReportResponse struct {
+	PatientDiagnosticReportID uint64  `json:"patient_diagnostic_report_id"`
+	PatientID                 uint64  `json:"patient_id"`
+	CollectedDate             string  `json:"collected_date"`
+	ReportDate                string  `json:"report_date"`
+	ReportName                string  `json:"report_name"`
+	ReportStatus              string  `json:"report_status"`
+	TestNote                  string  `json:"test_note"`
+	TestDate                  string  `json:"test_date"`
+	DiagnosticTestID          uint64  `json:"diagnostic_test_id"`
+	DiagnosticTestComponentID uint64  `json:"diagnostic_test_component_id"`
+	TestComponentName         string  `json:"test_component_name"`
+	ResultValue               string  `json:"result_value"`
+	NormalMin                 float64 `json:"normal_min"`
+	NormalMax                 float64 `json:"normal_max"`
+	Units                     string  `json:"units"`
+	ResultStatus              string  `json:"result_status"`
+	ResultDate                string  `json:"result_date"`
+	ResultComment             string  `json:"result_comment"`
+	DiagnosticLabID           uint64  `json:"diagnostic_lab_id"`
+	LabName                   string  `json:"lab_name"`
+	Qualifier                 string  `json:"qualifier"`
+}
+
+type DiagnosticReportFilter struct {
+	ReportID          *uint64 `json:"patient_diagnostic_report_id,omitempty"`
+	ReportName        *string `json:"report_name,omitempty"`
+	TestName          *string `json:"test_name,omitempty"`
+	Qualifier         *string `json:"qualifier,omitempty"`
+	TestComponentName *string `json:"test_component_name,omitempty"`
+	DiagnosticLabID   *uint64 `json:"diagnostic_lab_id,omitempty"`
+	ReportStatus      *string `json:"report_status,omitempty"`
+	ResultDateFrom    *string `json:"from_date,omitempty"`
+	ResultDateTo      *string `json:"to_date,omitempty"`
+}
