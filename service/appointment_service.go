@@ -15,6 +15,7 @@ type AppointmentService interface {
 	GetUserAppointments(user_id uint64) ([]models.Appointment, error)
 	FindAppointmentByID(tx *gorm.DB, appointmentID uint64) (*models.Appointment, error)
 	UpdateAppointmentByType(tx *gorm.DB, appointment *models.Appointment, updateType int, changedBy uint64) (*models.Appointment, error)
+	MarkCompletedAppointments() error
 }
 type AppointmentServiceImpl struct {
 	appointmentRepo repository.AppointmentRepository
@@ -64,4 +65,8 @@ func (s *AppointmentServiceImpl) UpdateAppointmentByType(tx *gorm.DB, appointmen
 		return nil, errors.New("invalid update type")
 	}
 	return appointment, nil
+}
+
+func (s *AppointmentServiceImpl) MarkCompletedAppointments() error {
+	return s.appointmentRepo.MarkCompletedAppointments()
 }

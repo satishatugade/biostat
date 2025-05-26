@@ -6,6 +6,7 @@ import (
 	"biostat/controller"
 	"biostat/repository"
 	"biostat/service"
+	"biostat/worker"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -76,6 +77,9 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var gmailRecordsController = controller.NewGmailSyncController(medicalRecordService, userService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
+
+	// Workers
+	worker.StartAppointmentScheduler(appointmentService)
 
 }
 
