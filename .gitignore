@@ -5,3 +5,4 @@
 vendor/ 
 logs/
 test.go
+/uploads/
