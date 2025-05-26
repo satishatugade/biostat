@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -13,8 +14,9 @@ type TblMedicalRecordRepository interface {
 	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	CreateMultipleTblMedicalRecords(data *[]models.TblMedicalRecord) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
-	GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error)
+	GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
+	IsRecordBelongsToUser(userID uint64, recordID int64) (bool, error)
 	ExistsRecordForUser(userId uint64, source, url string) (bool, error)
 
 	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
@@ -83,7 +85,7 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	return data, nil
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetSingleTblMedicalRecord(id int) (*models.TblMedicalRecord, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error) {
 	var obj models.TblMedicalRecord
 	err := r.db.First(&obj, id).Error
 	if err != nil {
@@ -145,4 +147,16 @@ func (r *tblMedicalRecordRepositoryImpl) ExistsRecordForUser(userId uint64, sour
 		Count(&count).Error
 
 	return count > 0, err
+}
+
+func (r *tblMedicalRecordRepositoryImpl) IsRecordBelongsToUser(userID uint64, recordID int64) (bool, error) {
+	var mapping models.TblMedicalRecordUserMapping
+	err := r.db.Where("user_id = ? AND record_id = ?", userID, recordID).First(&mapping).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

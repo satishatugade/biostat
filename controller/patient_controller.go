@@ -749,7 +749,7 @@ func (c *PatientController) GetSingleTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
 		return
 	}
-	data, err := c.medicalRecordService.GetSingleTblMedicalRecord(id)
+	data, err := c.medicalRecordService.GetSingleTblMedicalRecord(int64(id))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve record", nil, err)
 		return
@@ -1285,17 +1285,18 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 
 			if record["type"] == "file" {
 				newRecord := models.TblMedicalRecord{
-					RecordName:     record["name"].(string),
-					RecordSize:     utils.ParseIntField(record["size"].(string)),
-					FileType:       record["mime"].(string),
-					UploadSource:   "DigiLocker",
-					SourceAccount:  digiLockerId,
-					RecordCategory: "Report",
-					Description:    record["description"].(string),
-					UploadedBy:     userID,
-					RecordUrl:      "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
-					FetchedAt:      time.Now(),
-					CreatedAt:      utils.ParseDateField(record["date"]),
+					RecordName:        record["name"].(string),
+					RecordSize:        utils.ParseIntField(record["size"].(string)),
+					FileType:          record["mime"].(string),
+					UploadSource:      "DigiLocker",
+					UploadDestination: "DigiLocker",
+					SourceAccount:     digiLockerId,
+					RecordCategory:    "Report",
+					Description:       record["description"].(string),
+					UploadedBy:        userID,
+					RecordUrl:         "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
+					FetchedAt:         time.Now(),
+					CreatedAt:         utils.ParseDateField(record["date"]),
 				}
 				allDocs = append(allDocs, newRecord)
 			}
@@ -1332,15 +1333,8 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
 	}
-
-	userDigiToken, err := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker")
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Digilocker Token not found", nil, err)
-		return
-	}
-
 	type UserRequest struct {
-		ResourceUrl string `json:"resource_url"`
+		ResourceId int64 `json:"resource_id"`
 	}
 	var req UserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -1348,11 +1342,63 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 		return
 	}
 
-	response, err := service.ReadDigiLockerFile(userDigiToken.AuthToken, req.ResourceUrl)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Error while reading file", nil, err)
+	isValid, err := pc.medicalRecordService.IsRecordBelongsToUser(user_id, req.ResourceId)
+	if err != nil || !isValid {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusForbidden, "Unauthorized access to medical record", nil, err)
 		return
 	}
+
+	record, err := pc.medicalRecordService.GetSingleTblMedicalRecord(req.ResourceId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Record not found", nil, err)
+		return
+	}
+	var response struct {
+		Data        []byte `json:"data"`
+		ContentType string `json:"content-type"`
+		HMAC        string `json:"hmac,omitempty"`
+	}
+
+	if record.UploadDestination == "DigiLocker" {
+		userDigiToken, err := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker")
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Digilocker Token not found", nil, err)
+			return
+		}
+
+		digiResp, err := service.ReadDigiLockerFile(userDigiToken.AuthToken, record.RecordUrl)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Error while reading file", nil, err)
+			return
+		}
+		response.Data = digiResp.Data
+		response.ContentType = digiResp.ContentType
+		response.HMAC = digiResp.HMAC
+	} else if record.UploadDestination == "LocalServer" {
+		urlParts := strings.Split(record.RecordUrl, "/uploads/")
+		if len(urlParts) < 2 {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid file URL", nil, nil)
+			return
+		}
+		filename := urlParts[1]
+		localPath := fmt.Sprintf("uploads/%s", filename)
+
+		fileBytes, err := os.ReadFile(localPath)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to read local file", nil, err)
+			return
+		}
+
+		contentType := http.DetectContentType(fileBytes)
+
+		response.Data = fileBytes
+		response.ContentType = contentType
+		response.HMAC = ""
+	} else {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Unsupported upload source", nil, nil)
+		return
+	}
+
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
 }
 

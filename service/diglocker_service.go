@@ -141,17 +141,18 @@ func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, u
 		switch record["type"] {
 		case "file":
 			newRecord := models.TblMedicalRecord{
-				RecordName:     record["name"].(string),
-				RecordSize:     utils.ParseIntField(record["size"].(string)),
-				FileType:       record["mime"].(string),
-				UploadSource:   "DigiLocker",
-				SourceAccount:  digiLockerId,
-				RecordCategory: "Report",
-				Description:    record["description"].(string),
-				UploadedBy:     userId,
-				RecordUrl:      "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
-				FetchedAt:      time.Now(),
-				CreatedAt:      utils.ParseDateField(record["date"]),
+				RecordName:        record["name"].(string),
+				RecordSize:        utils.ParseIntField(record["size"].(string)),
+				FileType:          record["mime"].(string),
+				UploadSource:      "DigiLocker",
+				UploadDestination: "DigiLocker",
+				SourceAccount:     digiLockerId,
+				RecordCategory:    "Report",
+				Description:       record["description"].(string),
+				UploadedBy:        userId,
+				RecordUrl:         "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
+				FetchedAt:         time.Now(),
+				CreatedAt:         utils.ParseDateField(record["date"]),
 			}
 			allDocs = append(allDocs, newRecord)
 		case "dir":
@@ -221,13 +222,14 @@ func SaveRecordToDigiLocker(accessToken string, fileData []byte, fileName string
 			if file["name"] == uploadedFileName {
 				log.Println("Found uploaded file:", file)
 				newRecord := models.TblMedicalRecord{
-					RecordName:   file["name"].(string),
-					RecordSize:   utils.ParseIntField(file["size"].(string)),
-					FileType:     contentType,
-					UploadSource: "DigiLocker",
-					RecordUrl:    "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + file["uri"].(string),
-					FetchedAt:    time.Now(),
-					CreatedAt:    utils.ParseDateField(file["date"]),
+					RecordName:        file["name"].(string),
+					RecordSize:        utils.ParseIntField(file["size"].(string)),
+					FileType:          contentType,
+					UploadSource:      "DigiLocker",
+					UploadDestination: "DigiLocker",
+					RecordUrl:         "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + file["uri"].(string),
+					FetchedAt:         time.Now(),
+					CreatedAt:         utils.ParseDateField(file["date"]),
 				}
 				return &newRecord, nil
 			}
