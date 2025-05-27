@@ -119,8 +119,8 @@ func Routing(envFile string) {
 		r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
 	} else {
 		err := r.router.RunTLS(":"+os.Getenv("GO_SERVER_PORT"),
-			"/etc/letsencrypt/live/biostat.catseye.cloud/fullchain.pem",
-			"/etc/letsencrypt/live/biostat.catseye.cloud/privkey.pem")
+			"/etc/letsencrypt/live/api.biostack.catseye.cloud/fullchain.pem",
+			"/etc/letsencrypt/live/api.biostack.catseye.cloud/privkey.pem")
 
 		if err != nil {
 			log.Fatal("Failed to start HTTPS server: ", err)

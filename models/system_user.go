@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Admin struct {
@@ -227,4 +229,13 @@ type PincodeMaster struct {
 
 func (PincodeMaster) TableName() string {
 	return "tbl_pincode_master"
+}
+
+type NotificationUserMapping struct {
+	ID             uuid.UUID `db:"id" json:"id"`
+	UserID         int64     `db:"user_id" json:"user_id"`
+	NotificationID uuid.UUID `db:"notification_id" json:"notification_id"`
+	SourceType     string    `db:"source_type" json:"source_type"`
+	SourceID       string    `db:"source_id" json:"source_id"`
+	CreatedAt      time.Time `db:"created_at" json:"created_at"`
 }
