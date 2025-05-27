@@ -97,8 +97,12 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User mapping not added", nil, mappingError)
 		return
 	}
-	tx.Commit()
-	err = uc.emailService.SendLoginCredentials(systemUser, rawPassword, nil)
+	if err := tx.Commit().Error; err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
+		return
+	}
+	mappedPatient := utils.MapSystemUserToPatient(&systemUser)
+	err = uc.emailService.SendLoginCredentials(systemUser, rawPassword, mappedPatient)
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
