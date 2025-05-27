@@ -277,6 +277,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient prescription", http.MethodPost, constant.UpdatePrescription, patientController.UpdatePrescription},
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionByPatientId, patientController.GetPrescriptionByPatientId},
 		Route{"prescription explanation", http.MethodPost, constant.PrescriptionInfo, patientController.PrescriptionInfobyAIModel},
+		Route{"Pharmacokinetics", http.MethodPost, constant.Pharmacokinetics, patientController.PharmacokineticsInfobyAIModel},
+
 		Route{"Patient Allergy", http.MethodPost, constant.PatientAllergy, patientController.AddPatientAllergyRestriction},
 		Route{"Patient Allgery", http.MethodPost, constant.Allergy, patientController.GetPatientAllergyRestriction},
 		Route{"Update Patient Allgery", http.MethodPut, constant.UpdateAllergy, patientController.UpdatePatientAllergyRestriction},

@@ -19,12 +19,14 @@ type ApiService interface {
 	CallPrescriptionDigitizeAPI(file io.Reader, filename string) (models.PatientPrescription, error)
 	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
 	AnalyzePrescriptionWithAI(data models.PatientPrescription) (string, error)
+	AnalyzePharmacokineticsInfo(data models.PharmacokineticsInput) (string, error)
 }
 
 type ApiServiceImpl struct {
 	GeminiAPIURL            string
 	ReportSummaryAPI        string
 	PrescriptionAPI         string
+	PharmacokineticsAPI     string
 	DigitizePrescriptionAPI string
 	client                  *http.Client
 }
@@ -34,6 +36,7 @@ func NewApiService() ApiService {
 		GeminiAPIURL:            os.Getenv("GEMINI_API_URL"),
 		ReportSummaryAPI:        os.Getenv("REPORT_SUMMARY_API"),
 		PrescriptionAPI:         os.Getenv("PRESCRIPTION_API"),
+		PharmacokineticsAPI:     os.Getenv("PHARMACOKINETICS_API"),
 		DigitizePrescriptionAPI: os.Getenv("DIGITIZE_PRESCRIPTION_API"),
 		client:                  &http.Client{},
 	}
@@ -92,7 +95,12 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
 		return models.LabReport{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
-
+	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
+	if err != nil {
+		log.Println("Failed to format JSON:", err)
+	} else {
+		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+	}
 	return reportData, nil
 }
 
@@ -274,4 +282,46 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 	}
 
 	return data, nil
+}
+
+func (api *ApiServiceImpl) AnalyzePharmacokineticsInfo(input models.PharmacokineticsInput) (string, error) {
+
+	prettyJSON, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		log.Println("Failed to generate pretty JSON:", err)
+	} else {
+		log.Println("PharmacokineticsInput Payload:\n", string(prettyJSON))
+	}
+
+	jsonData, err := json.Marshal(input)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, api.PharmacokineticsAPI, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Pharmacokinetics AI service responded with status code %d", resp.StatusCode)
+	}
+
+	var response struct {
+		Summary string `json:"analysis"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", err
+	}
+
+	return response.Summary, nil
 }

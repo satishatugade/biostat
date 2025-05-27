@@ -54,6 +54,7 @@ type PatientRepository interface {
 	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
+	GetDiagnosticReportId(patientId uint64) (uint64, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 }
@@ -1201,7 +1202,6 @@ func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.D
 		report := reportMap[reportID]
 		diagnosticLab := report["diagnostic_lab"].(map[string]interface{})
 
-		// Create test_component with result_value
 		testComponent := map[string]interface{}{
 			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
 			"test_component_name":          item.TestComponentName,
@@ -1218,28 +1218,37 @@ func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.D
 			},
 		}
 
-		// Create diagnostic_test
 		diagnosticTest := map[string]interface{}{
 			"diagnostic_test_id": item.DiagnosticTestID,
 			"test_components":    []map[string]interface{}{testComponent},
 		}
 
-		// Create patient_diagnostic_test
 		patientDiagnosticTest := map[string]interface{}{
 			"test_note":       item.TestNote,
 			"test_date":       item.TestDate,
 			"diagnostic_test": diagnosticTest,
 		}
 
-		// Append patient_diagnostic_test to lab
 		pdtList := diagnosticLab["patient_diagnostic_test"].([]map[string]interface{})
 		diagnosticLab["patient_diagnostic_test"] = append(pdtList, patientDiagnosticTest)
 	}
-
-	// Convert map to slice
 	finalReports := make([]map[string]interface{}, 0, len(reportMap))
 	for _, val := range reportMap {
 		finalReports = append(finalReports, val)
 	}
 	return finalReports
+}
+
+func (r *PatientRepositoryImpl) GetDiagnosticReportId(patientId uint64) (uint64, error) {
+	var reportId uint64
+	err := r.db.Table("tbl_patient_diagnostic_report").
+		Where("patient_id = ?", patientId).
+		Select("MAX(patient_diagnostic_report_id)").
+		Scan(&reportId).Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	return reportId, nil
 }

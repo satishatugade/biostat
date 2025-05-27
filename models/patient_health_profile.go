@@ -47,3 +47,37 @@ type PatientHealthProfileRequest struct {
 	Allergies             []AllergyReq `json:"allergies"`
 	DiseaseProfileID      uint64       `json:"disease_profiles"`
 }
+
+type PharmacokineticsInput struct {
+	Prescription PrescriptionData `json:"prescription"`
+	History      HistoryData      `json:"history"`
+}
+
+type PrescriptionData struct {
+	PatientName  string           `json:"patient_name"`
+	Age          int              `json:"age"`
+	Gender       string           `json:"gender"`
+	PrescribedOn string           `json:"prescribed_on"`
+	Prescription []PrescribedDrug `json:"prescription"`
+}
+
+type PrescribedDrug struct {
+	Drug      string `json:"drug"`
+	Dosage    string `json:"dosage"`
+	Frequency string `json:"frequency"`
+	Duration  string `json:"duration"`
+}
+
+type HistoryData struct {
+	PatientName        string                   `json:"patient_name"`
+	Conditions         []string                 `json:"conditions"`
+	Allergies          []string                 `json:"allergies"`
+	CurrentMedications []CurrentMedication      `json:"current_medications"`
+	RecentLabResults   []map[string]interface{} `json:"recent_lab_results"`
+}
+
+type CurrentMedication struct {
+	Drug      string `json:"drug"`
+	Dosage    string `json:"dosage"`
+	Frequency string `json:"frequency"`
+}

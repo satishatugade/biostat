@@ -291,6 +291,9 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 				}
 			}
 		}
+	} else {
+		log.Println("Empty report date, using default date")
+		parsedDate = time.Now()
 	}
 
 	patientReport := models.PatientDiagnosticReport{

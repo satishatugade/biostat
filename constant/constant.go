@@ -38,6 +38,7 @@ const (
 	UpdatePrescription        = "/update-prescription"
 	PrescriptionByPatientId   = "/get-prescription"
 	PrescriptionInfo          = "/prescription-info"
+	Pharmacokinetics          = "/api/drug/pharmacokinetics"
 	User                      = "/getuser"
 	RegisterUser              = "/register"
 	UserRegistrationByPatient = "/create-by-patient"

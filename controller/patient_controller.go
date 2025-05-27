@@ -301,14 +301,9 @@ func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 }
 
 func (pc *PatientController) PrescriptionInfobyAIModel(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-		return
-	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 	var request struct {
@@ -325,6 +320,30 @@ func (pc *PatientController) PrescriptionInfobyAIModel(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Prescription explanation fetched.", prescriptionSummary, nil, nil)
+}
+
+func (pc *PatientController) PharmacokineticsInfobyAIModel(c *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	var request struct {
+		PrescriptionId uint64 `json:"prescription_id"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+
+	pkSummary, err := pc.patientService.GetPharmacokineticsInfo(request.PrescriptionId, patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch pharmacokinetics details", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Pharmacokinetics data fetched.", pkSummary, nil, nil)
 }
 
 func (pc *PatientController) GetPatientDietPlan(c *gin.Context) {
