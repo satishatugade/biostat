@@ -112,19 +112,19 @@ func GenerateRandomPassword() string {
 	return string(password)
 }
 
-func GetUserDataContext(c *gin.Context) (string, bool) {
-	sub, exists := c.Get("sub")
-	if !exists {
-		return "Could not retrieve user id", false
-	}
+// func GetUserDataContext(c *gin.Context) (string, bool) {
+// 	sub, exists := c.Get("sub")
+// 	if !exists {
+// 		return "Could not retrieve user id", false
+// 	}
 
-	subStr, ok := sub.(string)
-	if !ok {
-		return "user id not a valid string", false
-	}
+// 	subStr, ok := sub.(string)
+// 	if !ok {
+// 		return "user id not a valid string", false
+// 	}
 
-	return subStr, true
-}
+// 	return subStr, true
+// }
 
 func ParseExcelFromReader[T any](reader io.Reader) ([]T, error) {
 	var results []T
@@ -602,21 +602,25 @@ func ToDiseaseProfileSummaryDTOs(profiles []models.DiseaseProfile) []models.Dise
 	return summaries
 }
 
-func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (uint64, error) {
+func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (string, uint64, error) {
 	sub, subExists := ctx.Get("sub")
 	if !subExists {
-		return 0, errors.New("user not found")
+		return "", 0, errors.New("user not found")
 	}
 
 	delegateUserID := ctx.GetHeader("delegate_user_id")
 	if delegateUserID != "" {
 		id, err := strconv.ParseUint(delegateUserID, 10, 64)
 		if err != nil {
-			return 0, errors.New("invalid delegate_user_id")
+			return "", 0, errors.New("invalid delegate_user_id")
 		}
-		return id, nil
+		return sub.(string), id, nil
 	}
-	return getUserIdBySubFunc(sub.(string))
+	userID, err := getUserIdBySubFunc(sub.(string))
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get user ID by sub: %w", err)
+	}
+	return sub.(string), userID, nil
 }
 
 func MappedRelationAccordingRelationship(userInfo *models.SystemUser_, relationId int) (int, error) {

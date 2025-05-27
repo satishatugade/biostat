@@ -15,6 +15,7 @@ type UserService interface {
 	DeleteTblUserToken(id uint64, updatedBy string) error
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 
+	GetUserIdBySUB(sub string) (uint64, error)
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
@@ -91,4 +92,12 @@ func (s *UserServiceImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUs
 
 func (s *UserServiceImpl) UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error {
 	return s.userRepo.UpdateUserInfo(authUserId, updateInfo)
+}
+
+func (s *UserServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {
+	userId, err := s.userRepo.GetUserIdBySUB(sub)
+	if err != nil {
+		return 0, err
+	}
+	return userId, nil
 }

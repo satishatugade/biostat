@@ -276,15 +276,19 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		diagnosticLabId = labInfo.DiagnosticLabId
 	}
 
-	parsedDate, err := time.Parse("02-Jan-2006", reportData.ReportDetails.ReportDate)
-	if err != nil {
-		parsedDate, err = time.Parse("02-Jan-06", reportData.ReportDetails.ReportDate)
+	var parsedDate time.Time
+	var err error
+	if reportData.ReportDetails.ReportDate != "" {
+		parsedDate, err = time.Parse("02-Jan-2006", reportData.ReportDetails.ReportDate)
 		if err != nil {
-			parsedDate, err = time.Parse("02/01/2006", reportData.ReportDetails.ReportDate)
+			parsedDate, err = time.Parse("02-Jan-06", reportData.ReportDetails.ReportDate)
 			if err != nil {
-				log.Println("Invalid date format:", err)
-				tx.Rollback()
-				return "", fmt.Errorf("invalid date format: %w", err)
+				parsedDate, err = time.Parse("02/01/2006", reportData.ReportDetails.ReportDate)
+				if err != nil {
+					log.Println("Invalid date format:", err)
+					tx.Rollback()
+					return "", fmt.Errorf("invalid date format: %w", err)
+				}
 			}
 		}
 	}

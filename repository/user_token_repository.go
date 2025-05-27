@@ -20,6 +20,7 @@ type UserRepository interface {
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
+	GetUserIdBySUB(sub string) (uint64, error)
 }
 
 type UserRepositoryImpl struct {
@@ -176,4 +177,13 @@ func (ur *UserRepositoryImpl) UpdateUserInfo(userID string, updates map[string]i
 	}
 
 	return tx.Commit().Error
+}
+
+func (u *UserRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {
+	var user models.SystemUser_
+	err := u.db.Select("user_id").Where("auth_user_id=?", SUB).First(&user).Error
+	if err != nil {
+		return 0, err
+	}
+	return user.UserId, nil
 }

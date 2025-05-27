@@ -257,7 +257,7 @@ func (uc *UserController) LogoutUser(c *gin.Context) {
 
 func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
-	patientUserId, err := utils.GetUserIDFromContext(c, uc.patientService.GetUserIdBySUB)
+	_, patientUserId, err := utils.GetUserIDFromContext(c, uc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return

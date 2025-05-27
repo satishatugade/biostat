@@ -42,7 +42,6 @@ type PatientRepository interface {
 
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserDataUserId(userId []uint64, limit, offset int) ([]models.SystemUser_, int64, error)
-	GetUserIdBySUB(SUB string) (uint64, error)
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
 	IsUserHealthDetailsComplete(user_id uint64) (bool, error)
@@ -103,7 +102,6 @@ func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescri
 
 func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error {
 	tx := ps.db.Begin()
-
 	if err := tx.Model(&models.PatientPrescription{}).
 		Where("prescription_id = ? AND patient_id = ?", prescription.PrescriptionId, prescription.PatientId).
 		Updates(map[string]interface{}{
@@ -117,21 +115,57 @@ func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, pr
 		return err
 	}
 
-	if err := tx.Where("prescription_id = ?", prescription.PrescriptionId).
-		Delete(&models.PrescriptionDetail{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
+	for _, detail := range prescription.PrescriptionDetails {
+		detail.PrescriptionId = prescription.PrescriptionId
+		detail.UpdatedBy = authUserId
 
-	for i := range prescription.PrescriptionDetails {
-		prescription.PrescriptionDetails[i].PrescriptionId = prescription.PrescriptionId
-		prescription.PrescriptionDetails[i].UpdatedBy = authUserId
-	}
+		if detail.PrescriptionDetailId == 0 {
+			detail.CreatedBy = authUserId
+			if err := tx.Create(&detail).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		} else {
+			updateMap := map[string]interface{}{
+				"updated_by": authUserId,
+			}
+			if detail.MedicineName != "" {
+				updateMap["medicine_name"] = detail.MedicineName
+			}
+			if detail.PrescriptionType != "" {
+				updateMap["prescription_type"] = detail.PrescriptionType
+			}
+			if detail.DoseQuantity != 0 {
+				updateMap["dose_quantity"] = detail.DoseQuantity
+			}
+			if detail.Duration != 0 {
+				updateMap["duration"] = detail.Duration
+			}
+			if detail.UnitValue != 0 {
+				updateMap["unit_value"] = detail.UnitValue
+			}
+			if detail.UnitType != "" {
+				updateMap["unit_type"] = detail.UnitType
+			}
+			if detail.Frequency != 0 {
+				updateMap["frequency"] = detail.Frequency
+			}
+			if detail.TimesPerDay != 0 {
+				updateMap["times_per_day"] = detail.TimesPerDay
+			}
+			if detail.IntervalHour != 0 {
+				updateMap["interval_hour"] = detail.IntervalHour
+			}
+			if detail.Instruction != "" {
+				updateMap["instruction"] = detail.Instruction
+			}
 
-	if len(prescription.PrescriptionDetails) > 0 {
-		if err := tx.Create(&prescription.PrescriptionDetails).Error; err != nil {
-			tx.Rollback()
-			return err
+			if err := tx.Model(&models.PrescriptionDetail{}).
+				Where("prescription_detail_id = ? AND prescription_id = ?", detail.PrescriptionDetailId, detail.PrescriptionId).
+				Updates(updateMap).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
 		}
 	}
 
@@ -783,15 +817,6 @@ func (p *PatientRepositoryImpl) GetUserDataUserId(user_ids []uint64, limit, offs
 	return users, total, nil
 }
 
-func (p *PatientRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {
-	var user models.SystemUser_
-	err := p.db.Select("user_id").Where("auth_user_id=?", SUB).First(&user).Error
-	if err != nil {
-		return 0, err
-	}
-	return user.UserId, nil
-}
-
 func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool, error) {
 	var user models.SystemUser_
 	isComplete := false
@@ -1082,25 +1107,27 @@ func (p *PatientRepositoryImpl) FetchPatientDiagnosticReports(patientId uint64, 
 			dl.lab_name,
 			pdtrv.udf1 as qualifier
 		FROM
-			tbl_patient_diagnostic_report pdr
-		INNER JOIN tbl_patient_diagnostic_test pdt 
-			ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
-		INNER JOIN tbl_patient_diagnostic_test_result_value pdtrv 
-			ON pdt.diagnostic_test_id = pdtrv.diagnostic_test_id
-		LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
+			tbl_patient_diagnostic_test_result_value pdtrv
+		LEFT JOIN tbl_patient_diagnostic_test pdt
+			ON pdtrv.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
+			AND pdtrv.diagnostic_test_id = pdt.diagnostic_test_id
+		LEFT JOIN tbl_patient_diagnostic_report pdr
+			ON pdtrv.patient_diagnostic_report_id = pdr.patient_diagnostic_report_id
+		LEFT JOIN tbl_diagnostic_test_reference_range dtrr
 			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
-		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
-			ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm
+			ON pdtrv.diagnostic_test_component_id = tdpdtcm.diagnostic_test_component_id
 		LEFT JOIN tbl_diagnostic_lab dl
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
 		WHERE
-			pdr.patient_id = ?
+			pdtrv.patient_id = ?
 	`
+
 	var args []interface{}
 	args = append(args, patientId)
 
 	if filter.ReportID != nil {
-		query += " AND pdr.patient_diagnostic_report_id = ?"
+		query += " AND pdtrv.patient_diagnostic_report_id = ?"
 		args = append(args, *filter.ReportID)
 	}
 
@@ -1139,16 +1166,18 @@ func (p *PatientRepositoryImpl) FetchPatientDiagnosticReports(patientId uint64, 
 		args = append(args, *filter.ResultDateFrom, *filter.ResultDateTo)
 	}
 
+	fmt.Println("Executing Query:", query)
+	fmt.Println("With Args:", args)
+
 	if err := p.db.Debug().Raw(query, args...).Scan(&results).Error; err != nil {
 		return nil, err
 	}
+
 	return results, nil
 }
 
 func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.DiagnosticReportResponse) []map[string]interface{} {
 	reportMap := make(map[uint64]map[string]interface{})
-
-	fmt.Println("flatData ", flatData)
 	for _, item := range flatData {
 		reportID := item.PatientDiagnosticReportID
 		if _, exists := reportMap[reportID]; !exists {

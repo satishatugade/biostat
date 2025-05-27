@@ -35,7 +35,6 @@ type PatientService interface {
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserOnboardingStatusByUID(uid uint64) (bool, bool, bool, int64, int64, int64, int64, error)
 	GetUserSUBByID(ID uint64) (string, error)
-	GetUserIdBySUB(sub string) (uint64, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 
 	GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
@@ -332,14 +331,6 @@ func (s *PatientServiceImpl) GetPharmacistList(patientId *uint64, limit int, off
 	}
 	chemistUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 	return s.patientRepo.GetUserDataUserId(chemistUserIds, limit, offset)
-}
-
-func (s *PatientServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {
-	userId, err := s.patientRepo.GetUserIdBySUB(sub)
-	if err != nil {
-		return 0, err
-	}
-	return userId, nil
 }
 
 func (s *PatientServiceImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error) {

@@ -99,9 +99,9 @@ func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 }
 
 func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 
@@ -121,9 +121,9 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientDiseaseProfiles(c *gin.Context) {
-	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+	_, user_id, err1 := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
 	}
 	diseaseProfiles, err := pc.patientService.GetPatientDiseaseProfiles(user_id)
@@ -136,18 +136,7 @@ func (pc *PatientController) GetPatientDiseaseProfiles(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
-
-	// authUserId, exists := utils.GetUserDataContext(c)
-	// if !exists {
-	// 	models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
-	// 	return
-	// }
-	// patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	// if err != nil {
-	// 	models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
-	// 	return
-	// }
-	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -179,9 +168,9 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	var req models.DiagnosticResultRequest
@@ -203,13 +192,11 @@ func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 }
 
 func (pc *PatientController) GetDiagnosticResults(c *gin.Context) {
-
-	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-
 	user, err := pc.patientService.GetUserProfileByUserId(user_id)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
@@ -231,11 +218,12 @@ func (pc *PatientController) GetDiagnosticResults(c *gin.Context) {
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
+
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
@@ -256,15 +244,9 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 }
 
 func (pc *PatientController) UpdatePrescription(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, constant.KeyCloakErrorMessage, nil, nil)
-		return
-	}
-
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
+	authUserId, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 
@@ -279,7 +261,7 @@ func (pc *PatientController) UpdatePrescription(c *gin.Context) {
 		return
 	}
 
-	prescription.PatientId = patientId
+	prescription.PatientId = user_id
 	err = pc.patientService.UpdatePatientPrescription(authUserId, &prescription)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update prescription", nil, err)
@@ -290,9 +272,9 @@ func (pc *PatientController) UpdatePrescription(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
@@ -319,9 +301,9 @@ func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 }
 
 func (pc *PatientController) PrescriptionInfobyAIModel(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
@@ -395,17 +377,7 @@ func (pc *PatientController) GetPatientRelative(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientRelativeList(c *gin.Context) {
-	// patientIdParam := c.Param("patient_id")
-	// var patientId *uint64
-	// if patientIdParam != "" {
-	// 	id, err := strconv.ParseUint(patientIdParam, 10, 64)
-	// 	if err != nil {
-	// 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient_user_id", nil, err)
-	// 		return
-	// 	}
-	// 	patientId = &id
-	// }
-	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -442,9 +414,9 @@ func (pc *PatientController) GetRelativeList(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
@@ -469,9 +441,9 @@ func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
@@ -511,7 +483,7 @@ func (pc *PatientController) GetCaregiverList(c *gin.Context) {
 
 func (pc *PatientController) GetDoctorList(c *gin.Context) {
 	User := c.Param("user")
-	user_id, err := utils.GetUserIDFromContext(c, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -628,8 +600,7 @@ func (pc *PatientController) AddPatientClinicalRange(c *gin.Context) {
 }
 
 func (c *PatientController) GetUserMedicalRecords(ctx *gin.Context) {
-	// userID := utils.GetParamAsInt(ctx, "user_id")
-	user_id, err := utils.GetUserIDFromContext(ctx, c.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(ctx, c.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -662,10 +633,10 @@ func (c *PatientController) GetAllTblMedicalRecords(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, pagination, nil)
 }
 
-func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(ctx)
-	if !exists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
+	authUserId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	file, header, err := ctx.Request.FormFile("file")
@@ -673,7 +644,7 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
 		return
 	}
-	user_id, err := c.patientService.GetUserIdBySUB(authUserId)
+	user_id, err := pc.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
@@ -716,7 +687,7 @@ func (c *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	newRecord.SourceAccount = fmt.Sprint(user_id)
 	newRecord.UploadedBy = user_id
 
-	data, err := c.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, authUserId, &fileBuf, header.Filename)
+	data, err := pc.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, authUserId, &fileBuf, header.Filename)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
@@ -783,11 +754,6 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
 		return
 	}
-	// authUserId, exists := utils.GetUserDataContext(ctx)
-	// if !exists {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
-	// 	return
-	// }
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
@@ -798,7 +764,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 
-	user_id, err := utils.GetUserIDFromContext(ctx, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -815,7 +781,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 }
 
 func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
-	user_id, err := utils.GetUserIDFromContext(ctx, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -921,7 +887,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		return
 	}
 
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	user_id, err := pc.userService.GetUserIdBySUB(sub.(string))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
@@ -1058,7 +1024,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 }
 
 func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
-	user_id, err := utils.GetUserIDFromContext(ctx, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1115,7 +1081,7 @@ func (pc *PatientController) UpdateUserAppointment(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting "))
 		return
 	}
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	user_id, err := pc.userService.GetUserIdBySUB(sub.(string))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
@@ -1198,14 +1164,14 @@ func (pc *PatientController) UpdateUserAppointment(ctx *gin.Context) {
 	return
 }
 
-func (mc *PatientController) GetAllLabs(c *gin.Context) {
-	_, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+func (pc *PatientController) GetAllLabs(c *gin.Context) {
+	_, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
-	data, totalRecords, err := mc.diagnosticService.GetAllLabs(limit, offset)
+	data, totalRecords, err := pc.diagnosticService.GetAllLabs(limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve labs", nil, err)
 		return
@@ -1238,7 +1204,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	user_id, err := pc.userService.GetUserIdBySUB(sub.(string))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
@@ -1328,7 +1294,7 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 		return
 	}
 
-	user_id, err := pc.patientService.GetUserIdBySUB(sub.(string))
+	user_id, err := pc.userService.GetUserIdBySUB(sub.(string))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
@@ -1403,9 +1369,9 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 }
 
 func (pc *PatientController) SaveReport(ctx *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(ctx)
-	if !exists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
@@ -1476,7 +1442,7 @@ func (pc *PatientController) AddPatientReportNote(ctx *gin.Context) {
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
-	user_id, err := utils.GetUserIDFromContext(ctx, pc.patientService.GetUserIdBySUB)
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1572,12 +1538,12 @@ func (pc *PatientController) GetDiseaseProfiles(ctx *gin.Context) {
 }
 
 func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(ctx)
-	if !exists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	user_id, err := pc.patientService.GetUserIdBySUB(authUserId)
+	user_id, err := pc.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
 		return
@@ -1626,13 +1592,13 @@ func (pc *PatientController) AttachDiseaseProfileTOPatient(ctx *gin.Context) {
 }
 
 func (pc *PatientController) UpdateDiseaseProfile(ctx *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(ctx)
-	if !exists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 
-	user_id, err := pc.patientService.GetUserIdBySUB(authUserId)
+	user_id, err := pc.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to authenticate user: user not found or unauthorized", nil, err)
 		return
@@ -1664,9 +1630,9 @@ type SendSMSRequest struct {
 }
 
 func (pc *PatientController) SendSMS(c *gin.Context) {
-	_, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	_, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	var req SendSMSRequest
@@ -1699,9 +1665,9 @@ type SendEmailRequest struct {
 }
 
 func (pc *PatientController) ShareReport(c *gin.Context) {
-	authUserId, exists := utils.GetUserDataContext(c)
-	if !exists {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, constant.KeyCloakErrorMessage, nil, nil)
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	var req SendEmailRequest
