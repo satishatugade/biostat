@@ -20,25 +20,28 @@ type ApiService interface {
 	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
 	AnalyzePrescriptionWithAI(data models.PatientPrescription) (string, error)
 	AnalyzePharmacokineticsInfo(data models.PharmacokineticsInput) (string, error)
+	SummarizeMedicalHistory(data models.PharmacokineticsInput) (string, error)
 }
 
 type ApiServiceImpl struct {
-	GeminiAPIURL            string
-	ReportSummaryAPI        string
-	PrescriptionAPI         string
-	PharmacokineticsAPI     string
-	DigitizePrescriptionAPI string
-	client                  *http.Client
+	GeminiAPIURL               string
+	ReportSummaryAPI           string
+	PrescriptionAPI            string
+	PharmacokineticsAPI        string
+	SummarizeMedicalHistoryAPI string
+	DigitizePrescriptionAPI    string
+	client                     *http.Client
 }
 
 func NewApiService() ApiService {
 	return &ApiServiceImpl{
-		GeminiAPIURL:            os.Getenv("GEMINI_API_URL"),
-		ReportSummaryAPI:        os.Getenv("REPORT_SUMMARY_API"),
-		PrescriptionAPI:         os.Getenv("PRESCRIPTION_API"),
-		PharmacokineticsAPI:     os.Getenv("PHARMACOKINETICS_API"),
-		DigitizePrescriptionAPI: os.Getenv("DIGITIZE_PRESCRIPTION_API"),
-		client:                  &http.Client{},
+		GeminiAPIURL:               os.Getenv("GEMINI_API_URL"),
+		ReportSummaryAPI:           os.Getenv("REPORT_SUMMARY_API"),
+		PrescriptionAPI:            os.Getenv("PRESCRIPTION_API"),
+		PharmacokineticsAPI:        os.Getenv("PHARMACOKINETICS_API"),
+		SummarizeMedicalHistoryAPI: os.Getenv("SUMMARIZE_HISTORY_API"),
+		DigitizePrescriptionAPI:    os.Getenv("DIGITIZE_PRESCRIPTION_API"),
+		client:                     &http.Client{},
 	}
 }
 
@@ -321,6 +324,55 @@ func (api *ApiServiceImpl) AnalyzePharmacokineticsInfo(input models.Pharmacokine
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return "", err
+	}
+
+	return response.Summary, nil
+}
+
+func (api *ApiServiceImpl) SummarizeMedicalHistory(input models.PharmacokineticsInput) (string, error) {
+
+	prettyJSON, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		log.Println("Failed to generate pretty JSON:", err)
+	} else {
+		log.Println("Summarize Medical History Payload:\n", string(prettyJSON))
+	}
+
+	jsonData, err := json.Marshal(input)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, api.SummarizeMedicalHistoryAPI, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("summarize Medical History responded with status code %d", resp.StatusCode)
+	}
+
+	var response struct {
+		Summary string `json:"summary"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", err
+	}
+
+	prettyJSON, err1 := json.MarshalIndent(response, "", "  ")
+	if err1 != nil {
+		log.Println("Failed to generate pretty JSON:", err1)
+	} else {
+		log.Println("Summarize Medical History reponse Payload:\n", string(prettyJSON))
 	}
 
 	return response.Summary, nil

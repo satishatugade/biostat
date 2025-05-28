@@ -1,7 +1,7 @@
 package constant
 
 const (
-	Allergy              = "/allergy/:patient_id"
+	Allergy              = "/allergy"
 	UpdateAllergy        = "/update-allergy"
 	AllergyMaster        = "allergy"
 	CustomRange          = "/custom-range"
@@ -39,6 +39,7 @@ const (
 	PrescriptionByPatientId   = "/get-prescription"
 	PrescriptionInfo          = "/prescription-info"
 	Pharmacokinetics          = "/api/drug/pharmacokinetics"
+	SummarizeHistory          = "/api/summerize-history"
 	User                      = "/getuser"
 	RegisterUser              = "/register"
 	UserRegistrationByPatient = "/create-by-patient"

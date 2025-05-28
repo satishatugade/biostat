@@ -39,7 +39,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var apiService = service.NewApiService()
 
 	var patientRepo = repository.NewPatientRepository(db)
-	var patientService = service.NewPatientService(patientRepo, apiService)
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, *emailService, patientService)
@@ -278,6 +278,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionByPatientId, patientController.GetPrescriptionByPatientId},
 		Route{"prescription explanation", http.MethodPost, constant.PrescriptionInfo, patientController.PrescriptionInfobyAIModel},
 		Route{"Pharmacokinetics", http.MethodPost, constant.Pharmacokinetics, patientController.PharmacokineticsInfobyAIModel},
+		Route{"SummarizeHistorybyAIModel", http.MethodPost, constant.SummarizeHistory, patientController.SummarizeHistorybyAIModel},
 
 		Route{"Patient Allergy", http.MethodPost, constant.PatientAllergy, patientController.AddPatientAllergyRestriction},
 		Route{"Patient Allgery", http.MethodPost, constant.Allergy, patientController.GetPatientAllergyRestriction},

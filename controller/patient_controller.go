@@ -167,6 +167,22 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 	}
 }
 
+func (pc *PatientController) SummarizeHistorybyAIModel(c *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	summarize_history, err := pc.patientService.SummarizeHistorybyAIModel(patientId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch Summarize history details", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient summary fetched.", summarize_history, nil, nil)
+}
+
 func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
@@ -575,7 +591,11 @@ func (pc *PatientController) AddPatientAllergyRestriction(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientAllergyRestriction(c *gin.Context) {
-	patientId := c.Param("patient_id")
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	allergies, err := pc.allergyService.GetPatientAllergyRestriction(patientId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch allergies", nil, err)

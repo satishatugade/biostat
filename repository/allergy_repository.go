@@ -9,7 +9,7 @@ import (
 type AllergyRepository interface {
 	GetAllergies() ([]models.Allergy, error)
 	AddPatientAllergyRestriction(tx *gorm.DB, allergy *models.PatientAllergyRestriction) error
-	GetPatientAllergyRestriction(patientId string) ([]models.PatientAllergyRestriction, error)
+	GetPatientAllergyRestriction(patientId uint64) ([]models.PatientAllergyRestriction, error)
 	UpdatePatientAllergyRestriction(allergyUpdate *models.PatientAllergyRestriction) error
 }
 
@@ -34,7 +34,7 @@ func (a *AllergyRepositoryImpl) AddPatientAllergyRestriction(tx *gorm.DB, allerg
 	return tx.Create(allergy).Error
 }
 
-func (a *AllergyRepositoryImpl) GetPatientAllergyRestriction(patientId string) ([]models.PatientAllergyRestriction, error) {
+func (a *AllergyRepositoryImpl) GetPatientAllergyRestriction(patientId uint64) ([]models.PatientAllergyRestriction, error) {
 	var allergies []models.PatientAllergyRestriction
 	err := a.db.Preload("Allergy.AllergyType").Preload("Severity").
 		Where("patient_id = ?", patientId).

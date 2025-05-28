@@ -27,6 +27,7 @@ type PatientService interface {
 	GetPrescriptionByPatientId(PatientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	GetPharmacokineticsInfo(prescriptiuonId uint64, patientId uint64) (string, error)
+	SummarizeHistorybyAIModel(patientId uint64) (string, error)
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
@@ -51,13 +52,13 @@ type PatientService interface {
 type PatientServiceImpl struct {
 	patientRepo     repository.PatientRepository
 	patientRepoImpl repository.PatientRepositoryImpl
-	userRepo        repository.UserRepository
 	apiService      ApiService
+	allergyService  AllergyService
 }
 
 // Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository, apiService ApiService) PatientService {
-	return &PatientServiceImpl{patientRepo: repo, apiService: apiService}
+func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService) PatientService {
+	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService}
 }
 
 // GetAllRelation implements PatientService.
@@ -100,6 +101,14 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 	if err1 != nil {
 		return "", err1
 	}
+	allergies, err := s.allergyService.GetPatientAllergyRestriction(patientId)
+	if err != nil {
+		return "", err
+	}
+	var allergyList []string
+	for _, allergy := range allergies {
+		allergyList = append(allergyList, allergy.Allergy.AllergyName)
+	}
 
 	results, err2 := s.FetchPatientDiagnosticReports(patientId, models.DiagnosticReportFilter{ReportID: func() *uint64 { id, _ := s.patientRepo.GetDiagnosticReportId(patientId); return &id }()})
 
@@ -125,7 +134,7 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 		History: models.HistoryData{
 			PatientName:        userInfo.FirstName + " " + userInfo.LastName,
 			Conditions:         []string{diseaseName + " " + diseaseType},
-			Allergies:          []string{},
+			Allergies:          allergyList,
 			CurrentMedications: []models.CurrentMedication{},
 			RecentLabResults:   results,
 		},
@@ -141,6 +150,75 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 	}
 
 	summaryText, err := s.apiService.AnalyzePharmacokineticsInfo(input)
+	if err != nil {
+		return "", err
+	}
+	return summaryText, nil
+}
+
+func (s *PatientServiceImpl) SummarizeHistorybyAIModel(patientId uint64) (string, error) {
+
+	data, _, err := s.patientRepo.GetPrescriptionByPatientId(patientId, 100, 0)
+	if err != nil {
+		return "", err
+	}
+	userInfo, err := s.patientRepo.GetUserProfileByUserId(patientId)
+	if err != nil {
+		return "", err
+	}
+	condition, err1 := s.patientRepo.GetPatientDiseaseProfiles(patientId, 0)
+	if err1 != nil {
+		return "", err1
+	}
+	allergies, err := s.allergyService.GetPatientAllergyRestriction(patientId)
+	if err != nil {
+		return "", err
+	}
+	var allergyList []string
+	for _, allergy := range allergies {
+		allergyList = append(allergyList, allergy.Allergy.AllergyName)
+	}
+
+	results, err2 := s.FetchPatientDiagnosticReports(patientId, models.DiagnosticReportFilter{ReportID: func() *uint64 { id, _ := s.patientRepo.GetDiagnosticReportId(patientId); return &id }()})
+
+	if err2 != nil {
+		return "", err2
+	}
+	var diseaseName string
+	var diseaseType string
+
+	for _, diseaseCondition := range condition {
+		diseaseName = diseaseCondition.DiseaseProfile.Disease.DiseaseName
+		diseaseType = diseaseCondition.DiseaseProfile.Disease.DiseaseType.DiseaseType
+	}
+
+	input := models.PharmacokineticsInput{
+		Prescription: models.PrescriptionData{
+			PatientName:  userInfo.FirstName + " " + userInfo.LastName,
+			Age:          time.Now().Year() - userInfo.DateOfBirth.Year(),
+			Gender:       userInfo.Gender,
+			PrescribedOn: "2025-05-28",
+			Prescription: []models.PrescribedDrug{},
+		},
+		History: models.HistoryData{
+			PatientName:        userInfo.FirstName + " " + userInfo.LastName,
+			Conditions:         []string{diseaseName + " " + diseaseType},
+			Allergies:          allergyList,
+			CurrentMedications: []models.CurrentMedication{},
+			RecentLabResults:   results,
+		},
+	}
+
+	for _, d := range data[0].PrescriptionDetails {
+		input.Prescription.Prescription = append(input.Prescription.Prescription, models.PrescribedDrug{
+			Drug:      d.MedicineName,
+			Dosage:    fmt.Sprintf("%.0f%s", d.UnitValue, d.UnitType),
+			Frequency: fmt.Sprintf("%d times/day", d.Frequency),
+			Duration:  fmt.Sprintf("%d days", d.Duration),
+		})
+	}
+
+	summaryText, err := s.apiService.SummarizeMedicalHistory(input)
 	if err != nil {
 		return "", err
 	}
