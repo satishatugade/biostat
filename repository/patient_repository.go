@@ -23,7 +23,6 @@ type PatientRepository interface {
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
-	GetUserIdByAuthUserId(authUserId string) (uint64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
 	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
 
@@ -46,6 +45,7 @@ type PatientRepository interface {
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
 	IsUserHealthDetailsComplete(user_id uint64) (bool, error)
+	GetPatientHealthDetail(user_id uint64) (models.TblPatientHealthProfile, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 	FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 	GetUserSUBByID(ID uint64) (string, error)
@@ -247,17 +247,6 @@ func (pr *PatientRepositoryImpl) GetSinglePrescription(prescriptionId uint64, pa
 	}
 
 	return prescription, nil
-}
-
-func (p *PatientRepositoryImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
-	var userId uint64
-	query := `SELECT user_id FROM tbl_system_user_ WHERE auth_user_id = ? LIMIT 1`
-	err := p.db.Raw(query, authUserId).Scan(&userId).Error
-	if err != nil {
-		return 0, err
-	}
-
-	return userId, nil
 }
 
 func (p *PatientRepositoryImpl) GetAllPatients(limit int, offset int) ([]models.Patient, int64, error) {
@@ -1300,4 +1289,10 @@ func (r *PatientRepositoryImpl) GetDiagnosticReportId(patientId uint64) (uint64,
 	}
 
 	return reportId, nil
+}
+
+func (pr *PatientRepositoryImpl) GetPatientHealthDetail(userID uint64) (models.TblPatientHealthProfile, error) {
+	var profile models.TblPatientHealthProfile
+	err := pr.db.Where("patient_id = ?", userID).First(&profile).Error
+	return profile, err
 }

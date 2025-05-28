@@ -14,8 +14,7 @@ type PatientService interface {
 	GetAllRelation() ([]models.PatientRelation, error)
 	GetRelationById(relationId int) (models.PatientRelation, error)
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
-	GetUserIdByAuthUserId(authUserId string) (uint64, error)
-	UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error)
+	UpdatePatientById(userId uint64, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
@@ -114,11 +113,9 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 	for _, allergy := range allergies {
 		allergyList = append(allergyList, allergy.Allergy.AllergyName)
 	}
-
-	results, err2 := s.FetchPatientDiagnosticReports(patientId, models.DiagnosticReportFilter{ReportID: func() *uint64 { id, _ := s.patientRepo.GetDiagnosticReportId(patientId); return &id }()})
-
-	if err2 != nil {
-		return "", err2
+	healthDetails, err := s.patientRepo.GetPatientHealthDetail(patientId)
+	if err != nil {
+		return "", err
 	}
 	var diseaseName string
 	var diseaseType string
@@ -133,6 +130,10 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 			PatientName:  userInfo.FirstName + " " + userInfo.LastName,
 			Age:          time.Now().Year() - userInfo.DateOfBirth.Year(),
 			Gender:       userInfo.Gender,
+			BloodGroup:   healthDetails.BloodType,
+			BMI:          fmt.Sprintf("%.2f %s", healthDetails.BMI, healthDetails.BmiCategory),
+			HeightCM:     fmt.Sprintf("%.2f", healthDetails.HeightCM),
+			WeightKG:     fmt.Sprintf("%.2f", healthDetails.WeightKG),
 			PrescribedOn: data.PrescriptionDate.Format("2006-01-02"),
 			Prescription: []models.PrescribedDrug{},
 		},
@@ -141,7 +142,17 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 			Conditions:         []string{diseaseName + " " + diseaseType},
 			Allergies:          allergyList,
 			CurrentMedications: []models.CurrentMedication{},
-			RecentLabResults:   results,
+			Lifestyle: []map[string]interface{}{
+				{
+					"SmokingStatus":         healthDetails.SmokingStatus,
+					"AlcoholConsumption":    healthDetails.AlcoholConsumption,
+					"PhysicalActivityLevel": healthDetails.PhysicalActivityLevel,
+					"DietaryPreferences":    healthDetails.DietaryPreferences,
+					"ExistingConditions":    healthDetails.ExistingConditions,
+					"FamilyMedicalHistory":  healthDetails.FamilyMedicalHistory,
+					"MenstrualHistory":      healthDetails.MenstrualHistory,
+				},
+			},
 		},
 	}
 
@@ -234,15 +245,7 @@ func (s *PatientServiceImpl) GetPatients(limit int, offset int) ([]models.Patien
 	return s.patientRepo.GetAllPatients(limit, offset)
 }
 
-func (s *PatientServiceImpl) GetUserIdByAuthUserId(authUserId string) (uint64, error) {
-	return s.patientRepo.GetUserIdByAuthUserId(authUserId)
-}
-
-func (s *PatientServiceImpl) UpdatePatientById(authUserId string, patientData *models.Patient) (*models.Patient, error) {
-	userId, err := s.patientRepo.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		return &models.Patient{}, err
-	}
+func (s *PatientServiceImpl) UpdatePatientById(userId uint64, patientData *models.Patient) (*models.Patient, error) {
 	updatedPatient, err := s.patientRepo.UpdatePatientById(userId, patientData)
 	if err != nil {
 		return &models.Patient{}, err

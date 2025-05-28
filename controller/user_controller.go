@@ -438,7 +438,7 @@ func (uc *UserController) ResetUserPassword(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request payload", nil, err)
 		return
 	}
-	userId, err := uc.patientService.GetUserIdByAuthUserId(tokenData.AuthUserID)
+	userId, err := uc.userService.GetUserIdBySUB(tokenData.AuthUserID)
 	if err != nil {
 		log.Println("User not found with this authuserId :", tokenData.AuthUserID)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)

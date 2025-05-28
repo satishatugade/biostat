@@ -99,7 +99,7 @@ func (pc *PatientController) GetPatientInfo(c *gin.Context) {
 }
 
 func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, userId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -111,7 +111,7 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 		return
 	}
 
-	updatedPatient, err := pc.patientService.UpdatePatientById(authUserId, &patientData)
+	updatedPatient, err := pc.patientService.UpdatePatientById(userId, &patientData)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient info", nil, err)
 		return
@@ -184,7 +184,7 @@ func (pc *PatientController) SummarizeHistorybyAIModel(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, userId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -193,12 +193,7 @@ func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Println("DiagnosticResultRequest filter result values")
 	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
-		return
-	}
-	req.PatientId = patientId
+	req.PatientId = userId
 	results, err := pc.patientService.GetPatientDiagnosticTrendValue(req)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient reports not found", nil, err)
@@ -234,19 +229,13 @@ func (pc *PatientController) GetDiagnosticResults(c *gin.Context) {
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	authUserId, userId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
-		return
-	}
 	var prescription models.PatientPrescription
-	prescription.PatientId = patientId
+	prescription.PatientId = userId
 	if err := c.ShouldBindJSON(&prescription); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
 		return
@@ -288,14 +277,9 @@ func (pc *PatientController) UpdatePrescription(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-		return
-	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
@@ -472,14 +456,9 @@ func (pc *PatientController) GetRelativeList(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-		return
-	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 	relativeIdStr := c.Param("relative_id")
@@ -499,14 +478,9 @@ func (pc *PatientController) GetPatientRelativeByRelativeId(c *gin.Context) {
 }
 
 func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-		return
-	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 	caregivers, err := pc.patientService.GetCaregiverList(&patientId)
@@ -831,7 +805,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-
+	log.Println("GetUserProfileByUserId  User Id : ", user_id)
 	user, err := pc.patientService.GetUserProfileByUserId(user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
@@ -1439,14 +1413,9 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 }
 
 func (pc *PatientController) SaveReport(ctx *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	_, patientId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-		return
-	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 	log.Printf("Request Content-Type: %v", ctx.Request.Header.Get("Content-Type"))
@@ -1735,7 +1704,7 @@ type SendEmailRequest struct {
 }
 
 func (pc *PatientController) ShareReport(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1743,11 +1712,6 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 	var req SendEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
-		return
-	}
-	patientId, err := pc.patientService.GetUserIdByAuthUserId(authUserId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
 		return
 	}
 	userDetails, err := pc.patientService.GetUserProfileByUserId(patientId)

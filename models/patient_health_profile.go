@@ -57,6 +57,10 @@ type PrescriptionData struct {
 	PatientName  string           `json:"patient_name"`
 	Age          int              `json:"age"`
 	Gender       string           `json:"gender"`
+	BloodGroup   string           `json:"blood_group"`
+	BMI          string           `json:"bmi"`
+	HeightCM     string           `json:"height"`
+	WeightKG     string           `json:"weight"`
 	PrescribedOn string           `json:"prescribed_on"`
 	Prescription []PrescribedDrug `json:"prescription"`
 }
@@ -74,6 +78,7 @@ type HistoryData struct {
 	Allergies          []string                 `json:"allergies"`
 	CurrentMedications []CurrentMedication      `json:"current_medications"`
 	RecentLabResults   []map[string]interface{} `json:"recent_lab_results"`
+	Lifestyle          []map[string]interface{} `json:"lifestyle"`
 }
 
 type CurrentMedication struct {
