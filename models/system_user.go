@@ -60,18 +60,19 @@ type UserLoginResponse struct {
 }
 
 type SystemUser_ struct {
-	UserId      uint64        `gorm:"primaryKey;column:user_id" json:"user_id"`
-	AuthUserId  string        `gorm:"column:auth_user_id;type:varchar(100);unique" json:"auth_user_id"`
-	Username    string        `gorm:"column:username;type:varchar(50);unique;not null" json:"username"`
-	Password    string        `gorm:"column:password;type:varchar(255);not null" json:"password"`
-	FirstName   string        `gorm:"column:first_name;type:varchar(50);not null" json:"first_name"`
-	LastName    string        `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
-	Gender      string        `gorm:"column:gender;type:varchar(10)" json:"gender"`
-	DateOfBirth *time.Time    `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
-	MobileNo    string        `gorm:"column:mobile_no;type:varchar(50);unique" json:"mobile_no"`
-	Email       string        `gorm:"column:email;type:varchar(100);unique" json:"email"`
-	Address     string        `gorm:"column:address;type:text" json:"address"`
-	UserAddress AddressMaster `gorm:"-" json:"user_address"`
+	UserId        uint64        `gorm:"primaryKey;column:user_id" json:"user_id"`
+	AuthUserId    string        `gorm:"column:auth_user_id;type:varchar(100);unique" json:"auth_user_id"`
+	Username      string        `gorm:"column:username;type:varchar(50);unique;not null" json:"username"`
+	Password      string        `gorm:"column:password;type:varchar(255);not null" json:"password"`
+	FirstName     string        `gorm:"column:first_name;type:varchar(50);not null" json:"first_name"`
+	LastName      string        `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
+	Gender        string        `gorm:"column:gender;type:varchar(10)" json:"gender"`
+	DateOfBirth   *time.Time    `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
+	MobileNo      string        `gorm:"column:mobile_no;type:varchar(50);unique" json:"mobile_no"`
+	Email         string        `gorm:"column:email;type:varchar(100);unique" json:"email"`
+	MaritalStatus string        `gorm:"column:marital_status;type:varchar(100)" json:"marital_status"`
+	Address       string        `gorm:"column:address;type:text" json:"address"`
+	UserAddress   AddressMaster `gorm:"-" json:"user_address"`
 
 	// Patient-Specific Fields
 	EmergencyContact     string `gorm:"column:emergency_contact;type:varchar(50)" json:"emergency_contact,omitempty"`
