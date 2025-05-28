@@ -1258,6 +1258,13 @@ func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.D
 					"qualifier":          item.Qualifier,
 				},
 			},
+			"test_referance_range": []map[string]interface{}{
+				{
+					"normal_min": item.NormalMin,
+					"normal_max": item.NormalMax,
+					"units":      item.Units,
+				},
+			},
 		}
 
 		diagnosticTest := map[string]interface{}{
