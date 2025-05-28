@@ -126,7 +126,7 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 	}
 
 	calendarLink := utils.GenerateGoogleCalendarLink(
-		"BioStat Appointment",
+		"BioStack Appointment",
 		description,
 		location,
 		start,
