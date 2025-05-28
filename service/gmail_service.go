@@ -38,7 +38,7 @@ func CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Conf
 	return gmail.New(client)
 }
 
-func FetchEmailsWithAttachments(service *gmail.Service, userId uint64, accessToken string) ([]models.TblMedicalRecord, error) {
+func FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
 	profile, err := service.Users.GetProfile("me").Do()
 	if err != nil {
 		return nil, err
@@ -58,14 +58,14 @@ func FetchEmailsWithAttachments(service *gmail.Service, userId uint64, accessTok
 			continue
 		}
 
-		attachments := ExtractAttachments(service, message, userEmail, userId, accessToken)
+		attachments := ExtractAttachments(service, message, userEmail, userId)
 		records = append(records, attachments...)
 	}
 	log.Println("Gmail Records found:", len(records), "userEmail: ", userEmail)
 	return records, nil
 }
 
-func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64, accessToken string) []models.TblMedicalRecord {
+func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64) []models.TblMedicalRecord {
 	var records []models.TblMedicalRecord
 	for _, part := range message.Payload.Parts {
 		if part.Filename != "" {
