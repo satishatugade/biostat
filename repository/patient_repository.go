@@ -18,6 +18,7 @@ type PatientRepository interface {
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
 	GetSinglePrescription(prescriptiuonId uint64, patientId uint64) (models.PatientPrescription, error)
 	GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPrescriptionDetailByPatientId(PatientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error)
 	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
@@ -190,6 +191,47 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 	}
 
 	return prescriptions, totalRecords, nil
+}
+
+func (ps *PatientRepositoryImpl) GetPrescriptionDetailByPatientId(patientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error) {
+	var details []models.PrescriptionDetail
+	var totalRecords int64
+
+	var prescriptionIDs []uint64
+	err := ps.db.
+		Model(&models.PatientPrescription{}).
+		Where("patient_id = ?", patientId).
+		Pluck("prescription_id", &prescriptionIDs).
+		Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(prescriptionIDs) == 0 {
+		return []models.PrescriptionDetail{}, 0, nil
+	}
+
+	err = ps.db.
+		Model(&models.PrescriptionDetail{}).
+		Where("prescription_id IN ?", prescriptionIDs).
+		Count(&totalRecords).
+		Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = ps.db.
+		Where("prescription_id IN ?", prescriptionIDs).
+		Limit(limit).
+		Offset(offset).
+		Order("prescription_detail_id DESC").
+		Find(&details).
+		Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return details, totalRecords, nil
 }
 
 func (pr *PatientRepositoryImpl) GetSinglePrescription(prescriptionId uint64, patientId uint64) (models.PatientPrescription, error) {

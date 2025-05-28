@@ -37,6 +37,7 @@ const (
 	PatientPrescription       = "/patient-prescription"
 	UpdatePrescription        = "/update-prescription"
 	PrescriptionByPatientId   = "/get-prescription"
+	PrescriptionDetail        = "/prescription-detail"
 	PrescriptionInfo          = "/prescription-info"
 	Pharmacokinetics          = "/api/drug/pharmacokinetics"
 	SummarizeHistory          = "/api/summerize-history"

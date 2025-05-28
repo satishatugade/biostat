@@ -25,6 +25,7 @@ type PatientService interface {
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
 	GetPrescriptionByPatientId(PatientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPrescriptionDetailByPatientId(PatientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error)
 	GetPrescriptionInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	GetPharmacokineticsInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	SummarizeHistorybyAIModel(patientId uint64) (string, error)
@@ -73,6 +74,10 @@ func (s *PatientServiceImpl) GetRelationById(relationId int) (models.PatientRela
 
 func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	return s.patientRepo.GetPrescriptionByPatientId(patientId, limit, offset)
+}
+
+func (s *PatientServiceImpl) GetPrescriptionDetailByPatientId(patientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error) {
+	return s.patientRepo.GetPrescriptionDetailByPatientId(patientId, limit, offset)
 }
 
 func (s *PatientServiceImpl) GetPrescriptionInfo(prescriptionId uint64, patientId uint64) (string, error) {

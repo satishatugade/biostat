@@ -316,6 +316,29 @@ func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, prescriptions, pagination, nil)
 }
 
+func (pc *PatientController) GetPrescriptionDetailByPatientId(c *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	page, limit, offset := utils.GetPaginationParams(c)
+
+	prescription, totalRecords, err := pc.patientService.GetPrescriptionDetailByPatientId(patientId, limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Prescription detail not found", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		1,
+		"Prescription detail retrieved successfully",
+		"Prescription detail not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, prescription, pagination, nil)
+}
+
 func (pc *PatientController) PrescriptionInfobyAIModel(c *gin.Context) {
 	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
@@ -1077,18 +1100,10 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 	for _, appointment := range appointments {
 		var providerInfo interface{}
 		if appointment.ProviderType == "lab" {
-			lab, err := pc.diagnosticService.GetLabById(appointment.ProviderID)
-			if err != nil || lab == nil {
-				log.Println("Error @GetUserAppointments->GetLabById err:", err, " lab:", lab)
-				continue
-			}
+			lab, _ := pc.diagnosticService.GetLabById(appointment.ProviderID)
 			providerInfo = utils.MapUserToPublicProviderInfo(*lab, "lab")
 		} else {
-			user, err := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
-			if err != nil || user == nil {
-				log.Println("Error @GetUserAppointments->GetUserProfileByUserId err:", err, " user:", user)
-				continue
-			}
+			user, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
 			providerInfo = utils.MapUserToPublicProviderInfo(*user, appointment.ProviderType)
 		}
 		appointmentResponse := models.AppointmentResponse{
