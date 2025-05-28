@@ -8,9 +8,10 @@ type Patient struct {
 	PatientId            uint64        `json:"patient_id"`
 	FirstName            string        `json:"first_name"`
 	LastName             string        `json:"last_name"`
-	DateOfBirth          *time.Time     `json:"date_of_birth"`
+	DateOfBirth          *time.Time    `json:"date_of_birth"`
 	Gender               string        `json:"gender"`
 	MobileNo             string        `json:"mobile_no"`
+	MaritalStatus        string        `json:"marital_status"`
 	Address              string        `json:"address"`
 	UserAddress          AddressMaster `gorm:"-" json:"user_address"`
 	EmergencyContact     string        `json:"emergency_contact"`

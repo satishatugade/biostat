@@ -433,13 +433,14 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 		}
 	default:
 		return models.Patient{
-			PatientId:   user.UserId,
-			FirstName:   user.FirstName,
-			LastName:    user.LastName,
-			DateOfBirth: user.DateOfBirth,
-			Gender:      user.Gender,
-			MobileNo:    user.MobileNo,
-			Address:     user.Address,
+			PatientId:     user.UserId,
+			FirstName:     user.FirstName,
+			LastName:      user.LastName,
+			DateOfBirth:   user.DateOfBirth,
+			Gender:        user.Gender,
+			MobileNo:      user.MobileNo,
+			MaritalStatus: user.MaritalStatus,
+			Address:       user.Address,
 			UserAddress: models.AddressMaster{
 				AddressId:    user.AddressMapping.AddressId,
 				AddressLine1: user.AddressMapping.Address.AddressLine1,
