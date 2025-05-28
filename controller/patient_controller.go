@@ -1077,10 +1077,18 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 	for _, appointment := range appointments {
 		var providerInfo interface{}
 		if appointment.ProviderType == "lab" {
-			lab, _ := pc.diagnosticService.GetLabById(appointment.ProviderID)
+			lab, err := pc.diagnosticService.GetLabById(appointment.ProviderID)
+			if err != nil || lab == nil {
+				log.Println("Error @GetUserAppointments->GetLabById err:", err, " lab:", lab)
+				continue
+			}
 			providerInfo = utils.MapUserToPublicProviderInfo(*lab, "lab")
 		} else {
-			user, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
+			user, err := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
+			if err != nil || user == nil {
+				log.Println("Error @GetUserAppointments->GetUserProfileByUserId err:", err, " user:", user)
+				continue
+			}
 			providerInfo = utils.MapUserToPublicProviderInfo(*user, appointment.ProviderType)
 		}
 		appointmentResponse := models.AppointmentResponse{

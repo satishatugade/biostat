@@ -8,7 +8,7 @@ type Patient struct {
 	PatientId            uint64        `json:"patient_id"`
 	FirstName            string        `json:"first_name"`
 	LastName             string        `json:"last_name"`
-	DateOfBirth          string        `json:"date_of_birth"`
+	DateOfBirth          *time.Time     `json:"date_of_birth"`
 	Gender               string        `json:"gender"`
 	MobileNo             string        `json:"mobile_no"`
 	Address              string        `json:"address"`
