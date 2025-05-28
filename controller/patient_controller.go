@@ -781,6 +781,11 @@ func (c *PatientController) DeleteTblMedicalRecord(ctx *gin.Context) {
 }
 
 func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	type UserRequest struct {
 		User string `json:"user"`
 	}
@@ -797,12 +802,6 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 	}
 	if !utils.StringInSlice(req.User, roles.([]string)) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, nil)
-		return
-	}
-
-	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	log.Println("GetUserProfileByUserId  User Id : ", user_id)
