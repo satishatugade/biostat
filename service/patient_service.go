@@ -45,8 +45,8 @@ type PatientService interface {
 	GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
-
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
+	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 }
 
 type PatientServiceImpl struct {
@@ -496,6 +496,10 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(input models.Diagno
 
 func (ps *PatientServiceImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {
 	return ps.patientRepo.SaveUserHealthProfile(tx, input)
+}
+
+func (s *PatientServiceImpl) GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error) {
+	return s.patientRepo.GetPatientHealthDetail(patientId)
 }
 
 func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error) {

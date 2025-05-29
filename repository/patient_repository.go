@@ -45,7 +45,7 @@ type PatientRepository interface {
 	IsUserBasicProfileComplete(user_id uint64) (bool, error)
 	IsUserFamilyDetailsComplete(user_id uint64) (bool, error)
 	IsUserHealthDetailsComplete(user_id uint64) (bool, error)
-	GetPatientHealthDetail(user_id uint64) (models.TblPatientHealthProfile, error)
+	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 	FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 	GetUserSUBByID(ID uint64) (string, error)
@@ -874,14 +874,30 @@ func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (boo
 	return isComplete, nil
 }
 
+// func (p *PatientRepositoryImpl) IsUserHealthDetailsComplete(user_id uint64) (bool, error) {
+// 	var count int64
+// 	err := p.db.Table("tbl_patient_health_profile").Where("patient_id = ?", user_id).Count(&count).Error
+// 	if err != nil {
+// 		return false, err
+// 	}
+// 	isComplete := count > 0
+// 	return isComplete, nil
+// }
+
 func (p *PatientRepositoryImpl) IsUserHealthDetailsComplete(user_id uint64) (bool, error) {
-	var count int64
-	err := p.db.Table("tbl_patient_health_profile").Where("patient_id = ?", user_id).Count(&count).Error
+	var profile models.TblPatientHealthProfile
+	err := p.db.Table("tbl_patient_health_profile").
+		Select("height_cm", "weight_kg", "blood_type", "smoking_status", "alcohol_consumption").Where("patient_id = ?", user_id).First(&profile).Error
+
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, nil
+		}
 		return false, err
 	}
-	isComplete := count > 0
+	isComplete := profile.HeightCM > 0 && profile.WeightKG > 0 && profile.BloodType != "" && profile.SmokingStatus != "" && profile.AlcoholConsumption != ""
 	return isComplete, nil
+
 }
 
 func (p *PatientRepositoryImpl) GetNursesList(limit int, offset int) ([]models.Nurse, int64, error) {

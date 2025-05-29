@@ -1554,6 +1554,19 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 	return
 }
 
+func (pc *PatientController) GetPatientHealthProfileInfo(ctx *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	healthDetails, err := pc.patientService.GetPatientHealthDetail(patientId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Health detail not found", nil, err)
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health Detail fetch successfully", healthDetails, nil, nil)
+}
+
 func (pc *PatientController) GetDiseaseProfiles(ctx *gin.Context) {
 	var diseaseProfiles []models.DiseaseProfile
 	var totalRecords int64

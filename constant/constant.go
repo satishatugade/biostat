@@ -19,6 +19,7 @@ const (
 	UserProfile          = "/user-profile"
 	UserOnboardingStatus = "/user-onboarding-status"
 	UserHealthDetails    = "/user-health-details"
+	HealthDetail         = "/health-detail"
 
 	Caregiver     = "/get-caregiver"
 	CaregiverList = "/caregiver-list"
