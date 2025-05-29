@@ -47,6 +47,7 @@ type PatientService interface {
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
+	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 }
 
 type PatientServiceImpl struct {
@@ -495,11 +496,26 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(input models.Diagno
 }
 
 func (ps *PatientServiceImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {
+	exists, err := ps.patientRepo.CheckPatientHealthProfileExist(tx, input.PatientId)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		err := ps.patientRepo.UpdatePatientHealthDetail(input)
+		if err != nil {
+			return nil, err
+		}
+		return input, nil
+	}
 	return ps.patientRepo.SaveUserHealthProfile(tx, input)
 }
 
 func (s *PatientServiceImpl) GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error) {
 	return s.patientRepo.GetPatientHealthDetail(patientId)
+}
+
+func (s *PatientServiceImpl) UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error {
+	return s.patientRepo.UpdatePatientHealthDetail(req)
 }
 
 func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error) {

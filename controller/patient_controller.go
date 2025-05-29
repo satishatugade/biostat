@@ -1480,7 +1480,7 @@ func (pc *PatientController) AddPatientReportNote(ctx *gin.Context) {
 }
 
 func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
-	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	authUserId, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1520,6 +1520,8 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 		FamilyMedicalHistory:  userReq.FamilyMedicalHistory,
 		MenstrualHistory:      userReq.MenstrualHistory,
 		Notes:                 userReq.Notes,
+		CreatedBy:             authUserId,
+		UpdatedBy:             authUserId,
 	}
 
 	savedHealthProfile, err := pc.patientService.SaveUserHealthProfile(tx, healthData)
@@ -1530,9 +1532,9 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 	}
 	for _, allergy := range userReq.Allergies {
 		err := pc.allergyService.AddPatientAllergyRestriction(tx, &models.PatientAllergyRestriction{
-			PatientId:  uint(user_id),
-			AllergyId:  uint(allergy.AllergyID),
-			SeverityId: uint(allergy.SeverityId),
+			PatientId:  user_id,
+			AllergyId:  allergy.AllergyID,
+			SeverityId: allergy.SeverityId,
 		})
 		if err != nil {
 			tx.Rollback()
@@ -1540,7 +1542,7 @@ func (pc *PatientController) SaveUserHealthProfile(ctx *gin.Context) {
 			return
 		}
 	}
-	_, err = pc.patientService.AddPatientDiseaseProfile(tx, &models.PatientDiseaseProfile{PatientId: user_id, DiseaseProfileId: userReq.DiseaseProfileID})
+	_, err = pc.patientService.AddPatientDiseaseProfile(tx, &models.PatientDiseaseProfile{PatientId: user_id, DiseaseProfileId: userReq.DiseaseProfileID, AttachedFlag: 0})
 	if err != nil {
 		tx.Rollback()
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to save disease profile", nil, err)
@@ -1565,6 +1567,28 @@ func (pc *PatientController) GetPatientHealthProfileInfo(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Health detail not found", nil, err)
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health Detail fetch successfully", healthDetails, nil, nil)
+}
+
+func (pc *PatientController) UpdatePatientHealthDetail(ctx *gin.Context) {
+	authUserId, patientId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var req models.TblPatientHealthProfile
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+	req.PatientId = patientId
+	req.UpdatedBy = authUserId
+	err = pc.patientService.UpdatePatientHealthDetail(&req)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update health detail", nil, err)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health Detail updated successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) GetDiseaseProfiles(ctx *gin.Context) {

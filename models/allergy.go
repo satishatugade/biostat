@@ -6,10 +6,10 @@ import (
 
 // PatientAllergyRestriction represents tbl_patient_allergy_restriction
 type PatientAllergyRestriction struct {
-	PatientAllergyRestrictionId uint      `gorm:"primaryKey" json:"patient_allergy_restriction_id"`
-	PatientId                   uint      `gorm:"column:patient_id" json:"patient_id"`
-	AllergyId                   uint      `gorm:"column:allergy_id" json:"allergy_id"`
-	SeverityId                  uint      `gorm:"column:severity_id" json:"severity_id"`
+	PatientAllergyRestrictionId uint64    `gorm:"primaryKey" json:"patient_allergy_restriction_id"`
+	PatientId                   uint64    `gorm:"column:patient_id" json:"patient_id"`
+	AllergyId                   uint64    `gorm:"column:allergy_id" json:"allergy_id"`
+	SeverityId                  uint64    `gorm:"column:severity_id" json:"severity_id"`
 	Reaction                    string    `gorm:"column:reaction" json:"reaction"`
 	Description                 string    `gorm:"column:description" json:"description"`
 	CreatedAt                   time.Time `gorm:"column:created_at" json:"created_at"`

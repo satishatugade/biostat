@@ -20,6 +20,8 @@ type TblPatientHealthProfile struct {
 	Notes                  string    `gorm:"column:notes;type:text" json:"notes"`
 	CreatedAt              time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt              time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy              string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy              string    `gorm:"column:updated_by" json:"updated_by"`
 }
 
 func (TblPatientHealthProfile) TableName() string {
@@ -42,7 +44,7 @@ type PatientHealthProfileRequest struct {
 	DietaryPreferences    string       `json:"diet_preference"`
 	ExistingConditions    string       `json:"conditions"`
 	FamilyMedicalHistory  string       `json:"family_medical_history"`
-	MenstrualHistory      string       `json:"menstrunal_history"`
+	MenstrualHistory      string       `json:"menstrual_history"`
 	Notes                 string       `json:"notes"`
 	Allergies             []AllergyReq `json:"allergies"`
 	DiseaseProfileID      uint64       `json:"disease_profiles"`

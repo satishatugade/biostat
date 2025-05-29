@@ -58,6 +58,8 @@ type PatientRepository interface {
 	GetDiagnosticReportId(patientId uint64) (uint64, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
+	CheckPatientHealthProfileExist(tx *gorm.DB, patientId uint64) (bool, error)
+	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 }
 
 type PatientRepositoryImpl struct {
@@ -1084,6 +1086,53 @@ func (p *PatientRepositoryImpl) SaveUserHealthProfile(tx *gorm.DB, input *models
 		return nil, err
 	}
 	return input, nil
+}
+
+func (p *PatientRepositoryImpl) CheckPatientHealthProfileExist(tx *gorm.DB, patientId uint64) (bool, error) {
+	var count int64
+	err := tx.Model(&models.TblPatientHealthProfile{}).
+		Where("patient_id = ?", patientId).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (p *PatientRepositoryImpl) UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error {
+	return p.db.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&models.TblPatientHealthProfile{}).
+			Where("patient_id = ?", req.PatientId).
+			Count(&count).Error; err != nil {
+			return err
+		}
+
+		data := map[string]interface{}{
+			"height_cm":               req.HeightCM,
+			"weight_kg":               req.WeightKG,
+			"blood_type":              req.BloodType,
+			"smoking_status":          req.SmokingStatus,
+			"alcohol_consumption":     req.AlcoholConsumption,
+			"physical_activity_level": req.PhysicalActivityLevel,
+			"dietary_preferences":     req.DietaryPreferences,
+			"existing_conditions":     req.ExistingConditions,
+			"family_medical_history":  req.FamilyMedicalHistory,
+			"menstrual_history":       req.MenstrualHistory,
+			"notes":                   req.Notes,
+			"updated_by":              req.UpdatedBy,
+		}
+
+		if count > 0 {
+			if err := tx.Model(&models.TblPatientHealthProfile{}).
+				Where("patient_id = ?", req.PatientId).
+				Updates(data).Error; err != nil {
+				return err
+			}
+			return nil
+		}
+		return gorm.ErrRecordNotFound
+	})
 }
 
 func (p *PatientRepositoryImpl) NoOfUpcomingAppointments(patientID uint64) (int64, error) {
