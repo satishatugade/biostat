@@ -153,7 +153,7 @@ func (pc *PatientController) GetPatientDiagnosticResultValues(c *gin.Context) {
 	if summary {
 		reportSummaryData, err1 := pc.patientService.GetPatientDiagnosticReportSummary(user_id, patientDiagnosticReportId, summary)
 		if err1 != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient report not found", nil, err1)
+			models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Oops! The AI service is temporarily down. Please try again later or contact support team.", nil, err1)
 			return
 		}
 		models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient report summary fetch successfully", reportSummaryData, nil, nil)
@@ -176,7 +176,7 @@ func (pc *PatientController) SummarizeHistorybyAIModel(c *gin.Context) {
 
 	summarize_history, err := pc.patientService.SummarizeHistorybyAIModel(patientId)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch Summarize history details", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Oops! The AI service is temporarily down. Please try again later or contact support team.", nil, err)
 		return
 	}
 
@@ -338,7 +338,7 @@ func (pc *PatientController) PrescriptionInfobyAIModel(c *gin.Context) {
 	}
 	prescriptionSummary, err := pc.patientService.GetPrescriptionInfo(request.PrescriptionId, patientId)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch prescription details", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Oops! The AI service is temporarily down. Please try again later or contact support team.", nil, err)
 		return
 	}
 
@@ -362,7 +362,7 @@ func (pc *PatientController) PharmacokineticsInfobyAIModel(c *gin.Context) {
 
 	pkSummary, err := pc.patientService.GetPharmacokineticsInfo(request.PrescriptionId, patientId)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch pharmacokinetics details", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Oops! The AI service is temporarily down. Please try again later or contact support team.", nil, err)
 		return
 	}
 
