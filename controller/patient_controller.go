@@ -672,7 +672,7 @@ func (c *PatientController) GetAllTblMedicalRecords(ctx *gin.Context) {
 }
 
 func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	authUserId, reqUserId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -725,7 +725,7 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	newRecord.SourceAccount = fmt.Sprint(user_id)
 	newRecord.UploadedBy = user_id
 
-	data, err := pc.medicalRecordService.CreateTblMedicalRecord(newRecord, user_id, authUserId, &fileBuf, header.Filename)
+	data, err := pc.medicalRecordService.CreateTblMedicalRecord(newRecord, reqUserId, authUserId, &fileBuf, header.Filename)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
@@ -1332,14 +1332,14 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 
 }
 
-func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
-	sub, subExists := ctx.Get("sub")
-	if !subExists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while reading document"))
+func (pc *PatientController) ReadUserUploadedMedicalFile(ctx *gin.Context) {
+	sub, reqUserId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 
-	user_id, err := pc.userService.GetUserIdBySUB(sub.(string))
+	user_id, err := pc.userService.GetUserIdBySUB(sub)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
 		return
@@ -1352,65 +1352,14 @@ func (pc *PatientController) ReadDigiLockerFile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-
-	isValid, err := pc.medicalRecordService.IsRecordBelongsToUser(user_id, req.ResourceId)
-	if err != nil || !isValid {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusForbidden, "Unauthorized access to medical record", nil, err)
-		return
-	}
-
-	record, err := pc.medicalRecordService.GetSingleTblMedicalRecord(req.ResourceId)
+	response, err := pc.medicalRecordService.ReadMedicalRecord(req.ResourceId, user_id, reqUserId)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Record not found", nil, err)
-		return
-	}
-	var response struct {
-		Data        []byte `json:"data"`
-		ContentType string `json:"content-type"`
-		HMAC        string `json:"hmac,omitempty"`
-	}
-
-	if record.UploadDestination == "DigiLocker" {
-		userDigiToken, err := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker")
-		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Digilocker Token not found", nil, err)
-			return
-		}
-
-		digiResp, err := service.ReadDigiLockerFile(userDigiToken.AuthToken, record.RecordUrl)
-		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Error while reading file", nil, err)
-			return
-		}
-		response.Data = digiResp.Data
-		response.ContentType = digiResp.ContentType
-		response.HMAC = digiResp.HMAC
-	} else if record.UploadDestination == "LocalServer" {
-		urlParts := strings.Split(record.RecordUrl, "/uploads/")
-		if len(urlParts) < 2 {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid file URL", nil, nil)
-			return
-		}
-		filename := urlParts[1]
-		localPath := fmt.Sprintf("uploads/%s", filename)
-
-		fileBytes, err := os.ReadFile(localPath)
-		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to read local file", nil, err)
-			return
-		}
-
-		contentType := http.DetectContentType(fileBytes)
-
-		response.Data = fileBytes
-		response.ContentType = contentType
-		response.HMAC = ""
-	} else {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Unsupported upload source", nil, nil)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "this record is not accessible at this time", nil, err)
 		return
 	}
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
+	return
 }
 
 func (pc *PatientController) SaveReport(ctx *gin.Context) {
@@ -1798,7 +1747,7 @@ func (pc *PatientController) GetUserOrders(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch orders", nil, err)
 		return
 	}
-	
+
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Orders fetched successfully", orders, nil, nil)
 	return
 }

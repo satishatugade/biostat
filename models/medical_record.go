@@ -46,3 +46,8 @@ type DigiLockerFile struct {
 	ContentType string `gorm:"content-type" json:"content-type"`
 	HMAC        string `gorm:"hmac" json:"hmac"`
 }
+
+type LocalServerFile struct {
+	Data        []byte `json:"data"`
+	ContentType string `json:"content-type"`
+}

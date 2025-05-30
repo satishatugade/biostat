@@ -20,6 +20,7 @@ type TblMedicalRecordRepository interface {
 	ExistsRecordForUser(userId uint64, source, url string) (bool, error)
 
 	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
+	GetMedicalRecordMappings(recordID int64) (*models.TblMedicalRecordUserMapping, error)
 	DeleteMecationRecordMappings(id int) error
 
 	DeleteTblMedicalRecordWithMappings(id int, user_id string) error
@@ -104,6 +105,12 @@ func (r *tblMedicalRecordRepositoryImpl) CreateMedicalRecordMappings(mappings *[
 
 func (r *tblMedicalRecordRepositoryImpl) DeleteMecationRecordMappings(id int) error {
 	return r.db.Where("record_id = ?", id).Delete(&models.TblMedicalRecordUserMapping{}).Error
+}
+
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordMappings(recordID int64) (*models.TblMedicalRecordUserMapping, error) {
+	var mapping models.TblMedicalRecordUserMapping
+	err := r.db.Where("record_id=?", recordID).Find(&mapping).Error
+	return &mapping, err
 }
 
 func (r *tblMedicalRecordRepositoryImpl) DeleteTblMedicalRecordWithMappings(id int, updatedBy string) error {
