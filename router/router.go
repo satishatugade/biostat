@@ -64,7 +64,10 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var appointmentService = service.NewAppointmentService(appointmentRepo)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService)
+	var orderRepo = repository.NewOrderRepository(db)
+	var orderService = service.NewOrderService(orderRepo)
+
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService)
 	MasterRoutes(apiGroup, masterController, patientController)
@@ -310,6 +313,9 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Disease profile", http.MethodPost, constant.DiseaseProfile, patientController.GetDiseaseProfiles},
 		Route{"Disease profile", http.MethodPost, constant.AttachDiseaseProfile, patientController.AttachDiseaseProfileTOPatient},
 		Route{"Disease profile", http.MethodPost, constant.UpdateDiseaseProfile, patientController.UpdateDiseaseProfile},
+
+		Route{"User Oders", http.MethodPost, constant.AddOrder, patientController.CreateOrder},
+		Route{"User Oders", http.MethodPost, constant.GetOrders, patientController.GetUserOrders},
 
 		Route{"send-sms", http.MethodPost, constant.SendSMS, patientController.SendSMS},
 		Route{"send-sms", http.MethodPost, constant.ShareReport, patientController.ShareReport},

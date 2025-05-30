@@ -166,6 +166,9 @@ const (
 	SyncDigiLocker     = "/sync-digilocker"
 	GetMedicalResource = "/get-medical-resource"
 
+	AddOrder  = "/order"
+	GetOrders = "/orders"
+
 	SaveReport              = "/save-report"
 	AddNote                 = "/add-report-note"
 	SendSMS                 = "/send-sms"

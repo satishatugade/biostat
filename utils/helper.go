@@ -372,6 +372,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			Gender:        user.Gender,
 			MobileNo:      user.MobileNo,
 			Email:         user.Email,
+			PharmacyName:  user.ClinicName,
 			Speciality:    user.Speciality,
 			LicenseNumber: user.LicenseNumber,
 			UserAddress: models.AddressMaster{

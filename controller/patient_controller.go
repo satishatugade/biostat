@@ -38,13 +38,14 @@ type PatientController struct {
 	diseaseService       service.DiseaseService
 	smsService           service.SmsService
 	emailService         *service.EmailService
+	orderService         service.OrderService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
 	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
 	medicationService service.MedicationService, appointmentService service.AppointmentService,
 	diagnosticService service.DiagnosticService, userService service.UserService,
-	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService, emailService *service.EmailService) *PatientController {
+	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService, emailService *service.EmailService, orderService service.OrderService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -54,6 +55,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		diseaseService:    diseaseService,
 		smsService:        smsService,
 		emailService:      emailService,
+		orderService:      orderService,
 	}
 }
 
@@ -1782,4 +1784,42 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Email sent successfully", nil, nil, nil)
+}
+
+func (pc *PatientController) GetUserOrders(ctx *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	orders, err := pc.orderService.GetOrdersByUserID(user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch orders", nil, err)
+		return
+	}
+	
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Orders fetched successfully", orders, nil, nil)
+	return
+}
+
+func (pc *PatientController) CreateOrder(ctx *gin.Context) {
+	var req models.CreateOrderRequest
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	res, err := pc.orderService.CreateOrder(&req, user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to create order", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Order placed successfully", res, nil, nil)
+	return
 }
