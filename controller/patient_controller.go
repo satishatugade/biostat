@@ -113,6 +113,22 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 		return
 	}
 
+	user, err := pc.patientService.GetUserProfileByUserId(userId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to get user", nil, err)
+		return
+	}
+	user.Email = patientData.Email
+	user.MobileNo = patientData.MobileNo
+	user.FirstName = patientData.FirstName
+	user.LastName = patientData.LastName
+	
+	err = UpdateUserInKeycloak(*user)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to update user in keycloak", nil, err)
+		return
+	}
+
 	updatedPatient, err := pc.patientService.UpdatePatientById(userId, &patientData)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient info", nil, err)

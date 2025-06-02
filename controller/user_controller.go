@@ -9,6 +9,7 @@ import (
 	"biostat/utils"
 	"context"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -64,6 +65,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	}
 	user.RoleName = roleMaster.RoleName
 	user.RoleId = roleMaster.RoleId
+	user.Username = uc.userService.GenerateUniqueUsername(user.FirstName, user.LastName)
 
 	keyCloakUser := user
 	keyCloakUser.Password = rawPassword
@@ -150,6 +152,29 @@ func createUserInKeycloak(user models.SystemUser_) (string, error) {
 		return "Unable to add role to user", adderr
 	}
 	return userID, nil
+}
+
+func UpdateUserInKeycloak(user models.SystemUser_) error {
+	client := utils.Client
+	ctx := context.Background()
+	username := os.Getenv("KEYCLOAK_ADMIN_USER")
+	password := os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
+	token, err := client.LoginAdmin(ctx, username, password, "master")
+	if err != nil {
+		return err
+	}
+
+	log.Println(token.AccessToken)
+
+	updatedUser := gocloak.User{
+		ID:        gocloak.StringP(user.AuthUserId),
+		Username:  gocloak.StringP(user.Username),
+		Email:     gocloak.StringP(user.Email),
+		FirstName: gocloak.StringP(user.FirstName),
+		LastName:  gocloak.StringP(user.LastName),
+	}
+
+	return client.UpdateUser(ctx, token.AccessToken, utils.KeycloakRealm, updatedUser)
 }
 
 func (uc *UserController) LoginUser(c *gin.Context) {
@@ -291,6 +316,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
 	password := utils.GenerateRandomPassword()
 	req.Password = password
+	req.Username = uc.userService.GenerateUniqueUsername(req.FirstName, req.LastName)
 	log.Println("System Generated Password for system user:", password)
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -342,10 +368,11 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
-	log.Println("Email send succesfully ")
+	// log.Println("Email send succesfully ")
 	tx.Commit()
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
+	return
 }
 
 func (uc *UserController) UserRedirect(c *gin.Context) {

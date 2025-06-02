@@ -3,8 +3,12 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"fmt"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 type UserService interface {
@@ -21,6 +25,8 @@ type UserService interface {
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
+	IsUsernameExists(username string) bool
+	GenerateUniqueUsername(firstName, lastName string) string 
 }
 
 type UserServiceImpl struct {
@@ -101,3 +107,29 @@ func (s *UserServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {
 	}
 	return userId, nil
 }
+
+func (s *UserServiceImpl) IsUsernameExists(username string) bool {
+	return s.userRepo.IsUsernameExists(username)
+}
+
+func sanitizeName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	name = strings.ReplaceAll(name, " ", "")
+	return name
+}
+
+func (s *UserServiceImpl) GenerateUniqueUsername(firstName, lastName string) string {
+	rand.Seed(time.Now().UnixNano())
+	base := fmt.Sprintf("%s.%s", sanitizeName(firstName), sanitizeName(lastName))
+
+	for i := 0; i < 5; i++ {
+		suffix := rand.Intn(10000)
+		username := fmt.Sprintf("%s.%04d", base, suffix)
+		if s.IsUsernameExists(username) {
+			return username
+		}
+	}
+	timestamp := time.Now().Unix()
+	return fmt.Sprintf("%s.%d", base, timestamp)
+}
+
