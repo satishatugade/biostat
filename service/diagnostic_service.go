@@ -317,7 +317,15 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		tx.Rollback()
 		return "", fmt.Errorf("error while saving patient diagnostic report: %w", err)
 	}
-
+	recordmapping := models.PatientReportAttachment{
+		PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
+		RecordId:                  *recordId,
+	}
+	if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, &recordmapping); err != nil {
+		log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
+		tx.Rollback()
+		return "", fmt.Errorf("error while SavePatientReportAttachmentMapping: %w", err)
+	}
 	for _, testData := range reportData.Tests {
 		testName := testData.TestName
 		testInterpretation := testData.Interpretation
@@ -372,15 +380,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					tx.Rollback()
 					return "", fmt.Errorf("error while saving test result: %w", err)
 				}
-				recordmapping := models.PatientReportAttachment{
-					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
-					RecordId:                  *recordId,
-				}
-				if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, &recordmapping); err != nil {
-					log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
-					tx.Rollback()
-					return "", fmt.Errorf("error while SavePatientReportAttachmentMapping: %w", err)
-				}
 			} else {
 				newComponent := models.DiagnosticTestComponent{
 					TestComponentName:      component.TestComponentName,
@@ -433,15 +432,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					log.Println("ERROR saving test result:", resultValueErr)
 					tx.Rollback()
 					return "", fmt.Errorf("error while saving test result: %w", resultValueErr)
-				}
-				recordmapping := models.PatientReportAttachment{
-					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
-					RecordId:                  *recordId,
-				}
-				if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, &recordmapping); err != nil {
-					log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
-					tx.Rollback()
-					return "", fmt.Errorf("error while SavePatientReportAttachmentMapping: %w", err)
 				}
 			}
 		}

@@ -519,6 +519,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(patientId uint64,
 	var patientReport []models.PatientDiagnosticReport
 	result := p.db.Debug().Model(&models.PatientDiagnosticReport{}).
 		Preload("DiagnosticLabs").
+		Preload("DiagnosticLabs.PatientReportAttachments", "patient_diagnostic_report_id IN ?", reportIds).
 		Preload("DiagnosticLabs.PatientReportAttachments.MedicalRecord").
 		Preload("PatientDiagnosticTests.DiagnosticTest").
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
