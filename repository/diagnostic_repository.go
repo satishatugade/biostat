@@ -54,6 +54,7 @@ type DiagnosticRepository interface {
 	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
 	SavePatientDiagnosticTestInterpretation(tx *gorm.DB, patientDiagnoTest *models.PatientDiagnosticTest) (*models.PatientDiagnosticTest, error)
 	SavePatientReportResultValue(tx *gorm.DB, resultValues *models.PatientDiagnosticTestResultValue) (*models.PatientDiagnosticTestResultValue, error)
+	SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error
 	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
 }
 
@@ -648,6 +649,13 @@ func (r *DiagnosticRepositoryImpl) SavePatientReportResultValue(tx *gorm.DB, res
 		return nil, err
 	}
 	return resultValues, nil
+}
+
+func (r *DiagnosticRepositoryImpl) SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error {
+	if err := tx.Create(recordMapping).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error) {

@@ -30,6 +30,7 @@ type tblMedicalRecordServiceImpl struct {
 	tblMedicalRecordRepo repository.TblMedicalRecordRepository
 	apiService           ApiService
 	diagnosticService    DiagnosticService
+	medicalRecordService TblMedicalRecordService
 	patientService       PatientService
 	userService          UserService
 }
@@ -54,14 +55,12 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 	var mappings []models.TblMedicalRecordUserMapping
 	mappings = append(mappings, models.TblMedicalRecordUserMapping{
 		UserID:   createdBy,
-		RecordID: int64(record.RecordId),
+		RecordID: record.RecordId,
 	})
 	err = s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("RecordCategory ", record.RecordCategory)
-
 	if record.RecordCategory == "Test Reports" {
 		var imageCopy bytes.Buffer
 
@@ -77,9 +76,18 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 				return
 			}
 
-			message, err := s.diagnosticService.DigitizeDiagnosticReport(reportData, userID)
+			message, err := s.diagnosticService.DigitizeDiagnosticReport(reportData, userID, &record.RecordId)
 			if err != nil {
 				log.Printf("Digitize error for record %d: %v", recordID, err)
+				return
+			}
+			payload := models.TblMedicalRecord{
+				RecordId:     record.RecordId,
+				DigitizeFlag: 1,
+			}
+			_, err1 := s.tblMedicalRecordRepo.UpdateTblMedicalRecord(&payload, authUserId)
+			if err1 != nil {
+				log.Println("Failed to update record : ", err1)
 				return
 			}
 			if err := s.diagnosticService.NotifyAbnormalResult(userID); err != nil {
@@ -139,7 +147,7 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMe
 	for _, record := range uniqueRecords {
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
 			UserID:   userId,
-			RecordID: int64(record.RecordId),
+			RecordID: record.RecordId,
 		})
 	}
 	return s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)

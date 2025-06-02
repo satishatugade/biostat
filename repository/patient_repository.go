@@ -472,7 +472,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 	if err != nil {
 		log.Printf("Failed to get patient diagnostic report and lab: %v", err)
 	}
-	reportsWithDetails, err := p.GetPatientDiagnosticTestResult(uniqueReportIds)
+	reportsWithDetails, err := p.GetPatientDiagnosticTestResult(patientId, uniqueReportIds)
 	if err != nil {
 		log.Printf("Failed to get patient diagnostic tests: %v", err)
 	}
@@ -542,14 +542,14 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportIds(patientId uint64, 
 	return reportsMap, uniqueReportIDs, nil
 }
 
-func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(reportIds []uint64) ([]models.PatientDiagnosticReport, error) {
+func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(patientId uint64, reportIds []uint64) ([]models.PatientDiagnosticReport, error) {
 	var patientReport []models.PatientDiagnosticReport
 	result := p.db.Debug().Model(&models.PatientDiagnosticReport{}).
 		Preload("DiagnosticLabs").
-		Preload("DiagnosticLabs.PatientReportAttachments").
+		Preload("DiagnosticLabs.PatientReportAttachments.MedicalRecord").
 		Preload("PatientDiagnosticTests.DiagnosticTest").
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
-		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue").
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue", "patient_id = ?", patientId).
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
 		Where("patient_diagnostic_report_id IN (?)", reportIds).
 		Find(&patientReport)
@@ -558,12 +558,6 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(reportIds []uint6
 		log.Printf("GORM error fetching patient diagnostic tests: %v", result.Error)
 		return nil, fmt.Errorf("error fetching patient diagnostic tests: %w", result.Error)
 	}
-
-	// reportMap := make(map[uint64]models.PatientDiagnosticReport)
-	// for _, test := range patientReport {
-	// 	reportMap[test.PatientDiagnosticReportId] = test
-	// }
-
 	return patientReport, nil
 }
 

@@ -108,6 +108,14 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 }
 
 func (a *ApiServiceImpl) CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error) {
+
+	prettyJSON, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		log.Printf("Error marshaling JSON (pretty): %v", err)
+		return models.ResultSummary{}, err
+	}
+	log.Println("Sending JSON Payload to Report Summary API:", string(prettyJSON))
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return models.ResultSummary{}, err
@@ -241,9 +249,11 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 	}
 
 	for _, format := range dateFormats {
-		parsedDate, err = time.Parse(format, prescriptionData.PrescriptionDate)
-		if err == nil {
-			break
+		if prescriptionData.PrescriptionDate != "" {
+			parsedDate, err = time.Parse(format, prescriptionData.PrescriptionDate)
+			if err == nil {
+				break
+			}
 		}
 	}
 
@@ -257,9 +267,9 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		PrescriptionId:            prescriptionData.PrescriptionId,
 		PatientId:                 prescriptionData.PatientId,
 		PrescribedBy:              prescriptionData.PrescribedBy,
-		PrescriptionName:          prescriptionData.PrescriptionName,
+		PrescriptionName:          &prescriptionData.PrescriptionName,
 		Description:               prescriptionData.Description,
-		PrescriptionDate:          parsedDate,
+		PrescriptionDate:          &parsedDate,
 		PrescriptionAttachmentUrl: prescriptionData.PrescriptionAttachmentUrl,
 		PrescriptionDetails:       make([]models.PrescriptionDetail, 0),
 	}
@@ -315,7 +325,7 @@ func (api *ApiServiceImpl) AnalyzePharmacokineticsInfo(input models.Pharmacokine
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Pharmacokinetics AI service responded with status code %d", resp.StatusCode)
+		return "", fmt.Errorf("pharmacokinetics AI service responded with status code %d", resp.StatusCode)
 	}
 
 	var response struct {

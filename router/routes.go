@@ -112,6 +112,7 @@ func Routing(envFile string) {
 	r.router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "Biostack server running..."})
 	})
+	r.router.Static("/uploads", "./uploads")
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	db := database.GetDBConn()
 	InitializeRoutes(apiGroup, db)

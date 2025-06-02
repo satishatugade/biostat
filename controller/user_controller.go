@@ -516,39 +516,39 @@ func (uc *UserController) FetchAddressByPincode(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Address fetched successfully", addressData, nil, nil)
 }
 
-func (ac *UserController) SendOTP(c *gin.Context) {
-	var req models.SendOTPRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Valid 10-digit phone number is required", nil, err)
-		return
-	}
+// func (ac *UserController) SendOTP(c *gin.Context) {
+// 	var req models.SendOTPRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Valid 10-digit phone number is required", nil, err)
+// 		return
+// 	}
 
-	err := ac.authService.SendOTP(req.Email)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send OTP", nil, err)
-		return
-	}
+// 	err := ac.authService.SendOTP(req.Email)
+// 	if err != nil {
+// 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send OTP", nil, err)
+// 		return
+// 	}
 
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "OTP sent successfully", nil, nil, nil)
-}
+// 	models.SuccessResponse(c, constant.Success, http.StatusOK, "OTP sent successfully", nil, nil, nil)
+// }
 
-type OTPVerifyRequest struct {
-	Email string `json:"email"`
-	OTP   string `json:"otp"`
-}
+// type OTPVerifyRequest struct {
+// 	Email string `json:"email"`
+// 	OTP   string `json:"otp"`
+// }
 
-func (ctrl *UserController) VerifyOTP(c *gin.Context) {
-	var req OTPVerifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
+// func (ctrl *UserController) VerifyOTP(c *gin.Context) {
+// 	var req OTPVerifyRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+// 		return
+// 	}
 
-	token, err := ctrl.authService.VerifyOTPAndLogin(req.Email, req.OTP)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
+// 	token, err := ctrl.authService.VerifyOTPAndLogin(req.Email, req.OTP)
+// 	if err != nil {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "OTP verified", "token": token})
-}
+// 	c.JSON(http.StatusOK, gin.H{"message": "OTP verified", "token": token})
+// }

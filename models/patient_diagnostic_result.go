@@ -18,8 +18,8 @@ type DiagnosticLab struct {
 	CreatedBy        string    `gorm:"column:created_by" json:"created_by"`
 	UpdatedBy        string    `gorm:"column:updated_by" json:"updated_by"`
 
-	PatientDiagnosticTests   []PatientDiagnosticTest   `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
-	PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
+	PatientDiagnosticTests   []PatientDiagnosticTest `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
+	PatientReportAttachments PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
 }
 
 func (DiagnosticLab) TableName() string {
@@ -70,8 +70,7 @@ type PatientDiagnosticReport struct {
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
 	PatientDiagnosticTests []PatientDiagnosticTest `gorm:"foreignKey:PatientDiagnosticReportId;references:PatientDiagnosticReportId" json:"patient_diagnostic_test"`
-	// PatientReportAttachments []PatientReportAttachment `gorm:"foreignKey:PatientDiagnosticReportId" json:"patient_report_attachment"`
-	DiagnosticLabs DiagnosticLab `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId" json:"diagnostic_lab"`
+	DiagnosticLabs         DiagnosticLab           `gorm:"foreignKey:DiagnosticLabId;references:DiagnosticLabId" json:"diagnostic_lab"`
 }
 
 func (PatientDiagnosticReport) TableName() string {
@@ -96,11 +95,13 @@ func (PatientDiagnosticTest) TableName() string {
 }
 
 type PatientReportAttachment struct {
-	AttachmentId              int       `gorm:"column:attachment_id;primaryKey;autoIncrement" json:"attachment_id"`
-	PatientDiagnosticReportId int       `gorm:"column:patient_diagnostic_report_id" json:"patient_diagnostic_report_id"`
-	FilePath                  string    `gorm:"column:file_path" json:"file_path"`
-	FileType                  string    `gorm:"column:file_type" json:"file_type"`
-	UploadedAt                time.Time `gorm:"column:uploaded_at" json:"uploaded_at"`
+	AttachmentId              uint64           `gorm:"column:attachment_id;primaryKey;autoIncrement" json:"attachment_id"`
+	PatientDiagnosticReportId uint64           `gorm:"column:patient_diagnostic_report_id" json:"patient_diagnostic_report_id"`
+	RecordId                  uint64           `gorm:"column:record_id" json:"record_id"`
+	FilePath                  string           `gorm:"column:file_path" json:"file_path"`
+	FileType                  string           `gorm:"column:file_type" json:"file_type"`
+	UploadedAt                time.Time        `gorm:"column:uploaded_at" json:"uploaded_at"`
+	MedicalRecord             TblMedicalRecord `gorm:"foreignKey:RecordId;references:RecordId" json:"medical_report_attachment"`
 }
 
 func (PatientReportAttachment) TableName() string {

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,7 +28,7 @@ import (
 type AuthService interface {
 	SendResetPasswordLink(email string) error
 	SendOTP(email string) error
-	VerifyOTPAndLogin(email string, otp string) (map[string]interface{}, error)
+	// VerifyOTPAndLogin(email string, otp string) (map[string]interface{}, error)
 }
 
 type AuthServiceImpl struct {
@@ -273,84 +272,99 @@ func (as *AuthServiceImpl) SendResetPasswordLink(email string) error {
 	return nil
 }
 
-func GenerateOTP() string {
-	rand.Seed(time.Now().UnixNano())
-	return fmt.Sprintf("%04d", rand.Intn(10000))
-}
-
-var otpStore = make(map[string]string)
-
-func (a *AuthServiceImpl) SendOTP(email string) error {
-	otp := GenerateOTP()
-	otpStore[email] = otp
-
-	// recipient := getEmailByPhone(email) // implement this
-	subject := "Your OTP Code"
-	body := fmt.Sprintf("<h2>Your OTP code is: <strong>%s</strong></h2><p>This OTP is valid for 5 minutes.</p>", otp)
-
-	if err := a.emailService.SendEmail(email, subject, body); err != nil {
-		log.Printf("Failed to send OTP email: %v", err)
-		return fmt.Errorf("email sending failed")
-	}
-
-	fmt.Println("OTP sent to:", email)
-	return nil
-}
-
-// func (a *AuthServiceImpl) VerifyOTPAndLogin(email, otp string) (map[string]interface{}, error) {
-// 	expectedOTP, ok := otpStore[email]
-// 	fmt.Println("otp ", expectedOTP)
-// 	if !ok || expectedOTP != otp {
-// 		return nil, fmt.Errorf("invalid or expired OTP")
-// 	}
-
-// 	// Step 1: Get Admin Token
-// 	adminToken, err := getAdminToken()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to get admin token: %v", err)
-// 	}
-
-// 	// Step 2: Find User by Email
-// 	userID, err := findUserByEmail(email, adminToken)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to find user: %v", err)
-// 	}
-
-// 	// Step 3: Impersonate User
-// 	token, err := impersonateUser(userID, adminToken)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("impersonation failed: %v", err)
-// 	}
-
-// 	return token, nil
+// func GenerateOTP() string {
+// 	rand.Seed(time.Now().UnixNano())
+// 	return fmt.Sprintf("%04d", rand.Intn(10000))
 // }
 
-func (a *AuthServiceImpl) VerifyOTPAndLogin(email, otp string) (map[string]interface{}, error) {
-	expectedOTP, ok := otpStore[email]
-	if !ok || expectedOTP != otp {
-		return nil, fmt.Errorf("invalid or expired OTP")
-	}
+// var otpStore = make(map[string]string)
 
-	client := gocloak.NewClient(os.Getenv("KEYCLOAK_AUTH_URL"))
-	// ctx := context.Background()
-	// Instead of impersonate, call token endpoint with username & password or OTP
-	token, err := client.Login(
-		context.Background(),
-		utils.KeycloakClientID,
-		utils.KeycloakClientSecret,
-		utils.KeycloakRealm,
-		email,
-		"user-password-or-otp-if-supported",
+// func (a *AuthServiceImpl) SendOTP(email string) error {
+// 	otp := GenerateOTP()
+// 	otpStore[email] = otp
+
+// 	subject := "Your OTP Code"
+// 	body := fmt.Sprintf("<h2>Your OTP code is: <strong>%s</strong></h2><p>This OTP is valid for 5 minutes.</p>", otp)
+
+// 	if err := a.emailService.SendEmail(email, subject, body); err != nil {
+// 		log.Printf("Failed to send OTP email: %v", err)
+// 		return fmt.Errorf("email sending failed")
+// 	}
+
+// 	fmt.Println("OTP sent to:", email)
+// 	return nil
+// }
+
+func (a *AuthServiceImpl) SendOTP(username string) error {
+	// Prepare form data for Keycloak token endpoint
+	form := url.Values{}
+	form.Set("client_id", os.Getenv("KEYCLOAK_CLIENT_ID"))
+	form.Set("client_secret", os.Getenv("KEYCLOAK_CLIENT_SECRET")) // Omit if public client
+	form.Set("grant_type", "password")
+	form.Set("username", username)
+	form.Set("password", "password") // Any value; login will fail but triggers OTP
+
+	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token",
+		os.Getenv("KEYCLOAK_AUTH_URL"),
+		os.Getenv("KEYCLOAK_REALM"),
 	)
+
+	// Make the dummy login attempt to trigger OTP email
+	resp, err := http.PostForm(tokenURL, form)
 	if err != nil {
-		return nil, fmt.Errorf("failed to login user: %v", err)
+		return fmt.Errorf("failed to contact Keycloak: %w", err)
+	}
+	defer resp.Body.Close()
+	// io.Copy(io.Discard, resp.Body) // Discard the response body
+	io.ReadAll(resp.Body)
+	fmt.Println("data ", resp.Body)
+	// No need to check resp.StatusCode; we expect failure
+	return nil // Always return nil; purpose is to trigger OTP email
+}
+
+type VerifyOTPRequest struct {
+	Username string `json:"username"`
+	OTP      string `json:"otp"`
+}
+
+func VerifyOTPAndLogin(c *gin.Context) {
+	var req VerifyOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.Username == "" || req.OTP == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and OTP are required"})
+		return
 	}
 
-	// Return access and refresh tokens
-	return map[string]interface{}{
-		"access_token":  token.AccessToken,
-		"refresh_token": token.RefreshToken,
-	}, nil
+	form := url.Values{}
+	form.Set("client_id", os.Getenv("KEYCLOAK_CLIENT_ID"))
+	form.Set("client_secret", os.Getenv("KEYCLOAK_CLIENT_SECRET")) // Omit if public client
+	form.Set("grant_type", "password")
+	form.Set("username", req.Username)
+	form.Set("totp", req.OTP) // Use 'totp' for OTP-based login
+
+	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token",
+		os.Getenv("KEYCLOAK_AUTH_URL"),
+		os.Getenv("KEYCLOAK_REALM"),
+	)
+
+	resp, err := http.PostForm(tokenURL, form)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to contact Keycloak"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": string(body)})
+		return
+	}
+
+	var tokenResp map[string]interface{}
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse token response"})
+		return
+	}
+	c.JSON(http.StatusOK, tokenResp)
 }
 
 func getAdminToken() (string, error) {

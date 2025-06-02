@@ -4,6 +4,7 @@ import (
 	"biostat/models"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -79,10 +80,64 @@ func (r *tblMedicalRecordRepositoryImpl) CreateMultipleTblMedicalRecords(records
 }
 
 func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error) {
-	err := r.db.Model(&models.TblMedicalRecord{}).Where("record_id = ?", data.RecordId).Updates(data).Error
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	updateFields := map[string]interface{}{}
+	if data.RecordName != "" {
+		updateFields["record_name"] = data.RecordName
+	}
+	if data.RecordSize != 0 {
+		updateFields["record_size"] = data.RecordSize
+	}
+	if data.FileType != "" {
+		updateFields["file_type"] = data.FileType
+	}
+	if data.UploadSource != "" {
+		updateFields["upload_source"] = data.UploadSource
+	}
+	if data.UploadDestination != "" {
+		updateFields["upload_destination"] = data.UploadDestination
+	}
+	if data.SourceAccount != "" {
+		updateFields["source_account"] = data.SourceAccount
+	}
+	if data.RecordCategory != "" {
+		updateFields["record_category"] = data.RecordCategory
+	}
+	if data.Description != "" {
+		updateFields["description"] = data.Description
+	}
+	if data.RecordUrl != "" {
+		updateFields["record_url"] = data.RecordUrl
+	}
+	if data.FileData != nil {
+		updateFields["file_data"] = data.FileData
+	}
+	if data.DigitizeFlag > 0 {
+		updateFields["digitize_flag"] = data.DigitizeFlag
+	}
+	if len(data.Metadata) != 0 {
+		updateFields["metadata"] = data.Metadata
+	}
+	updateFields["is_verified"] = data.IsVerified
+	updateFields["is_deleted"] = data.IsDeleted
+	updateFields["updated_at"] = time.Now()
+
+	err := tx.Model(&models.TblMedicalRecord{}).
+		Where("record_id = ?", data.RecordId).
+		Updates(updateFields).Error
+
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
 

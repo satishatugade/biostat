@@ -122,7 +122,7 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 	user.MobileNo = patientData.MobileNo
 	user.FirstName = patientData.FirstName
 	user.LastName = patientData.LastName
-	
+
 	err = UpdateUserInKeycloak(*user)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to update user in keycloak", nil, err)
@@ -1411,7 +1411,7 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
 		return
 	}
-	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId)
+	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId, nil)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, err)
 		return

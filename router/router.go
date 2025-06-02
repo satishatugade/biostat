@@ -332,8 +332,8 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.ValidateUserEmailMobile, userController.CheckUserEmailMobileExist},
 		Route{"User", http.MethodPost, constant.ResetPassword, userController.ResetUserPassword},
 		Route{"User", http.MethodPost, constant.SentLink, userController.SendResetPasswordLink},
-		Route{"User", http.MethodPost, constant.SentOTP, userController.SendOTP},
-		Route{"User", http.MethodPost, constant.VerifyOTP, userController.VerifyOTP},
+		// Route{"User", http.MethodPost, constant.SentOTP, userController.SendOTP},
+		// Route{"User", http.MethodPost, constant.VerifyOTP, userController.VerifyOTP},
 
 		//postal code
 		Route{"Postalcode", http.MethodPost, constant.Postalcode, userController.FetchAddressByPincode},
