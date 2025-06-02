@@ -56,6 +56,7 @@ type DiagnosticRepository interface {
 	SavePatientReportResultValue(tx *gorm.DB, resultValues *models.PatientDiagnosticTestResultValue) (*models.PatientDiagnosticTestResultValue, error)
 	SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error
 	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
+	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -696,4 +697,21 @@ func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models
 	}
 
 	return alerts, nil
+}
+
+func (dr *DiagnosticRepositoryImpl) ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error {
+	tx := dr.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	err := tx.Model(&models.PatientDiagnosticReport{}).
+		Where("patient_diagnostic_report_id = ?", reportID).
+		Update("is_deleted", isDeleted).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }

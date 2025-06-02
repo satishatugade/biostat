@@ -1425,6 +1425,42 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", reportData, nil, nil)
 }
 
+func (pc *PatientController) ArchivePatientDiagnosticReport(c *gin.Context) {
+	_, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	reportIDStr := c.Query("patient_diagnostic_report_id")
+	isDeletedStr := c.Query("is_deleted")
+
+	if reportIDStr == "" || isDeletedStr == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing required query parameters", nil, nil)
+		return
+	}
+
+	reportID, err := strconv.ParseUint(reportIDStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid report ID", nil, err)
+		return
+	}
+
+	isDeleted, err := strconv.Atoi(isDeletedStr)
+	if err != nil || isDeleted != 1 {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Delete flag should be only 1", nil, nil)
+		return
+	}
+
+	err = pc.diagnosticService.ArchivePatientDiagnosticReport(reportID, isDeleted)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to archive patient diagnostic report", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient diagnostic report archived successfully", nil, nil, nil)
+}
+
 func (pc *PatientController) AddPatientReportNote(ctx *gin.Context) {
 	type UpdateReportCommentRequest struct {
 		PatientReportId uint64 `json:"patient_diagnostic_report_id" binding:"required"`

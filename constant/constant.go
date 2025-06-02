@@ -170,6 +170,7 @@ const (
 	GetOrders = "/orders"
 
 	SaveReport              = "/save-report"
+	ReportArchive           = "/diagnostic-report/archive"
 	AddNote                 = "/add-report-note"
 	SendSMS                 = "/send-sms"
 	ShareReport             = "/share-report"

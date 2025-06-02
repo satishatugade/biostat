@@ -312,7 +312,7 @@ func (p *PatientRepositoryImpl) UpdatePatientById(userId uint64, patientData *mo
 	if err != nil {
 		return models.SystemUser_{}, err
 	}
-	err = p.db.Model(&user).Updates(patientData).Error
+	err = p.db.Model(&user).Select("*").Updates(patientData).Error
 	if err != nil {
 		return models.SystemUser_{}, err
 	}
@@ -439,33 +439,6 @@ func (ps *PatientRepositoryImpl) UpdateFlag(patientId uint64, req *models.DPRequ
 	return tx.Commit().Error
 }
 
-// func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
-// 	var reports []models.PatientDiagnosticReport
-
-// 	query := p.db.Debug().
-// 		Model(&models.PatientDiagnosticReport{}).Where("patient_id = ?", patientId).
-// 		Preload("DiagnosticLab").
-// 		Preload("DiagnosticLab.PatientDiagnosticTests").
-// 		Preload("DiagnosticLab.PatientReportAttachments").
-// 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest").
-// 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components").
-// 		Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange")
-
-// 	if patientId > 0 && patientDiagnosticReportId > 0 {
-// 		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
-// 			"patient_id = ? AND patient_diagnostic_report_id = ?", patientId, patientDiagnosticReportId)
-// 	} else {
-// 		query = query.Preload("DiagnosticLab.PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue",
-// 			"patient_id = ?", patientId)
-// 	}
-
-// 	err := query.Order("patient_diagnostic_report_id ASC").Find(&reports).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return reports, nil
-// }
-
 func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
 
 	_, uniqueReportIds, err := p.GetPatientDiagnosticReportIds(patientId, patientDiagnosticReportId)
@@ -514,7 +487,7 @@ func (p *PatientRepositoryImpl) RestructurePatientDiagnosticReport(reports []mod
 
 func (p *PatientRepositoryImpl) GetPatientDiagnosticReportIds(patientId uint64, reportId uint64) (map[uint64]models.PatientDiagnosticReport, []uint64, error) {
 	var reports []models.PatientDiagnosticReport
-	query := p.db.Debug().Joins("DiagnosticLabs").Where("patient_id = ?", patientId)
+	query := p.db.Debug().Joins("DiagnosticLabs").Where("tbl_patient_diagnostic_report.patient_id = ?", patientId).Where("tbl_patient_diagnostic_report.is_deleted = ?", 0)
 
 	if reportId > 0 {
 		query = query.Where("patient_diagnostic_report_id = ?", reportId)

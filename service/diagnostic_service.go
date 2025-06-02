@@ -49,6 +49,7 @@ type DiagnosticService interface {
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error)
 	NotifyAbnormalResult(patientId uint64) error
+	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 }
 
 type DiagnosticServiceImpl struct {
@@ -63,6 +64,10 @@ func NewDiagnosticService(repo repository.DiagnosticRepository, emailService Ema
 
 func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
 	return s.diagnosticRepo.GetAllDiagnosticTests(limit, offset)
+}
+
+func (ds *DiagnosticServiceImpl) ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error {
+	return ds.diagnosticRepo.ArchivePatientDiagnosticReport(reportID, isDeleted)
 }
 
 func (s *DiagnosticServiceImpl) CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error) {
