@@ -659,7 +659,7 @@ func (c *PatientController) GetUserMedicalRecords(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	records, err := c.medicalRecordService.GetUserMedicalRecords(int64(user_id))
+	records, err := c.medicalRecordService.GetUserMedicalRecords(user_id)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return

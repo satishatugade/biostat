@@ -11,7 +11,7 @@ import (
 
 type TblMedicalRecordRepository interface {
 	GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error)
-	GetMedicalRecordsByUserID(userID int64) ([]models.TblMedicalRecord, error)
+	GetMedicalRecordsByUserID(userID uint64, recordIdsMap map[uint64]uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	CreateMultipleTblMedicalRecords(data *[]models.TblMedicalRecord) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
@@ -38,15 +38,25 @@ func NewTblMedicalRecordRepository(db *gorm.DB) TblMedicalRecordRepository {
 	return &tblMedicalRecordRepositoryImpl{db: db}
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID int64) ([]models.TblMedicalRecord, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID uint64, recordIdMap map[uint64]uint64) ([]models.TblMedicalRecord, error) {
 	var records []models.TblMedicalRecord
 
-	err := r.db.Table("tbl_medical_record").
+	query := r.db.Table("tbl_medical_record").
 		Select("tbl_medical_record.*").
 		Joins("INNER JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
-		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID).Order("updated_at DESC").
-		Find(&records).Error
+		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID)
 
+	if recordIdMap != nil && len(recordIdMap) > 0 {
+		var recordIds []uint64
+		for _, id := range recordIdMap {
+			recordIds = append(recordIds, id)
+		}
+		query = query.Where("tbl_medical_record.record_id IN ?", recordIds)
+	}
+	err := query.Order("tbl_medical_record.updated_at DESC").Find(&records).Error
+	if err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}

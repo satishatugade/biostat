@@ -15,7 +15,7 @@ import (
 
 type TblMedicalRecordService interface {
 	GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error)
-	GetUserMedicalRecords(userID int64) ([]models.TblMedicalRecord, error)
+	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, file *bytes.Buffer, filename string) (*models.TblMedicalRecord, error)
 	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
@@ -39,8 +39,8 @@ func NewTblMedicalRecordService(repo repository.TblMedicalRecordRepository, apiS
 	return &tblMedicalRecordServiceImpl{tblMedicalRecordRepo: repo, apiService: apiService, diagnosticService: diagnosticService, patientService: patientService, userService: userService}
 }
 
-func (s *tblMedicalRecordServiceImpl) GetUserMedicalRecords(userID int64) ([]models.TblMedicalRecord, error) {
-	return s.tblMedicalRecordRepo.GetMedicalRecordsByUserID(userID)
+func (s *tblMedicalRecordServiceImpl) GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error) {
+	return s.tblMedicalRecordRepo.GetMedicalRecordsByUserID(userID, nil)
 }
 
 func (s *tblMedicalRecordServiceImpl) GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error) {

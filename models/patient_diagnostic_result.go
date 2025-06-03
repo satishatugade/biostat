@@ -102,6 +102,7 @@ type PatientReportAttachment struct {
 	FileType                  string           `gorm:"column:file_type" json:"file_type"`
 	UploadedAt                time.Time        `gorm:"column:uploaded_at" json:"uploaded_at"`
 	MedicalRecord             TblMedicalRecord `gorm:"foreignKey:RecordId;references:RecordId" json:"medical_report_attachment"`
+	// MedicalRecord []TblMedicalRecord `gorm:"-" json:"medical_report_attachment"`
 }
 
 func (PatientReportAttachment) TableName() string {

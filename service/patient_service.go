@@ -52,15 +52,16 @@ type PatientService interface {
 }
 
 type PatientServiceImpl struct {
-	patientRepo     repository.PatientRepository
-	patientRepoImpl repository.PatientRepositoryImpl
-	apiService      ApiService
-	allergyService  AllergyService
+	patientRepo       repository.PatientRepository
+	patientRepoImpl   repository.PatientRepositoryImpl
+	apiService        ApiService
+	allergyService    AllergyService
+	medicalRecordRepo repository.TblMedicalRecordRepository
 }
 
 // Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService) PatientService {
-	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService}
+func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService, medicalRecordRepo repository.TblMedicalRecordRepository) PatientService {
+	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService, medicalRecordRepo: medicalRecordRepo}
 }
 
 // GetAllRelation implements PatientService.
@@ -396,11 +397,13 @@ func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 }
 
 func (s *PatientServiceImpl) GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]map[string]interface{}, error) {
-	reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+	reportData, recordIds, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
 	if err != nil {
 		return nil, err
 	}
-	restructuredResponse := s.patientRepoImpl.RestructurePatientDiagnosticReport(reportData)
+	medicalRecordInfo, _ := s.medicalRecordRepo.GetMedicalRecordsByUserID(PatientId, recordIds)
+
+	restructuredResponse := s.patientRepoImpl.RestructurePatientDiagnosticReport(reportData, medicalRecordInfo, recordIds)
 	return restructuredResponse, nil
 }
 
@@ -520,7 +523,7 @@ func (s *PatientServiceImpl) UpdatePatientHealthDetail(req *models.TblPatientHea
 }
 
 func (s *PatientServiceImpl) GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error) {
-	reportData, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
+	reportData, _, err := s.patientRepo.GetPatientDiagnosticResultValue(PatientId, patientDiagnosticReportId)
 	if err != nil {
 		return models.ResultSummary{}, err
 	}

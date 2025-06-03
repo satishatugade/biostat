@@ -23,7 +23,7 @@ type PatientRepository interface {
 	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
-	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error)
+	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, map[uint64]uint64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
 	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
 
@@ -441,7 +441,7 @@ func (ps *PatientRepositoryImpl) UpdateFlag(patientId uint64, req *models.DPRequ
 	return tx.Commit().Error
 }
 
-func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, error) {
+func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, map[uint64]uint64, error) {
 
 	_, uniqueReportIds, err := p.GetPatientDiagnosticReportIds(patientId, patientDiagnosticReportId)
 	if err != nil {
@@ -451,10 +451,54 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 	if err != nil {
 		log.Printf("Failed to get patient diagnostic tests: %v", err)
 	}
-	return reportsWithDetails, nil
+	recordIds, err := p.GetPatientMedicalRecordId(uniqueReportIds)
+	if err != nil {
+		log.Printf("Failed to get patient diagnostic tests: %v", err)
+	}
+
+	return reportsWithDetails, recordIds, nil
 }
 
-func (p *PatientRepositoryImpl) RestructurePatientDiagnosticReport(reports []models.PatientDiagnosticReport) []map[string]interface{} {
+// func (p *PatientRepositoryImpl) GetPatientMedicalRecordId(uniqueReportIds []uint64) ([]uint64, error) {
+// 	var attachments []models.PatientReportAttachment
+// 	var recordIds []uint64
+
+// 	err := p.db.
+// 		Model(&models.PatientReportAttachment{}).
+// 		Where("patient_diagnostic_report_id IN ?", uniqueReportIds).
+// 		Find(&attachments).Error
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, attach := range attachments {
+// 		recordIds = append(recordIds, attach.RecordId)
+// 	}
+
+// 	return recordIds, nil
+// }
+
+func (p *PatientRepositoryImpl) GetPatientMedicalRecordId(uniqueReportIds []uint64) (map[uint64]uint64, error) {
+	var attachments []models.PatientReportAttachment
+	recordMap := make(map[uint64]uint64)
+
+	err := p.db.
+		Model(&models.PatientReportAttachment{}).
+		Where("patient_diagnostic_report_id IN ?", uniqueReportIds).
+		Find(&attachments).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, attach := range attachments {
+		recordMap[attach.PatientDiagnosticReportId] = attach.RecordId
+	}
+
+	return recordMap, nil
+}
+
+func (p *PatientRepositoryImpl) RestructurePatientDiagnosticReport(reports []models.PatientDiagnosticReport, medicalRecordInfo []models.TblMedicalRecord, recordIdsMap map[uint64]uint64) []map[string]interface{} {
 	restructuredResponse := make([]map[string]interface{}, len(reports))
 	for i, report := range reports {
 		restructured := map[string]interface{}{
@@ -475,11 +519,25 @@ func (p *PatientRepositoryImpl) RestructurePatientDiagnosticReport(reports []mod
 			"shared_with":                  report.SharedWith,
 			"diagnostic_lab":               report.DiagnosticLabs,
 		}
+		recordId, ok := recordIdsMap[report.PatientDiagnosticReportId]
+		var matchedMedicalRecord models.TblMedicalRecord
+
+		if ok {
+			for _, rec := range medicalRecordInfo {
+				if rec.RecordId == recordId {
+					matchedMedicalRecord = rec
+					break
+				}
+			}
+		}
+
 		if lab, ok := restructured["diagnostic_lab"].(models.DiagnosticLab); ok {
 			lab.PatientDiagnosticTests = report.PatientDiagnosticTests
+			lab.PatientReportAttachments.MedicalRecord = matchedMedicalRecord
 			restructured["diagnostic_lab"] = lab
 		} else if labs, ok := restructured["diagnostic_lab"].([]models.DiagnosticLab); ok && len(labs) > 0 {
 			labs[0].PatientDiagnosticTests = report.PatientDiagnosticTests
+			lab.PatientReportAttachments.MedicalRecord = matchedMedicalRecord
 			restructured["diagnostic_lab"] = labs[0]
 		}
 		restructuredResponse[i] = restructured
@@ -522,7 +580,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(patientId uint64,
 	result := p.db.Debug().Model(&models.PatientDiagnosticReport{}).
 		Preload("DiagnosticLabs").
 		Preload("DiagnosticLabs.PatientReportAttachments", "patient_diagnostic_report_id IN ?", reportIds).
-		Preload("DiagnosticLabs.PatientReportAttachments.MedicalRecord").
+		// Preload("DiagnosticLabs.PatientReportAttachments.MedicalRecord").
 		Preload("PatientDiagnosticTests.DiagnosticTest").
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue", "patient_id = ?", patientId).
