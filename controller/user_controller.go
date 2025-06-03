@@ -183,13 +183,16 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		Username string  `json:"username"`
 		Email    string  `json:"email"`
 		Phone    string  `json:"phone"`
-		Type     string  `json:"type" binding:"required"`
+		Type     string  `json:"type" binding:"omitempty"`
 		Password string  `json:"password" binding:"required"`
 		LoginAs  *string `json:"login_as"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing required fields.", nil, err)
 		return
+	}
+	if input.Type == "" {
+		input.Type = "username"
 	}
 
 	var identifier string
@@ -225,7 +228,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 	}
 	if !ComparePasswords(loginInfo.Password, input.Password) {
 		log.Println("Password not match with hashpassword ")
-		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid password", nil, nil)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid user credentials!", nil, nil)
 		return
 	}
 	client := utils.Client
