@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -60,6 +61,7 @@ type PatientRepository interface {
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	CheckPatientHealthProfileExist(tx *gorm.DB, patientId uint64) (bool, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
+	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 }
 
 type PatientRepositoryImpl struct {
@@ -1328,4 +1330,59 @@ func (pr *PatientRepositoryImpl) GetPatientHealthDetail(userID uint64) (models.T
 	var profile models.TblPatientHealthProfile
 	err := pr.db.Where("patient_id = ?", userID).First(&profile).Error
 	return profile, err
+}
+
+func (ps *PatientRepositoryImpl) AddTestComponentDisplayConfig(input *models.PatientTestComponentDisplayConfig) error {
+	now := time.Now()
+
+	return ps.db.Transaction(func(tx *gorm.DB) error {
+		var config models.PatientTestComponentDisplayConfig
+		err := tx.Where("patient_id = ? AND diagnostic_test_component_id = ?", input.PatientId, input.DiagnosticTestComponentId).First(&config).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				newConfig := models.PatientTestComponentDisplayConfig{
+					PatientId:                 input.PatientId,
+					DiagnosticTestComponentId: input.DiagnosticTestComponentId,
+					CreatedAt:                 now,
+					UpdatedAt:                 now,
+					CreatedBy:                 input.CreatedBy,
+					UpdatedBy:                 input.UpdatedBy,
+				}
+
+				if input.IsPinned != nil {
+					newConfig.IsPinned = input.IsPinned
+				} else {
+					falseVal := false
+					newConfig.IsPinned = &falseVal
+				}
+
+				if input.DisplayPriority != nil {
+					newConfig.DisplayPriority = input.DisplayPriority
+				} else {
+					zeroVal := 0
+					newConfig.DisplayPriority = &zeroVal
+				}
+
+				if err := tx.Create(&newConfig).Error; err != nil {
+					return err
+				}
+
+				return nil
+			}
+			return err
+		}
+		if input.IsPinned != nil {
+			config.IsPinned = input.IsPinned
+		}
+		if input.DisplayPriority != nil {
+			config.DisplayPriority = input.DisplayPriority
+		}
+		config.UpdatedAt = now
+
+		if err := tx.Save(&config).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

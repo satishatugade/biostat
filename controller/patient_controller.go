@@ -1824,3 +1824,30 @@ func (pc *PatientController) CreateOrder(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Order placed successfully", res, nil, nil)
 	return
 }
+
+func (pc *PatientController) AddTestComponentDisplayConfig(ctx *gin.Context) {
+	authUserId, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var input models.PatientTestComponentDisplayConfig
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+
+	if input.IsPinned == nil && input.DisplayPriority == nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "At least one of is_pinned or display_priority must be provided", nil, nil)
+		return
+	}
+	input.PatientId = user_id
+	input.CreatedBy = authUserId
+	err1 := pc.patientService.AddTestComponentDisplayConfig(&input)
+	if err1 != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to upsert display config", nil, err1)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Display config upserted successfully", nil, nil, nil)
+}

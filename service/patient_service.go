@@ -48,6 +48,7 @@ type PatientService interface {
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
+	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 }
 
 type PatientServiceImpl struct {
@@ -654,4 +655,8 @@ func (ps *PatientServiceImpl) FetchPatientDiagnosticReports(patientId uint64, fi
 
 	nestedResults := ps.patientRepo.RestructureDiagnosticReports(data)
 	return nestedResults, nil
+}
+
+func (s *PatientServiceImpl) AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error {
+	return s.patientRepo.AddTestComponentDisplayConfig(config)
 }
