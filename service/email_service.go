@@ -28,10 +28,17 @@ func NewEmailService() *EmailService {
 	}
 }
 
-func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient) error {
+func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error {
 	APPURL := os.Getenv("APP_URL")
 	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
-
+	roleName := systemUser.RoleName
+	if relationship != "" {
+		roleName = fmt.Sprintf("%s ( %s )", roleName, relationship)
+	}
+	patientFullName := ""
+	if patient != nil {
+		patientFullName = patient.FirstName + " " + patient.LastName
+	}
 	sendBody := map[string]interface{}{
 		"user_id":           systemUser.UserId,
 		"recipient_mail_id": systemUser.Email,
@@ -39,8 +46,8 @@ func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, passw
 		"channels":          []string{"email", "whatsapp"},
 		"data": map[string]interface{}{
 			"fullName":        systemUser.FirstName + " " + systemUser.LastName,
-			"patientFullName": patient.FirstName + " " + patient.LastName,
-			"roleName":        systemUser.RoleName,
+			"patientFullName": patientFullName,
+			"roleName":        roleName,
 			"username":        systemUser.Username,
 			"password":        password,
 			"loginURL":        APPURL,
