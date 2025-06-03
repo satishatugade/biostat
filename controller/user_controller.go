@@ -180,15 +180,45 @@ func UpdateUserInKeycloak(user models.SystemUser_) error {
 func (uc *UserController) LoginUser(c *gin.Context) {
 	var user models.SystemUser_
 	var input struct {
-		Username string  `json:"username" binding:"required"`
+		Username string  `json:"username"`
+		Email    string  `json:"email"`
+		Phone    string  `json:"phone"`
+		Type     string  `json:"type" binding:"required"`
 		Password string  `json:"password" binding:"required"`
 		LoginAs  *string `json:"login_as"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Username password required.", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing required fields.", nil, err)
 		return
 	}
-	loginInfo, err := uc.userService.GetUserInfoByUserName(input.Username)
+
+	var identifier string
+
+	switch input.Type {
+	case "username":
+		if input.Username == "" {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Username is required.", nil, nil)
+			return
+		}
+		identifier = input.Username
+	case "email":
+		if input.Email == "" {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Email is required.", nil, nil)
+			return
+		}
+		identifier = input.Email
+	case "phone":
+		if input.Phone == "" {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Phone number is required.", nil, nil)
+			return
+		}
+		identifier = input.Phone
+	default:
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid login type. Use 'username', 'email', or 'phone'.", nil, nil)
+		return
+	}
+
+	loginInfo, err := uc.userService.GetUserInfoByIdentifier(input.Type, identifier)
 	if err != nil {
 		log.Println("User not found with this username in database : ", input.Username)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)
@@ -200,7 +230,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 	}
 	client := utils.Client
 	ctx := context.Background()
-	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, input.Username, input.Password)
+	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, identifier, input.Password)
 	if err != nil {
 		log.Println("Error logging in to Keycloak:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid user credentials!", nil, err)

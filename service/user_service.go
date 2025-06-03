@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	"math/rand"
+
+	"gorm.io/gorm"
 )
 
 type UserService interface {
@@ -23,10 +24,11 @@ type UserService interface {
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
+	GetUserInfoByIdentifier(loginType string, identifier string) (*models.UserLoginInfo, error)
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	IsUsernameExists(username string) bool
-	GenerateUniqueUsername(firstName, lastName string) string 
+	GenerateUniqueUsername(firstName, lastName string) string
 }
 
 type UserServiceImpl struct {
@@ -92,6 +94,10 @@ func (s *UserServiceImpl) GetUserInfoByUserName(username string) (*models.UserLo
 	return s.userRepo.GetUserInfoByUserName(username)
 }
 
+func (s *UserServiceImpl) GetUserInfoByIdentifier(loginType string, identifier string) (*models.UserLoginInfo, error) {
+	return s.userRepo.GetUserInfoByIdentifier(loginType, identifier)
+}
+
 func (s *UserServiceImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error) {
 	return s.userRepo.GetUserInfoByEmailId(emailId)
 }
@@ -132,4 +138,3 @@ func (s *UserServiceImpl) GenerateUniqueUsername(firstName, lastName string) str
 	timestamp := time.Now().Unix()
 	return fmt.Sprintf("%s.%d", base, timestamp)
 }
-

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -18,6 +19,7 @@ type UserRepository interface {
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
+	GetUserInfoByIdentifier(loginType, identifier string) (*models.UserLoginInfo, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	GetUserIdBySUB(sub string) (uint64, error)
@@ -149,6 +151,29 @@ func (ur *UserRepositoryImpl) GetUserInfoByUserName(username string) (*models.Us
 		return nil, err
 	}
 
+	return &info, nil
+}
+
+func (ur *UserRepositoryImpl) GetUserInfoByIdentifier(loginType, identifier string) (*models.UserLoginInfo, error) {
+	var info models.UserLoginInfo
+
+	query := ur.db.Model(&models.SystemUser_{}).Select("auth_user_id", "password", "login_count")
+
+	switch loginType {
+	case "username":
+		query = query.Where("username = ?", identifier)
+	case "email":
+		query = query.Where("email = ?", identifier)
+	case "phone":
+		query = query.Where("mobile_no = ?", identifier)
+	default:
+		return nil, fmt.Errorf("invalid login type: %s", loginType)
+	}
+
+	err := query.Scan(&info).Error
+	if err != nil {
+		return nil, err
+	}
 	return &info, nil
 }
 
