@@ -32,6 +32,7 @@ const (
 
 	PatientResultValue        = "/diagnostic-value"
 	FilterResultValue         = "/filter-result-value"
+	DisplayConfig             = "/diagnostic-component/configuration"
 	GetResultValue            = "/get-result-value"
 	PatientDiseaseCondition   = "/patient-disease-condition"
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"

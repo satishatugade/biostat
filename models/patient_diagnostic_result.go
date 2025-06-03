@@ -335,3 +335,18 @@ type DiagnosticReportFilter struct {
 	ResultDateFrom    *string `json:"from_date,omitempty"`
 	ResultDateTo      *string `json:"to_date,omitempty"`
 }
+
+type PatientTestComponentDisplayConfig struct {
+	PatientId                 uint64    `gorm:"primaryKey;column:patient_id" json:"patient_id"`
+	DiagnosticTestComponentId uint64    `gorm:"primaryKey;column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	IsPinned                  *bool     `gorm:"column:is_pinned" json:"is_pinned"`
+	DisplayPriority           *int      `gorm:"column:display_priority" json:"display_priority"`
+	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy                 string    `gorm:"column:created_by;" json:"created_by"`
+	UpdatedBy                 string    `gorm:"column:updated_by;" json:"updated_by"`
+}
+
+func (PatientTestComponentDisplayConfig) TableName() string {
+	return "tbl_patient_test_component_display_config"
+}
