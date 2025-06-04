@@ -177,8 +177,6 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	log.Println("Prescription File Name:", filename)
-
-	// Detect MIME type
 	buf := make([]byte, 512)
 	n, err1 := file.Read(buf)
 	if err1 != nil {
@@ -187,10 +185,8 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 	mimeType := http.DetectContentType(buf[:n])
 	log.Printf("Detected MIME type: %s", mimeType)
 
-	// Reconstruct full reader
 	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
 
-	// Create MIME header for file part
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
 	h.Set("Content-Type", mimeType)
@@ -208,7 +204,6 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		return models.PatientPrescription{}, fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	// Create request
 	req, err1 := http.NewRequest("POST", s.DigitizePrescriptionAPI, body)
 	if err1 != nil {
 		return models.PatientPrescription{}, fmt.Errorf("failed to create request: %w", err1)
@@ -232,7 +227,6 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		return models.PatientPrescription{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
-	// Try parsing various date formats
 	var parsedDate time.Time
 	var err error
 
@@ -244,8 +238,8 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		"2006-01-02",
 		"2006/01/02",
 		"2006.01.02",
-		"2006-01-02T15:04:05",       // ISO local
-		"2006-01-02T15:04:05Z07:00", // RFC3339
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04:05Z07:00",
 	}
 
 	for _, format := range dateFormats {
@@ -261,35 +255,30 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		log.Println("Invalid date format:", err)
 		return models.PatientPrescription{}, fmt.Errorf("invalid date format: %w", err)
 	}
-
-	// Now map everything
 	data := models.PatientPrescription{
-		PrescriptionId:            prescriptionData.PrescriptionId,
-		PatientId:                 prescriptionData.PatientId,
-		PrescribedBy:              prescriptionData.PrescribedBy,
-		PrescriptionName:          &prescriptionData.PrescriptionName,
-		Description:               prescriptionData.Description,
-		PrescriptionDate:          &parsedDate,
-		PrescriptionAttachmentUrl: prescriptionData.PrescriptionAttachmentUrl,
-		PrescriptionDetails:       make([]models.PrescriptionDetail, 0),
+		PrescriptionId:      prescriptionData.PrescriptionId,
+		PatientId:           prescriptionData.PatientId,
+		PrescribedBy:        prescriptionData.PrescribedBy,
+		PrescriptionName:    &prescriptionData.PrescriptionName,
+		Description:         prescriptionData.Description,
+		PrescriptionDate:    &parsedDate,
+		PrescriptionDetails: make([]models.PrescriptionDetail, 0),
 	}
 
-	// Map prescription details if any
 	for _, detail := range prescriptionData.PrescriptionDetails {
 		d := models.PrescriptionDetail{
 			PrescriptionDetailId: detail.PrescriptionDetailId,
 			PrescriptionId:       detail.PrescriptionId,
 			MedicineName:         detail.MedicineName,
 			PrescriptionType:     detail.PrescriptionType,
-			DoseQuantity:         detail.DoseQuantity,
 			Duration:             detail.Duration,
-			UnitValue:            detail.UnitValue,
-			UnitType:             detail.UnitType,
-			Frequency:            detail.Frequency,
-			TimesPerDay:          detail.TimesPerDay,
-			IntervalHour:         detail.IntervalHour,
-			Instruction:          detail.Instruction,
-			CreatedAt:            detail.CreatedAt,
+			DosageInfo: []models.PrescriptionDoseSchedule{
+				{
+					DoseQuantity: detail.DoseQuantity,
+					UnitType:     detail.UnitType,
+					Instruction:  detail.Instruction,
+				},
+			},
 		}
 		data.PrescriptionDetails = append(data.PrescriptionDetails, d)
 	}

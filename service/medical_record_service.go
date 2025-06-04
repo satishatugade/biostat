@@ -110,12 +110,22 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 				return
 			}
 			prescriptionData.PatientId = userID
+			prescriptionData.RecordId = recordID
+			prescriptionData.IsDigital = true
 			err1 := s.patientService.AddPatientPrescription(authUserId, &prescriptionData)
 			if err1 != nil {
 				log.Printf("SavePrescriptionData error for record %d: %v", recordID, err1)
 				return
 			}
-
+			payload := models.TblMedicalRecord{
+				RecordId:     record.RecordId,
+				DigitizeFlag: 1,
+			}
+			_, err2 := s.tblMedicalRecordRepo.UpdateTblMedicalRecord(&payload, authUserId)
+			if err2 != nil {
+				log.Println("Failed to update record : ", err2)
+				return
+			}
 			log.Printf("Prescription digitization result for record %d: %v", recordID, prescriptionData)
 		}(imageCopy, uint64(record.RecordId), createdBy)
 	}

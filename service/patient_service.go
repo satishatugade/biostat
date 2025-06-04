@@ -163,7 +163,7 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 		input.Prescription.Prescription = append(input.Prescription.Prescription, models.PrescribedDrug{
 			Drug:      d.MedicineName,
 			Dosage:    fmt.Sprintf("%.0f%s", d.UnitValue, d.UnitType),
-			Frequency: fmt.Sprintf("%d times/day", d.Frequency),
+			Frequency: fmt.Sprintf("%d times/day", int(d.DosageInfo[0].DoseQuantity)),
 			Duration:  fmt.Sprintf("%d days", d.Duration),
 		})
 	}
@@ -232,7 +232,7 @@ func (s *PatientServiceImpl) SummarizeHistorybyAIModel(patientId uint64) (string
 		input.Prescription.Prescription = append(input.Prescription.Prescription, models.PrescribedDrug{
 			Drug:      d.MedicineName,
 			Dosage:    fmt.Sprintf("%.0f%s", d.UnitValue, d.UnitType),
-			Frequency: fmt.Sprintf("%d times/day", d.Frequency),
+			Frequency: fmt.Sprintf("%d times/day", int(d.DosageInfo[0].DoseQuantity)),
 			Duration:  fmt.Sprintf("%d days", d.Duration),
 		})
 	}

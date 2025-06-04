@@ -83,7 +83,6 @@ func (p *PatientRepositoryImpl) GetAllRelation() ([]models.PatientRelation, erro
 	return relations, err
 }
 
-// GetRelationById implements PatientRepository.
 func (p *PatientRepositoryImpl) GetRelationById(relationId int) (models.PatientRelation, error) {
 	var relation models.PatientRelation
 	err := p.db.First(&relation, relationId).Error
@@ -97,7 +96,11 @@ func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescri
 	}
 	for i := range prescription.PrescriptionDetails {
 		prescription.PrescriptionDetails[i].PrescriptionDetailId = 0
-		prescription.PrescriptionDetails[i].CreatedBy = createdBy
+
+		for j := range prescription.PrescriptionDetails[i].DosageInfo {
+			prescription.PrescriptionDetails[i].DosageInfo[j].DoseScheduleId = 0
+			prescription.PrescriptionDetails[i].DosageInfo[j].CreatedBy = createdBy
+		}
 	}
 	if err := tx.Create(&prescription).Error; err != nil {
 		tx.Rollback()
@@ -111,11 +114,10 @@ func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, pr
 	if err := tx.Model(&models.PatientPrescription{}).
 		Where("prescription_id = ? AND patient_id = ?", prescription.PrescriptionId, prescription.PatientId).
 		Updates(map[string]interface{}{
-			"prescribed_by":               prescription.PrescribedBy,
-			"prescription_name":           prescription.PrescriptionName,
-			"description":                 prescription.Description,
-			"prescription_date":           prescription.PrescriptionDate,
-			"prescription_attachment_url": prescription.PrescriptionAttachmentUrl,
+			"prescribed_by":     prescription.PrescribedBy,
+			"prescription_name": prescription.PrescriptionName,
+			"description":       prescription.Description,
+			"prescription_date": prescription.PrescriptionDate,
 		}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -123,54 +125,57 @@ func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, pr
 
 	for _, detail := range prescription.PrescriptionDetails {
 		detail.PrescriptionId = prescription.PrescriptionId
-		detail.UpdatedBy = authUserId
 
 		if detail.PrescriptionDetailId == 0 {
-			detail.CreatedBy = authUserId
 			if err := tx.Create(&detail).Error; err != nil {
 				tx.Rollback()
 				return err
 			}
 		} else {
-			updateMap := map[string]interface{}{
-				"updated_by": authUserId,
-			}
+			updateMap := map[string]interface{}{}
 			if detail.MedicineName != "" {
 				updateMap["medicine_name"] = detail.MedicineName
 			}
 			if detail.PrescriptionType != "" {
 				updateMap["prescription_type"] = detail.PrescriptionType
 			}
-			if detail.DoseQuantity != 0 {
-				updateMap["dose_quantity"] = detail.DoseQuantity
-			}
 			if detail.Duration != 0 {
 				updateMap["duration"] = detail.Duration
 			}
-			if detail.UnitValue != 0 {
-				updateMap["unit_value"] = detail.UnitValue
+			if detail.DurationUnitType != "" {
+				updateMap["duration_unit_type"] = detail.DurationUnitType
 			}
-			if detail.UnitType != "" {
-				updateMap["unit_type"] = detail.UnitType
-			}
-			if detail.Frequency != 0 {
-				updateMap["frequency"] = detail.Frequency
-			}
-			if detail.TimesPerDay != 0 {
-				updateMap["times_per_day"] = detail.TimesPerDay
-			}
-			if detail.IntervalHour != 0 {
-				updateMap["interval_hour"] = detail.IntervalHour
-			}
-			if detail.Instruction != "" {
-				updateMap["instruction"] = detail.Instruction
-			}
-
 			if err := tx.Model(&models.PrescriptionDetail{}).
 				Where("prescription_detail_id = ? AND prescription_id = ?", detail.PrescriptionDetailId, detail.PrescriptionId).
 				Updates(updateMap).Error; err != nil {
 				tx.Rollback()
 				return err
+			}
+		}
+		for _, dosage := range detail.DosageInfo {
+			if dosage.DoseScheduleId == 0 {
+				dosage.PrescriptionDetailId = detail.PrescriptionDetailId
+				dosage.CreatedBy = authUserId
+				dosage.UpdatedBy = authUserId
+				if err := tx.Create(&dosage).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			} else {
+				updateDosage := map[string]interface{}{
+					"dose_quantity": dosage.DoseQuantity,
+					"unit_value":    dosage.UnitValue,
+					"unit_type":     dosage.UnitType,
+					"instruction":   dosage.Instruction,
+					"is_given":      dosage.IsGiven,
+					"updated_by":    authUserId,
+				}
+				if err := tx.Model(&models.PrescriptionDoseSchedule{}).
+					Where("dose_schedule_id = ?", dosage.DoseScheduleId).
+					Updates(updateDosage).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
 			}
 		}
 	}
@@ -184,7 +189,7 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 
 	query := p.db.
 		Where("patient_id = ?", patientId).
-		Preload("PrescriptionDetails").
+		Preload("PrescriptionDetails").Preload("PrescriptionDetails.DosageInfo").Preload("MedicalRecord").Order("prescription_id DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&prescriptions).
@@ -200,41 +205,22 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 func (ps *PatientRepositoryImpl) GetPrescriptionDetailByPatientId(patientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error) {
 	var details []models.PrescriptionDetail
 	var totalRecords int64
-
 	var prescriptionIDs []uint64
-	err := ps.db.
-		Model(&models.PatientPrescription{}).
-		Where("patient_id = ?", patientId).
-		Pluck("prescription_id", &prescriptionIDs).
-		Error
+	err := ps.db.Model(&models.PatientPrescription{}).Where("patient_id = ?", patientId).Pluck("prescription_id", &prescriptionIDs).Error
 	if err != nil {
 		return nil, 0, err
 	}
-
 	if len(prescriptionIDs) == 0 {
 		return []models.PrescriptionDetail{}, 0, nil
 	}
-
-	err = ps.db.
-		Model(&models.PrescriptionDetail{}).
-		Where("prescription_id IN ?", prescriptionIDs).
-		Count(&totalRecords).
-		Error
+	err = ps.db.Model(&models.PrescriptionDetail{}).Where("prescription_id IN ?", prescriptionIDs).Count(&totalRecords).Error
 	if err != nil {
 		return nil, 0, err
 	}
-
-	err = ps.db.
-		Where("prescription_id IN ?", prescriptionIDs).
-		Limit(limit).
-		Offset(offset).
-		Order("prescription_detail_id DESC").
-		Find(&details).
-		Error
+	err = ps.db.Preload("DosageInfo").Where("prescription_id IN ?", prescriptionIDs).Limit(limit).Offset(offset).Order("prescription_detail_id DESC").Find(&details).Error
 	if err != nil {
 		return nil, 0, err
 	}
-
 	return details, totalRecords, nil
 }
 
@@ -242,7 +228,7 @@ func (pr *PatientRepositoryImpl) GetSinglePrescription(prescriptionId uint64, pa
 	var prescription models.PatientPrescription
 
 	err := pr.db.
-		Preload("PrescriptionDetails").
+		Preload("PrescriptionDetails").Preload("PrescriptionDetails.DosageInfo").Preload("MedicalRecord").
 		Where("prescription_id = ? AND patient_id = ?", prescriptionId, patientId).
 		First(&prescription).Error
 

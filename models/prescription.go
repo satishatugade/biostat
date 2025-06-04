@@ -5,46 +5,60 @@ import (
 )
 
 type PatientPrescription struct {
-	PrescriptionId            uint64     `gorm:"primaryKey;column:prescription_id" json:"prescription_id"`
-	PatientId                 uint64     `gorm:"column:patient_id" json:"patient_id"`
-	PrescribedBy              string     `gorm:"column:prescribed_by" json:"prescribed_by"`
-	PrescriptionName          *string    `gorm:"column:prescription_name" json:"prescription_name"`
-	Description               string     `gorm:"column:description" json:"description"`
-	PrescriptionDate          *time.Time `gorm:"column:prescription_date" json:"prescription_date"`
-	PrescriptionAttachmentUrl string     `gorm:"column:prescription_attachment_url" json:"prescription_attachment_url"`
+	PrescriptionId   uint64     `gorm:"primaryKey;column:prescription_id" json:"prescription_id"`
+	PatientId        uint64     `gorm:"column:patient_id" json:"patient_id"`
+	RecordId         uint64     `json:"record_id"`
+	PrescribedBy     string     `gorm:"column:prescribed_by" json:"prescribed_by"`
+	PrescriptionName *string    `gorm:"column:prescription_name" json:"prescription_name"`
+	Description      string     `gorm:"column:description" json:"description"`
+	PrescriptionDate *time.Time `gorm:"column:prescription_date" json:"prescription_date"`
+	IsDigital        bool       `gorm:"column:is_digital;default:false" json:"is_digital"`
 
 	// Relationship to PrescriptionDetail
 	PrescriptionDetails []PrescriptionDetail `gorm:"foreignKey:PrescriptionId;references:PrescriptionId" json:"prescription_details"`
+	MedicalRecord       TblMedicalRecord     `gorm:"foreignKey:RecordId;references:RecordId" json:"prescription_attachment"`
 }
 
-// TableName for PatientPrescription
 func (PatientPrescription) TableName() string {
 	return "tbl_patient_prescription"
 }
 
-// PrescriptionDetail represents the details of each prescription
 type PrescriptionDetail struct {
-	PrescriptionDetailId uint64    `gorm:"primaryKey;autoIncrement;column:prescription_detail_id" json:"prescription_detail_id"`
-	PrescriptionId       uint64    `gorm:"column:prescription_id" json:"prescription_id"`
-	MedicineName         string    `gorm:"column:medicine_name" json:"medicine_name"`
-	PrescriptionType     string    `gorm:"column:prescription_type" json:"prescription_type"`
-	DoseQuantity         float64   `gorm:"column:dose_quantity" json:"dose_quantity"`
-	Duration             int       `gorm:"column:duration" json:"duration"`
-	UnitValue            float64   `gorm:"column:unit_value" json:"unit_value"`
-	UnitType             string    `gorm:"column:unit_type" json:"unit_type"`
-	Frequency            int       `gorm:"column:frequency" json:"frequency"`
-	TimesPerDay          int       `gorm:"column:times_per_day" json:"times_per_day"`
-	IntervalHour         int       `gorm:"column:interval_hour" json:"interval_hour"`
-	Instruction          string    `gorm:"column:instruction" json:"instruction"`
-	CreatedAt            time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt            time.Time `gorm:"column:updated_at" json:"-"`
-	CreatedBy            string    `gorm:"column:created_by" json:"-"`
-	UpdatedBy            string    `gorm:"column:updated_by" json:"-"`
+	PrescriptionDetailId uint64                     `gorm:"primaryKey;autoIncrement;column:prescription_detail_id" json:"prescription_detail_id"`
+	PrescriptionId       uint64                     `gorm:"column:prescription_id" json:"prescription_id"`
+	MedicineName         string                     `gorm:"column:medicine_name" json:"medicine_name"`
+	PrescriptionType     string                     `gorm:"column:prescription_type" json:"prescription_type"`
+	Duration             int                        `gorm:"column:duration" json:"duration"`
+	DurationUnitType     string                     `gorm:"column:duration_unit_type" json:"duration_unit_type"`
+	DoseQuantity         float64                    `gorm:"-" json:"dose_quantity,omitempty"`
+	UnitValue            float64                    `gorm:"-" json:"unit_value,omitempty"`
+	UnitType             string                     `gorm:"-" json:"unit_type,omitempty"`
+	Instruction          string                     `gorm:"-" json:"instruction,omitempty"`
+	DosageInfo           []PrescriptionDoseSchedule `gorm:"foreignKey:PrescriptionDetailId;references:PrescriptionDetailId" json:"dosage_info"`
 }
 
-// TableName for PrescriptionDetail
 func (PrescriptionDetail) TableName() string {
 	return "tbl_prescription_detail"
+}
+
+type PrescriptionDoseSchedule struct {
+	DoseScheduleId       uint64  `gorm:"primaryKey;autoIncrement;column:dose_schedule_id" json:"dose_schedule_id"`
+	PrescriptionDetailId uint64  `gorm:"column:prescription_detail_id;not null" json:"prescription_detail_id"`
+	TimeOfDay            string  `gorm:"column:time_of_day;type:varchar(50)" json:"time_of_day"`
+	IsGiven              int     `gorm:"column:is_given;default:0" json:"is_given"`
+	DoseQuantity         float64 `gorm:"column:dose_quantity;type:numeric(10,2)" json:"dose_quantity"`
+	UnitValue            float64 `gorm:"column:unit_value" json:"unit_value"`
+	UnitType             string  `gorm:"column:unit_type" json:"unit_type"`
+	Instruction          string  `gorm:"column:instruction;type:text" json:"instruction"`
+
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy string    `gorm:"column:created_by;type:varchar(100)" json:"created_by"`
+	UpdatedBy string    `gorm:"column:updated_by;type:varchar(100)" json:"updated_by"`
+}
+
+func (PrescriptionDoseSchedule) TableName() string {
+	return "tbl_prescription_dose_schedule"
 }
 
 type PatientPrescriptionData struct {
@@ -56,20 +70,4 @@ type PatientPrescriptionData struct {
 	PrescriptionDate          string               `json:"prescription_date"`
 	PrescriptionAttachmentUrl string               `json:"prescription_attachment_url"`
 	PrescriptionDetails       []PrescriptionDetail `json:"prescription_details"`
-}
-
-type PrescriptionDetailData struct {
-	PrescriptionDetailId uint64    `json:"prescription_detail_id"`
-	PrescriptionId       uint64    `json:"prescription_id"`
-	MedicineName         string    `json:"medicine_name"`
-	PrescriptionType     string    `json:"prescription_type"`
-	DoseQuantity         float64   `json:"dose_quantity"`
-	Duration             int       `json:"duration"`
-	UnitValue            float64   `json:"unit_value"`
-	UnitType             string    `json:"unit_type"`
-	Frequency            int       `json:"frequency"`
-	TimesPerDay          int       `json:"times_per_day"`
-	IntervalHour         int       `json:"interval_hour"`
-	Instruction          string    `json:"instruction"`
-	CreatedAt            time.Time `json:"created_at"`
 }
