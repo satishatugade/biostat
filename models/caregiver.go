@@ -21,7 +21,8 @@ func (Caregiver) TableName() string {
 }
 
 type UserRelation struct {
-	UserId     uint64 `json:"user_id"`
-	PatientId  uint64 `json:"patient_id"`
-	RelationId uint64 `json:"relation_id"`
+	UserId      uint64 `json:"user_id"`
+	PatientId   uint64 `json:"patient_id"`
+	RelationId  uint64 `json:"relation_id"`
+	MappingType string `json:"mapping_type"`
 }

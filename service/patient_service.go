@@ -31,6 +31,7 @@ type PatientService interface {
 	AddPatientRelative(relative *models.PatientRelative) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
+	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
 	GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientList() ([]models.Patient, error)
@@ -282,7 +283,10 @@ func (s *PatientServiceImpl) UpdateFlag(patientId uint64, req *models.DPRequest)
 
 func (s *PatientServiceImpl) AddPatientRelative(relative *models.PatientRelative) error {
 	return s.patientRepo.AddPatientRelative(relative)
+}
 
+func (s *PatientServiceImpl) AssignPrimaryCaregiver(patientId, relativeId uint64, mappingType string) error {
+	return s.patientRepo.AssignPrimaryCaregiver(patientId, relativeId, mappingType)
 }
 
 // GetPatientRelatives implements PatientService.
@@ -325,7 +329,7 @@ func ExtractUserAndRelationIds(userRelations []models.UserRelation) ([]uint64, [
 }
 
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "R", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"R", "PCG"}, false)
 	if err != nil {
 		return []models.PatientRelative{}, err
 	}
@@ -343,7 +347,7 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
 
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "C", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"C"}, false)
 	if err != nil {
 		return []models.Caregiver{}, err
 	}
@@ -357,7 +361,7 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 
 func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error) {
 
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "D", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"D"}, false)
 	if err != nil {
 		return []models.SystemUser_{}, 0, err
 	}
@@ -385,7 +389,7 @@ func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, User string, limit
 
 func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(nil, "S", true)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(nil, []string{"S"}, true)
 	if err != nil {
 		return []models.Patient{}, err
 	}
@@ -464,7 +468,7 @@ func (s *PatientServiceImpl) GetUserSUBByID(id uint64) (string, error) {
 
 func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {
 	//return s.patientRepo.GetNursesList(limit, offset)
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "N", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"N"}, false)
 	if err != nil {
 		return []models.SystemUser_{}, 0, err
 	}
@@ -476,7 +480,7 @@ func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset 
 }
 
 func (s *PatientServiceImpl) GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, "P", false)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"P"}, false)
 	if err != nil {
 		return []models.SystemUser_{}, 0, err
 	}

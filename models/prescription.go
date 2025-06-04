@@ -24,17 +24,18 @@ func (PatientPrescription) TableName() string {
 }
 
 type PrescriptionDetail struct {
-	PrescriptionDetailId uint64                     `gorm:"primaryKey;autoIncrement;column:prescription_detail_id" json:"prescription_detail_id"`
-	PrescriptionId       uint64                     `gorm:"column:prescription_id" json:"prescription_id"`
-	MedicineName         string                     `gorm:"column:medicine_name" json:"medicine_name"`
-	PrescriptionType     string                     `gorm:"column:prescription_type" json:"prescription_type"`
-	Duration             int                        `gorm:"column:duration" json:"duration"`
-	DurationUnitType     string                     `gorm:"column:duration_unit_type" json:"duration_unit_type"`
-	DoseQuantity         float64                    `gorm:"-" json:"dose_quantity,omitempty"`
-	UnitValue            float64                    `gorm:"-" json:"unit_value,omitempty"`
-	UnitType             string                     `gorm:"-" json:"unit_type,omitempty"`
-	Instruction          string                     `gorm:"-" json:"instruction,omitempty"`
-	DosageInfo           []PrescriptionDoseSchedule `gorm:"foreignKey:PrescriptionDetailId;references:PrescriptionDetailId" json:"dosage_info"`
+	PrescriptionDetailId   uint64                     `gorm:"primaryKey;autoIncrement;column:prescription_detail_id" json:"prescription_detail_id"`
+	PrescriptionId         uint64                     `gorm:"column:prescription_id" json:"prescription_id"`
+	MedicineName           string                     `gorm:"column:medicine_name" json:"medicine_name"`
+	PrescriptionType       string                     `gorm:"column:prescription_type" json:"prescription_type"`
+	Duration               int                        `gorm:"column:duration" json:"duration"`
+	DurationUnitType       string                     `gorm:"column:duration_unit_type" json:"duration_unit_type"`
+	DoseQuantity           float64                    `gorm:"-" json:"dose_quantity,omitempty"`
+	UnitValue              float64                    `gorm:"-" json:"unit_value,omitempty"`
+	UnitType               string                     `gorm:"-" json:"unit_type,omitempty"`
+	Instruction            string                     `gorm:"-" json:"instruction,omitempty"`
+	DosageInfo             []PrescriptionDoseSchedule `gorm:"foreignKey:PrescriptionDetailId;references:PrescriptionDetailId" json:"dosage_info"`
+	PrescriptionAttachment TblMedicalRecord           `gorm:"-" json:"prescription_attachment"`
 }
 
 func (PrescriptionDetail) TableName() string {

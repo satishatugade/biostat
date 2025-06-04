@@ -188,6 +188,7 @@ type DiagnosticResultRequest struct {
 	ReportDateEnd             *time.Time `json:"report_date_end,omitempty"`
 	ResultDateStart           *time.Time `json:"result_date_start,omitempty"`
 	ResultDateEnd             *time.Time `json:"result_date_end,omitempty"`
+	IsPinned                  *bool      `json:"is_pinned,omitempty"`
 }
 
 type ResultSummary struct {

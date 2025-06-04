@@ -14,6 +14,7 @@ const (
 	PatientRelative      = "/patient-relative"
 	GetRelative          = "/patient-relative/:patient_id"
 	Relative             = "/get-relative/:patient_id"
+	PrimaryCaregiver     = "/primary-caregiver"
 	RelativeList         = "/relative-list"
 	SingleRelative       = "/relative/:relative_id"
 	UserProfile          = "/user-profile"

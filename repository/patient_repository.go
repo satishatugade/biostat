@@ -29,12 +29,13 @@ type PatientRepository interface {
 
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AddPatientRelative(relative *models.PatientRelative) error
+	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.PatientRelative, error)
 	GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
-	FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]models.UserRelation, error)
+	FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool) ([]models.UserRelation, error)
 	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
 	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
@@ -203,25 +204,33 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 }
 
 func (ps *PatientRepositoryImpl) GetPrescriptionDetailByPatientId(patientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error) {
-	var details []models.PrescriptionDetail
-	var totalRecords int64
-	var prescriptionIDs []uint64
-	err := ps.db.Model(&models.PatientPrescription{}).Where("patient_id = ?", patientId).Pluck("prescription_id", &prescriptionIDs).Error
-	if err != nil {
+	var prescriptions []models.PatientPrescription
+	var total int64
+	if err := ps.db.Model(&models.PatientPrescription{}).Where("patient_id = ?", patientId).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if len(prescriptionIDs) == 0 {
+
+	if total == 0 {
 		return []models.PrescriptionDetail{}, 0, nil
 	}
-	err = ps.db.Model(&models.PrescriptionDetail{}).Where("prescription_id IN ?", prescriptionIDs).Count(&totalRecords).Error
+
+	err := ps.db.Preload("PrescriptionDetails.DosageInfo").Preload("MedicalRecord").Where("patient_id = ?", patientId).Order("prescription_id DESC").
+		Limit(limit).Offset(offset).
+		Find(&prescriptions).Error
 	if err != nil {
 		return nil, 0, err
 	}
-	err = ps.db.Preload("DosageInfo").Where("prescription_id IN ?", prescriptionIDs).Limit(limit).Offset(offset).Order("prescription_detail_id DESC").Find(&details).Error
-	if err != nil {
-		return nil, 0, err
+
+	var result []models.PrescriptionDetail
+	for _, prescription := range prescriptions {
+		for _, detail := range prescription.PrescriptionDetails {
+			d := detail
+			d.PrescriptionAttachment = prescription.MedicalRecord
+			result = append(result, d)
+		}
 	}
-	return details, totalRecords, nil
+
+	return result, total, nil
 }
 
 func (pr *PatientRepositoryImpl) GetSinglePrescription(prescriptionId uint64, patientId uint64) (models.PatientPrescription, error) {
@@ -585,6 +594,47 @@ func (p *PatientRepositoryImpl) AddPatientRelative(relative *models.PatientRelat
 	return p.db.Create(relative).Error
 }
 
+func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error {
+	tx := ps.db.Begin()
+	rollbackErr := func(err error) error {
+		tx.Rollback()
+		return err
+	}
+	var relation models.SystemUserRoleMapping
+	if err := tx.Where("patient_id = ? AND user_id = ?", patientId, relativeId).
+		First(&relation).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return rollbackErr(fmt.Errorf("relative does not exist. please add your family member first"))
+		}
+		return rollbackErr(err)
+	}
+	if relation.MappingType == mappingType {
+		var role string
+		if mappingType == "R" {
+			role = "relative"
+		} else {
+			role = "primary-caregiver"
+		}
+		return rollbackErr(fmt.Errorf("user is already assigned as %s", role))
+	}
+	if mappingType == "PCG" {
+		var pcgCount int64
+		if err := tx.Model(&models.SystemUserRoleMapping{}).
+			Where("patient_id = ? AND mapping_type = ?", patientId, "PCG").
+			Count(&pcgCount).Error; err != nil {
+			return rollbackErr(err)
+		}
+		if pcgCount >= 2 {
+			return rollbackErr(fmt.Errorf("maximum 2 primary caregivers allowed"))
+		}
+	}
+	if err := tx.Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ?", patientId, relativeId).Update("mapping_type", mappingType).Error; err != nil {
+		return rollbackErr(err)
+	}
+
+	return tx.Commit().Error
+}
+
 func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
 	var relatives []models.PatientRelative
 	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
@@ -671,6 +721,11 @@ func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRe
 		relationMap[r.RelationId] = r.RelationShip
 	}
 
+	mappingTypeMap := make(map[uint64]string)
+	for _, r := range userRelations {
+		mappingTypeMap[r.UserId] = r.MappingType
+	}
+
 	userToRelationIdMap := make(map[uint64]uint64)
 	for _, ur := range userRelations {
 		userToRelationIdMap[ur.UserId] = ur.RelationId
@@ -683,7 +738,11 @@ func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRe
 				relativeInfo[i].RelationId = relId
 				relativeInfo[i].Relationship = relationName
 			}
+			if mapping_name, ok := mappingTypeMap[uid]; ok {
+				relativeInfo[i].MappingType = mapping_name
+			}
 		}
+
 	}
 
 	return relativeInfo, nil
@@ -709,19 +768,18 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 		        updated_at`).
 		Where("user_id IN ?", userIds).
 		Scan(&relatives).Error
-
 	return relatives, err
 }
 
-func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType string, isSelf bool) ([]models.UserRelation, error) {
+func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool) ([]models.UserRelation, error) {
 	var userRelations []models.UserRelation
 
 	db := p.db.Table("tbl_system_user_role_mapping")
 	if patientId != nil {
 		db = db.Where("patient_id = ?", *patientId)
 	}
-	db = db.Where("mapping_type = ? AND is_self = ?", mappingType, isSelf)
-	err := db.Select("user_id,patient_id,relation_id").Scan(&userRelations).Error
+	db = db.Where("mapping_type IN (?) AND is_self = ?", mappingType, isSelf)
+	err := db.Select("user_id,patient_id,relation_id,mapping_type").Scan(&userRelations).Error
 	if err != nil {
 		return nil, err
 	}
@@ -985,8 +1043,13 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		dtrr.units,
 		pdtrv.result_status,
 		pdtrv.result_date,
-		pdtrv.result_comment
-	FROM
+		pdtrv.result_comment`
+	if input.IsPinned != nil && *input.IsPinned {
+		query += `,
+		COALESCE(ptdc.is_pinned, false) AS is_pinned,
+		ptdc.created_at AS pinned_created_at `
+	}
+	query += ` FROM
 		tbl_patient_diagnostic_report pdr
 	INNER JOIN tbl_patient_diagnostic_test pdt 
 		ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
@@ -995,13 +1058,17 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
 		ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
 	LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
-		ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id
-	WHERE
-		pdr.patient_id = ?
-	`
+		ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id`
 
 	args := []interface{}{input.PatientId}
 
+	if input.IsPinned != nil && *input.IsPinned {
+		query += `
+		LEFT JOIN tbl_patient_test_component_display_config ptdc 
+			ON ptdc.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id 
+			AND ptdc.patient_id = pdr.patient_id`
+	}
+	query += ` WHERE pdr.patient_id = ?`
 	if input.DiagnosticTestComponentId != nil {
 		query += " AND pdtrv.diagnostic_test_component_id = ?"
 		args = append(args, *input.DiagnosticTestComponentId)
@@ -1020,6 +1087,10 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	if input.ResultDateStart != nil && input.ResultDateEnd != nil {
 		query += " AND pdtrv.result_date BETWEEN ? AND ?"
 		args = append(args, *input.ResultDateStart, *input.ResultDateEnd)
+	}
+
+	if input.IsPinned != nil && *input.IsPinned {
+		query += ` ORDER BY COALESCE(ptdc.is_pinned, true) DESC, ptdc.created_at DESC NULLS LAST`
 	}
 
 	rows, err := pr.db.Raw(query, args...).Rows()

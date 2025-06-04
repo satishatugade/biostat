@@ -457,6 +457,32 @@ func (pc *PatientController) GetPatientRelativeList(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, relatives, nil, nil)
 }
 
+func (pc *PatientController) AssignPrimaryCaregiver(c *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	relativeIdStr := c.Query("relative_id")
+	mappingType := c.Query("mapping_type")
+	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid relative ID", nil, err)
+		return
+	}
+	if mappingType != "R" && mappingType != "PCG" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Only 'Relative' or 'Primary Caregiver' roles can be assigned.", nil, nil)
+		return
+	}
+	err = pc.patientService.AssignPrimaryCaregiver(patientId, relativeId, mappingType)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "caregiver role assign successfully", nil, nil, nil)
+}
+
 func (pc *PatientController) GetRelativeList(c *gin.Context) {
 
 	relatives, err := pc.patientService.GetRelativeList(nil)
