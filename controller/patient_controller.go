@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -37,25 +38,27 @@ type PatientController struct {
 	apiService           service.ApiService
 	diseaseService       service.DiseaseService
 	smsService           service.SmsService
-	emailService         *service.EmailService
+	emailService         service.EmailService
 	orderService         service.OrderService
+	notificationService  service.NotificationService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
 	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
 	medicationService service.MedicationService, appointmentService service.AppointmentService,
 	diagnosticService service.DiagnosticService, userService service.UserService,
-	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService, emailService *service.EmailService, orderService service.OrderService) *PatientController {
+	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService, emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
-		diagnosticService: diagnosticService,
-		userService:       userService,
-		apiService:        apiService,
-		diseaseService:    diseaseService,
-		smsService:        smsService,
-		emailService:      emailService,
-		orderService:      orderService,
+		diagnosticService:   diagnosticService,
+		userService:         userService,
+		apiService:          apiService,
+		diseaseService:      diseaseService,
+		smsService:          smsService,
+		emailService:        emailService,
+		orderService:        orderService,
+		notificationService: notificationService,
 	}
 }
 
@@ -1003,10 +1006,10 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 
 	if appointment.IsInperson == 0 {
 		patientUser, _ := pc.patientService.GetUserProfileByUserId(appointment.PatientID)
-		providerUser, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
+		// providerUser, _ := pc.patientService.GetUserProfileByUserId(appointment.ProviderID)
 		rawInvitees := []map[string]string{
 			{"name": patientUser.FirstName, "email": patientUser.Email},
-			{"name": providerUser.FirstName, "email": providerUser.Email},
+			// {"name": providerUser.FirstName, "email": providerUser.Email},
 		}
 		startTime := utils.ConvertToZoomTime(appointment.AppointmentDate.Format("2006-01-02"), appointment.AppointmentTime)
 
@@ -1044,7 +1047,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			log.Println("Recovered in CreateAppointment:", r)
+			log.Printf("Recovered in CreateAppointment: %v\nStack Trace:\n%s", r, debug.Stack())
 			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to schedule appointment", nil, errors.New("Failed to schedule appointment"))
 			return
 		}
@@ -1052,6 +1055,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 
 	createdAppointment, err := pc.appointmentService.CreateAppointment(tx, &appointment)
 	if err != nil {
+		log.Println("@Sch:", err)
 		tx.Rollback()
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Appointment could not be scheduled", nil, err)
 		return
@@ -1092,10 +1096,11 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
 		return
 	}
+	log.Println("Scheduled")
 	userProfile := utils.MapSystemUserToPatient(user)
-	err = pc.emailService.SendAppointmentMail(appointmentResponse, *userProfile, providerInfo)
-	if err != nil {
-		log.Println("Error sending appointment email:", err)
+	mailErr := pc.emailService.SendAppointmentMail(appointmentResponse, *userProfile, providerInfo)
+	if mailErr != nil {
+		log.Println("Error sending appointment email:", mailErr)
 	}
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusCreated, "Appointment created scheduled", appointmentResponse, nil, nil)
@@ -1876,4 +1881,15 @@ func (pc *PatientController) AddTestComponentDisplayConfig(ctx *gin.Context) {
 	}
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Display config upserted successfully", nil, nil, nil)
+}
+
+func (pc *PatientController) GetUserMessages(ctx *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	notifications, err := pc.notificationService.GetUserNotifications(user_id)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "notifications loaded", notifications, nil, nil)
+	return
 }

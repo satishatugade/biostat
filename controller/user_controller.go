@@ -24,12 +24,12 @@ type UserController struct {
 	patientService service.PatientService
 	roleService    service.RoleService
 	userService    service.UserService
-	emailService   *service.EmailService
+	emailService   service.EmailService
 	authService    auth.AuthService
 }
 
 func NewUserController(patientService service.PatientService, roleService service.RoleService,
-	userService service.UserService, emailService *service.EmailService, authService auth.AuthService) *UserController {
+	userService service.UserService, emailService service.EmailService, authService auth.AuthService) *UserController {
 	return &UserController{patientService: patientService, roleService: roleService,
 		userService: userService, emailService: emailService, authService: authService}
 }

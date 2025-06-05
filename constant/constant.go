@@ -183,6 +183,7 @@ const (
 	SentOTP                 = "/send-otp"
 	VerifyOTP               = "/verify-otp"
 	Postalcode              = "/address/postalcode"
+	Messages                = "/messages"
 )
 
 const (

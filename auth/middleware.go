@@ -34,10 +34,10 @@ type AuthService interface {
 type AuthServiceImpl struct {
 	userRepo         repository.UserRepository
 	userTokenService service.UserService
-	emailService     *service.EmailService
+	emailService     service.EmailService
 }
 
-func NewAuthService(repo repository.UserRepository, userTokenService service.UserService, emailService *service.EmailService) AuthService {
+func NewAuthService(repo repository.UserRepository, userTokenService service.UserService, emailService service.EmailService) AuthService {
 	return &AuthServiceImpl{
 		userRepo:         repo,
 		userTokenService: userTokenService,

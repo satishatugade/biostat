@@ -2,33 +2,32 @@ package service
 
 import (
 	"biostat/models"
+	"biostat/repository"
 	"biostat/utils"
 	"fmt"
 	"log"
-	"net/smtp"
 	"os"
 	"strings"
 	"time"
 )
 
-// EmailService handles sending emails
-type EmailService struct {
-	SMTPHost    string
-	SMTPPort    string
-	SenderEmail string
-	SenderPass  string
+type EmailService interface {
+	SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error
+	SendAppointmentMail(appointment models.AppointmentResponse, userProfile models.Patient, providerInfo interface{}) error
+	SendReportResultsEmail(patientInfo *models.SystemUser_, alerts []models.TestResultAlert) error
+	ShareReportEmail(recipientEmail []string, userDetails *models.SystemUser_, shortURL string) error
+	SendResetPasswordMail(systemUser *models.SystemUser_, token string, recipientEmail string) error
 }
 
-func NewEmailService() *EmailService {
-	return &EmailService{
-		SMTPHost:    os.Getenv("SMTP_HOST"),
-		SMTPPort:    os.Getenv("SMTP_PORT"),
-		SenderEmail: os.Getenv("SMTP_EMAIL"),
-		SenderPass:  os.Getenv("SMTP_PASSWORD"),
-	}
+type EmailServiceImpl struct {
+	notificationRepo repository.UserNotificationRepository
 }
 
-func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error {
+func NewEmailService(notificationRepo repository.UserNotificationRepository) *EmailServiceImpl {
+	return &EmailServiceImpl{notificationRepo: notificationRepo}
+}
+
+func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error {
 	APPURL := os.Getenv("APP_URL")
 	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
 	roleName := systemUser.RoleName
@@ -57,11 +56,31 @@ func (e *EmailService) SendLoginCredentials(systemUser models.SystemUser_, passw
 	header := map[string]string{
 		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
-	return sendErr
+	_, body, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	if sendErr != nil {
+		return sendErr
+	}
+
+	notifId, err := utils.ExtractNotificationID(body)
+	if err == nil {
+		err := e.notificationRepo.CreateNotificationMapping(models.UserNotificationMapping{
+			UserID:           systemUser.UserId,
+			NotificationID:   notifId,
+			Title:            "Welcome to BioStack",
+			Message:          "Welcome to BioStack, manage your health at one place ",
+			Tags:             "welcome message",
+			SourceType:       "tbl_system_user_",
+			SourceID:         systemUser.Username,
+			NotificationType: "one-time",
+		})
+		if err != nil {
+			log.Println("@SendLoginCredentials: failed to save mapping")
+		}
+	}
+	return nil
 }
 
-func (e *EmailService) SendAppointmentMail(appointment models.AppointmentResponse, userProfile models.Patient, providerInfo interface{}) error {
+func (e *EmailServiceImpl) SendAppointmentMail(appointment models.AppointmentResponse, userProfile models.Patient, providerInfo interface{}) error {
 	apptTime, err := time.Parse("3:04 PM", appointment.AppointmentTime)
 	if err != nil {
 		return fmt.Errorf("failed to parse appointment time: %w", err)
@@ -179,7 +198,7 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 	}
 
 	scheduleStatus, scheduleData, scheduleErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
-
+	log.Println("Both Notifications sent")
 	var errs []string
 	if sendErr != nil {
 		errs = append(errs, fmt.Sprintf("send failed: %v (status: %d, data: %v)", sendErr, sendStatus, sendData))
@@ -187,14 +206,34 @@ func (e *EmailService) SendAppointmentMail(appointment models.AppointmentRespons
 	if scheduleErr != nil {
 		errs = append(errs, fmt.Sprintf("schedule failed: %v (status: %d, data: %v)", scheduleErr, scheduleStatus, scheduleData))
 	}
-
+	log.Println(errs)
 	if len(errs) > 0 {
 		return fmt.Errorf(strings.Join(errs, " | "))
+	}
+	log.Println("No Errors found")
+	notifId, notifIdErr := utils.ExtractNotificationID(scheduleData)
+	if notifIdErr != nil {
+		log.Println(notifIdErr)
+		return fmt.Errorf("Error while extracting notification Id: " + notifIdErr.Error())
+	}
+	mapErr := e.notificationRepo.CreateNotificationMapping(models.UserNotificationMapping{
+		UserID:           appointment.PatientID,
+		NotificationID:   notifId,
+		Title:            "Appointment Scheduled",
+		Message:          "Appointment scheduled with " + appointmentWith,
+		Tags:             "appointments,reminder",
+		SourceType:       "tbl_appointment_master",
+		SourceID:         fmt.Sprintf("%d", appointment.AppointmentID),
+		NotificationType: "one-time,scheduled",
+	})
+	if mapErr != nil {
+		log.Println(mapErr)
+		return fmt.Errorf("Error while mapping notification Id: " + mapErr.Error())
 	}
 	return nil
 }
 
-func (e *EmailService) SendReportResultsEmail(patientInfo *models.SystemUser_, alerts []models.TestResultAlert) error {
+func (e *EmailServiceImpl) SendReportResultsEmail(patientInfo *models.SystemUser_, alerts []models.TestResultAlert) error {
 	if len(alerts) == 0 {
 		return nil
 	}
@@ -224,12 +263,30 @@ func (e *EmailService) SendReportResultsEmail(patientInfo *models.SystemUser_, a
 	header := map[string]string{
 		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
-
-	return sendErr
+	_, sendData, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	if sendErr != nil {
+		return sendErr
+	}
+	notifId, err := utils.ExtractNotificationID(sendData)
+	if err == nil {
+		err := e.notificationRepo.CreateNotificationMapping(models.UserNotificationMapping{
+			UserID:           patientInfo.UserId,
+			NotificationID:   notifId,
+			Title:            "Health Alert: Out-of-Range Test Results",
+			Message:          "We have reviewed your recent test results and noticed some values that are outside the normal range.",
+			Tags:             "alert",
+			SourceType:       "TestResultAlert",
+			SourceID:         "0",
+			NotificationType: "one-time",
+		})
+		if err != nil {
+			log.Println("@SendReportResultsEmail: failed to save mapping")
+		}
+	}
+	return nil
 }
 
-func (e *EmailService) ShareReportEmail(recipientEmail []string, userDetails *models.SystemUser_, shortURL string) error {
+func (e *EmailServiceImpl) ShareReportEmail(recipientEmail []string, userDetails *models.SystemUser_, shortURL string) error {
 	var errs []string
 	header := map[string]string{
 		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
@@ -256,7 +313,7 @@ func (e *EmailService) ShareReportEmail(recipientEmail []string, userDetails *mo
 	return nil
 }
 
-func (e *EmailService) SendResetPasswordMail(systemUser *models.SystemUser_, token string, recipientEmail string) error {
+func (e *EmailServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_, token string, recipientEmail string) error {
 	APPURL := os.Getenv("APP_URL")
 	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s", APPURL, token)
 	header := map[string]string{
@@ -276,32 +333,32 @@ func (e *EmailService) SendResetPasswordMail(systemUser *models.SystemUser_, tok
 	return sendErr
 }
 
-func (e *EmailService) SendEmail(to string, subject string, body string) error {
-	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
+// func (e *EmailServiceImpl) SendEmail(to string, subject string, body string) error {
+// 	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
 
-	// Build email headers
-	headers := make(map[string]string)
-	headers["From"] = fmt.Sprintf("%s <%s>", e.SenderEmail, e.SenderEmail)
-	headers["To"] = to
-	headers["Subject"] = subject
-	headers["MIME-Version"] = "1.0"
-	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
+// 	// Build email headers
+// 	headers := make(map[string]string)
+// 	headers["From"] = fmt.Sprintf("%s <%s>", e.SenderEmail, e.SenderEmail)
+// 	headers["To"] = to
+// 	headers["Subject"] = subject
+// 	headers["MIME-Version"] = "1.0"
+// 	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
 
-	// Combine headers and body
-	var msg strings.Builder
-	for k, v := range headers {
-		msg.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
-	}
-	msg.WriteString("\r\n" + body)
+// 	// Combine headers and body
+// 	var msg strings.Builder
+// 	for k, v := range headers {
+// 		msg.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+// 	}
+// 	msg.WriteString("\r\n" + body)
 
-	// Send the email
-	address := fmt.Sprintf("%s:%s", e.SMTPHost, e.SMTPPort)
-	err := smtp.SendMail(address, auth, e.SenderEmail, []string{to}, []byte(msg.String()))
-	if err != nil {
-		log.Printf("SMTP error: %v", err)
-		return err
-	}
+// 	// Send the email
+// 	address := fmt.Sprintf("%s:%s", e.SMTPHost, e.SMTPPort)
+// 	err := smtp.SendMail(address, auth, e.SenderEmail, []string{to}, []byte(msg.String()))
+// 	if err != nil {
+// 		log.Printf("SMTP error: %v", err)
+// 		return err
+// 	}
 
-	log.Printf("Email successfully sent to %s", to)
-	return nil
-}
+// 	log.Printf("Email successfully sent to %s", to)
+// 	return nil
+// }

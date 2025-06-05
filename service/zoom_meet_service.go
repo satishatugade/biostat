@@ -80,8 +80,8 @@ func CreateZoomMeeting(accessToken, topic, agenda string, start time.Time, durat
 			WaitingRoom:             false,
 			ApprovalType:            2,
 			Audio:                   "telephony",
-			MeetingInvitees:         invitees,
-			AuthenticationException: authExceptions,
+			// MeetingInvitees:         invitees,
+			// AuthenticationException: authExceptions,
 		},
 	}
 

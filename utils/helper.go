@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -773,4 +774,20 @@ func GenerateGoogleCalendarLink(title, description, location string, start, end 
 	query.Set("location", location)
 
 	return fmt.Sprintf("%s&%s", base, query.Encode())
+}
+
+func ExtractNotificationID(body map[string]interface{}) (uuid.UUID, error) {
+	content, ok := body["content"].(map[string]interface{})
+	if !ok {
+		return uuid.Nil, errors.New("invalid or missing 'content' field")
+	}
+	notifIDStr, ok := content["notification_id"].(string)
+	if !ok {
+		return uuid.Nil, errors.New("'notification_id' not found or not a string")
+	}
+	notifUUID, err := uuid.Parse(notifIDStr)
+	if err != nil {
+		return uuid.Nil, errors.New("invalid UUID format: " + err.Error())
+	}
+	return notifUUID, nil
 }

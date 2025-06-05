@@ -35,7 +35,10 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var exerciseRepo = repository.NewExerciseRepository(db)
 	var exerciseService = service.NewExerciseService(exerciseRepo)
 
-	var emailService = service.NewEmailService()
+	var notificiationRepo = repository.NewUserNotificationRepository(db)
+	var notificationService = service.NewNotificationService(notificiationRepo)
+
+	var emailService = service.NewEmailService(notificiationRepo)
 	var apiService = service.NewApiService()
 
 	var userRepo = repository.NewTblUserTokenRepository(db)
@@ -46,7 +49,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
-	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, *emailService, patientService)
+	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
 
 	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService)
 
@@ -67,7 +70,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var orderRepo = repository.NewOrderRepository(db)
 	var orderService = service.NewOrderService(orderRepo)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService)
 	MasterRoutes(apiGroup, masterController, patientController)
@@ -322,6 +325,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"send-sms", http.MethodPost, constant.SendSMS, patientController.SendSMS},
 		Route{"send-sms", http.MethodPost, constant.ShareReport, patientController.ShareReport},
+
+		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
 	}
 }
 
