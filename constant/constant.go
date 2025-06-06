@@ -23,8 +23,9 @@ const (
 	HealthDetail         = "/health-detail"
 	UpdateHealthDetail   = "/update-health-detail"
 
-	Caregiver     = "/get-caregiver"
-	CaregiverList = "/caregiver-list"
+	Caregiver       = "/get-caregiver"
+	RemoveCaregiver = "/caregiver"
+	CaregiverList   = "/caregiver-list"
 
 	DoctorList = "/doctor-list/:user"
 

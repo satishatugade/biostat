@@ -35,6 +35,7 @@ type SystemUserRoleMapping struct {
 	RelationId              int       `gorm:"column:relation_id;not null" json:"relation_id"`
 	IsSelf                  bool      `gorm:"column:is_self;default:false" json:"is_self"`
 	MappingType             string    `gorm:"column:mapping_type;type:varchar(50)" json:"mapping_type,omitempty"`
+	IsDeleted               int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
 	CreatedAt               time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt               time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 }

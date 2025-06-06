@@ -30,12 +30,13 @@ type PatientRepository interface {
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AddPatientRelative(relative *models.PatientRelative) error
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
+	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.PatientRelative, error)
 	GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
-	FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool) ([]models.UserRelation, error)
+	FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error)
 	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
 	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
@@ -635,6 +636,22 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 	return tx.Commit().Error
 }
 
+func (pr *PatientRepositoryImpl) SetCaregiverMappingDeletedStatus(patientId, caregiverId uint64, isDeleted int) error {
+	result := pr.db.Model(&models.SystemUserRoleMapping{}).
+		Where("patient_id = ? AND user_id = ? AND mapping_type IN ?", patientId, caregiverId, []string{"C"}).
+		Update("is_deleted", isDeleted)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no caregiver mapping found to update")
+	}
+
+	return nil
+}
+
 func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
 	var relatives []models.PatientRelative
 	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
@@ -771,14 +788,14 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 	return relatives, err
 }
 
-func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool) ([]models.UserRelation, error) {
+func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error) {
 	var userRelations []models.UserRelation
 
 	db := p.db.Table("tbl_system_user_role_mapping")
 	if patientId != nil {
 		db = db.Where("patient_id = ?", *patientId)
 	}
-	db = db.Where("mapping_type IN (?) AND is_self = ?", mappingType, isSelf)
+	db = db.Where("mapping_type IN (?) AND is_self = ? AND is_deleted = ? ", mappingType, isSelf, isDeleted)
 	err := db.Select("user_id,patient_id,relation_id,mapping_type").Scan(&userRelations).Error
 	if err != nil {
 		return nil, err

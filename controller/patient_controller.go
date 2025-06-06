@@ -544,6 +544,39 @@ func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, caregivers, nil, nil)
 }
 
+func (pc *PatientController) SetCaregiverMappingDeletedStatus(c *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	caregiverIDStr := c.Query("caregiver_id")
+	if caregiverIDStr == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing caregiver_id in query parameter", nil, nil)
+		return
+	}
+
+	isDeletedStr := c.DefaultQuery("is_deleted", "1")
+	isDeletedInt, err := strconv.Atoi(isDeletedStr)
+	if err != nil || (isDeletedInt != 0 && isDeletedInt != 1) {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid is_deleted value. Use 1 or 0.", nil, err)
+		return
+	}
+	caregiverId, err := strconv.ParseUint(caregiverIDStr, 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid caregiver_id", nil, err)
+		return
+	}
+
+	err = pc.patientService.SetCaregiverMappingDeletedStatus(patientId, caregiverId, isDeletedInt)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Caregiver not found", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Caregiver removed successfully", nil, nil, nil)
+}
+
 func (pc *PatientController) GetCaregiverList(c *gin.Context) {
 
 	caregivers, err := pc.patientService.GetCaregiverList(nil)
