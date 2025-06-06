@@ -1256,6 +1256,52 @@ func (pc *PatientController) UpdateUserAppointment(ctx *gin.Context) {
 	return
 }
 
+func (mc *PatientController) AddLab(c *gin.Context) {
+	authUserId, userId, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var lab models.DiagnosticLab
+	lab.CreatedBy = authUserId
+	if err := c.ShouldBindJSON(&lab); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+	labInfo, err := mc.diagnosticService.CreateLab(&lab)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create lab", nil, err)
+		return
+	}
+	err1 := mc.diagnosticService.AddMapping(userId, labInfo)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err1)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", nil, nil, nil)
+}
+
+func (pc *PatientController) GetPatientDiagnosticLabs(c *gin.Context) {
+	_, userId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	page, limit, offset := utils.GetPaginationParams(c)
+	labs, totalRecords, err := pc.diagnosticService.GetPatientDiagnosticLabs(userId, limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient labs", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(labs),
+		"Patient diagnostic labs retrieved successfully",
+		"Labs not found",
+	)
+	models.SuccessResponse(c, constant.Success, statusCode, message, labs, pagination, nil)
+}
+
 func (pc *PatientController) GetAllLabs(c *gin.Context) {
 	_, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
@@ -1454,6 +1500,28 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	}(patientId)
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", reportData, nil, nil)
+}
+
+func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
+	_, userId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var reportData models.LabReport
+	if err := ctx.ShouldBindJSON(&reportData); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid health stats report", nil, err)
+		return
+	}
+
+	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, nil)
+	if err1 != nil {
+		log.Printf("Healht stats update error : %d: %v", userId, err1)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update health stats", nil, err1)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health stats updated successfully.", nil, nil, nil)
 }
 
 func (pc *PatientController) ArchivePatientDiagnosticReport(c *gin.Context) {

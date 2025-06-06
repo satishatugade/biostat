@@ -66,6 +66,8 @@ type PatientDiagnosticReport struct {
 	ReviewDate                time.Time `gorm:"column:review_date" json:"review_date"`
 	SharedFlag                string    `gorm:"column:shared_flag" json:"shared_flag"`
 	SharedWith                string    `gorm:"column:shared_with" json:"shared_with"`
+	IsDeleted                 int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
+	IsDigital                 bool      `gorm:"column:is_digital;default:false" json:"is_digital"`
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
@@ -202,6 +204,7 @@ type LabReport struct {
 		LabName          string `json:"lab_name"`
 		LabEmail         string `json:"lab_email"`
 		LabID            string `json:"lab_id"`
+		IsDigital        bool   `json:"is_digital"`
 		LabLocation      string `json:"lab_location"`
 		LabContactNumber string `json:"lab_contact_number"`
 	} `json:"report_details"`
@@ -351,4 +354,35 @@ type PatientTestComponentDisplayConfig struct {
 
 func (PatientTestComponentDisplayConfig) TableName() string {
 	return "tbl_patient_test_component_display_config"
+}
+
+type PatientDiagnosticLabMapping struct {
+	PatientId       uint64    `gorm:"column:patient_id;not null" json:"patient_id"`
+	DiagnosticLabId uint64    `gorm:"column:diagnostic_lab_id;not null" json:"diagnostic_lab_id"`
+	CreatedAt       time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	CreatedBy       string    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy       string    `gorm:"column:updated_by" json:"updated_by"`
+	IsDeleted       int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
+}
+
+func (PatientDiagnosticLabMapping) TableName() string {
+	return "tbl_patient_diagnostic_lab_mapping"
+}
+
+type DiagnosticLabResponse struct {
+	DiagnosticLabId  uint64    `json:"diagnostic_lab_id"`
+	LabNo            string    `json:"lab_no"`
+	LabName          string    `json:"lab_name"`
+	LabAddress       string    `json:"lab_address"`
+	City             string    `json:"city"`
+	State            string    `json:"state"`
+	PostalCode       string    `json:"postal_code"`
+	LabContactNumber string    `json:"lab_contact_number"`
+	LabEmail         string    `json:"lab_email"`
+	IsDeleted        int       `json:"is_deleted"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	CreatedBy        string    `json:"created_by"`
+	UpdatedBy        string    `json:"updated_by"`
 }

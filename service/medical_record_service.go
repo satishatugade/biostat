@@ -75,7 +75,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 				log.Printf("Gemini Service Error for record %d: %v", recordID, err)
 				return
 			}
-
+			reportData.ReportDetails.IsDigital = true
 			message, err := s.diagnosticService.DigitizeDiagnosticReport(reportData, userID, &record.RecordId)
 			if err != nil {
 				log.Printf("Digitize error for record %d: %v", recordID, err)

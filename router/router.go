@@ -245,6 +245,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.UserOnboardingStatus, patientController.GetUserOnBoardingStatus},
 
 		Route{"D-LAB", http.MethodPost, constant.GetAllLab, patientController.GetAllLabs},
+		Route{"D-LAB", http.MethodPost, constant.AddLab, patientController.AddLab},
+		Route{"D-LAB", http.MethodPost, constant.GetPatientLabs, patientController.GetPatientDiagnosticLabs},
 
 		// patient relatives
 		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
@@ -312,6 +314,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadUserUploadedMedicalFile},
 
 		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
+		Route{"Add health stat", http.MethodPost, constant.HealthStats, patientController.AddHealthStats},
 		Route{"patient diagnostic report save", http.MethodPost, constant.ReportArchive, patientController.ArchivePatientDiagnosticReport},
 
 		Route{"AddReportNote", http.MethodPost, constant.AddNote, patientController.AddPatientReportNote},

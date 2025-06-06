@@ -123,12 +123,14 @@ const (
 	//bulk upload master data
 	BulkUpload = "/bulk-upload/:entity"
 
-	DiagnosticLab = "/diagnostic-lab"
-	GetAllLab     = "/get-diagnostic-lab"
-	GetLabById    = "/diagnostic-lab/:lab_id"
-	UpdateLabInfo = "/update-lab-info"
-	DeleteLab     = "/delete-lab/:lab_id"
-	AuditViewLab  = "/lab-audit-view"
+	DiagnosticLab  = "/diagnostic-lab"
+	GetAllLab      = "/get-diagnostic-lab"
+	AddLab         = "/add-diagnostic-lab"
+	GetPatientLabs = "/diagnostic-lab"
+	GetLabById     = "/diagnostic-lab/:lab_id"
+	UpdateLabInfo  = "/update-lab-info"
+	DeleteLab      = "/delete-lab/:lab_id"
+	AuditViewLab   = "/lab-audit-view"
 
 	AddGroup           = "/add-support-group"
 	GetAllGroup        = "/get-support-group"
@@ -172,6 +174,7 @@ const (
 	GetOrders = "/orders"
 
 	SaveReport              = "/save-report"
+	HealthStats             = "/health-stats"
 	ReportArchive           = "/diagnostic-report/archive"
 	AddNote                 = "/add-report-note"
 	SendSMS                 = "/send-sms"

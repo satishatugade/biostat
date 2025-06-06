@@ -15,10 +15,12 @@ import (
 type DiagnosticService interface {
 	CreateLab(lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
 	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
+	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
 	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
+	AddMapping(userId uint64, LabInfo *models.DiagnosticLab) error
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
 
 	GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error)
@@ -64,6 +66,10 @@ func NewDiagnosticService(repo repository.DiagnosticRepository, emailService Ema
 
 func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
 	return s.diagnosticRepo.GetAllDiagnosticTests(limit, offset)
+}
+
+func (s *DiagnosticServiceImpl) AddMapping(patientId uint64, labInfo *models.DiagnosticLab) error {
+	return s.diagnosticRepo.AddMapping(patientId, labInfo)
 }
 
 func (ds *DiagnosticServiceImpl) ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error {
@@ -211,6 +217,10 @@ func (s *DiagnosticServiceImpl) GetAllLabs(limit, offset int) ([]models.Diagnost
 	return s.diagnosticRepo.GetAllLabs(limit, offset)
 }
 
+func (s *DiagnosticServiceImpl) GetPatientDiagnosticLabs(patientId uint64, limit, offset int) ([]models.DiagnosticLabResponse, int64, error) {
+	return s.diagnosticRepo.GetPatientDiagnosticLabs(patientId, limit, offset)
+}
+
 func (s *DiagnosticServiceImpl) AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error {
 	return s.diagnosticRepo.AddDiseaseDiagnosticTestMapping(mapping)
 }
@@ -284,17 +294,22 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	var parsedDate time.Time
 	var err error
 	if reportData.ReportDetails.ReportDate != "" {
-		parsedDate, err = time.Parse("02-Jan-2006", reportData.ReportDetails.ReportDate)
-		if err != nil {
-			parsedDate, err = time.Parse("02-Jan-06", reportData.ReportDetails.ReportDate)
-			if err != nil {
-				parsedDate, err = time.Parse("02/01/2006", reportData.ReportDetails.ReportDate)
-				if err != nil {
-					log.Println("Invalid date format:", err)
-					tx.Rollback()
-					return "", fmt.Errorf("invalid date format: %w", err)
-				}
+		layouts := []string{
+			time.RFC3339,
+			"02-Jan-2006",
+			"02-Jan-06",
+			"02/01/2006",
+		}
+		for _, layout := range layouts {
+			parsedDate, err = time.Parse(layout, reportData.ReportDetails.ReportDate)
+			if err == nil {
+				break
 			}
+		}
+		if err != nil {
+			log.Println("Invalid date format:", err)
+			tx.Rollback()
+			return "", fmt.Errorf("invalid date format: %w", err)
 		}
 	} else {
 		log.Println("Empty report date, using default date")

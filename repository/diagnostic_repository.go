@@ -16,9 +16,11 @@ type DiagnosticRepository interface {
 	//Diagnostic labs
 	CreateLab(tx *gorm.DB, lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
 	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
+	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
+	AddMapping(userId uint64, LabInfo *models.DiagnosticLab) error
 	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
 
@@ -397,6 +399,29 @@ func (r *DiagnosticRepositoryImpl) GetAllLabs(limit, offset int) ([]models.Diagn
 	return labs, total, err
 }
 
+func (dr *DiagnosticRepositoryImpl) GetPatientDiagnosticLabs(patientId uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error) {
+	var labs []models.DiagnosticLabResponse
+	var count int64
+
+	if err := dr.db.Model(&models.PatientDiagnosticLabMapping{}).
+		Where("patient_id = ? AND is_deleted = 0", patientId).
+		Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := dr.db.Table("tbl_patient_diagnostic_lab_mapping AS mapping").
+		Select(`labs.diagnostic_lab_id, labs.lab_no, labs.lab_name, labs.lab_address, labs.city, labs.state,
+			labs.postal_code, labs.lab_contact_number, labs.lab_email, labs.is_deleted,
+			labs.created_at, labs.updated_at, labs.created_by, labs.updated_by`).
+		Joins("JOIN tbl_diagnostic_lab AS labs ON labs.diagnostic_lab_id = mapping.diagnostic_lab_id").
+		Where("mapping.patient_id = ? AND mapping.is_deleted = 0", patientId).
+		Limit(limit).
+		Offset(offset).
+		Scan(&labs).Error
+
+	return labs, count, err
+}
+
 func (r *DiagnosticRepositoryImpl) GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error) {
 	var lab models.DiagnosticLab
 	err := r.db.Where("diagnostic_lab_id = ? AND is_deleted = 0", diagnosticlLabId).First(&lab).Error
@@ -453,6 +478,31 @@ func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 				"updated_at": lab.UpdatedAt,
 			}).Error
 	})
+}
+
+func (repo *DiagnosticRepositoryImpl) AddMapping(patientId uint64, labInfo *models.DiagnosticLab) error {
+	var existingMapping models.SystemUserRoleMapping
+	err := repo.db.Where("user_id = ? AND patient_id = ? AND mapping_type = ? AND is_self = ?",
+		patientId, patientId, "S", true).
+		First(&existingMapping).Error
+
+	if err != nil {
+		return err
+	}
+
+	newLabMapping := models.PatientDiagnosticLabMapping{
+		PatientId:       patientId,
+		DiagnosticLabId: labInfo.DiagnosticLabId,
+		CreatedBy:       labInfo.CreatedBy,
+		UpdatedBy:       labInfo.CreatedBy,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+		IsDeleted:       0,
+	}
+	if err := repo.db.Create(&newLabMapping).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *DiagnosticRepositoryImpl) GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error) {
