@@ -16,6 +16,7 @@ type DiagnosticService interface {
 	CreateLab(lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
 	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
 	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
+	GetSinglePatientDiagnosticLab(patientId uint64, labId *uint64) (*models.DiagnosticLabResponse, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
@@ -221,6 +222,10 @@ func (s *DiagnosticServiceImpl) GetPatientDiagnosticLabs(patientId uint64, limit
 	return s.diagnosticRepo.GetPatientDiagnosticLabs(patientId, limit, offset)
 }
 
+func (s *DiagnosticServiceImpl) GetSinglePatientDiagnosticLab(patientId uint64, labId *uint64) (*models.DiagnosticLabResponse, error) {
+	return s.diagnosticRepo.GetSinglePatientDiagnosticLab(patientId, labId)
+}
+
 func (s *DiagnosticServiceImpl) AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error {
 	return s.diagnosticRepo.AddDiseaseDiagnosticTestMapping(mapping)
 }
@@ -272,11 +277,15 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 
 	var diagnosticLabId uint64
 	labName := reportData.ReportDetails.LabName
+	if labName == "" {
+		log.Println("Lab name is empty, skipping lab creation/mapping.")
+		return "", fmt.Errorf("lab name is required to proceed")
+	}
 	if val, exists := diagnosticLabs[strings.ToLower(labName)]; exists {
 		diagnosticLabId = val
 	} else {
 		newLab := models.DiagnosticLab{
-			LabNo:            reportData.ReportDetails.LabID,
+			LabNo:            reportData.ReportDetails.LabId,
 			LabName:          labName,
 			LabAddress:       reportData.ReportDetails.LabLocation,
 			LabContactNumber: reportData.ReportDetails.LabContactNumber,

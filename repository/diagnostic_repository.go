@@ -17,6 +17,7 @@ type DiagnosticRepository interface {
 	CreateLab(tx *gorm.DB, lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
 	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
 	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
+	GetSinglePatientDiagnosticLab(patientId uint64, labId *uint64) (*models.DiagnosticLabResponse, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
@@ -415,11 +416,36 @@ func (dr *DiagnosticRepositoryImpl) GetPatientDiagnosticLabs(patientId uint64, l
 			labs.created_at, labs.updated_at, labs.created_by, labs.updated_by`).
 		Joins("JOIN tbl_diagnostic_lab AS labs ON labs.diagnostic_lab_id = mapping.diagnostic_lab_id").
 		Where("mapping.patient_id = ? AND mapping.is_deleted = 0", patientId).
+		Order("labs.diagnostic_lab_id DESC").
 		Limit(limit).
 		Offset(offset).
 		Scan(&labs).Error
 
 	return labs, count, err
+}
+
+func (dr *DiagnosticRepositoryImpl) GetSinglePatientDiagnosticLab(patientId uint64, diagnosticLabId *uint64) (*models.DiagnosticLabResponse, error) {
+	var lab models.DiagnosticLabResponse
+
+	query := dr.db.Table("tbl_patient_diagnostic_lab_mapping AS mapping").
+		Select(`labs.diagnostic_lab_id, labs.lab_no, labs.lab_name, labs.lab_address, labs.city, labs.state,
+			labs.postal_code, labs.lab_contact_number, labs.lab_email, labs.is_deleted,
+			labs.created_at, labs.updated_at, labs.created_by, labs.updated_by`).
+		Joins("JOIN tbl_diagnostic_lab AS labs ON labs.diagnostic_lab_id = mapping.diagnostic_lab_id").
+		Where("mapping.patient_id = ? AND mapping.is_deleted = 0", patientId)
+
+	if diagnosticLabId != nil {
+		query = query.Where("mapping.diagnostic_lab_id = ?", *diagnosticLabId)
+	} else {
+		query = query.Order("mapping.created_at DESC").Limit(1)
+	}
+
+	err := query.Scan(&lab).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &lab, nil
 }
 
 func (r *DiagnosticRepositoryImpl) GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error) {

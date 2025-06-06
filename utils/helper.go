@@ -606,7 +606,6 @@ func ToDiseaseProfileSummaryDTOs(profiles []models.DiseaseProfile) []models.Dise
 }
 
 func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (string, uint64, error) {
-	log.Println("Delegate User ID Header:", ctx.GetHeader("X-Delegate-User-Id"))
 	sub, subExists := ctx.Get("sub")
 	if !subExists {
 		return "", 0, errors.New("user not found")

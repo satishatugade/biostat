@@ -1514,10 +1514,17 @@ func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
 		return
 	}
 
-	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, nil)
+	response, err := pc.diagnosticService.GetSinglePatientDiagnosticLab(userId, reportData.ReportDetails.DiagnosticLabId)
+	if err != nil {
+		log.Printf("Lab not found  %d: %v", userId, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Lab not found", nil, err)
+		return
+	}
+	reportData.ReportDetails.LabName = response.LabName
+	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, func() *uint64 { v := uint64(0); return &v }())
 	if err1 != nil {
 		log.Printf("Healht stats update error : %d: %v", userId, err1)
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update health stats", nil, err1)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err1.Error(), nil, err1)
 		return
 	}
 

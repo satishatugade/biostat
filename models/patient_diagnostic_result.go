@@ -199,14 +199,15 @@ type ResultSummary struct {
 
 type LabReport struct {
 	ReportDetails struct {
-		ReportName       string `json:"report_name"`
-		ReportDate       string `json:"report_date"`
-		LabName          string `json:"lab_name"`
-		LabEmail         string `json:"lab_email"`
-		LabID            string `json:"lab_id"`
-		IsDigital        bool   `json:"is_digital"`
-		LabLocation      string `json:"lab_location"`
-		LabContactNumber string `json:"lab_contact_number"`
+		ReportName       string  `json:"report_name"`
+		ReportDate       string  `json:"report_date"`
+		DiagnosticLabId  *uint64 `json:"diagnostic_lab_id"`
+		LabName          string  `json:"lab_name"`
+		LabEmail         string  `json:"lab_email"`
+		LabId            string  `json:"lab_id"`
+		IsDigital        bool    `json:"is_digital"`
+		LabLocation      string  `json:"lab_location"`
+		LabContactNumber string  `json:"lab_contact_number"`
 	} `json:"report_details"`
 	Tests []struct {
 		TestName       string `json:"test_name"`
