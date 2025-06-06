@@ -312,13 +312,13 @@ func (pc *PatientController) GetPrescriptionByPatientId(c *gin.Context) {
 	}
 
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(prescriptions),
 		"Prescription info retrieved successfully",
 		"Prescription info not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, prescriptions, pagination, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, prescriptions, pagination, nil)
 }
 
 func (pc *PatientController) GetPrescriptionDetailByPatientId(c *gin.Context) {
@@ -1294,12 +1294,12 @@ func (pc *PatientController) GetPatientDiagnosticLabs(c *gin.Context) {
 		return
 	}
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(labs),
 		"Patient diagnostic labs retrieved successfully",
 		"Labs not found",
 	)
-	models.SuccessResponse(c, constant.Success, statusCode, message, labs, pagination, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, labs, pagination, nil)
 }
 
 func (pc *PatientController) GetAllLabs(c *gin.Context) {

@@ -1044,11 +1044,7 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		pdtrv.result_status,
 		pdtrv.result_date,
 		pdtrv.result_comment`
-	if input.IsPinned != nil && *input.IsPinned {
-		query += `,
-		COALESCE(ptdc.is_pinned, false) AS is_pinned,
-		ptdc.created_at AS pinned_created_at `
-	}
+
 	query += ` FROM
 		tbl_patient_diagnostic_report pdr
 	INNER JOIN tbl_patient_diagnostic_test pdt 
@@ -1062,12 +1058,6 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 
 	args := []interface{}{input.PatientId}
 
-	if input.IsPinned != nil && *input.IsPinned {
-		query += `
-		LEFT JOIN tbl_patient_test_component_display_config ptdc 
-			ON ptdc.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id 
-			AND ptdc.patient_id = pdr.patient_id`
-	}
 	query += ` WHERE pdr.patient_id = ?`
 	if input.DiagnosticTestComponentId != nil {
 		query += " AND pdtrv.diagnostic_test_component_id = ?"
@@ -1088,11 +1078,6 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		query += " AND pdtrv.result_date BETWEEN ? AND ?"
 		args = append(args, *input.ResultDateStart, *input.ResultDateEnd)
 	}
-
-	if input.IsPinned != nil && *input.IsPinned {
-		query += ` ORDER BY COALESCE(ptdc.is_pinned, true) DESC, ptdc.created_at DESC NULLS LAST`
-	}
-
 	rows, err := pr.db.Raw(query, args...).Rows()
 	if err != nil {
 		return nil, err
