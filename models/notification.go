@@ -21,5 +21,5 @@ type UserNotificationMapping struct {
 }
 
 func (UserNotificationMapping) TableName() string {
-	return "user_notification_mapping"
+	return "tbl_user_notification_mapping"
 }
