@@ -6,8 +6,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -74,7 +76,14 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 				log.Println("Failed to download attachment %s: %v", part.Filename, err)
 				continue
 			}
-			originalName := strings.TrimSuffix(part.Filename, filepath.Ext(part.Filename))
+			decodedName, err := url.QueryUnescape(part.Filename)
+			if err != nil {
+				decodedName = part.Filename
+			}
+			decodedName = strings.ReplaceAll(decodedName, " ", "_")
+			re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+			safeName := re.ReplaceAllString(decodedName, "_")
+			originalName := strings.TrimSuffix(safeName, filepath.Ext(safeName))
 			extension := filepath.Ext(part.Filename)
 			uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
 			safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)

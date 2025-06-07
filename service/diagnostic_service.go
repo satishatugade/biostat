@@ -277,10 +277,10 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 
 	var diagnosticLabId uint64
 	labName := reportData.ReportDetails.LabName
-	if labName == "" {
-		log.Println("Lab name is empty, skipping lab creation/mapping.")
-		return "", fmt.Errorf("lab name is required to proceed")
-	}
+	// if labName == "" {
+	// 	log.Println("Lab name is empty, skipping lab creation/mapping.")
+	// 	return "", fmt.Errorf("lab name is required to proceed")
+	// }
 	if val, exists := diagnosticLabs[strings.ToLower(labName)]; exists {
 		diagnosticLabId = val
 	} else {
@@ -333,6 +333,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		CollectedDate:   parsedDate,
 		ReportDate:      parsedDate,
 		Observation:     "",
+		IsDigital:       reportData.ReportDetails.IsDigital,
 		CollectedAt:     reportData.ReportDetails.LabLocation,
 	}
 	reportInfo, err := s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)

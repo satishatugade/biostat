@@ -15,8 +15,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -766,8 +768,15 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		return
 	}
 
-	originalName := strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
-	extension := filepath.Ext(header.Filename)
+	decodedName, err := url.QueryUnescape(header.Filename)
+	if err != nil {
+		decodedName = header.Filename
+	}
+	decodedName = strings.ReplaceAll(decodedName, " ", "_")
+	re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+	cleanName := re.ReplaceAllString(decodedName, "_")
+	originalName := strings.TrimSuffix(cleanName, filepath.Ext(cleanName))
+	extension := filepath.Ext(cleanName)
 	uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
 	safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
 	destinationPath := filepath.Join("uploads", safeFileName)
@@ -808,7 +817,7 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record created successfully", data, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Your record has been created successfully. Digitization is in progress and should complete within 4–5 minutes.", data, nil, nil)
 }
 
 func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {

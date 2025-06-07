@@ -455,25 +455,6 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticResultValue(patientId uint64
 	return reportsWithDetails, recordIds, nil
 }
 
-// func (p *PatientRepositoryImpl) GetPatientMedicalRecordId(uniqueReportIds []uint64) ([]uint64, error) {
-// 	var attachments []models.PatientReportAttachment
-// 	var recordIds []uint64
-
-// 	err := p.db.
-// 		Model(&models.PatientReportAttachment{}).
-// 		Where("patient_diagnostic_report_id IN ?", uniqueReportIds).
-// 		Find(&attachments).Error
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	for _, attach := range attachments {
-// 		recordIds = append(recordIds, attach.RecordId)
-// 	}
-
-// 	return recordIds, nil
-// }
-
 func (p *PatientRepositoryImpl) GetPatientMedicalRecordId(uniqueReportIds []uint64) (map[uint64]uint64, error) {
 	var attachments []models.PatientReportAttachment
 	recordMap := make(map[uint64]uint64)
@@ -579,9 +560,9 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(patientId uint64,
 		// Preload("DiagnosticLabs.PatientReportAttachments.MedicalRecord").
 		Preload("PatientDiagnosticTests.DiagnosticTest").
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components").
-		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue", "patient_id = ?", patientId).
+		Preload("PatientDiagnosticTests.DiagnosticTest.Components.TestResultValue", "patient_id = ? AND patient_diagnostic_report_id IN (?)", patientId, reportIds).
 		Preload("PatientDiagnosticTests.DiagnosticTest.Components.ReferenceRange").
-		Where("patient_diagnostic_report_id IN (?)", reportIds).
+		Where("patient_diagnostic_report_id IN (?) AND is_deleted = ? ", reportIds, 0).Order("patient_diagnostic_report_id DESC").
 		Find(&patientReport)
 
 	if result.Error != nil {
@@ -803,7 +784,6 @@ func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappin
 	return userRelations, nil
 }
 
-// GetCaregiverList implements PatientRepository.
 func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error) {
 
 	var caregivers []models.Caregiver
@@ -864,7 +844,6 @@ func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.
 		return nil, err
 	}
 
-	// Fetch address for each doctor separately
 	for i, doc := range doctors {
 		var address models.AddressMaster
 		err := p.db.Where("user_id = ?", doc.DoctorId).First(&address).Error
@@ -965,16 +944,6 @@ func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (boo
 	return isComplete, nil
 }
 
-// func (p *PatientRepositoryImpl) IsUserHealthDetailsComplete(user_id uint64) (bool, error) {
-// 	var count int64
-// 	err := p.db.Table("tbl_patient_health_profile").Where("patient_id = ?", user_id).Count(&count).Error
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	isComplete := count > 0
-// 	return isComplete, nil
-// }
-
 func (p *PatientRepositoryImpl) IsUserHealthDetailsComplete(user_id uint64) (bool, error) {
 	var profile models.TblPatientHealthProfile
 	err := p.db.Table("tbl_patient_health_profile").
@@ -1041,9 +1010,7 @@ func (p *PatientRepositoryImpl) ExistsByUserIdAndRoleId(userId uint64, roleId ui
 }
 
 func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error) {
-
-	query := `
-	SELECT
+	selectFields := `
 		pdr.patient_diagnostic_report_id,
 		pdr.patient_id,
 		pdr.collected_date,
@@ -1062,20 +1029,33 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		pdtrv.result_date,
 		pdtrv.result_comment`
 
-	query += ` FROM
-		tbl_patient_diagnostic_report pdr
-	INNER JOIN tbl_patient_diagnostic_test pdt 
-		ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
-	INNER JOIN tbl_patient_diagnostic_test_result_value pdtrv 
-		ON pdt.diagnostic_test_id = pdtrv.diagnostic_test_id
-	LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
-		ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
-	LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
-		ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id`
+	if input.IsPinned != nil {
+		selectFields = "dc.is_pinned, " + selectFields
+	}
 
-	args := []interface{}{input.PatientId}
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM tbl_patient_diagnostic_report pdr
+		INNER JOIN tbl_patient_diagnostic_test pdt 
+			ON pdr.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id
+		INNER JOIN tbl_patient_diagnostic_test_result_value pdtrv 
+			ON pdt.diagnostic_test_id = pdtrv.diagnostic_test_id 
+			AND pdt.patient_diagnostic_report_id = pdtrv.patient_diagnostic_report_id
+		LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
+			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
+			ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id`, selectFields)
+
+	if input.IsPinned != nil {
+		query += `
+		LEFT JOIN tbl_patient_test_component_display_config dc 
+			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
+			AND pdtrv.patient_id = dc.patient_id`
+	}
 
 	query += ` WHERE pdr.patient_id = ?`
+	args := []interface{}{input.PatientId}
+
 	if input.DiagnosticTestComponentId != nil {
 		query += " AND pdtrv.diagnostic_test_component_id = ?"
 		args = append(args, *input.DiagnosticTestComponentId)
@@ -1088,13 +1068,20 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 
 	if input.ReportDateStart != nil && input.ReportDateEnd != nil {
 		query += " AND pdr.report_date BETWEEN ? AND ?"
-		args = append(args, *input.ReportDateStart, *input.ReportDateStart)
+		args = append(args, *input.ReportDateStart, *input.ReportDateEnd)
 	}
 
 	if input.ResultDateStart != nil && input.ResultDateEnd != nil {
 		query += " AND pdtrv.result_date BETWEEN ? AND ?"
 		args = append(args, *input.ResultDateStart, *input.ResultDateEnd)
 	}
+
+	if input.IsPinned != nil {
+		query += " AND dc.is_pinned = ?"
+		args = append(args, *input.IsPinned)
+		query += " ORDER BY dc.created_at DESC"
+	}
+	fmt.Println("qurey", query)
 	rows, err := pr.db.Raw(query, args...).Rows()
 	if err != nil {
 		return nil, err
@@ -1129,7 +1116,6 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		}
 		results = append(results, rowMap)
 	}
-
 	return results, nil
 }
 

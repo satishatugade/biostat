@@ -73,7 +73,7 @@ func (s *OrderServiceImpl) GetOrdersByUserID(userID uint64) ([]models.OrderRespo
 				prescription, _ := s.orderRepo.GetPrescriptionByID(item.ItemID)
 
 				if prescription != nil {
-					itemName = fmt.Sprintf("%s (%.0f %s) - %s", prescription.MedicineName, prescription.UnitValue, prescription.UnitType, prescription.PrescriptionType)
+					itemName = fmt.Sprintf("%s - %s", prescription.MedicineName, prescription.PrescriptionType)
 					itemDesc = prescription.Instruction
 				}
 			}
