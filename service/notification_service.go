@@ -3,10 +3,17 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"biostat/utils"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+	"time"
 )
 
 type NotificationService interface {
 	GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error)
+	ScheduleReminders(email, name string, user_id uint64, config []models.ReminderConfig) error
 }
 
 type NotificationServiceImpl struct {
@@ -19,4 +26,74 @@ func NewNotificationService(repo repository.UserNotificationRepository) Notifica
 
 func (e *NotificationServiceImpl) GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error) {
 	return e.notificationRepo.GetNotificationByUserId(userId)
+}
+
+func (e *NotificationServiceImpl) ScheduleReminders(email, name string, user_id uint64, config []models.ReminderConfig) error {
+	startDate := time.Now()
+	var failedSlots []string
+	
+	for _, reminder := range config {
+		reminderTimeStr := fmt.Sprintf("%s %s", startDate.Format("2006-01-02"), reminder.Time)
+		reminderTime, err := time.ParseInLocation("2006-01-02 15:04", reminderTimeStr, time.Local)
+		if err != nil {
+			log.Printf("@ScheduleReminders Error parsing time for %s slot: %v", reminder.TimeSlot, err)
+			failedSlots = append(failedSlots, fmt.Sprintf("%s: invalid time format", reminder.TimeSlot))
+			continue
+		}
+		scheduleTime := reminderTime.Format(time.RFC3339)
+		repeatUntil := reminderTime.AddDate(0, 0, reminder.DurationDays).Format(time.RFC3339)
+		var medList []string
+		for _, med := range reminder.Medicines {
+			medList = append(medList, fmt.Sprintf("%s (%d %s)", med.Name, med.Dose, med.Unit))
+		}
+
+		scheduleBody := map[string]interface{}{
+			"recipient_mail_id": email,
+			"template_code":     3,
+			"channels":          []string{"email"},
+			"repeat_type":       "daily",
+			"repeat_interval":   1,
+			"repeat_times":      reminder.DurationDays,
+			"repeat_until":      repeatUntil,
+			"is_recurring":      true,
+			"schedule_time":     scheduleTime,
+			"data": map[string]interface{}{
+				"userName":  name,
+				"medicines": strings.Join(medList, ", "),
+			},
+		}
+		header := map[string]string{
+			"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		}
+		_, data, err := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
+		if err != nil {
+			log.Printf("@ScheduleReminders ->MakeRESTRequest [%s] -> Failed to schedule notification: %v", reminder.TimeSlot, err)
+			failedSlots = append(failedSlots, fmt.Sprintf("%s: scheduling failed", reminder.TimeSlot))
+			continue
+		}
+		notifId, notifIdErr := utils.ExtractNotificationID(data)
+		if notifIdErr != nil {
+			log.Printf("@ScheduleReminders -> ExtractNotificationID [%s] -> Error extracting notification ID: %v", reminder.TimeSlot, notifIdErr)
+			failedSlots = append(failedSlots, fmt.Sprintf("%s: could not extract ID", reminder.TimeSlot))
+			continue
+		}
+		err = e.notificationRepo.CreateNotificationMapping(models.UserNotificationMapping{
+			UserID:           user_id,
+			NotificationID:   notifId,
+			SourceType:       "Medicine_Reminder",
+			SourceID:         "0",
+			Title:            fmt.Sprintf("%s Medicine Reminder", reminder.TimeSlot),
+			Message:          fmt.Sprintf("Please take following medicines without fail %s", strings.Join(medList, ", ")),
+			Tags:             "medication,reminder",
+			NotificationType: "scheduled",
+		})
+		if err != nil {
+			log.Printf("@ScheduleReminders -> CreateNotificationMapping [%s] -> Failed to save mapping: %v", reminder.TimeSlot, err)
+			failedSlots = append(failedSlots, fmt.Sprintf("%s: mapping failed", reminder.TimeSlot))
+		}
+	}
+	if len(failedSlots) > 0 {
+		return fmt.Errorf("failed to schedule reminders for: %s", strings.Join(failedSlots, "; "))
+	}
+	return nil
 }

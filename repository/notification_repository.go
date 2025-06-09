@@ -30,6 +30,6 @@ func (r *UserNotificationRepositoryImpl) CreateNotificationMapping(mapping model
 
 func (r *UserNotificationRepositoryImpl) GetNotificationByUserId(userId uint64) ([]models.UserNotificationMapping, error) {
 	var notifs []models.UserNotificationMapping
-	err := r.db.Where("user_id = ?", userId).Find(&notifs).Error
+	err := r.db.Where("user_id = ?", userId).Order("created_at DESC").Find(&notifs).Error
 	return notifs, err
 }

@@ -198,7 +198,6 @@ func (e *EmailServiceImpl) SendAppointmentMail(appointment models.AppointmentRes
 	}
 
 	scheduleStatus, scheduleData, scheduleErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
-	log.Println("Both Notifications sent")
 	var errs []string
 	if sendErr != nil {
 		errs = append(errs, fmt.Sprintf("send failed: %v (status: %d, data: %v)", sendErr, sendStatus, sendData))
@@ -210,7 +209,6 @@ func (e *EmailServiceImpl) SendAppointmentMail(appointment models.AppointmentRes
 	if len(errs) > 0 {
 		return fmt.Errorf(strings.Join(errs, " | "))
 	}
-	log.Println("No Errors found")
 	notifId, notifIdErr := utils.ExtractNotificationID(scheduleData)
 	if notifIdErr != nil {
 		log.Println(notifIdErr)
@@ -333,32 +331,3 @@ func (e *EmailServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_,
 	return sendErr
 }
 
-// func (e *EmailServiceImpl) SendEmail(to string, subject string, body string) error {
-// 	auth := smtp.PlainAuth("", e.SenderEmail, e.SenderPass, e.SMTPHost)
-
-// 	// Build email headers
-// 	headers := make(map[string]string)
-// 	headers["From"] = fmt.Sprintf("%s <%s>", e.SenderEmail, e.SenderEmail)
-// 	headers["To"] = to
-// 	headers["Subject"] = subject
-// 	headers["MIME-Version"] = "1.0"
-// 	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
-
-// 	// Combine headers and body
-// 	var msg strings.Builder
-// 	for k, v := range headers {
-// 		msg.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
-// 	}
-// 	msg.WriteString("\r\n" + body)
-
-// 	// Send the email
-// 	address := fmt.Sprintf("%s:%s", e.SMTPHost, e.SMTPPort)
-// 	err := smtp.SendMail(address, auth, e.SenderEmail, []string{to}, []byte(msg.String()))
-// 	if err != nil {
-// 		log.Printf("SMTP error: %v", err)
-// 		return err
-// 	}
-
-// 	log.Printf("Email successfully sent to %s", to)
-// 	return nil
-// }

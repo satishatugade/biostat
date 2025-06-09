@@ -2010,3 +2010,33 @@ func (pc *PatientController) GetUserMessages(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "notifications loaded", notifications, nil, nil)
 	return
 }
+
+func (pc *PatientController) SetUserReminder(ctx *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	if user.Email == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "please add email id for scheduling reminders", nil, err)
+		return
+	}
+	var reminderReq []models.ReminderConfig
+	if err := ctx.ShouldBindJSON(&reminderReq); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
+		return
+	}
+
+	err = pc.notificationService.ScheduleReminders(user.Email, user.FirstName, user_id, reminderReq)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "reminder could not be added", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "reminder saved successfully", nil, nil, nil)
+	return
+}

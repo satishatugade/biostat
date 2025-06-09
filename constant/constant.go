@@ -188,6 +188,7 @@ const (
 	VerifyOTP               = "/verify-otp"
 	Postalcode              = "/address/postalcode"
 	Messages                = "/messages"
+	Reminder                = "/reminder"
 )
 
 const (

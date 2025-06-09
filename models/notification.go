@@ -16,10 +16,22 @@ type UserNotificationMapping struct {
 	Message          string    `gorm:"column:message" json:"message"`
 	Tags             string    `gorm:"column:tags" json:"tags"`
 	NotificationType string    `gorm:"column:notification_type" json:"notification_type"`
-	CreatedAt        time.Time `gorm:"column:create_at;autoCreateTime" json:"created_at"`
+	CreatedAt        time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 }
 
 func (UserNotificationMapping) TableName() string {
 	return "tbl_user_notification_mapping"
+}
+
+type ReminderConfig struct {
+	TimeSlot     string `json:"time_slot"`
+	Time         string `json:"time"`      // "HH:MM"
+	Frequency    string `json:"frequency"` // e.g., "daily"
+	DurationDays int    `json:"duration_days"`
+	Medicines    []struct {
+		Name string `json:"name"`
+		Dose int    `json:"dose"`
+		Unit string `json:"unit"`
+	} `json:"medicines"`
 }
