@@ -47,6 +47,7 @@ type PatientService interface {
 	GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
+	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]map[string]interface{}, int64, error)
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
@@ -667,6 +668,16 @@ func (ps *PatientServiceImpl) FetchPatientDiagnosticReports(patientId uint64, fi
 
 	nestedResults := ps.patientRepo.RestructureDiagnosticReports(data)
 	return nestedResults, nil
+}
+
+func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]map[string]interface{}, int64, error) {
+	data, totalReports, err := ps.patientRepo.GetPatientDiagnosticReportResult(patientId, filter, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	response := ps.patientRepo.ProcessReportResponse(data)
+	return response, totalReports, nil
 }
 
 func (s *PatientServiceImpl) AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error {

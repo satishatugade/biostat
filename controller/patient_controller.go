@@ -251,6 +251,33 @@ func (pc *PatientController) GetDiagnosticResults(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "report load successfully", results, nil, nil)
 }
 
+func (pc *PatientController) GetPatientDiagnosticReportResult(c *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+
+	var filter models.DiagnosticReportFilter
+	if err := c.ShouldBindJSON(&filter); err != nil {
+		// c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// return
+	}
+	page, limit, offset := utils.GetPaginationParams(c)
+	results, totalRecords, err := pc.patientService.GetPatientDiagnosticReportResult(user.UserId, filter, limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Failed to fetch diagnostic results", nil, err)
+		return
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "report load successfully", results, pagination, nil)
+}
+
 func (pc *PatientController) AddPrescription(c *gin.Context) {
 	authUserId, userId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {

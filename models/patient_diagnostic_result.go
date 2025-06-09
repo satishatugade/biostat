@@ -334,10 +334,12 @@ type DiagnosticReportFilter struct {
 	ReportID          *uint64 `json:"patient_diagnostic_report_id,omitempty"`
 	ReportName        *string `json:"report_name,omitempty"`
 	TestName          *string `json:"test_name,omitempty"`
+	TestNote          *string `json:"test_note,omitempty"`
 	Qualifier         *string `json:"qualifier,omitempty"`
 	TestComponentName *string `json:"test_component_name,omitempty"`
 	DiagnosticLabID   *uint64 `json:"diagnostic_lab_id,omitempty"`
 	ReportStatus      *string `json:"report_status,omitempty"`
+	ResultStatus      *string `json:"result_status,omitempty"`
 	ResultDateFrom    *string `json:"from_date,omitempty"`
 	ResultDateTo      *string `json:"to_date,omitempty"`
 }
@@ -386,4 +388,98 @@ type DiagnosticLabResponse struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 	CreatedBy        string    `json:"created_by"`
 	UpdatedBy        string    `json:"updated_by"`
+}
+
+type ReportRow struct {
+	// Top-level report fields
+	PatientID        uint64
+	CollectedAt      string
+	CollectedDate    string
+	ReportStatus     string
+	ReportName       string
+	Comments         string
+	DiagnosticLabID  uint64
+	LabNo            string
+	Qualifier        string
+	LabName          string
+	LabAddress       string
+	City             string
+	State            string
+	PostalCode       string
+	LabContactNumber string
+	LabEmail         string
+	IsDeleted        int
+	LabCreatedAt     string
+	LabUpdatedAt     string
+	LabCreatedBy     string
+	LabUpdatedBy     string
+
+	// Patient test fields
+	PatientDiagnosticReportID uint64
+	DiagnosticTestID          uint64
+	TestNote                  string
+	TestDate                  string
+	TestCreatedAt             string
+	TestUpdatedAt             string
+
+	// Diagnostic test fields
+	TestLoincCode   string
+	TestName        string
+	ReportDate      string
+	TestType        string
+	TestDescription string
+	Category        string
+	Units           string
+	Property        string
+	TimeAspect      string
+	System          string
+	Scale           string
+	TestCreatedBy   string
+	TestIsDeleted   int
+	TestCreatedAt2  string
+	TestUpdatedAt2  string
+
+	// Test component fields
+	DiagnosticTestComponentID uint64
+	TestComponentLoincCode    string
+	TestComponentName         string
+	TestComponentType         string
+	TestComponentDesc         string
+	ComponentUnit             string
+	ComponentProperty         string
+	ComponentTimeAspect       string
+	ComponentSystem           string
+	ComponentScale            string
+	TestComponentFrequency    string
+	ComponentCreatedBy        string
+	ComponentIsDeleted        int
+	ComponentCreatedAt        string
+	ComponentUpdatedAt        string
+
+	// Test result value fields
+	// ResultValue       interface{}
+	ResultValue     string
+	ResultStatus    string
+	ResultDate      string
+	ResultComment   string
+	ResultCreatedAt string
+	ResultUpdatedAt string
+	Udf1            string
+	Udf2            string
+	Udf3            string
+	Udf4            string
+
+	// Reference range fields
+	Age       int
+	AgeGroup  string
+	Gender    string
+	NormalMin string
+	NormalMax string
+	// NormalMin            interface{}
+	// NormalMax            interface{}
+	RefUnits     string
+	RefIsDeleted int
+	RefCreatedAt string
+	RefUpdatedAt string
+	RefCreatedBy string
 }

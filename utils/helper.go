@@ -34,7 +34,7 @@ func GetPaginationParams(c *gin.Context) (int, int, int) {
 		page = 1
 	}
 
-	offset := (page - 1) * limit // Calculate offset
+	offset := (page - 1) * limit
 
 	return page, limit, offset
 }

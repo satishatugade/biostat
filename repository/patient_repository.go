@@ -57,6 +57,8 @@ type PatientRepository interface {
 	NoOfMessagesForDashboard(patientID uint64) (int64, error)
 	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
+	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
+	ProcessReportResponse(rows []models.ReportRow) []map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
 	GetDiagnosticReportId(patientId uint64) (uint64, error)
 
@@ -1346,6 +1348,237 @@ func (p *PatientRepositoryImpl) FetchPatientDiagnosticReports(patientId uint64, 
 	return results, nil
 }
 
+func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error) {
+	var results []models.ReportRow
+
+	totalReports, err := p.CountPatientDiagnosticReports(patientId, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := `WITH paginated_reports AS (SELECT DISTINCT pdr.patient_diagnostic_report_id FROM tbl_patient_diagnostic_report pdr WHERE pdr.patient_id = ? AND pdr.is_deleted = 0 `
+	args := []interface{}{patientId}
+
+	if filter.ReportStatus != nil {
+		query += " AND pdr.report_status = ?"
+		args = append(args, *filter.ReportStatus)
+	}
+	if filter.ReportName != nil {
+		query += " AND pdr.report_name = ?"
+		args = append(args, *filter.ReportName)
+	}
+
+	if filter.ReportID != nil {
+		query += " AND pdr.patient_diagnostic_report_id = ?"
+		args = append(args, *filter.ReportID)
+	}
+
+	query += ` ORDER BY pdr.patient_diagnostic_report_id DESC LIMIT ? OFFSET ? ) `
+	args = append(args, limit, offset)
+
+	query += `
+		SELECT 
+			pdr.patient_diagnostic_report_id,
+			pdr.patient_id,
+			format_datetime(pdr.collected_date) AS collected_date,
+			format_datetime(pdr.report_date) AS report_date,
+			pdr.report_status,
+			pdr.report_name,
+			pdt.test_note,
+			pdt.test_date,
+			pdtrv.diagnostic_test_id,
+			pdtm.test_name,
+			pdtrv.diagnostic_test_component_id,
+			tdpdtcm.test_component_name,
+			tdpdtcm.units AS component_unit,
+			pdtrv.result_value,
+			dtrr.normal_min,
+			dtrr.normal_max,
+			dtrr.units AS ref_units,
+			pdtrv.result_status,
+			format_datetime(pdtrv.result_date) AS result_date,
+			pdtrv.result_comment,
+			dl.diagnostic_lab_id,
+			dl.lab_name,
+			pdtrv.udf1 AS qualifier
+		FROM tbl_patient_diagnostic_test_result_value pdtrv
+		LEFT JOIN tbl_patient_diagnostic_test pdt 
+			ON pdtrv.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id 
+			AND pdtrv.diagnostic_test_id = pdt.diagnostic_test_id
+		LEFT JOIN tbl_patient_diagnostic_report pdr 
+			ON pdtrv.patient_diagnostic_report_id = pdr.patient_diagnostic_report_id
+		LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
+			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
+			ON pdtrv.diagnostic_test_component_id = tdpdtcm.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_master pdtm 
+			ON pdtrv.diagnostic_test_id = pdtm.diagnostic_test_id
+		LEFT JOIN tbl_diagnostic_lab dl 
+			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
+		WHERE pdtrv.patient_diagnostic_report_id IN (
+			SELECT patient_diagnostic_report_id FROM paginated_reports
+		)
+	`
+
+	if filter.TestName != nil {
+		query += " AND pdtm.test_name ILIKE ?"
+		args = append(args, "%"+*filter.TestName+"%")
+	}
+	if filter.TestNote != nil {
+		query += " AND pdt.test_note ILIKE ?"
+		args = append(args, "%"+*filter.TestNote+"%")
+	}
+	if filter.Qualifier != nil {
+		query += " AND pdtrv.udf1 = ?"
+		args = append(args, *filter.Qualifier)
+	}
+	if filter.TestComponentName != nil {
+		query += " AND tdpdtcm.test_component_name ILIKE ?"
+		args = append(args, "%"+*filter.TestComponentName+"%")
+	}
+	if filter.DiagnosticLabID != nil {
+		query += " AND dl.diagnostic_lab_id = ?"
+		args = append(args, *filter.DiagnosticLabID)
+	}
+	if filter.ResultDateFrom != nil && filter.ResultDateTo != nil {
+		query += " AND DATE(pdtrv.result_date) BETWEEN ? AND ?"
+		args = append(args, *filter.ResultDateFrom, *filter.ResultDateTo)
+	}
+
+	query += ` ORDER BY pdr.patient_diagnostic_report_id DESC`
+
+	fmt.Println("Executing Query:", query)
+	fmt.Println("With Args:", args)
+	if err := p.db.Raw(query, args...).Scan(&results).Error; err != nil {
+		return nil, 0, fmt.Errorf("data query failed: %w", err)
+	}
+
+	return results, totalReports, nil
+}
+
+func (p *PatientRepositoryImpl) CountPatientDiagnosticReports(patientId uint64, filter models.DiagnosticReportFilter) (int64, error) {
+	var totalReports int64
+
+	query := `
+		SELECT COUNT(DISTINCT pdr.patient_diagnostic_report_id)
+		FROM tbl_patient_diagnostic_report pdr
+		WHERE pdr.patient_id = ? AND pdr.is_deleted = 0
+	`
+	args := []interface{}{patientId}
+
+	if filter.ReportID != nil {
+		query += " AND pdr.patient_diagnostic_report_id = ?"
+		args = append(args, *filter.ReportID)
+	}
+
+	if filter.ReportStatus != nil {
+		query += " AND pdr.report_status = ?"
+		args = append(args, *filter.ReportStatus)
+	}
+	if filter.ReportName != nil {
+		query += " AND pdr.report_name = ?"
+		args = append(args, *filter.ReportName)
+	}
+
+	err := p.db.Raw(query, args...).Scan(&totalReports).Error
+	if err != nil {
+		return 0, fmt.Errorf("count query failed: %w", err)
+	}
+
+	return totalReports, nil
+}
+
+func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) []map[string]interface{} {
+	if len(rows) == 0 {
+		return []map[string]interface{}{}
+	}
+
+	reportMap := make(map[uint64]map[string]interface{})
+
+	for _, item := range rows {
+		reportID := item.PatientDiagnosticReportID
+
+		if _, exists := reportMap[reportID]; !exists {
+			reportMap[reportID] = map[string]interface{}{
+				"patient_diagnostic_report_id": reportID,
+				"patient_id":                   item.PatientID,
+				"collected_date":               item.CollectedDate,
+				"report_date":                  item.ReportDate,
+				"report_status":                item.ReportStatus,
+				"report_name":                  item.ReportName,
+				"comments":                     item.ResultComment,
+				"collected_at":                 item.CollectedDate,
+				"diagnostic_lab": map[string]interface{}{
+					"diagnostic_lab_id":       item.DiagnosticLabID,
+					"lab_name":                item.LabName,
+					"patient_diagnostic_test": []map[string]interface{}{},
+				},
+			}
+		}
+
+		report := reportMap[reportID]
+		diagnosticLab := report["diagnostic_lab"].(map[string]interface{})
+
+		// Create test result value
+		testResultValue := map[string]interface{}{
+			"diagnostic_test_id": item.DiagnosticTestID,
+			"result_value":       item.ResultValue,
+			"result_status":      item.ResultStatus,
+			"result_date":        item.ResultDate,
+			"result_comment":     item.ResultComment,
+			"qualifier":          item.Qualifier,
+		}
+
+		// Create reference range
+		testReferenceRange := map[string]interface{}{
+			"diagnostic_test_id":           item.DiagnosticTestID,
+			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+			"normal_min":                   item.NormalMin,
+			"normal_max":                   item.NormalMax,
+			"age":                          item.Age,
+			"age_group":                    item.AgeGroup,
+			"gender":                       item.Gender,
+			"is_deleted":                   item.RefIsDeleted,
+			"units":                        item.RefUnits,
+		}
+
+		// Create test component
+		testComponent := map[string]interface{}{
+			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+			"test_component_name":          item.TestComponentName,
+			"units":                        item.ComponentUnit,
+			"test_result_value":            []map[string]interface{}{testResultValue},
+			"test_referance_range":         []map[string]interface{}{testReferenceRange},
+		}
+
+		// Create diagnostic test
+		diagnosticTest := map[string]interface{}{
+			"diagnostic_test_id": item.DiagnosticTestID,
+			"test_name":          item.TestName,
+			"test_components":    []map[string]interface{}{testComponent},
+		}
+
+		// Create patient diagnostic test
+		patientDiagnosticTest := map[string]interface{}{
+			"test_note":       item.TestNote,
+			"test_date":       item.TestDate,
+			"diagnostic_test": diagnosticTest,
+		}
+
+		// Append to list
+		pdtList := diagnosticLab["patient_diagnostic_test"].([]map[string]interface{})
+		diagnosticLab["patient_diagnostic_test"] = append(pdtList, patientDiagnosticTest)
+	}
+
+	// Flatten map to list
+	finalReports := make([]map[string]interface{}, 0, len(reportMap))
+	for _, val := range reportMap {
+		finalReports = append(finalReports, val)
+	}
+
+	return finalReports
+}
+
 func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.DiagnosticReportResponse) []map[string]interface{} {
 	reportMap := make(map[uint64]map[string]interface{})
 	for _, item := range flatData {
@@ -1377,12 +1610,13 @@ func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.D
 			"units":                        item.Units,
 			"test_result_value": []map[string]interface{}{
 				{
-					"diagnostic_test_id": item.DiagnosticTestID,
-					"result_value":       item.ResultValue,
-					"result_status":      item.ResultStatus,
-					"result_date":        item.ResultDate,
-					"result_comment":     item.ResultComment,
-					"qualifier":          item.Qualifier,
+					"diagnostic_test_id":           item.DiagnosticTestID,
+					"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+					"result_value":                 item.ResultValue,
+					"result_status":                item.ResultStatus,
+					"result_date":                  item.ResultDate,
+					"result_comment":               item.ResultComment,
+					"qualifier":                    item.Qualifier,
 				},
 			},
 			"test_referance_range": []map[string]interface{}{
