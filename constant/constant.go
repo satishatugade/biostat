@@ -190,6 +190,7 @@ const (
 	Postalcode              = "/address/postalcode"
 	Messages                = "/messages"
 	Reminder                = "/reminder"
+	Permission              = "/permission"
 )
 
 const (

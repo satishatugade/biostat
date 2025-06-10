@@ -67,6 +67,13 @@ type PatientRepository interface {
 	CheckPatientHealthProfileExist(tx *gorm.DB, patientId uint64) (bool, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
+
+	GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error
+	HasPermission(userID, relativeID uint64, permissionCode string) (bool, error)
+	ListPermissions(userID, relativeID uint64) ([]models.PermissionResult, error)
+	GetPermissionByCode(code string) (*models.PermissionMaster, error)
+	CheckPermissionValue(userID, relativeID uint64, permissionID int64) (exists bool, currentValue bool, err error)
+	UpdatePermissionValue(userID, relativeID uint64, permissionID int64, value bool) error
 }
 
 type PatientRepositoryImpl struct {
@@ -1943,4 +1950,73 @@ func (ps *PatientRepositoryImpl) AddTestComponentDisplayConfig(input *models.Pat
 
 		return nil
 	})
+}
+
+func (r *PatientRepositoryImpl) GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error {
+	var mapping models.UserRelativePermissionMapping
+	err := r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).First(&mapping).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		mapping = models.UserRelativePermissionMapping{
+			UserID: userID, RelativeID: relativeID, PermissionID: permissionID, Granted: granted,
+		}
+		return r.db.Create(&mapping).Error
+	}
+	if err != nil {
+		return err
+	}
+	mapping.Granted = granted
+	return r.db.Save(&mapping).Error
+}
+
+func (r *PatientRepositoryImpl) HasPermission(userID, relativeID uint64, permissionCode string) (bool, error) {
+	var permission models.PermissionMaster
+	err := r.db.Where("code = ?", permissionCode).First(&permission).Error
+	if err != nil {
+		return false, err
+	}
+
+	var mapping models.UserRelativePermissionMapping
+	err = r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ? AND granted = true",
+		userID, relativeID, permission.PermissionID).First(&mapping).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func (r *PatientRepositoryImpl) ListPermissions(userID, relativeID uint64) ([]models.PermissionResult, error) {
+	var results []models.PermissionResult
+
+	err := r.db.Table("tbl_user_relative_permission_mappings").
+		Select("tbl_user_relative_permission_mappings.user_id, tbl_user_relative_permission_mappings.relative_id, tbl_permissions_master.code, tbl_user_relative_permission_mappings.granted").
+		Joins("JOIN tbl_permissions_master ON tbl_user_relative_permission_mappings.permission_id = tbl_permissions_master.permission_id").
+		Where("tbl_user_relative_permission_mappings.user_id = ? AND tbl_user_relative_permission_mappings.relative_id = ?", userID, relativeID).
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *PatientRepositoryImpl) GetPermissionByCode(code string) (*models.PermissionMaster, error) {
+	var permission models.PermissionMaster
+	err := r.db.Where("code = ?", code).First(&permission).Error
+	if err != nil {
+		return nil, err
+	}
+	return &permission, nil
+}
+
+func (r *PatientRepositoryImpl) CheckPermissionValue(userID, relativeID uint64, permissionID int64) (exists bool, currentValue bool, err error) {
+	var mapping models.UserRelativePermissionMapping
+	err = r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).
+		First(&mapping).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, false, nil
+	}
+	return true, mapping.Granted, err
+}
+
+func (r *PatientRepositoryImpl) UpdatePermissionValue(userID, relativeID uint64, permissionID int64, value bool) error {
+	return r.db.Model(&models.UserRelativePermissionMapping{}).
+		Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).
+		Update("granted", value).Error
 }

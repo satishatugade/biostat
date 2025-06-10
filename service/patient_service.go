@@ -52,6 +52,10 @@ type PatientService interface {
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
+
+	AssignPermission(userID, relativeID uint64, permissionCode string, granted bool) error
+	CanPerformAction(userID, relativeID uint64, permissionCode string) (bool, error)
+	AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error
 }
 
 type PatientServiceImpl struct {
@@ -348,8 +352,22 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 	if err != nil {
 		log.Println("GetRelationNameById Not found :")
 	}
-	return s.patientRepo.GetRelativeList(relativeUserIds, userRelationIds, relation)
+	userRelatives, err := s.patientRepo.GetRelativeList(relativeUserIds, userRelationIds, relation)
+	if err != nil {
+		return []models.PatientRelative{}, err
+	}
+	for idx, _ := range userRelatives {
+		perms, err := s.patientRepo.ListPermissions(*patientId, userRelatives[idx].RelativeId)
+		if err != nil {
+			log.Println("@GetRelativeList -> ListPermissions,", err)
+			continue
+		}
+		userRelatives[idx].Permissions = perms
+	}
+
+	return userRelatives, nil
 }
+
 
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
 
@@ -682,4 +700,40 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64,
 
 func (s *PatientServiceImpl) AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error {
 	return s.patientRepo.AddTestComponentDisplayConfig(config)
+}
+
+func (s *PatientServiceImpl) AssignPermission(userID, relativeID uint64, code string, granted bool) error {
+	perm, err := s.patientRepo.GetPermissionByCode(code)
+	if err != nil {
+		return err
+	}
+	return s.patientRepo.GrantPermission(userID, relativeID, perm.PermissionID, granted)
+}
+
+func (s *PatientServiceImpl) CanPerformAction(userID, relativeID uint64, code string) (bool, error) {
+	return s.patientRepo.HasPermission(userID, relativeID, code)
+}
+
+func (s *PatientServiceImpl) AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error {
+	for code, value := range permissions {
+		perm, err := s.patientRepo.GetPermissionByCode(code)
+		if err != nil {
+			log.Printf("Permission code '%s' not found", code)
+			continue
+		}
+
+		exists, currentValue, _ := s.patientRepo.CheckPermissionValue(userID, relativeID, perm.PermissionID)
+		if !exists {
+			err := s.patientRepo.GrantPermission(userID, relativeID, perm.PermissionID, value)
+			if err != nil {
+				log.Printf("Failed to create mapping for permission %s: %v", code, err)
+			}
+		} else if currentValue != value {
+			err := s.patientRepo.UpdatePermissionValue(userID, relativeID, perm.PermissionID, value)
+			if err != nil {
+				log.Printf("Failed to update permission %s: %v", code, err)
+			}
+		}
+	}
+	return nil
 }

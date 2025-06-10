@@ -2067,3 +2067,37 @@ func (pc *PatientController) SetUserReminder(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "reminder saved successfully", nil, nil, nil)
 	return
 }
+
+func (pc *PatientController) AssignPermissionHandler(ctx *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	type PermissionEntry struct {
+		Code  string `json:"code"`
+		Value bool   `json:"value"`
+	}
+	type AssignPermissionRequest struct {
+		RelativeID  uint64            `json:"relative_id" binding:"required"`
+		Permissions []PermissionEntry `json:"permissions" binding:"required"`
+	}
+	var req AssignPermissionRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadGateway, err.Error(), nil, err)
+		return
+	}
+	permMap := make(map[string]bool)
+	for _, p := range req.Permissions {
+		permMap[p.Code] = p.Value
+	}
+
+	err = pc.patientService.AssignMultiplePermissions(user_id, req.RelativeID, permMap)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to assign permission", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Permission assigned successfully", nil, nil, nil)
+	return
+}
