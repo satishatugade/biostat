@@ -275,7 +275,7 @@ func (pc *PatientController) GetPatientDiagnosticReportResult(c *gin.Context) {
 		return
 	}
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "report load successfully", results, pagination, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Report grid view load successfully", results, pagination, nil)
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {

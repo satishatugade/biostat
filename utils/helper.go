@@ -790,3 +790,28 @@ func ExtractNotificationID(body map[string]interface{}) (uuid.UUID, error) {
 	}
 	return notifUUID, nil
 }
+
+func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) string {
+	result, err1 := strconv.ParseFloat(resultValue, 64)
+	min, err2 := strconv.ParseFloat(normalMin, 64)
+	max, err3 := strconv.ParseFloat(normalMax, 64)
+
+	if err1 != nil || err2 != nil || err3 != nil {
+		log.Printf("[ColorCode] Invalid input - resultValue: %v (err: %v), normalMin: %v (err: %v), normalMax: %v (err: %v)",
+			resultValue, err1, normalMin, err2, normalMax, err3)
+		return "gray"
+	}
+
+	// log.Printf("[ColorCode] Comparing result: %v with range [%v - %v]", result, min, max)
+
+	if result < min {
+		// log.Printf("[ColorCode] %v is below the normal range → BLUE", result)
+		return "text-blue-500"
+	} else if result > max {
+		// log.Printf("[ColorCode] %v is above the normal range → RED", result)
+		return "text-red-500"
+	} else {
+		// log.Printf("[ColorCode] %v is within the normal range → GREEN", result)
+		return "text-green-500"
+	}
+}

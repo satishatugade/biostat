@@ -3,6 +3,7 @@ package repository
 import (
 	"biostat/database"
 	"biostat/models"
+	"biostat/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -58,7 +59,7 @@ type PatientRepository interface {
 	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
-	ProcessReportResponse(rows []models.ReportRow) []map[string]interface{}
+	ProcessReportResponse(rows []models.ReportRow) map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
 	GetDiagnosticReportId(patientId uint64) (uint64, error)
 
@@ -1421,31 +1422,31 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 	`
 
 	if filter.TestName != nil {
-		query += " AND pdtm.test_name ILIKE ?"
+		query += " AND pdtm.test_name ILIKE ? "
 		args = append(args, "%"+*filter.TestName+"%")
 	}
 	if filter.TestNote != nil {
-		query += " AND pdt.test_note ILIKE ?"
+		query += " AND pdt.test_note ILIKE ? "
 		args = append(args, "%"+*filter.TestNote+"%")
 	}
 	if filter.Qualifier != nil {
-		query += " AND pdtrv.udf1 = ?"
+		query += " AND pdtrv.udf1 = ? "
 		args = append(args, *filter.Qualifier)
 	}
 	if filter.TestComponentName != nil {
-		query += " AND tdpdtcm.test_component_name ILIKE ?"
+		query += " AND tdpdtcm.test_component_name ILIKE ? "
 		args = append(args, "%"+*filter.TestComponentName+"%")
 	}
 	if filter.DiagnosticLabID != nil {
-		query += " AND dl.diagnostic_lab_id = ?"
+		query += " AND dl.diagnostic_lab_id = ? "
 		args = append(args, *filter.DiagnosticLabID)
 	}
 	if filter.ResultDateFrom != nil && filter.ResultDateTo != nil {
-		query += " AND DATE(pdtrv.result_date) BETWEEN ? AND ?"
+		query += " AND DATE(pdtrv.result_date) BETWEEN ? AND ? "
 		args = append(args, *filter.ResultDateFrom, *filter.ResultDateTo)
 	}
 
-	query += ` ORDER BY pdr.patient_diagnostic_report_id DESC`
+	query += p.BuildOrderByClause(filter.OrderBy, filter.OrderDir)
 
 	fmt.Println("Executing Query:", query)
 	fmt.Println("With Args:", args)
@@ -1454,6 +1455,33 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 	}
 
 	return results, totalReports, nil
+}
+
+func (p *PatientRepositoryImpl) BuildOrderByClause(orderBy *string, orderDir *string) string {
+	columnMap := map[string]string{
+		"result_date":                  "pdtrv.result_date",
+		"report_date":                  "pdr.report_date",
+		"patient_diagnostic_report_id": "pdr.patient_diagnostic_report_id",
+		"test_name":                    "pdtm.test_name",
+		"lab_name":                     "dl.lab_name",
+	}
+
+	orderColumn := "pdr.report_date"
+	direction := "DESC"
+
+	if orderBy != nil && *orderBy != "" {
+		if mappedCol, ok := columnMap[*orderBy]; ok {
+			orderColumn = mappedCol
+		} else {
+			orderColumn = *orderBy
+		}
+	}
+
+	if orderDir != nil && (*orderDir == "ASC" || *orderDir == "DESC") {
+		direction = *orderDir
+	}
+
+	return fmt.Sprintf(" ORDER BY %s %s", orderColumn, direction)
 }
 
 func (p *PatientRepositoryImpl) CountPatientDiagnosticReports(patientId uint64, filter models.DiagnosticReportFilter) (int64, error) {
@@ -1488,95 +1516,288 @@ func (p *PatientRepositoryImpl) CountPatientDiagnosticReports(patientId uint64, 
 	return totalReports, nil
 }
 
-func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) []map[string]interface{} {
+// func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) []map[string]interface{} {
+// 	if len(rows) == 0 {
+// 		return []map[string]interface{}{}
+// 	}
+
+// 	reportMap := make(map[uint64]map[string]interface{})
+
+// 	for _, item := range rows {
+// 		reportID := item.PatientDiagnosticReportID
+
+// 		if _, exists := reportMap[reportID]; !exists {
+// 			reportMap[reportID] = map[string]interface{}{
+// 				"patient_diagnostic_report_id": reportID,
+// 				"patient_id":                   item.PatientID,
+// 				"collected_date":               item.CollectedDate,
+// 				"report_date":                  item.ReportDate,
+// 				"report_status":                item.ReportStatus,
+// 				"report_name":                  item.ReportName,
+// 				"comments":                     item.ResultComment,
+// 				"collected_at":                 item.CollectedDate,
+// 				"diagnostic_lab": map[string]interface{}{
+// 					"diagnostic_lab_id":       item.DiagnosticLabID,
+// 					"lab_name":                item.LabName,
+// 					"patient_diagnostic_test": []map[string]interface{}{},
+// 				},
+// 			}
+// 		}
+
+// 		report := reportMap[reportID]
+// 		diagnosticLab := report["diagnostic_lab"].(map[string]interface{})
+
+// 		// Create test result value
+// 		testResultValue := map[string]interface{}{
+// 			"diagnostic_test_id": item.DiagnosticTestID,
+// 			"result_value":       item.ResultValue,
+// 			"result_status":      item.ResultStatus,
+// 			"result_date":        item.ResultDate,
+// 			"result_comment":     item.ResultComment,
+// 			"qualifier":          item.Qualifier,
+// 		}
+
+// 		// Create reference range
+// 		testReferenceRange := map[string]interface{}{
+// 			"diagnostic_test_id":           item.DiagnosticTestID,
+// 			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+// 			"normal_min":                   item.NormalMin,
+// 			"normal_max":                   item.NormalMax,
+// 			"age":                          item.Age,
+// 			"age_group":                    item.AgeGroup,
+// 			"gender":                       item.Gender,
+// 			"is_deleted":                   item.RefIsDeleted,
+// 			"units":                        item.RefUnits,
+// 		}
+
+// 		// Create test component
+// 		testComponent := map[string]interface{}{
+// 			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+// 			"test_component_name":          item.TestComponentName,
+// 			"units":                        item.ComponentUnit,
+// 			"test_result_value":            []map[string]interface{}{testResultValue},
+// 			"test_referance_range":         []map[string]interface{}{testReferenceRange},
+// 		}
+
+// 		// Create diagnostic test
+// 		diagnosticTest := map[string]interface{}{
+// 			"diagnostic_test_id": item.DiagnosticTestID,
+// 			"test_name":          item.TestName,
+// 			"test_components":    []map[string]interface{}{testComponent},
+// 		}
+
+// 		// Create patient diagnostic test
+// 		patientDiagnosticTest := map[string]interface{}{
+// 			"test_note":       item.TestNote,
+// 			"test_date":       item.TestDate,
+// 			"diagnostic_test": diagnosticTest,
+// 		}
+
+// 		// Append to list
+// 		pdtList := diagnosticLab["patient_diagnostic_test"].([]map[string]interface{})
+// 		diagnosticLab["patient_diagnostic_test"] = append(pdtList, patientDiagnosticTest)
+// 	}
+
+// 	// Flatten map to list
+// 	finalReports := make([]map[string]interface{}, 0, len(reportMap))
+// 	for _, val := range reportMap {
+// 		finalReports = append(finalReports, val)
+// 	}
+
+// 	return finalReports
+// }
+
+// func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) map[string]interface{} {
+// 	if len(rows) == 0 {
+// 		return map[string]interface{}{}
+// 	}
+
+// 	type testKey struct {
+// 		TestName                  string
+// 		PatientDiagnosticReportId uint64
+// 		TestComponentId           uint64
+// 		TestComponentName         string
+// 		Unit                      string
+// 		Range                     string
+// 	}
+
+// 	type CellData struct {
+// 		Value  string `json:"value"`
+// 		Colour string `json:"colour"`
+// 	}
+
+// 	columns := []string{"TEST", "UNIT", "REF.RANGE"}
+// 	dateColumnMap := make(map[string]int)
+// 	componentMap := make(map[testKey][]CellData)
+
+// 	dateIndex := 3 // first 3 columns are fixed
+
+// 	// Step 1: Collect all unique dates first to avoid reallocation later
+// 	for _, row := range rows {
+// 		if row.TestComponentName == "" {
+// 			continue
+// 		}
+// 		if _, ok := dateColumnMap[row.ResultDate]; !ok {
+// 			columns = append(columns, row.ResultDate)
+// 			dateColumnMap[row.ResultDate] = dateIndex
+// 			dateIndex++
+// 		}
+// 	}
+
+// 	for _, row := range rows {
+// 		if row.TestComponentName == "" {
+// 			continue
+// 		}
+// 		testName := row.TestName
+// 		component := row.TestComponentName
+// 		patientDiagnosticReportId := row.PatientDiagnosticReportID
+// 		testComponentId := row.DiagnosticTestComponentID
+// 		unit := row.ComponentUnit
+// 		refRange := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
+// 		value := fmt.Sprintf("%v", row.ResultValue)
+
+// 		colour := utils.GetRefRangeAndColorCode(value, row.NormalMin, row.NormalMax)
+
+// 		key := testKey{
+// 			TestName:                  testName,
+// 			TestComponentId:           testComponentId,
+// 			PatientDiagnosticReportId: patientDiagnosticReportId,
+// 			TestComponentName:         component,
+// 			Unit:                      unit,
+// 			Range:                     refRange,
+// 		}
+
+// 		// Ensure the slice is large enough to hold all date values
+// 		currentLength := len(columns) - 3
+// 		existingValues, exists := componentMap[key]
+// 		if !exists {
+// 			componentMap[key] = make([]CellData, currentLength)
+// 		} else if len(existingValues) < currentLength {
+// 			newValues := make([]CellData, currentLength)
+// 			copy(newValues, existingValues)
+// 			componentMap[key] = newValues
+// 		}
+
+// 		// Assign the value at the correct index
+// 		if idx, ok := dateColumnMap[row.ResultDate]; ok {
+// 			cellIndex := idx - 3 // Adjust index after fixed columns
+// 			if cellIndex >= 0 && cellIndex < len(componentMap[key]) {
+// 				componentMap[key][cellIndex] = CellData{
+// 					Value:  value,
+// 					Colour: colour,
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	// Step 3: Assemble the final response
+// 	var rowsList []map[string]interface{}
+// 	var finalTestName string
+
+// 	for key, values := range componentMap {
+// 		if finalTestName == "" {
+// 			finalTestName = key.TestName
+// 		}
+// 		row := map[string]interface{}{
+// 			"patient_diagnostic_report_id": key.PatientDiagnosticReportId,
+// 			"diagnostic_test_component_id": key.TestComponentId,
+// 			"test_component_name":          key.TestComponentName,
+// 			"unit":                         key.Unit,
+// 			"range":                        key.Range,
+// 			"values":                       values,
+// 		}
+// 		rowsList = append(rowsList, row)
+// 	}
+
+// 	result := map[string]interface{}{
+// 		"columns":   columns,
+// 		"rows":      rowsList,
+// 		"test_name": finalTestName,
+// 	}
+
+// 	return result
+// }
+
+func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) map[string]interface{} {
 	if len(rows) == 0 {
-		return []map[string]interface{}{}
+		return map[string]interface{}{}
 	}
 
-	reportMap := make(map[uint64]map[string]interface{})
-
-	for _, item := range rows {
-		reportID := item.PatientDiagnosticReportID
-
-		if _, exists := reportMap[reportID]; !exists {
-			reportMap[reportID] = map[string]interface{}{
-				"patient_diagnostic_report_id": reportID,
-				"patient_id":                   item.PatientID,
-				"collected_date":               item.CollectedDate,
-				"report_date":                  item.ReportDate,
-				"report_status":                item.ReportStatus,
-				"report_name":                  item.ReportName,
-				"comments":                     item.ResultComment,
-				"collected_at":                 item.CollectedDate,
-				"diagnostic_lab": map[string]interface{}{
-					"diagnostic_lab_id":       item.DiagnosticLabID,
-					"lab_name":                item.LabName,
-					"patient_diagnostic_test": []map[string]interface{}{},
-				},
-			}
-		}
-
-		report := reportMap[reportID]
-		diagnosticLab := report["diagnostic_lab"].(map[string]interface{})
-
-		// Create test result value
-		testResultValue := map[string]interface{}{
-			"diagnostic_test_id": item.DiagnosticTestID,
-			"result_value":       item.ResultValue,
-			"result_status":      item.ResultStatus,
-			"result_date":        item.ResultDate,
-			"result_comment":     item.ResultComment,
-			"qualifier":          item.Qualifier,
-		}
-
-		// Create reference range
-		testReferenceRange := map[string]interface{}{
-			"diagnostic_test_id":           item.DiagnosticTestID,
-			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
-			"normal_min":                   item.NormalMin,
-			"normal_max":                   item.NormalMax,
-			"age":                          item.Age,
-			"age_group":                    item.AgeGroup,
-			"gender":                       item.Gender,
-			"is_deleted":                   item.RefIsDeleted,
-			"units":                        item.RefUnits,
-		}
-
-		// Create test component
-		testComponent := map[string]interface{}{
-			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
-			"test_component_name":          item.TestComponentName,
-			"units":                        item.ComponentUnit,
-			"test_result_value":            []map[string]interface{}{testResultValue},
-			"test_referance_range":         []map[string]interface{}{testReferenceRange},
-		}
-
-		// Create diagnostic test
-		diagnosticTest := map[string]interface{}{
-			"diagnostic_test_id": item.DiagnosticTestID,
-			"test_name":          item.TestName,
-			"test_components":    []map[string]interface{}{testComponent},
-		}
-
-		// Create patient diagnostic test
-		patientDiagnosticTest := map[string]interface{}{
-			"test_note":       item.TestNote,
-			"test_date":       item.TestDate,
-			"diagnostic_test": diagnosticTest,
-		}
-
-		// Append to list
-		pdtList := diagnosticLab["patient_diagnostic_test"].([]map[string]interface{})
-		diagnosticLab["patient_diagnostic_test"] = append(pdtList, patientDiagnosticTest)
+	type CellData struct {
+		Value      string `json:"value"`
+		Colour     string `json:"colour"`
+		Qualifier  string `json:"qualifier"`
+		ReportID   uint64 `json:"patient_diagnostic_report_id"`
+		ResultDate string `json:"result_date"`
 	}
 
-	// Flatten map to list
-	finalReports := make([]map[string]interface{}, 0, len(reportMap))
-	for _, val := range reportMap {
-		finalReports = append(finalReports, val)
+	type ComponentKey struct {
+		ComponentID uint64
+		Name        string
+		Units       string
+		RefRange    string
 	}
 
-	return finalReports
+	// Grouping map
+	componentMap := make(map[ComponentKey][]CellData)
+
+	// Dates
+	dateSet := make(map[string]struct{})
+
+	// Process rows
+	for _, row := range rows {
+		if row.TestComponentName == "" {
+			continue
+		}
+
+		rangeStr := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
+		valueStr := fmt.Sprintf("%v", row.ResultValue)
+		color := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
+
+		key := ComponentKey{
+			ComponentID: row.DiagnosticTestComponentID,
+			Name:        row.TestComponentName,
+			Units:       row.ComponentUnit,
+			RefRange:    rangeStr,
+		}
+
+		cell := CellData{
+			Value:      valueStr,
+			Colour:     color,
+			ReportID:   row.PatientDiagnosticReportID,
+			ResultDate: row.ResultDate,
+			Qualifier:  row.Qualifier,
+		}
+
+		componentMap[key] = append(componentMap[key], cell)
+		dateSet[row.ResultDate] = struct{}{}
+	}
+
+	// Build output
+	var finalRows []map[string]interface{}
+	var allDates []string
+
+	for date := range dateSet {
+		allDates = append(allDates, date)
+	}
+	// Optional: sort allDates if you want
+
+	for key, values := range componentMap {
+		row := map[string]interface{}{
+			"diagnostic_test_component_id": key.ComponentID,
+			"test_component_name":          key.Name,
+			"ref_unit":                     key.Units,
+			"ref_range":                    key.RefRange,
+			"trend_values":                 values,
+		}
+		finalRows = append(finalRows, row)
+	}
+
+	return map[string]interface{}{
+		"columns": []string{"TEST", "UNIT", "REF.RANGE", "DATES"},
+		"dates":   allDates,
+		"rows":    finalRows,
+	}
 }
 
 func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.DiagnosticReportResponse) []map[string]interface{} {

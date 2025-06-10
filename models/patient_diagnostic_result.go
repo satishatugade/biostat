@@ -342,6 +342,8 @@ type DiagnosticReportFilter struct {
 	ResultStatus      *string `json:"result_status,omitempty"`
 	ResultDateFrom    *string `json:"from_date,omitempty"`
 	ResultDateTo      *string `json:"to_date,omitempty"`
+	OrderBy           *string `json:"order_by,omitempty"`
+	OrderDir          *string `json:"order_dir,omitempty"`
 }
 
 type PatientTestComponentDisplayConfig struct {
