@@ -277,5 +277,5 @@ type PermissionResult struct {
 	UserID     uint64 `json:"user_id"`
 	RelativeID uint64 `json:"relative_id"`
 	Code       string `json:"code"`
-	Granted    string `json:"granted"`
+	Granted    bool   `json:"granted"`
 }
