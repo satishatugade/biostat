@@ -485,3 +485,20 @@ type ReportRow struct {
 	RefUpdatedAt string
 	RefCreatedBy string
 }
+
+type ComponentKey struct {
+	ComponentID uint64
+	Name        string
+	Units       string
+	RefRange    string
+	ReportName  string
+}
+
+type CellData struct {
+	Value      string `json:"value"`
+	Colour     string `json:"colour"`
+	Qualifier  string `json:"qualifier"`
+	ReportID   uint64 `json:"patient_diagnostic_report_id"`
+	ResultDate string `json:"result_date"`
+	ReportName string `json:"report_name"`
+}

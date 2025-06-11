@@ -286,6 +286,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient disease condition", http.MethodPost, constant.DisplayConfig, patientController.AddTestComponentDisplayConfig},
 		Route{"patient disease condition", http.MethodPost, constant.GetResultValue, patientController.GetDiagnosticResults},
 		Route{"patient disease condition", http.MethodPost, constant.GetReportResult, patientController.GetPatientDiagnosticReportResult},
+		Route{"patient disease condition", http.MethodPost, constant.ExportReport, patientController.ExportDiagnosticResultsExcel},
 
 		Route{"patient diet", http.MethodPost, constant.PatientDietPlan, patientController.GetPatientDietPlan},
 		Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},
@@ -334,8 +335,6 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
-
-		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
 	}
 }
 

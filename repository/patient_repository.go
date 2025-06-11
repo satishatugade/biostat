@@ -59,7 +59,7 @@ type PatientRepository interface {
 	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
-	ProcessReportResponse(rows []models.ReportRow) map[string]interface{}
+	ProcessReportGridData(rows []models.ReportRow) map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
 	GetDiagnosticReportId(patientId uint64) (uint64, error)
 
@@ -1614,144 +1614,15 @@ func (p *PatientRepositoryImpl) CountPatientDiagnosticReports(patientId uint64, 
 // 	return finalReports
 // }
 
-// func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) map[string]interface{} {
-// 	if len(rows) == 0 {
-// 		return map[string]interface{}{}
-// 	}
-
-// 	type testKey struct {
-// 		TestName                  string
-// 		PatientDiagnosticReportId uint64
-// 		TestComponentId           uint64
-// 		TestComponentName         string
-// 		Unit                      string
-// 		Range                     string
-// 	}
-
-// 	type CellData struct {
-// 		Value  string `json:"value"`
-// 		Colour string `json:"colour"`
-// 	}
-
-// 	columns := []string{"TEST", "UNIT", "REF.RANGE"}
-// 	dateColumnMap := make(map[string]int)
-// 	componentMap := make(map[testKey][]CellData)
-
-// 	dateIndex := 3 // first 3 columns are fixed
-
-// 	// Step 1: Collect all unique dates first to avoid reallocation later
-// 	for _, row := range rows {
-// 		if row.TestComponentName == "" {
-// 			continue
-// 		}
-// 		if _, ok := dateColumnMap[row.ResultDate]; !ok {
-// 			columns = append(columns, row.ResultDate)
-// 			dateColumnMap[row.ResultDate] = dateIndex
-// 			dateIndex++
-// 		}
-// 	}
-
-// 	for _, row := range rows {
-// 		if row.TestComponentName == "" {
-// 			continue
-// 		}
-// 		testName := row.TestName
-// 		component := row.TestComponentName
-// 		patientDiagnosticReportId := row.PatientDiagnosticReportID
-// 		testComponentId := row.DiagnosticTestComponentID
-// 		unit := row.ComponentUnit
-// 		refRange := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
-// 		value := fmt.Sprintf("%v", row.ResultValue)
-
-// 		colour := utils.GetRefRangeAndColorCode(value, row.NormalMin, row.NormalMax)
-
-// 		key := testKey{
-// 			TestName:                  testName,
-// 			TestComponentId:           testComponentId,
-// 			PatientDiagnosticReportId: patientDiagnosticReportId,
-// 			TestComponentName:         component,
-// 			Unit:                      unit,
-// 			Range:                     refRange,
-// 		}
-
-// 		// Ensure the slice is large enough to hold all date values
-// 		currentLength := len(columns) - 3
-// 		existingValues, exists := componentMap[key]
-// 		if !exists {
-// 			componentMap[key] = make([]CellData, currentLength)
-// 		} else if len(existingValues) < currentLength {
-// 			newValues := make([]CellData, currentLength)
-// 			copy(newValues, existingValues)
-// 			componentMap[key] = newValues
-// 		}
-
-// 		// Assign the value at the correct index
-// 		if idx, ok := dateColumnMap[row.ResultDate]; ok {
-// 			cellIndex := idx - 3 // Adjust index after fixed columns
-// 			if cellIndex >= 0 && cellIndex < len(componentMap[key]) {
-// 				componentMap[key][cellIndex] = CellData{
-// 					Value:  value,
-// 					Colour: colour,
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	// Step 3: Assemble the final response
-// 	var rowsList []map[string]interface{}
-// 	var finalTestName string
-
-// 	for key, values := range componentMap {
-// 		if finalTestName == "" {
-// 			finalTestName = key.TestName
-// 		}
-// 		row := map[string]interface{}{
-// 			"patient_diagnostic_report_id": key.PatientDiagnosticReportId,
-// 			"diagnostic_test_component_id": key.TestComponentId,
-// 			"test_component_name":          key.TestComponentName,
-// 			"unit":                         key.Unit,
-// 			"range":                        key.Range,
-// 			"values":                       values,
-// 		}
-// 		rowsList = append(rowsList, row)
-// 	}
-
-// 	result := map[string]interface{}{
-// 		"columns":   columns,
-// 		"rows":      rowsList,
-// 		"test_name": finalTestName,
-// 	}
-
-// 	return result
-// }
-
-func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) map[string]interface{} {
+func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) map[string]interface{} {
 	if len(rows) == 0 {
 		return map[string]interface{}{}
 	}
-
-	type CellData struct {
-		Value      string `json:"value"`
-		Colour     string `json:"colour"`
-		Qualifier  string `json:"qualifier"`
-		ReportID   uint64 `json:"patient_diagnostic_report_id"`
-		ResultDate string `json:"result_date"`
-	}
-
-	type ComponentKey struct {
-		ComponentID uint64
-		Name        string
-		Units       string
-		RefRange    string
-	}
-
-	// Grouping map
-	componentMap := make(map[ComponentKey][]CellData)
+	componentMap := make(map[models.ComponentKey][]models.CellData)
 
 	// Dates
 	dateSet := make(map[string]struct{})
 
-	// Process rows
 	for _, row := range rows {
 		if row.TestComponentName == "" {
 			continue
@@ -1761,33 +1632,32 @@ func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) m
 		valueStr := fmt.Sprintf("%v", row.ResultValue)
 		color := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
 
-		key := ComponentKey{
+		key := models.ComponentKey{
 			ComponentID: row.DiagnosticTestComponentID,
 			Name:        row.TestComponentName,
 			Units:       row.ComponentUnit,
 			RefRange:    rangeStr,
 		}
 
-		cell := CellData{
+		cell := models.CellData{
 			Value:      valueStr,
 			Colour:     color,
 			ReportID:   row.PatientDiagnosticReportID,
 			ResultDate: row.ResultDate,
 			Qualifier:  row.Qualifier,
+			ReportName: row.ReportName,
 		}
 
 		componentMap[key] = append(componentMap[key], cell)
 		dateSet[row.ResultDate] = struct{}{}
 	}
 
-	// Build output
 	var finalRows []map[string]interface{}
 	var allDates []string
 
 	for date := range dateSet {
 		allDates = append(allDates, date)
 	}
-	// Optional: sort allDates if you want
 
 	for key, values := range componentMap {
 		row := map[string]interface{}{
@@ -1795,6 +1665,7 @@ func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) m
 			"test_component_name":          key.Name,
 			"ref_unit":                     key.Units,
 			"ref_range":                    key.RefRange,
+			"report_name":                  key.ReportName,
 			"trend_values":                 values,
 		}
 		finalRows = append(finalRows, row)

@@ -3,10 +3,13 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"bytes"
 	"fmt"
 	"log"
+	"reflect"
 	"time"
 
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -48,6 +51,7 @@ type PatientService interface {
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) (map[string]interface{}, int64, error)
+	GenerateExcelFile(data map[string]interface{}) ([]byte, error)
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
@@ -367,7 +371,6 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 
 	return userRelatives, nil
 }
-
 
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
 
@@ -694,8 +697,101 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64,
 		return nil, 0, err
 	}
 
-	response := ps.patientRepo.ProcessReportResponse(data)
+	response := ps.patientRepo.ProcessReportGridData(data)
 	return response, totalReports, nil
+}
+
+func (ps *PatientServiceImpl) GenerateExcelFile(data map[string]interface{}) ([]byte, error) {
+	f := excelize.NewFile()
+	sheet := "Report"
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{"Test Component Name", "Unit", "Ref. Range"}
+
+	fmt.Println("data ", data)
+	dates, ok := data["dates"].([]string)
+	if !ok || len(dates) == 0 {
+		return nil, fmt.Errorf("invalid or no dates found")
+	}
+	headers = append(headers, dates...)
+
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, header)
+	}
+
+	rows, ok := data["rows"].([]map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid rows")
+	}
+	fmt.Println("dates header ", dates)
+	for rowIndex, row := range rows {
+		r := rowIndex + 2
+		fmt.Printf("rowIndex %d == row %s  ", rowIndex, row)
+		// Set base columns
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", r), row["test_component_name"])
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", r), row["ref_unit"])
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", r), row["ref_range"])
+
+		rawTrendValues := row["trend_values"]
+		fmt.Println("rawTrendValues ", rawTrendValues)
+
+		trendValues, ok := rawTrendValues.([]models.CellData)
+		if !ok {
+			fmt.Println("trend_values not []interface{} but type:", reflect.TypeOf(rawTrendValues))
+			continue
+		}
+		dateToValue := make(map[string]models.CellData)
+		fmt.Println("trendValues ", trendValues)
+		for _, tv := range trendValues {
+			dateToValue[tv.ResultDate] = tv
+		}
+		for colIndex, date := range dates {
+			val := "-"
+			styleID := 0
+
+			if cellData, found := dateToValue[date]; found {
+				val = cellData.Value
+				styleID = applyColorStyle(f, cellData.Colour)
+			}
+
+			cell, _ := excelize.CoordinatesToCellName(colIndex+4, r)
+			f.SetCellValue(sheet, cell, val)
+			if styleID != 0 {
+				f.SetCellStyle(sheet, cell, cell, styleID)
+			}
+		}
+	}
+	endCol, _ := excelize.ColumnNumberToName(len(headers))
+	rangeRef := fmt.Sprintf("A1:%s1", endCol)
+	_ = f.AutoFilter(sheet, rangeRef, nil)
+	f.SetColWidth(sheet, "A", endCol, 20)
+
+	// Write to buffer
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func applyColorStyle(f *excelize.File, className string) int {
+	colorMap := map[string]string{
+		"text-green-500":  "#22c55e",
+		"text-blue-500":   "#3b82f6",
+		"text-red-500":    "#ef4444",
+		"text-yellow-500": "#eab308",
+	}
+
+	colorHex, ok := colorMap[className]
+	if !ok {
+		colorHex = "#000000" // default black
+	}
+
+	style, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Color: colorHex, Bold: true},
+	})
+	return style
 }
 
 func (s *PatientServiceImpl) AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error {

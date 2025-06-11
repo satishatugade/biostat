@@ -278,6 +278,43 @@ func (pc *PatientController) GetPatientDiagnosticReportResult(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Report grid view load successfully", results, pagination, nil)
 }
 
+func (pc *PatientController) ExportDiagnosticResultsExcel(c *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+
+	var filter models.DiagnosticReportFilter
+	if err := c.ShouldBindJSON(&filter); err != nil {
+		// models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid filter input", nil, err)
+		// return
+	}
+
+	data, _, err := pc.patientService.GetPatientDiagnosticReportResult(user.UserId, filter, 1000, 0)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to generate report data", nil, err)
+		return
+	}
+	fileBytes, err := pc.patientService.GenerateExcelFile(data)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to generate Excel", nil, err)
+		return
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", `attachment; filename="diagnostic_report.xlsx"`)
+	c.Header("File-Name", "diagnostic_report.xlsx")
+	c.Header("Access-Control-Expose-Headers", "File-Name")
+	c.Data(http.StatusOK, "application/octet-stream", fileBytes)
+}
+
 func (pc *PatientController) AddPrescription(c *gin.Context) {
 	authUserId, userId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
