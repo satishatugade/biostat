@@ -764,17 +764,14 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 	}
 
 	err := p.db.
-		Table("tbl_system_user_").
-		Select(`user_id AS relative_id, 
-		        first_name, 
-		        last_name, 
-		        gender, 
-		        date_of_birth, 
-		        mobile_no AS mobile_no, 
-		        email, 
-		        created_at, 
-		        updated_at`).
-		Where("user_id IN ?", userIds).
+		Table("tbl_system_user_ as su").
+		Select(`su.user_id AS relative_id, su.first_name, su.last_name, su.gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
+				(
+					SELECT MAX(report_date)
+					FROM tbl_patient_diagnostic_report AS dr
+					WHERE dr.patient_id = su.user_id
+				) AS latest_diganotisic`).
+		Where("su.user_id IN ?", userIds).
 		Scan(&relatives).Error
 	return relatives, err
 }
@@ -940,7 +937,7 @@ func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool
 		}
 		return false, err
 	}
-	isComplete = user.Gender != "" && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != ""
+	isComplete = user.Gender != "" && user.DateOfBirth != nil && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != ""
 	return isComplete, nil
 }
 

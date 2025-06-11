@@ -366,6 +366,7 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 			log.Println("@GetRelativeList -> ListPermissions,", err)
 			continue
 		}
+		userRelatives[idx].HealthScore= s.GetUserHealthScore(userRelatives[idx].RelativeId)
 		userRelatives[idx].Permissions = perms
 	}
 
@@ -832,4 +833,39 @@ func (s *PatientServiceImpl) AssignMultiplePermissions(userID, relativeID uint64
 		}
 	}
 	return nil
+}
+
+func (s *PatientServiceImpl) GetUserHealthScore(userID uint64) int {
+	healthScore := 0
+	basicDetailsAdded, _ := s.patientRepo.IsUserBasicProfileComplete(userID)
+	
+	if basicDetailsAdded {
+		healthScore += 10
+	}
+	healthDetailsAdded, _ := s.patientRepo.IsUserHealthDetailsComplete(userID)
+	if healthDetailsAdded {
+		healthScore += 10
+	}
+
+	noOfLabReusltsForDashboard, _ := s.patientRepo.NoOfLabReusltsForDashboard(userID)
+	if noOfLabReusltsForDashboard > 0 {
+		healthScore += 10
+	}
+	healthProfile, err := s.patientRepo.GetPatientHealthDetail(userID)
+	if err == nil {
+		if healthProfile.BmiCategory == "Normal weight" {
+			healthScore += 5
+		}
+		if healthProfile.SmokingStatus != "Current" {
+			healthScore += 5
+		}
+		if healthProfile.AlcoholConsumption == "Never" {
+			healthScore += 5
+		}
+		if healthProfile.PhysicalActivityLevel == "High" {
+			healthScore += 5
+		}
+	}
+
+	return healthScore
 }

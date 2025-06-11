@@ -38,20 +38,22 @@ func (PatientRelation) TableName() string {
 }
 
 type PatientRelative struct {
-	RelativeId   uint64             `json:"relative_id"`
-	PatientId    *uint              `json:"patient_id,omitempty"`
-	FirstName    string             `json:"first_name"`
-	LastName     string             `json:"last_name"`
-	Gender       string             `json:"gender"`
-	MappingType  string             `json:"mapping_type"`
-	DateOfBirth  string             `json:"date_of_birth"`
-	RelationId   uint64             `json:"relation_id"`
-	Relationship string             `json:"relationship"`
-	MobileNo     string             `json:"mobile_no"`
-	Email        string             `json:"email"`
-	Permissions  []PermissionResult `json:"permissions" gorm:"-"`
-	CreatedAt    time.Time          `json:"created_at"`
-	UpdatedAt    time.Time          `json:"updated_at"`
+	RelativeId        uint64             `json:"relative_id"`
+	PatientId         *uint              `json:"patient_id,omitempty"`
+	FirstName         string             `json:"first_name"`
+	LastName          string             `json:"last_name"`
+	Gender            string             `json:"gender"`
+	MappingType       string             `json:"mapping_type"`
+	DateOfBirth       string             `json:"date_of_birth"`
+	RelationId        uint64             `json:"relation_id"`
+	Relationship      string             `json:"relationship"`
+	MobileNo          string             `json:"mobile_no"`
+	Email             string             `json:"email"`
+	LatestDiganotisic time.Time          `json:"latest_diganotisic,omitempty"`
+	Permissions       []PermissionResult `json:"permissions" gorm:"-"`
+	HealthScore       int                `json:"health_score" gorm:"-"`
+	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
 }
 
 type PatientCustomRange struct {
