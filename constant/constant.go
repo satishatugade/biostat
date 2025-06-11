@@ -176,6 +176,7 @@ const (
 	AddOrder  = "/order"
 	GetOrders = "/orders"
 
+	MergeComponent          = "/merge-component"
 	SaveReport              = "/save-report"
 	HealthStats             = "/health-stats"
 	ReportArchive           = "/diagnostic-report/archive"

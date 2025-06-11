@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +52,7 @@ type DiagnosticService interface {
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error)
+	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 }
@@ -326,15 +328,16 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	}
 
 	patientReport := models.PatientDiagnosticReport{
-		DiagnosticLabId: diagnosticLabId,
-		PatientId:       patientId,
-		PaymentStatus:   "Pending",
-		ReportName:      reportData.ReportDetails.ReportName,
-		CollectedDate:   parsedDate,
-		ReportDate:      parsedDate,
-		Observation:     "",
-		IsDigital:       reportData.ReportDetails.IsDigital,
-		CollectedAt:     reportData.ReportDetails.LabLocation,
+		PatientDiagnosticReportId: uint64(time.Now().UnixNano() + int64(rand.Intn(1000))),
+		DiagnosticLabId:           diagnosticLabId,
+		PatientId:                 patientId,
+		PaymentStatus:             "Pending",
+		ReportName:                reportData.ReportDetails.ReportName,
+		CollectedDate:             parsedDate,
+		ReportDate:                parsedDate,
+		Observation:               "",
+		IsDigital:                 reportData.ReportDetails.IsDigital,
+		CollectedAt:               reportData.ReportDetails.LabLocation,
 	}
 	reportInfo, err := s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)
 	if err != nil {
@@ -356,7 +359,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		testInterpretation := testData.Interpretation
 
 		var diagnosticTestId uint64
-		if id, exists := testNameCache[strings.ToLower(testName)]; exists {
+		if id, exists := testNameCache[strings.ToLower(strings.TrimSpace(testName))]; exists {
 			diagnosticTestId = id
 		} else {
 			log.Println("DiagnosticTest not available in database creating new test")
@@ -368,7 +371,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 				return "", fmt.Errorf("error while creating diagnostic test: %w", err) // Wrap error
 			}
 			diagnosticTestId = testInfo.DiagnosticTestId
-			testNameCache[strings.ToLower(testInfo.TestName)] = diagnosticTestId
+			testNameCache[strings.ToLower(strings.TrimSpace(testInfo.TestName))] = diagnosticTestId
 		}
 
 		//Save patient test
@@ -388,7 +391,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		// Save all component values
 		for _, component := range testData.Components {
 			var diagnosticComponentId uint64
-			if id, exists := componentNameCache[strings.ToLower(component.TestComponentName)]; exists {
+			if id, exists := componentNameCache[strings.ToLower(strings.TrimSpace(component.TestComponentName))]; exists {
 				diagnosticComponentId = id
 				result := models.PatientDiagnosticTestResultValue{
 					DiagnosticTestId:          diagnosticTestId,
@@ -419,7 +422,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 
 				}
 				diagnosticComponentId = componentInfo.DiagnosticTestComponentId
-				componentNameCache[strings.ToLower(componentInfo.TestComponentName)] = diagnosticComponentId
+				componentNameCache[strings.ToLower(strings.TrimSpace(componentInfo.TestComponentName))] = diagnosticComponentId
 
 				mapping := models.DiagnosticTestComponentMapping{
 					DiagnosticTestId:      diagnosticTestId,
@@ -508,4 +511,8 @@ func (ds *DiagnosticServiceImpl) NotifyAbnormalResult(patientId uint64) error {
 	}
 	log.Println("SendReportResultsEmail success")
 	return nil
+}
+
+func (s *DiagnosticServiceImpl) AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error {
+	return s.diagnosticRepo.AddMappingToMergeTestComponent(mapping)
 }

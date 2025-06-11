@@ -1608,6 +1608,37 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", reportData, nil, nil)
 }
 
+func (pc *PatientController) AddMappingToMergeTestComponent(c *gin.Context) {
+	authUserId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	var req models.MergeComponentMapppingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+
+	var mappings []models.DiagnosticTestComponentAliasMapping
+	for _, aliasID := range req.AliasTestComponentIds {
+		mappings = append(mappings, models.DiagnosticTestComponentAliasMapping{
+			DiagnosticTestComponentId: req.DiagnosticTestComponentId,
+			AliasTestComponentId:      aliasID,
+			CreatedBy:                 authUserId,
+			UpdatedBy:                 authUserId,
+		})
+	}
+
+	if err := pc.diagnosticService.AddMappingToMergeTestComponent(mappings); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add alias mappings", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Test Component merge successfully", nil, nil, nil)
+}
+
 func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
 	_, userId, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {

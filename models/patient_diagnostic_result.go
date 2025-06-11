@@ -50,7 +50,7 @@ func (DiagnosticLabAudit) TableName() string {
 }
 
 type PatientDiagnosticReport struct {
-	PatientDiagnosticReportId uint64    `gorm:"column:patient_diagnostic_report_id;primaryKey;autoIncrement" json:"patient_diagnostic_report_id"`
+	PatientDiagnosticReportId uint64    `gorm:"column:patient_diagnostic_report_id;primaryKey" json:"patient_diagnostic_report_id"`
 	DiagnosticLabId           uint64    `gorm:"column:diagnostic_lab_id" json:"diagnostic_lab_id"`
 	PatientId                 uint64    `gorm:"column:patient_id" json:"patient_id"`
 	PaymentStatus             string    `gorm:"column:payment_status" json:"payment_status"`

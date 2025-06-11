@@ -409,6 +409,25 @@ type DiagnosticTestComponentMapping struct {
 	UpdatedBy                        string    `gorm:"column:updated_by" json:"updated_by"`
 }
 
+type DiagnosticTestComponentAliasMapping struct {
+	DiagnosticTestComponentId uint64    `gorm:"column:diagnostic_test_component_id;not null" json:"diagnostic_test_component_id"`
+	AliasTestComponentId      uint64    `gorm:"column:alias_test_component_id;not null" json:"alias_test_component_id"`
+	IsDeleted                 int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
+	CreatedBy                 string    `gorm:"column:created_by;size:100" json:"created_by"`
+	UpdatedBy                 string    `gorm:"column:updated_by;size:100" json:"updated_by"`
+	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt                 time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+}
+
+func (DiagnosticTestComponentAliasMapping) TableName() string {
+	return "tbl_diagnostic_test_component_alias_mapping"
+}
+
+type MergeComponentMapppingRequest struct {
+	DiagnosticTestComponentId uint64   `json:"diagnostic_test_component_id" binding:"required"`
+	AliasTestComponentIds     []uint64 `json:"alias_test_component_id" binding:"required"`
+}
+
 func (DiagnosticTestComponent) TableName() string {
 	return "tbl_disease_profile_diagnostic_test_component_master"
 }

@@ -60,6 +60,7 @@ type DiagnosticRepository interface {
 	SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error
 	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
+	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -685,6 +686,7 @@ func (r *DiagnosticRepositoryImpl) GetTestReferenceRangeAuditRecord(testReferenc
 func (s *DiagnosticRepositoryImpl) LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64) {
 	testNameCache := make(map[string]uint64)
 	componentNameCache := make(map[string]uint64)
+	duplicateComponents := make([]string, 0)
 
 	var tests []models.DiagnosticTest
 	if err := s.db.Find(&tests).Error; err != nil {
@@ -692,18 +694,31 @@ func (s *DiagnosticRepositoryImpl) LoadDiagnosticTestMasterData() (map[string]ui
 		return nil, nil
 	}
 	for _, test := range tests {
-		testNameCache[strings.ToLower(test.TestName)] = test.DiagnosticTestId
+		testNameCache[strings.ToLower(strings.TrimSpace(test.TestName))] = test.DiagnosticTestId
 	}
+	subQuery := s.db.
+		Table("tbl_diagnostic_test_component_alias_mapping").
+		Select("alias_test_component_id").
+		Where("diagnostic_test_component_id != alias_test_component_id").
+		Where("is_deleted = 0")
 
 	var components []models.DiagnosticTestComponent
-	if err := s.db.Find(&components).Error; err != nil {
+	if err := s.db.
+		Where("diagnostic_test_component_id NOT IN (?)", subQuery).
+		Find(&components).Error; err != nil {
 		log.Printf("Error loading component master data: %v", err)
 		return nil, nil
 	}
+
 	for _, component := range components {
-		// key := fmt.Sprintf("%s_%s", component.TestComponentName, component.Units)
-		componentNameCache[strings.ToLower(component.TestComponentName)] = component.DiagnosticTestComponentId
+		key := strings.ToLower(strings.TrimSpace(component.TestComponentName))
+		if _, exists := componentNameCache[key]; exists {
+			duplicateComponents = append(duplicateComponents, component.TestComponentName)
+			continue
+		}
+		componentNameCache[key] = component.DiagnosticTestComponentId
 	}
+	log.Printf("Duplicate Test Component found: %s", duplicateComponents)
 	return testNameCache, componentNameCache
 }
 
@@ -790,4 +805,8 @@ func (dr *DiagnosticRepositoryImpl) ArchivePatientDiagnosticReport(reportID uint
 	}
 
 	return tx.Commit().Error
+}
+
+func (r *DiagnosticRepositoryImpl) AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error {
+	return r.db.Create(mapping).Error
 }

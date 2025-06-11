@@ -1020,11 +1020,11 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	selectFields := `
 		pdr.patient_diagnostic_report_id,
 		pdr.patient_id,
-		pdr.collected_date,
-		pdr.report_date,
+		format_datetime(pdr.collected_date)AS collected_date,
+		format_datetime(pdr.report_date) AS report_date,
 		pdr.report_status,
 		pdt.test_note,
-		pdt.test_date,
+		format_datetime(pdt.test_date) AS test_date,
 		pdtrv.diagnostic_test_id,
 		pdtrv.diagnostic_test_component_id,
 		tdpdtcm.test_component_name,
@@ -1033,7 +1033,7 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		dtrr.normal_max,
 		dtrr.units,
 		pdtrv.result_status,
-		pdtrv.result_date,
+		format_datetime(pdtrv.result_date) AS result_date,
 		pdtrv.result_comment`
 
 	if input.IsPinned != nil {
@@ -1394,8 +1394,8 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			pdtrv.diagnostic_test_id,
 			pdtm.test_name,
 			pdtrv.diagnostic_test_component_id,
-			tdpdtcm.test_component_name,
-			tdpdtcm.units AS component_unit,
+			COALESCE(orig_comp.test_component_name, tdpdtcm.test_component_name) AS test_component_name,
+			COALESCE(orig_comp.units, tdpdtcm.units) AS component_unit,
 			pdtrv.result_value,
 			dtrr.normal_min,
 			dtrr.normal_max,
@@ -1416,6 +1416,10 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
 		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
 			ON pdtrv.diagnostic_test_component_id = tdpdtcm.diagnostic_test_component_id
+		LEFT JOIN tbl_diagnostic_test_component_alias_mapping tcam 
+			ON tcam.alias_test_component_id = pdtrv.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master orig_comp
+   			ON orig_comp.diagnostic_test_component_id = tcam.diagnostic_test_component_id
 		LEFT JOIN tbl_disease_profile_diagnostic_test_master pdtm 
 			ON pdtrv.diagnostic_test_id = pdtm.diagnostic_test_id
 		LEFT JOIN tbl_diagnostic_lab dl 

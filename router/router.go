@@ -318,6 +318,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadUserUploadedMedicalFile},
 
 		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
+		Route{"patient diagnostic report save", http.MethodPost, constant.MergeComponent, patientController.AddMappingToMergeTestComponent},
 		Route{"Add health stat", http.MethodPost, constant.HealthStats, patientController.AddHealthStats},
 		Route{"patient diagnostic report save", http.MethodPost, constant.ReportArchive, patientController.ArchivePatientDiagnosticReport},
 
