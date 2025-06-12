@@ -366,7 +366,7 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 			log.Println("@GetRelativeList -> ListPermissions,", err)
 			continue
 		}
-		userRelatives[idx].HealthScore= s.GetUserHealthScore(userRelatives[idx].RelativeId)
+		userRelatives[idx].HealthScore = s.GetUserHealthScore(userRelatives[idx].RelativeId)
 		userRelatives[idx].Permissions = perms
 	}
 
@@ -528,7 +528,11 @@ func (s *PatientServiceImpl) ExistsByUserIdAndRoleId(userId uint64, roleId uint6
 }
 
 func (ps *PatientServiceImpl) GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error) {
-	return ps.patientRepo.FetchPatientDiagnosticTrendValue(input)
+	data, err := ps.patientRepo.FetchPatientDiagnosticTrendValue(input)
+	if err != nil {
+		return nil, err
+	}
+	return ps.patientRepo.ParseDiagnosticTrendData(data)
 }
 
 func (ps *PatientServiceImpl) SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error) {
@@ -838,7 +842,7 @@ func (s *PatientServiceImpl) AssignMultiplePermissions(userID, relativeID uint64
 func (s *PatientServiceImpl) GetUserHealthScore(userID uint64) int {
 	healthScore := 0
 	basicDetailsAdded, _ := s.patientRepo.IsUserBasicProfileComplete(userID)
-	
+
 	if basicDetailsAdded {
 		healthScore += 10
 	}

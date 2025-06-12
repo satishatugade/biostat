@@ -52,6 +52,7 @@ type PatientRepository interface {
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 	FetchPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
+	ParseDiagnosticTrendData(rawData []map[string]interface{}) ([]map[string]interface{}, error)
 	GetUserSUBByID(ID uint64) (string, error)
 	NoOfUpcomingAppointments(patientID uint64) (int64, error)
 	NoOfMedicationsForDashboard(patientID uint64) (int64, error)
@@ -1126,6 +1127,51 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	return results, nil
 }
 
+func (p *PatientRepositoryImpl) ParseDiagnosticTrendData(rawData []map[string]interface{}) ([]map[string]interface{}, error) {
+	grouped := make(map[interface{}]map[string]interface{})
+
+	for _, row := range rawData {
+		componentID := row["diagnostic_test_component_id"]
+
+		if _, exists := grouped[componentID]; !exists {
+			grouped[componentID] = map[string]interface{}{
+				"diagnostic_test_component_id": componentID,
+				"test_component_name":          row["test_component_name"],
+				"ref_unit":                     row["units"],
+				"normal_min":                   row["normal_min"],
+				"normal_max":                   row["normal_max"],
+				"is_pinned":                    row["is_pinned"],
+				"diagnostic_test_id":           row["diagnostic_test_id"],
+				"patient_id":                   row["patient_id"],
+				"trend_history":                []map[string]interface{}{},
+			}
+		}
+
+		historyEntry := map[string]interface{}{
+			"patient_diagnostic_report_id": row["patient_diagnostic_report_id"],
+			"report_date":                  row["report_date"],
+			"result_date":                  row["result_date"],
+			"collected_date":               row["collected_date"],
+			"test_date":                    row["test_date"],
+			"report_status":                row["report_status"],
+			"result_status":                row["result_status"],
+			"result_value":                 row["result_value"],
+			"result_comment":               row["result_comment"],
+			"test_note":                    row["test_note"],
+		}
+
+		group := grouped[componentID]
+		group["trend_history"] = append(group["trend_history"].([]map[string]interface{}), historyEntry)
+	}
+
+	result := make([]map[string]interface{}, 0, len(grouped))
+	for _, group := range grouped {
+		result = append(result, group)
+	}
+
+	return result, nil
+}
+
 func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.PatientRelation, error) {
 	uniqueIds := make(map[uint64]struct{})
 	for _, id := range ids {
@@ -1405,6 +1451,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			pdtrv.result_comment,
 			dl.diagnostic_lab_id,
 			dl.lab_name,
+			dc.is_pinned,
 			pdtrv.udf1 AS qualifier
 		FROM tbl_patient_diagnostic_test_result_value pdtrv
 		LEFT JOIN tbl_patient_diagnostic_test pdt 
@@ -1422,6 +1469,9 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
    			ON orig_comp.diagnostic_test_component_id = tcam.diagnostic_test_component_id
 		LEFT JOIN tbl_disease_profile_diagnostic_test_master pdtm 
 			ON pdtrv.diagnostic_test_id = pdtm.diagnostic_test_id
+		LEFT JOIN tbl_patient_test_component_display_config dc 
+			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
+			AND pdtrv.patient_id = dc.patient_id
 		LEFT JOIN tbl_diagnostic_lab dl 
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
 		WHERE pdtrv.patient_diagnostic_report_id IN (
@@ -1632,12 +1682,19 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 		rangeStr := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
 		valueStr := fmt.Sprintf("%v", row.ResultValue)
 		color := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
+		if row.DiagnosticTestComponentID == 90 {
+			fmt.Println("row.IsPinned,90 ", row.IsPinned)
+		}
+		if row.DiagnosticTestComponentID == 60 {
+			fmt.Println("row.IsPinned, 60 ", row.IsPinned)
+		}
 
 		key := models.ComponentKey{
 			ComponentID: row.DiagnosticTestComponentID,
 			Name:        row.TestComponentName,
 			Units:       row.ComponentUnit,
 			RefRange:    rangeStr,
+			IsPinned:    row.IsPinned,
 		}
 
 		cell := models.CellData{
@@ -1647,6 +1704,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			ResultDate: row.ResultDate,
 			Qualifier:  row.Qualifier,
 			ReportName: row.ReportName,
+			IsPinned:   row.IsPinned,
 		}
 
 		componentMap[key] = append(componentMap[key], cell)
@@ -1667,6 +1725,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			"ref_unit":                     key.Units,
 			"ref_range":                    key.RefRange,
 			"report_name":                  key.ReportName,
+			"is_pinned":                    key.IsPinned,
 			"trend_values":                 values,
 		}
 		finalRows = append(finalRows, row)

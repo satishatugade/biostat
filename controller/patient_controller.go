@@ -222,7 +222,7 @@ func (pc *PatientController) GetPatientDiagnosticTrendValue(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient reports not found", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient reports fetched successfully", results, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Historical trend fetched successfully", results, nil, nil)
 }
 
 func (pc *PatientController) GetDiagnosticResults(c *gin.Context) {

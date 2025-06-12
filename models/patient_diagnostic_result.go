@@ -399,6 +399,7 @@ type ReportRow struct {
 	CollectedDate    string
 	ReportStatus     string
 	ReportName       string
+	IsPinned         bool
 	Comments         string
 	DiagnosticLabID  uint64
 	LabNo            string
@@ -492,6 +493,7 @@ type ComponentKey struct {
 	Units       string
 	RefRange    string
 	ReportName  string
+	IsPinned    bool
 }
 
 type CellData struct {
@@ -501,4 +503,5 @@ type CellData struct {
 	ReportID   uint64 `json:"patient_diagnostic_report_id"`
 	ResultDate string `json:"result_date"`
 	ReportName string `json:"report_name"`
+	IsPinned   bool   `josn:"is_pinned"`
 }

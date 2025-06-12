@@ -33,7 +33,7 @@ const (
 	ChemistList = "/pharmacist-list"
 
 	PatientResultValue        = "/diagnostic-value"
-	FilterResultValue         = "/filter-result-value"
+	HistoricalTrendAnalysis   = "/historical-trend-analysis"
 	DisplayConfig             = "/diagnostic-component/configuration"
 	GetResultValue            = "/get-result-value"
 	GetReportResult           = "/report/diagnostic-trend"
