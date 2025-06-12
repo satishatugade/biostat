@@ -815,3 +815,24 @@ func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) string {
 		return "text-green-500"
 	}
 }
+
+func GetMappingType(roleName string) string {
+	switch roleName {
+	case "patient":
+		return "S"
+	case "doctor":
+		return "D"
+	case "nurse":
+		return "N"
+	case "relative":
+		return "R"
+	case "caregiver":
+		return "C"
+	case "admin":
+		return "A"
+	case "pharmacist":
+		return "P"
+	default:
+		return ""
+	}
+}

@@ -32,6 +32,7 @@ var ProtectedRoutes = map[string][]string{
 	"/v1/patient":                   {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 	"/v1/patient/user-profile":      {"admin", "patient", "relative", "caregiver", "doctor", "nurse"},
 	"/v1/user/create-by-patient":    {"patient", "relative"},
+	"/v1/user/map-user-to-patient":  {"patient", "relative", "caregiver", "doctor", "nurse"},
 }
 
 func MasterRoutes(g *gin.RouterGroup, masterController *controller.MasterController, patientController *controller.PatientController) {

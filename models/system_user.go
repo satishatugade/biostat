@@ -280,3 +280,9 @@ type PermissionResult struct {
 	Code       string `json:"code"`
 	Granted    bool   `json:"granted"`
 }
+
+type AddRelationRequest struct {
+	UserID      uint64 `json:"user_id" binding:"required"`
+	CurrentRole string `json:"current_role" binding:"required"`
+	RoleName    string `json:"role_name" binding:"required"`
+}

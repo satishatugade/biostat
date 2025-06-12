@@ -46,7 +46,11 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
 	var patientRepo = repository.NewPatientRepository(db)
-	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo)
+
+	var roleRepo = repository.NewRoleRepository(db)
+	var roleService = service.NewRoleService(roleRepo)
+
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
@@ -54,9 +58,6 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService)
 
 	var smsService = service.NewSmsService()
-
-	var roleRepo = repository.NewRoleRepository(db)
-	var roleService = service.NewRoleService(roleRepo)
 
 	var supportGrpRepo = repository.NewSupportGroupRepository(db)
 	var supportGrpService = service.NewSupportGroupService(supportGrpRepo)
@@ -351,6 +352,7 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.ValidateUserEmailMobile, userController.CheckUserEmailMobileExist},
 		Route{"User", http.MethodPost, constant.ResetPassword, userController.ResetUserPassword},
 		Route{"User", http.MethodPost, constant.SentLink, userController.SendResetPasswordLink},
+		Route{"User", http.MethodPost, constant.MapUserToPatient, userController.AddRelationHandler},
 		// Route{"User", http.MethodPost, constant.SentOTP, userController.SendOTP},
 		// Route{"User", http.MethodPost, constant.VerifyOTP, userController.VerifyOTP},
 

@@ -51,6 +51,7 @@ const (
 	User                      = "/getuser"
 	RegisterUser              = "/register"
 	UserRegistrationByPatient = "/create-by-patient"
+	MapUserToPatient          = "/map-user-to-patient"
 
 	AuthUser                             = "/auth/login"
 	LogoutUser                           = "/logout"

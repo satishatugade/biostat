@@ -3,6 +3,7 @@ package service
 import (
 	"biostat/models"
 	"biostat/repository"
+	"biostat/utils"
 	"bytes"
 	"fmt"
 	"log"
@@ -45,6 +46,7 @@ type PatientService interface {
 	GetUserOnboardingStatusByUID(uid uint64) (bool, bool, bool, int64, int64, int64, int64, error)
 	GetUserSUBByID(ID uint64) (string, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
+	AddRelation(tx *gorm.DB, req models.AddRelationRequest, patientId uint64) error
 
 	GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
@@ -68,11 +70,12 @@ type PatientServiceImpl struct {
 	apiService        ApiService
 	allergyService    AllergyService
 	medicalRecordRepo repository.TblMedicalRecordRepository
+	roleRepo          repository.RoleRepository
 }
 
 // Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService, medicalRecordRepo repository.TblMedicalRecordRepository) PatientService {
-	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService, medicalRecordRepo: medicalRecordRepo}
+func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService, medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository) PatientService {
+	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService, medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo}
 }
 
 // GetAllRelation implements PatientService.
@@ -872,4 +875,40 @@ func (s *PatientServiceImpl) GetUserHealthScore(userID uint64) int {
 	}
 
 	return healthScore
+}
+
+func (s *PatientServiceImpl) AddRelation(tx *gorm.DB, req models.AddRelationRequest, patientId uint64) error {
+	var checkType string
+	switch req.CurrentRole {
+	case "caregiver":
+		checkType = "C"
+	case "relative":
+		checkType = "R"
+	default:
+		return fmt.Errorf("unsupported role: %s", req.CurrentRole)
+	}
+
+	_, relationId, err := s.patientRepo.CheckPatientRelativeMapping(req.UserID, patientId, checkType)
+	if err != nil {
+		return err
+	}
+	role, err := s.roleRepo.GetRoleIdByRoleName(req.RoleName)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	mappingType := utils.GetMappingType(role.RoleName)
+	if mappingType == "" {
+		tx.Rollback()
+		return fmt.Errorf("invalid mapping type for role: %s", role.RoleName)
+	}
+	mapping := models.SystemUserRoleMapping{
+		UserId:      req.UserID,
+		PatientId:   patientId,
+		RelationId:  int(relationId),
+		MappingType: mappingType,
+		IsSelf:      false,
+		RoleId:      role.RoleId,
+	}
+	return s.roleRepo.AddSystemUserMapping(tx, &mapping)
 }

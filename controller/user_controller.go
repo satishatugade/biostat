@@ -549,6 +549,40 @@ func (uc *UserController) FetchAddressByPincode(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Address fetched successfully", addressData, nil, nil)
 }
 
+func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(ctx, uc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var req models.AddRelationRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
+		return
+	}
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Recovered in AddRelationHandler:", r)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to add relation", nil, nil)
+			return
+		}
+	}()
+	err = uc.patientService.AddRelation(tx, req, patientId)
+	if err != nil {
+		tx.Rollback()
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to add relation", nil, err)
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Relation added successfully", nil, nil, nil)
+	return
+}
+
 // func (ac *UserController) SendOTP(c *gin.Context) {
 // 	var req models.SendOTPRequest
 // 	if err := c.ShouldBindJSON(&req); err != nil {
