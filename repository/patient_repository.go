@@ -1035,11 +1035,8 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		dtrr.units,
 		pdtrv.result_status,
 		format_datetime(pdtrv.result_date) AS result_date,
-		pdtrv.result_comment`
-
-	if input.IsPinned != nil {
-		selectFields = "dc.is_pinned, " + selectFields
-	}
+		pdtrv.result_comment,
+		dc.is_pinned `
 
 	query := fmt.Sprintf(`
 		SELECT %s
@@ -1052,21 +1049,18 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
 			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
 		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
-			ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id`, selectFields)
-
-	if input.IsPinned != nil {
-		query += `
+			ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id
 		LEFT JOIN tbl_patient_test_component_display_config dc 
 			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
-			AND pdtrv.patient_id = dc.patient_id`
-	}
+			AND pdtrv.patient_id = dc.patient_id`, selectFields)
 
 	query += ` WHERE pdr.patient_id = ?`
 	args := []interface{}{input.PatientId}
 
 	if input.DiagnosticTestComponentId != nil {
-		query += " AND pdtrv.diagnostic_test_component_id = ?"
+		query += " AND pdtrv.diagnostic_test_component_id = ? "
 		args = append(args, *input.DiagnosticTestComponentId)
+		query += " ORDER BY pdtrv.result_date DESC"
 	}
 
 	if input.PatientDiagnosticReportId != nil {
@@ -1089,7 +1083,6 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		args = append(args, *input.IsPinned)
 		query += " ORDER BY dc.created_at DESC"
 	}
-	fmt.Println("qurey", query)
 	rows, err := pr.db.Raw(query, args...).Rows()
 	if err != nil {
 		return nil, err
