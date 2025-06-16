@@ -44,7 +44,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	var hashedPassword []byte
 	var err error
 
-	if user.RoleName == "doctor" || user.RoleName == "caregiver" || user.RoleName == "nurse" || user.RoleName == "pharmacist" {
+	if user.RoleName == "doctor" || user.RoleName == "caregiver" || user.RoleName == "nurse" || user.RoleName == "pharmacist" || (user.RoleName == "patient" && user.AuthType == "GMAIL") {
 		rawPassword = utils.GenerateRandomPassword()
 	} else {
 		rawPassword = user.Password
@@ -233,7 +233,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 	}
 	client := utils.Client
 	ctx := context.Background()
-	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, identifier, input.Password)
+	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, loginInfo.Username, input.Password)
 	if err != nil {
 		log.Println("Error logging in to Keycloak:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid user credentials!", nil, err)

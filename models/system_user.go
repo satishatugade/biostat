@@ -130,6 +130,7 @@ func (SystemUser_) TableName() string {
 
 type UserLoginInfo struct {
 	AuthUserID string
+	Username   string
 	Password   string
 	LoginCount int
 }

@@ -157,7 +157,7 @@ func (ur *UserRepositoryImpl) GetUserInfoByUserName(username string) (*models.Us
 func (ur *UserRepositoryImpl) GetUserInfoByIdentifier(loginType, identifier string) (*models.UserLoginInfo, error) {
 	var info models.UserLoginInfo
 
-	query := ur.db.Model(&models.SystemUser_{}).Select("auth_user_id", "password", "login_count")
+	query := ur.db.Model(&models.SystemUser_{}).Select("auth_user_id","username", "password", "login_count")
 
 	switch loginType {
 	case "username":
