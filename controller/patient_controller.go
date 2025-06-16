@@ -2169,3 +2169,20 @@ func (pc *PatientController) AssignPermissionHandler(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Permission assigned successfully", nil, nil, nil)
 	return
 }
+
+func (pc *PatientController) SendSOSHandler(ctx *gin.Context) {
+	ip := ctx.ClientIP()
+	userAgent := ctx.Request.UserAgent()
+	_, patientID, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	err = pc.patientService.SendSOS(patientID, ip, userAgent)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Emergency SOS sent to all relatives", nil, nil, nil)
+	return
+}

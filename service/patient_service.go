@@ -5,9 +5,12 @@ import (
 	"biostat/repository"
 	"biostat/utils"
 	"bytes"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -58,6 +61,7 @@ type PatientService interface {
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
+	SendSOS(patientID uint64, ip, userAgent string) error
 
 	AssignPermission(userID, relativeID uint64, permissionCode string, granted bool) error
 	CanPerformAction(userID, relativeID uint64, permissionCode string) (bool, error)
@@ -65,17 +69,18 @@ type PatientService interface {
 }
 
 type PatientServiceImpl struct {
-	patientRepo       repository.PatientRepository
-	patientRepoImpl   repository.PatientRepositoryImpl
-	apiService        ApiService
-	allergyService    AllergyService
-	medicalRecordRepo repository.TblMedicalRecordRepository
-	roleRepo          repository.RoleRepository
+	patientRepo         repository.PatientRepository
+	patientRepoImpl     repository.PatientRepositoryImpl
+	apiService          ApiService
+	allergyService      AllergyService
+	medicalRecordRepo   repository.TblMedicalRecordRepository
+	roleRepo            repository.RoleRepository
+	notificationService NotificationService
 }
 
 // Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService, medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository) PatientService {
-	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService, medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo}
+func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService, medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository, notificationService NotificationService) PatientService {
+	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService, medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo, notificationService: notificationService}
 }
 
 // GetAllRelation implements PatientService.
@@ -905,4 +910,67 @@ func (s *PatientServiceImpl) AddRelation(tx *gorm.DB, req models.AddRelationRequ
 		RoleId:      role.RoleId,
 	}
 	return s.roleRepo.AddSystemUserMapping(tx, &mapping)
+}
+
+func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) error {
+	patient, err := s.patientRepo.GetUserProfileByUserId(patientID)
+	if err != nil {
+		return err
+	}
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(&patientID, []string{"R", "PCG"}, false, 0)
+	if err != nil {
+		return err
+	}
+	if len(userRelationIds) == 0 {
+		return errors.New("SOS could not be sent as no relatives found")
+	}
+
+	relativeUserIds, relationIds := ExtractUserAndRelationIds(userRelationIds)
+
+	var relation []models.PatientRelation
+	relation, err = s.patientRepo.GetRelationNameById(relationIds)
+	if err != nil {
+		return err
+	}
+	userRelatives, err := s.patientRepo.GetRelativeList(relativeUserIds, userRelationIds, relation)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	dateTime := now.Format("02-01-06 15:04:05")
+	type EmailResult struct {
+		Success bool
+		Name    string
+		Email   string
+		Error   error
+	}
+	var wg sync.WaitGroup
+	results := make(chan EmailResult, len(userRelatives))
+	for _, relative := range userRelatives {
+		wg.Add(1)
+		go func(rel models.PatientRelative) {
+			defer wg.Done()
+			err := s.notificationService.SendSOS(rel.Email, rel.FirstName, patient.FirstName, "", dateTime, userAgent)
+			results <- EmailResult{
+				Success: err == nil,
+				Name:    rel.FirstName,
+				Email:   rel.Email,
+				Error:   err,
+			}
+		}(relative)
+	}
+	wg.Wait()
+	close(results)
+	var errorList, successList []string
+	for res := range results {
+		if res.Success {
+			successList = append(successList, fmt.Sprintf("%s (%s)", res.Name, res.Email))
+		} else {
+			errorList = append(errorList, fmt.Sprintf("%s (%s): %v", res.Name, res.Email, res.Error))
+		}
+	}
+	if len(errorList) > 0 {
+		return fmt.Errorf("SOS sent to %d relatives; failed for %d relative(s): %s", len(successList), len(errorList), strings.Join(errorList, ", "))
+	}
+	return nil
 }

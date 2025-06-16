@@ -195,6 +195,7 @@ const (
 	Messages                = "/messages"
 	Reminder                = "/reminder"
 	Permission              = "/permission"
+	SOS                     = "/sos"
 )
 
 const (

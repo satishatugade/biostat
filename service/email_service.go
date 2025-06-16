@@ -320,7 +320,7 @@ func (e *EmailServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_,
 	sendBody := map[string]interface{}{
 		"user_id":           systemUser.UserId,
 		"recipient_mail_id": systemUser.Email,
-		"template_code":     5,
+		"template_code":     9,
 		"channels":          []string{"email", "whatsapp"},
 		"data": map[string]interface{}{
 			"fullName": systemUser.FirstName + " " + systemUser.LastName,

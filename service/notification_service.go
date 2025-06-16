@@ -14,6 +14,7 @@ import (
 type NotificationService interface {
 	GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error)
 	ScheduleReminders(email, name string, user_id uint64, config []models.ReminderConfig) error
+	SendSOS(recipientEmail, familyMember, patientName, location, dateTime, deviceId string) error
 }
 
 type NotificationServiceImpl struct {
@@ -31,7 +32,7 @@ func (e *NotificationServiceImpl) GetUserNotifications(userId uint64) ([]models.
 func (e *NotificationServiceImpl) ScheduleReminders(email, name string, user_id uint64, config []models.ReminderConfig) error {
 	startDate := time.Now()
 	var failedSlots []string
-	
+
 	for _, reminder := range config {
 		reminderTimeStr := fmt.Sprintf("%s %s", startDate.Format("2006-01-02"), reminder.Time)
 		reminderTime, err := time.ParseInLocation("2006-01-02 15:04", reminderTimeStr, time.Local)
@@ -96,4 +97,24 @@ func (e *NotificationServiceImpl) ScheduleReminders(email, name string, user_id 
 		return fmt.Errorf("failed to schedule reminders for: %s", strings.Join(failedSlots, "; "))
 	}
 	return nil
+}
+
+func (e *NotificationServiceImpl) SendSOS(recipientEmail, familyMember, patientName, location, dateTime, deviceId string) error {
+	scheduleBody := map[string]interface{}{
+		"recipient_mail_id": recipientEmail,
+		"template_code":     10,
+		"channels":          []string{"email"},
+		"data": map[string]interface{}{
+			"familyMember": familyMember,
+			"patientName":  patientName,
+			"dateTime":     dateTime,
+			"location":     location,
+			"deviceId":     deviceId,
+		},
+	}
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
+	_, _, err := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", scheduleBody, header)
+	return err
 }

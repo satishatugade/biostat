@@ -50,7 +50,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var roleRepo = repository.NewRoleRepository(db)
 	var roleService = service.NewRoleService(roleRepo)
 
-	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo)
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
@@ -339,6 +339,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
 
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
+		Route{"User SOS", http.MethodPost, constant.SOS, patientController.SendSOSHandler},
 	}
 }
 
