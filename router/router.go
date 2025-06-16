@@ -347,6 +347,7 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.RegisterUser, userController.RegisterUser},
 		Route{"User", http.MethodPost, constant.UserRegistrationByPatient, userController.UserRegisterByPatient},
 		Route{"User", http.MethodPost, constant.AuthUser, userController.LoginUser},
+		Route{"User", http.MethodPost, constant.RefreshToken, userController.RefreshToken},
 		Route{"User", http.MethodPost, constant.LogoutUser, userController.LogoutUser},
 		Route{"redirect", http.MethodGet, constant.RedirectURL, userController.UserRedirect},
 		Route{"User", http.MethodPost, constant.ValidateUserEmailMobile, userController.CheckUserEmailMobileExist},

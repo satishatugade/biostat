@@ -2092,7 +2092,7 @@ func (pc *PatientController) AddTestComponentDisplayConfig(ctx *gin.Context) {
 		return
 	}
 
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Display config upserted successfully", nil, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Display config updated successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) GetUserMessages(ctx *gin.Context) {

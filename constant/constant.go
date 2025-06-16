@@ -54,6 +54,7 @@ const (
 	MapUserToPatient          = "/map-user-to-patient"
 
 	AuthUser                             = "/auth/login"
+	RefreshToken                         = "/api//auth/refresh-token"
 	LogoutUser                           = "/logout"
 	Disease                              = "/get-disease/:disease_id"
 	AllDisease                           = "/get-disease"

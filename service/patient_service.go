@@ -716,7 +716,6 @@ func (ps *PatientServiceImpl) GenerateExcelFile(data map[string]interface{}) ([]
 
 	headers := []string{"Test Component Name", "Unit", "Ref. Range"}
 
-	fmt.Println("data ", data)
 	dates, ok := data["dates"].([]string)
 	if !ok || len(dates) == 0 {
 		return nil, fmt.Errorf("invalid or no dates found")
@@ -732,17 +731,13 @@ func (ps *PatientServiceImpl) GenerateExcelFile(data map[string]interface{}) ([]
 	if !ok {
 		return nil, fmt.Errorf("invalid rows")
 	}
-	fmt.Println("dates header ", dates)
 	for rowIndex, row := range rows {
 		r := rowIndex + 2
-		fmt.Printf("rowIndex %d == row %s  ", rowIndex, row)
-		// Set base columns
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", r), row["test_component_name"])
 		f.SetCellValue(sheet, fmt.Sprintf("B%d", r), row["ref_unit"])
 		f.SetCellValue(sheet, fmt.Sprintf("C%d", r), row["ref_range"])
 
 		rawTrendValues := row["trend_values"]
-		fmt.Println("rawTrendValues ", rawTrendValues)
 
 		trendValues, ok := rawTrendValues.([]models.CellData)
 		if !ok {
@@ -750,7 +745,6 @@ func (ps *PatientServiceImpl) GenerateExcelFile(data map[string]interface{}) ([]
 			continue
 		}
 		dateToValue := make(map[string]models.CellData)
-		fmt.Println("trendValues ", trendValues)
 		for _, tv := range trendValues {
 			dateToValue[tv.ResultDate] = tv
 		}
@@ -760,7 +754,7 @@ func (ps *PatientServiceImpl) GenerateExcelFile(data map[string]interface{}) ([]
 
 			if cellData, found := dateToValue[date]; found {
 				val = cellData.Value
-				styleID = applyColorStyle(f, cellData.Colour)
+				styleID = applyColorStyle(f, cellData.ColourClass)
 			}
 
 			cell, _ := excelize.CoordinatesToCellName(colIndex+4, r)

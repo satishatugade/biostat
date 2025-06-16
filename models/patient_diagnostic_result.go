@@ -342,6 +342,7 @@ type DiagnosticReportFilter struct {
 	ResultStatus      *string `json:"result_status,omitempty"`
 	ResultDateFrom    *string `json:"from_date,omitempty"`
 	ResultDateTo      *string `json:"to_date,omitempty"`
+	ReportDate        *string `json:"report_date,omitempty"`
 	OrderBy           *string `json:"order_by,omitempty"`
 	OrderDir          *string `json:"order_dir,omitempty"`
 }
@@ -497,11 +498,12 @@ type ComponentKey struct {
 }
 
 type CellData struct {
-	Value      string `json:"value"`
-	Colour     string `json:"colour"`
-	Qualifier  string `json:"qualifier"`
-	ReportID   uint64 `json:"patient_diagnostic_report_id"`
-	ResultDate string `json:"result_date"`
-	ReportName string `json:"report_name"`
-	IsPinned   bool   `josn:"is_pinned"`
+	Value       string `json:"value"`
+	ColourClass string `json:"colour_class"`
+	Colour      string `json:"colour"`
+	Qualifier   string `json:"qualifier"`
+	ReportID    uint64 `json:"patient_diagnostic_report_id"`
+	ResultDate  string `json:"result_date"`
+	ReportName  string `json:"report_name"`
+	IsPinned    bool   `json:"is_pinned"`
 }

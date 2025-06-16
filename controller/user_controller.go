@@ -283,6 +283,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 	userLoginResponse := models.UserLoginResponse{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
+		ExpiresIN:    token.ExpiresIn,
 		UserResponse: models.UserResponse{
 			UserId:     user.UserId,
 			FirstName:  user.FirstName,
@@ -294,6 +295,33 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		},
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User login successfully", userLoginResponse, nil, nil)
+}
+
+func (uc *UserController) RefreshToken(c *gin.Context) {
+	var input struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Refresh token is required", nil, err)
+		return
+	}
+
+	client := utils.Client
+	ctx := context.Background()
+
+	token, err := client.RefreshToken(ctx, input.RefreshToken, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
+	if err != nil {
+		log.Println("Error refreshing token:", err)
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to refresh token", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Token refreshed successfully", map[string]interface{}{
+		"access_token":  token.AccessToken,
+		"refresh_token": token.RefreshToken,
+		"expires_in":    token.ExpiresIn,
+	}, nil, nil)
 }
 
 func (uc *UserController) LogoutUser(c *gin.Context) {

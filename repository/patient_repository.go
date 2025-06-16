@@ -1054,7 +1054,7 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
 			AND pdtrv.patient_id = dc.patient_id`, selectFields)
 
-	query += ` WHERE pdr.patient_id = ?`
+	query += ` WHERE pdr.patient_id = ?  AND pdr.is_deleted = 0 `
 	args := []interface{}{input.PatientId}
 
 	if input.DiagnosticTestComponentId != nil {
@@ -1496,7 +1496,10 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		query += " AND DATE(pdtrv.result_date) BETWEEN ? AND ? "
 		args = append(args, *filter.ResultDateFrom, *filter.ResultDateTo)
 	}
-
+	if filter.ReportDate != nil {
+		query += " AND DATE(pdr.report_date) = ?"
+		args = append(args, *filter.ReportDate)
+	}
 	query += p.BuildOrderByClause(filter.OrderBy, filter.OrderDir)
 
 	fmt.Println("Executing Query:", query)
@@ -1674,14 +1677,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 
 		rangeStr := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
 		valueStr := fmt.Sprintf("%v", row.ResultValue)
-		color := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
-		if row.DiagnosticTestComponentID == 90 {
-			fmt.Println("row.IsPinned,90 ", row.IsPinned)
-		}
-		if row.DiagnosticTestComponentID == 60 {
-			fmt.Println("row.IsPinned, 60 ", row.IsPinned)
-		}
-
+		colorClass, colour := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
 		key := models.ComponentKey{
 			ComponentID: row.DiagnosticTestComponentID,
 			Name:        row.TestComponentName,
@@ -1691,13 +1687,14 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 		}
 
 		cell := models.CellData{
-			Value:      valueStr,
-			Colour:     color,
-			ReportID:   row.PatientDiagnosticReportID,
-			ResultDate: row.ResultDate,
-			Qualifier:  row.Qualifier,
-			ReportName: row.ReportName,
-			IsPinned:   row.IsPinned,
+			Value:       valueStr,
+			ColourClass: colorClass,
+			Colour:      colour,
+			ReportID:    row.PatientDiagnosticReportID,
+			ResultDate:  row.ResultDate,
+			Qualifier:   row.Qualifier,
+			ReportName:  row.ReportName,
+			IsPinned:    row.IsPinned,
 		}
 
 		componentMap[key] = append(componentMap[key], cell)
