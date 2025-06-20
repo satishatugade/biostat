@@ -27,14 +27,14 @@ type TblMedicalRecord struct {
 	DigitizeFlag      int            `gorm:"column:digitize_flag;default:0" json:"digitize_flag"`
 
 	Status              constant.JobStatus `gorm:"type:status_enum" json:"status"`
-	QueueName           string             `gorm:"column:queue_name;type:varchar(100);not null;default:''" json:"queue_name"`
 	RetryCount          int                `gorm:"column:retry_count;default:0" json:"retry_count"`
 	MaxRetry            int                `gorm:"column:max_retry" json:"max_retry"`
+	QueueName           string             `gorm:"column:queue_name;type:varchar(100);not null;default:''" json:"queue_name"`
 	ErrorMessage        string             `gorm:"column:error_message;type:text" json:"error_message"`
 	ProcessingStartedAt *time.Time         `gorm:"column:processing_started_at" json:"processing_started_at"`
 	CompletedAt         *time.Time         `gorm:"column:completed_at" json:"completed_at"`
 	NextRetryAt         *time.Time         `gorm:"column:next_retry_at" json:"next_retry_at"`
-	IsExpired           bool               `gorm:"column:is_expired;default:false" json:"is_expired"`
+	IsExpired           *bool              `gorm:"column:is_expired;default:false" json:"is_expired"`
 
 	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`

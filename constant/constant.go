@@ -38,6 +38,7 @@ const (
 	GetResultValue            = "/get-result-value"
 	GetReportResult           = "/report/diagnostic-trend"
 	ExportReport              = "/export-report-data"
+	ExportPDFReport              = "/export-pdf"
 	PatientDiseaseCondition   = "/patient-disease-condition"
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
 	PatientRegistration       = "/patient-registration"

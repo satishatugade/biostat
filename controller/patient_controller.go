@@ -12,15 +12,18 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -342,6 +345,62 @@ func (pc *PatientController) ExportDiagnosticResultsExcel(c *gin.Context) {
 	c.Header("File-Name", "diagnostic_report.xlsx")
 	c.Header("Access-Control-Expose-Headers", "File-Name")
 	c.Data(http.StatusOK, "application/octet-stream", fileBytes)
+}
+
+func (pc *PatientController) ExportDiagnosticResultsPDF(c *gin.Context) {
+	_, user_id, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	user, err := pc.patientService.GetUserProfileByUserId(user_id)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to load profile", nil, err)
+		return
+	}
+	fmt.Println("user ", user)
+	var filter models.DiagnosticReportFilter
+	if err := c.ShouldBindJSON(&filter); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid filter input", nil, err)
+		return
+	}
+
+	// data, _, err := pc.patientService.GetPatientDiagnosticReportResult(user.UserId, filter, 1000, 0)
+	// if err != nil {
+	// 	models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to generate report data", nil, err)
+	// 	return
+	// }
+
+	_, filename, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(filename)
+	reportPath := filepath.Join(dir, "sample.json")
+
+	reportBytes, err := ioutil.ReadFile(reportPath)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+
+	// Unmarshal the JSON content into the appropriate struct (assuming it's map[string]interface{})
+	var reportData models.ReportData
+	err = json.Unmarshal(reportBytes, &reportData)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+
+	pdfBytes, err := pc.patientService.GeneratePDF(reportData)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to generate PDF", nil, err)
+		return
+	}
+
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", `attachment; filename="diagnostic_report.pdf"`)
+	c.Header("File-Name", "diagnostic_report.pdf")
+	c.Header("Access-Control-Expose-Headers", "File-Name")
+	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
 
 func (pc *PatientController) AddPrescription(c *gin.Context) {
@@ -2273,17 +2332,17 @@ func (pc *PatientController) GetDigitizationStatus(ctx *gin.Context) {
 }
 
 func (pc *PatientController) GetUserMedications(ctx *gin.Context) {
-  _, patientID, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
-  if err != nil {
-    models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-    return
-  }
+	_, patientID, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 
-  medicines, err := pc.patientService.GetPatientMedicines(patientID)
-  if err != nil {
-    models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
-    return
-  }
-  models.SuccessResponse(ctx, constant.Success, http.StatusOK, "medicines loaded", medicines, nil, nil)
-  return
+	medicines, err := pc.patientService.GetPatientMedicines(patientID)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "medicines loaded", medicines, nil, nil)
+	return
 }

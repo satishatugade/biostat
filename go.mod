@@ -1,6 +1,8 @@
 module biostat
 
-go 1.23.1
+go 1.23.8
+
+toolchain go1.23.10
 
 require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
@@ -21,7 +23,10 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/jung-kurt/gofpdf v1.16.2 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	golang.org/x/time v0.11.0 // indirect

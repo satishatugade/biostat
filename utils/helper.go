@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -835,4 +836,11 @@ func GetMappingType(roleName string) string {
 	default:
 		return ""
 	}
+}
+
+func GetConcurrentTaskCount() int {
+	if n, err := strconv.Atoi(os.Getenv("CONCURRENT_TASK_COUNT_RUN")); err == nil && n > 0 {
+		return n
+	}
+	return 50
 }

@@ -62,97 +62,89 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID uint64
 	return records, nil
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]models.ReportRow, int64, error) {
-	var results []models.ReportRow
-	var total int64
+func (r *tblMedicalRecordRepositoryImpl) GetAllMedicalRecord(patientId uint64, limit, offset int) ([]models.ReportRow, int64, error) {
+	recordIDs, err := r.getPaginatedRecordIDs(patientId, limit, offset)
+	if err != nil || len(recordIDs) == 0 {
+		return []models.ReportRow{}, 0, err
+	}
 
-	query := fmt.Sprintf(`
+	records, err := r.getMedicalRecordDetails(recordIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := r.getTotalRecordCount(patientId)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return records, total, nil
+}
+
+func (r *tblMedicalRecordRepositoryImpl) getPaginatedRecordIDs(patientId uint64, limit, offset int) ([]uint64, error) {
+	var ids []uint64
+	query := `
+		SELECT mr.record_id
+		FROM tbl_medical_record mr
+		INNER JOIN tbl_medical_record_user_mapping rm ON rm.record_id = mr.record_id
+		WHERE mr.is_deleted = 0 AND rm.user_id = ?
+		ORDER BY mr.record_id DESC
+		LIMIT ? OFFSET ?
+	`
+	err := r.db.Raw(query, patientId, limit, offset).Scan(&ids).Error
+	return ids, err
+}
+
+func (r *tblMedicalRecordRepositoryImpl) getMedicalRecordDetails(recordIDs []uint64) ([]models.ReportRow, error) {
+	var results []models.ReportRow
+	if len(recordIDs) == 0 {
+		return results, nil
+	}
+
+	query := `
 	SELECT 
-		mr.record_id,
-		mr.record_name,
-		mr.record_size,
-		mr.file_type,
-		mr.status,
-		mr.upload_source,
-		mr.source_account,
-		mr.record_category,
-		mr.record_url,
-		mr.digitize_flag,
-		pr.patient_diagnostic_report_id,
-		rm.user_id AS patient_id,
-		pr.report_name,
+		mr.record_id, mr.record_name, mr.record_size, mr.file_type, mr.status,
+		mr.upload_source, mr.source_account, mr.record_category, mr.record_url, mr.digitize_flag,
+		pr.patient_diagnostic_report_id, rm.user_id AS patient_id, pr.report_name,
 		format_datetime(pr.collected_date) AS collected_date,
 		format_datetime(pr.report_date) AS report_date,
-		pr.report_status,
-		pr.observation,
-		pr.comments,
-		pr.review_by,
+		pr.report_status, pr.observation, pr.comments, pr.review_by,
 		format_datetime(pr.review_date) AS review_date,
-		dl.diagnostic_lab_id,
-		dl.lab_name,
-		dl.lab_address,
-		dl.lab_contact_number,
-		rv.diagnostic_test_id,
-		rv.diagnostic_test_component_id,
-		rv.test_result_value_id,
-		rv.result_value,
-		rv.result_status,
-		format_datetime(rv.result_date) AS result_date,
-		rv.result_comment,
-		dtm.test_name,
-		dtcm.test_component_name,
-		rr.normal_min,
-		rr.normal_max,
-		rr.units
-	FROM 
-		tbl_medical_record mr
-	INNER JOIN
-    	tbl_medical_record_user_mapping rm ON rm.record_id = mr.record_id
-	LEFT JOIN 
-		tbl_patient_report_attachment pa ON pa.record_id = mr.record_id
-	LEFT JOIN 
-		tbl_patient_diagnostic_report pr ON pr.patient_diagnostic_report_id = pa.patient_diagnostic_report_id
-	LEFT JOIN 
-		tbl_diagnostic_lab dl ON dl.diagnostic_lab_id = pr.diagnostic_lab_id
-	LEFT JOIN 
-		tbl_patient_diagnostic_test_result_value rv ON rv.patient_diagnostic_report_id = pr.patient_diagnostic_report_id
-	LEFT JOIN 
-		tbl_disease_profile_diagnostic_test_master dtm ON dtm.diagnostic_test_id = rv.diagnostic_test_id
-	LEFT JOIN 
-		tbl_disease_profile_diagnostic_test_component_master dtcm ON dtcm.diagnostic_test_component_id = rv.diagnostic_test_component_id
-	LEFT JOIN 
-		tbl_diagnostic_test_reference_range rr ON rr.diagnostic_test_id = rv.diagnostic_test_id 
+		dl.diagnostic_lab_id, dl.lab_name, dl.lab_address, dl.lab_contact_number,
+		rv.diagnostic_test_id, rv.diagnostic_test_component_id, rv.test_result_value_id,
+		rv.result_value, rv.result_status, format_datetime(rv.result_date) AS result_date,
+		rv.result_comment, dtm.test_name, dtcm.test_component_name,
+		rr.normal_min, rr.normal_max, rr.units
+	FROM tbl_medical_record mr
+	INNER JOIN tbl_medical_record_user_mapping rm ON rm.record_id = mr.record_id
+	LEFT JOIN tbl_patient_report_attachment pa ON pa.record_id = mr.record_id
+	LEFT JOIN tbl_patient_diagnostic_report pr ON pr.patient_diagnostic_report_id = pa.patient_diagnostic_report_id AND pr.is_deleted = 0
+	LEFT JOIN tbl_diagnostic_lab dl ON dl.diagnostic_lab_id = pr.diagnostic_lab_id
+	LEFT JOIN tbl_patient_diagnostic_test_result_value rv ON rv.patient_diagnostic_report_id = pr.patient_diagnostic_report_id
+	LEFT JOIN tbl_disease_profile_diagnostic_test_master dtm ON dtm.diagnostic_test_id = rv.diagnostic_test_id
+	LEFT JOIN tbl_disease_profile_diagnostic_test_component_master dtcm ON dtcm.diagnostic_test_component_id = rv.diagnostic_test_component_id
+	LEFT JOIN tbl_diagnostic_test_reference_range rr 
+		ON rr.diagnostic_test_id = rv.diagnostic_test_id 
 		AND rr.diagnostic_test_component_id = rv.diagnostic_test_component_id
 		AND rr.is_deleted = 0
-	WHERE 
-		mr.is_deleted = 0 AND rm.user_id = %d
-	ORDER BY 
-		pr.patient_diagnostic_report_id DESC NULLS LAST, rv.result_date DESC NULLS LAST
-	LIMIT %d OFFSET %d
-	`, patientId, limit, offset)
+	WHERE mr.record_id IN ?
+	ORDER BY mr.record_id DESC
+	`
 
-	if err := r.db.Raw(query).Scan(&results).Error; err != nil {
-		return nil, 0, err
-	}
+	err := r.db.Raw(query, recordIDs).Scan(&results).Error
+	return results, err
+}
 
-	// Count query
-	countQuery := fmt.Sprintf(`
-	SELECT COUNT(DISTINCT mr.record_id)
-	FROM 
-		tbl_medical_record mr
-	JOIN 
-		tbl_patient_report_attachment pa ON pa.record_id = mr.record_id
-	JOIN 
-		tbl_patient_diagnostic_report pr ON pr.patient_diagnostic_report_id = pa.patient_diagnostic_report_id
-	WHERE 
-		mr.is_deleted = 0 AND pr.is_deleted = 0 AND pr.patient_id = %d
-	`, patientId)
-	fmt.Println("Executing SQL Query:\n", query)
-	if err := r.db.Raw(countQuery).Scan(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return results, total, nil
+func (r *tblMedicalRecordRepositoryImpl) getTotalRecordCount(patientId uint64) (int64, error) {
+	var total int64
+	query := `
+		SELECT COUNT(DISTINCT mr.record_id)
+		FROM tbl_medical_record mr
+		INNER JOIN tbl_medical_record_user_mapping rm ON rm.record_id = mr.record_id
+		WHERE mr.is_deleted = 0 AND rm.user_id = ?
+	`
+	err := r.db.Raw(query, patientId).Scan(&total).Error
+	return total, err
 }
 
 func (p *tblMedicalRecordRepositoryImpl) ProcessMedicalRecordResponse(rows []models.ReportRow) []map[string]interface{} {
@@ -161,10 +153,12 @@ func (p *tblMedicalRecordRepositoryImpl) ProcessMedicalRecordResponse(rows []mod
 	}
 
 	reportMap := make(map[string]map[string]interface{})
+	order := make([]string, 0)
 
 	for _, item := range rows {
 		reportID := strconv.FormatUint(item.PatientDiagnosticReportID, 10)
 		if _, exists := reportMap[reportID]; !exists {
+			order = append(order, reportID)
 			var diagnosticLab map[string]interface{}
 
 			if item.PatientDiagnosticReportID == 0 {
@@ -262,9 +256,9 @@ func (p *tblMedicalRecordRepositoryImpl) ProcessMedicalRecordResponse(rows []mod
 			diagnosticLab["patient_diagnostic_test"] = append(pdtList, pdt)
 		}
 	}
-	finalReports := make([]map[string]interface{}, 0, len(reportMap))
-	for _, val := range reportMap {
-		finalReports = append(finalReports, val)
+	finalReports := make([]map[string]interface{}, 0, len(order))
+	for _, reportID := range order {
+		finalReports = append(finalReports, reportMap[reportID])
 	}
 
 	return finalReports
@@ -318,6 +312,24 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	}
 	if data.Status != "" {
 		updateFields["status"] = data.Status
+	}
+	if data.QueueName != "" {
+		updateFields["queue_name"] = data.QueueName
+	}
+	if data.ErrorMessage != "" {
+		updateFields["error_message"] = data.ErrorMessage
+	}
+	if data.ProcessingStartedAt != nil {
+		updateFields["processing_started_at"] = data.ProcessingStartedAt
+	}
+	if data.CompletedAt != nil {
+		updateFields["completed_at"] = data.CompletedAt
+	}
+	if data.NextRetryAt != nil {
+		updateFields["next_retry_at"] = data.NextRetryAt
+	}
+	if data.IsExpired != nil {
+		updateFields["is_expired"] = data.IsExpired
 	}
 	if data.FileData != nil {
 		updateFields["file_data"] = data.FileData

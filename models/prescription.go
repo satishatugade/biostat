@@ -81,3 +81,43 @@ type UserMedicineInfo struct {
 	Duration             int    `json:"duration"`
 	DurationUnitType     string `json:"duration_unit_type"`
 }
+
+// PatientInfo holds patient demographic details
+type PatientInfoData struct {
+	Doctor     string
+	Name       string
+	Phone      string
+	ReportDate string
+	DOB        string
+}
+
+// LabInfo holds laboratory details
+type LabInfoData struct {
+	Name    string
+	Address string
+	Phone   string
+	Email   string
+}
+
+// TestResult represents a single test component's result
+type TestResult struct {
+	TestComponentName string
+	Unit              string
+	RefRange          string
+	TrendValues       []Cell
+}
+
+// CellData represents a single trend value with its date
+type Cell struct {
+	ResultDate string
+	Value      string
+	IsNormal   bool // true if within ref range, false otherwise
+}
+
+// ReportData combines all data needed for the PDF report
+type ReportData struct {
+	Patient     PatientInfoData
+	Lab         LabInfoData
+	TestResults []TestResult
+	Dates       []string // All unique dates for trend values
+}

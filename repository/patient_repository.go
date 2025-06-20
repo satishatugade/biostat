@@ -786,7 +786,7 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 		Table("tbl_system_user_ as su").
 		Select(`su.user_id AS relative_id, su.first_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
 				(
-					SELECT MAX(report_date)
+					SELECT MAX(format_datetime(report_date))
 					FROM tbl_patient_diagnostic_report AS dr
 					WHERE dr.patient_id = su.user_id
 				) AS latest_diganotisic`).
@@ -1892,9 +1892,9 @@ func (r *PatientRepositoryImpl) UpdatePermissionValue(userID, relativeID uint64,
 }
 
 func (ur *PatientRepositoryImpl) GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error) {
-  var results []models.UserMedicineInfo
+	var results []models.UserMedicineInfo
 
-  query := `
+	query := `
   SELECT prescription_detail_id, prescription_id, medicine_name, prescription_type, duration, duration_unit_type
   FROM (
     SELECT *, ROW_NUMBER() OVER (PARTITION BY medicine_name ORDER BY prescription_id) AS rn
@@ -1908,6 +1908,6 @@ func (ur *PatientRepositoryImpl) GetDistinctMedicinesByPatientID(patientID uint6
   WHERE rn = 1;
   `
 
-  err := ur.db.Raw(query, patientID).Scan(&results).Error
-  return results, err
+	err := ur.db.Raw(query, patientID).Scan(&results).Error
+	return results, err
 }

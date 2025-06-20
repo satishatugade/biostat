@@ -6,6 +6,7 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"biostat/service"
+	"biostat/utils"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -61,7 +62,7 @@ func InitAsynqWorker(
 
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")},
-		asynq.Config{Concurrency: 1},
+		asynq.Config{Concurrency: utils.GetConcurrentTaskCount()},
 	)
 
 	mux := asynq.NewServeMux()
@@ -71,7 +72,6 @@ func InitAsynqWorker(
 		log.Fatalf("Could not run Asynq server: %v", err)
 	}
 }
-
 func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asynq.Task) error {
 	var p service.DigitizationPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {

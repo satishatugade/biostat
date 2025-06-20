@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jung-kurt/gofpdf"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
@@ -60,6 +61,7 @@ type PatientService interface {
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) (map[string]interface{}, int64, error)
 	GenerateExcelFile(data map[string]interface{}) ([]byte, error)
+	GeneratePDF(data models.ReportData) ([]byte, error)
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
@@ -813,6 +815,81 @@ func applyColorStyle(f *excelize.File, className string) int {
 	return style
 }
 
+func (ps *PatientServiceImpl) GeneratePDFReport(data map[string]interface{}) ([]byte, error) {
+	pdf := gofpdf.New("L", "mm", "A4", "") // Landscape for wide tables
+	pdf.SetFont("Arial", "", 10)
+	pdf.AddPage()
+
+	title := "Patient Diagnostic Report"
+	pdf.CellFormat(0, 10, title, "", 1, "C", false, 0, "")
+	pdf.Ln(4)
+
+	// Extract headers
+	dates, ok := data["dates"].([]string)
+	if !ok || len(dates) == 0 {
+		return nil, fmt.Errorf("invalid or missing dates")
+	}
+
+	// Header row
+	headers := []string{"Test Component Name", "Unit", "Ref. Range"}
+	headers = append(headers, dates...)
+
+	colWidths := make([]float64, len(headers))
+	for i := range headers {
+		if i < 3 {
+			colWidths[i] = 35
+		} else {
+			colWidths[i] = 25
+		}
+	}
+
+	for i, header := range headers {
+		pdf.CellFormat(colWidths[i], 8, header, "1", 0, "C", false, 0, "")
+	}
+	pdf.Ln(-1)
+
+	// Extract rows
+	rows, ok := data["rows"].([]map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid rows data")
+	}
+
+	for _, row := range rows {
+		pdf.CellFormat(colWidths[0], 8, fmt.Sprintf("%v", row["test_component_name"]), "1", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[1], 8, fmt.Sprintf("%v", row["ref_unit"]), "1", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[2], 8, fmt.Sprintf("%v", row["ref_range"]), "1", 0, "", false, 0, "")
+
+		rawTrendValues := row["trend_values"]
+		trendValues, ok := rawTrendValues.([]models.CellData)
+		if !ok {
+			fmt.Println("trend_values not []models.CellData, type:", reflect.TypeOf(rawTrendValues))
+			continue
+		}
+
+		// map: date -> value
+		dateToValue := make(map[string]string)
+		for _, tv := range trendValues {
+			dateToValue[tv.ResultDate] = tv.Value
+		}
+
+		for _, date := range dates {
+			val := "-"
+			if v, found := dateToValue[date]; found {
+				val = v
+			}
+			pdf.CellFormat(25, 8, val, "1", 0, "C", false, 0, "")
+		}
+		pdf.Ln(-1)
+	}
+
+	// Output
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func (s *PatientServiceImpl) AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error {
 	return s.patientRepo.AddTestComponentDisplayConfig(config)
 }
@@ -992,5 +1069,146 @@ func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) err
 }
 
 func (us *PatientServiceImpl) GetPatientMedicines(patientID uint64) ([]models.UserMedicineInfo, error) {
-  return us.patientRepo.GetDistinctMedicinesByPatientID(patientID)
+	return us.patientRepo.GetDistinctMedicinesByPatientID(patientID)
+}
+
+// GeneratePDF generates a PDF report based on the provided data
+func (g *PatientServiceImpl) GeneratePDF(data models.ReportData) ([]byte, error) {
+	pdf := gofpdf.New("L", "mm", "A4", "") // Landscape for wide tables
+	pdf.SetFont("Arial", "", 10)
+	pdf.AddPage()
+
+	// Add BioStack Logo
+	addBioStackLogo(pdf)
+
+	// Add Report Title
+	addReportTitle(pdf, "Patient Diagnostic Report")
+
+	// Add Patient Information
+	addPatientInfo(pdf, data.Patient)
+
+	// Add Lab Information
+	addLabInfo(pdf, data.Lab)
+
+	// Add Test Results Table
+	addTestResultsTable(pdf, data.TestResults, data.Dates)
+
+	// Output
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// addBioStackLogo adds the BioStack logo to the PDF
+func addBioStackLogo(pdf *gofpdf.Fpdf) {
+	// Placeholder for logo - in a real app, you'd embed an image
+	pdf.SetFont("Arial", "B", 24)
+	pdf.SetTextColor(50, 205, 50) // Green color for BioStack
+	pdf.CellFormat(0, 10, "BioStack", "", 1, "C", false, 0, "")
+	pdf.SetTextColor(0, 0, 0) // Reset color to black
+	pdf.Ln(4)
+}
+
+// addReportTitle adds the report title to the PDF
+func addReportTitle(pdf *gofpdf.Fpdf, title string) {
+	pdf.SetFont("Arial", "B", 16)
+	pdf.CellFormat(0, 10, title, "", 1, "C", false, 0, "")
+	pdf.Ln(4)
+}
+
+// addPatientInfo adds patient information to the PDF
+func addPatientInfo(pdf *gofpdf.Fpdf, info models.PatientInfoData) {
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(40, 7, "Doctor:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.Doctor, "", 1, "L", false, 0, "")
+
+	pdf.CellFormat(40, 7, "Name:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 7, info.Name, "", 0, "L", false, 0, "")
+	pdf.CellFormat(40, 7, "Phone:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.Phone, "", 1, "L", false, 0, "")
+
+	pdf.CellFormat(40, 7, "Report Date:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(60, 7, info.ReportDate, "", 0, "L", false, 0, "")
+	pdf.CellFormat(40, 7, "DOB:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.DOB, "", 1, "L", false, 0, "")
+	pdf.Ln(5)
+}
+
+// addLabInfo adds lab information to the PDF
+func addLabInfo(pdf *gofpdf.Fpdf, info models.LabInfoData) {
+	pdf.SetFont("Arial", "B", 12)
+	pdf.CellFormat(0, 10, "Lab Information", "", 1, "L", false, 0, "")
+	pdf.SetFont("Arial", "", 10)
+	pdf.CellFormat(40, 7, "Name:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.Name, "", 1, "L", false, 0, "")
+
+	pdf.CellFormat(40, 7, "Address:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.Address, "", 1, "L", false, 0, "")
+
+	pdf.CellFormat(40, 7, "Phone:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.Phone, "", 1, "L", false, 0, "")
+
+	pdf.CellFormat(40, 7, "Email:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 7, info.Email, "", 1, "L", false, 0, "")
+	pdf.Ln(5)
+}
+
+// addTestResultsTable adds the test results table to the PDF
+func addTestResultsTable(pdf *gofpdf.Fpdf, results []models.TestResult, dates []string) {
+	pdf.SetFont("Arial", "B", 10)
+	pdf.SetFillColor(240, 240, 240) // Light grey for header background
+
+	headers := []string{"Test Component Name", "Unit", "Ref. Range"}
+	headers = append(headers, dates...)
+
+	colWidths := make([]float64, len(headers))
+	for i := range headers {
+		if i < 3 {
+			colWidths[i] = 45
+		} else {
+			colWidths[i] = 25
+		}
+	}
+
+	// Table Header
+	for i, header := range headers {
+		pdf.CellFormat(colWidths[i], 8, header, "1", 0, "C", true, 0, "")
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetFillColor(255, 255, 255) // White for row background
+
+	for _, row := range results {
+		pdf.CellFormat(colWidths[0], 8, row.TestComponentName, "1", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[1], 8, row.Unit, "1", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[2], 8, row.RefRange, "1", 0, "", false, 0, "")
+
+		dateToValue := make(map[string]models.Cell)
+		for _, tv := range row.TrendValues {
+			dateToValue[tv.ResultDate] = tv
+		}
+
+		for _, date := range dates {
+			val := "-"
+			colorR, colorG, colorB := 0, 0, 0 // Default black
+
+			if v, found := dateToValue[date]; found {
+				val = v.Value
+				if v.IsNormal {
+					// Green for normal
+					colorR, colorG, colorB = 34, 197, 94 // text-green-500
+				} else {
+					// Red for abnormal (assuming not normal means abnormal for now)
+					colorR, colorG, colorB = 239, 68, 68 // text-red-500
+				}
+			}
+			pdf.SetTextColor(colorR, colorG, colorB)
+			pdf.CellFormat(colWidths[3], 8, val, "1", 0, "C", false, 0, "")
+			pdf.SetTextColor(0, 0, 0) // Reset color to black for next cell
+		}
+		pdf.Ln(-1)
+	}
 }
