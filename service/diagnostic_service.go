@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -273,6 +274,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("Recovered in DigitizeDiagnosticReport:", r)
+			log.Println("Stack trace:\n" + string(debug.Stack()))
 			tx.Rollback()
 		}
 	}()
@@ -307,6 +309,9 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	if reportData.ReportDetails.ReportDate != "" {
 		layouts := []string{
 			time.RFC3339,
+			"02-Jan-2006 15:04:05",
+			"02-Jan-06 15:04:05",
+			"02/01/2006 15:04:05",
 			"02-Jan-2006",
 			"02-Jan-06",
 			"02/01/2006",
@@ -314,6 +319,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		for _, layout := range layouts {
 			parsedDate, err = time.Parse(layout, reportData.ReportDetails.ReportDate)
 			if err == nil {
+				parsedDate = parsedDate.UTC()
 				break
 			}
 		}
@@ -326,9 +332,10 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		log.Println("Empty report date, using default date")
 		parsedDate = time.Now()
 	}
-
+	reporId := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
+	log.Println("PatientDiagnosticReport Id 19 digit : ", reporId)
 	patientReport := models.PatientDiagnosticReport{
-		PatientDiagnosticReportId: uint64(time.Now().UnixNano() + int64(rand.Intn(1000))),
+		PatientDiagnosticReportId: reporId,
 		DiagnosticLabId:           diagnosticLabId,
 		PatientId:                 patientId,
 		PaymentStatus:             "Pending",
@@ -348,6 +355,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	recordmapping := models.PatientReportAttachment{
 		PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
 		RecordId:                  *recordId,
+		PatientId:                 patientId,
 	}
 	if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, &recordmapping); err != nil {
 		log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
@@ -391,13 +399,18 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		// Save all component values
 		for _, component := range testData.Components {
 			var diagnosticComponentId uint64
+			parsedResultValue, _ := strconv.ParseFloat(component.ResultValue, 64)
+			resultStatus := component.Status
+			if parsedResultValue == 0 {
+				resultStatus = component.ResultValue
+			}
 			if id, exists := componentNameCache[strings.ToLower(strings.TrimSpace(component.TestComponentName))]; exists {
 				diagnosticComponentId = id
 				result := models.PatientDiagnosticTestResultValue{
 					DiagnosticTestId:          diagnosticTestId,
 					DiagnosticTestComponentId: diagnosticComponentId,
-					ResultStatus:              GetResultStatus(component.ResultValue, component.ReferenceRange.Min, component.ReferenceRange.Max),
-					ResultValue:               func() float64 { v, _ := strconv.ParseFloat(component.ResultValue, 64); return v }(),
+					ResultStatus:              resultStatus,
+					ResultValue:               parsedResultValue,
 					ResultDate:                parsedDate,
 					PatientId:                 patientId,
 					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
@@ -449,8 +462,8 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 				result := models.PatientDiagnosticTestResultValue{
 					DiagnosticTestId:          diagnosticTestId,
 					DiagnosticTestComponentId: diagnosticComponentId,
-					ResultStatus:              GetResultStatus(component.ResultValue, component.ReferenceRange.Min, component.ReferenceRange.Max),
-					ResultValue:               func() float64 { v, _ := strconv.ParseFloat(component.ResultValue, 64); return v }(),
+					ResultStatus:              resultStatus,
+					ResultValue:               parsedResultValue,
 					ResultDate:                parsedDate,
 					PatientId:                 patientId,
 					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
@@ -471,18 +484,24 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	return "Diagnostic report created!", nil
 }
 
-func GetResultStatus(resultVal, minStr, maxStr string) string {
-	if resultVal == "" || minStr == "" || maxStr == "" {
+func GetResultStatus(resultVal, minStr, maxStr, status string) string {
+	if resultVal == "" {
 		return "-"
 	}
-	result, err1 := strconv.ParseFloat(resultVal, 64)
-	min, err2 := strconv.ParseFloat(minStr, 64)
-	max, err3 := strconv.ParseFloat(maxStr, 64)
+	result, _ := strconv.ParseFloat(resultVal, 64)
+	min, _ := strconv.ParseFloat(minStr, 64)
+	max, _ := strconv.ParseFloat(maxStr, 64)
 
-	if err1 != nil || err2 != nil || err3 != nil {
-		return "-"
+	// if err1 != nil || err2 != nil || err3 != nil {
+	// 	return "-"
+	// }
+
+	if result == 0 {
+		fmt.Println("result string : ", result)
+		fmt.Println("status val : ", status)
+		fmt.Println("result val : ", resultVal)
+		return resultVal
 	}
-
 	switch {
 	case result < min:
 		return "Low"

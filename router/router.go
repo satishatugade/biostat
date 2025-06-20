@@ -2,6 +2,7 @@ package router
 
 import (
 	"biostat/auth"
+	"biostat/config"
 	"biostat/constant"
 	"biostat/controller"
 	"biostat/repository"
@@ -54,8 +55,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
-
-	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService)
+	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService, config.AsynqClient, config.RedisClient)
 
 	var smsService = service.NewSmsService()
 
@@ -87,6 +87,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	// Workers
 	worker.StartAppointmentScheduler(appointmentService)
+	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo)
 
 }
 
@@ -235,6 +236,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 	return Routes{
 		//All relations
 		Route{"Relations", http.MethodPost, constant.Relation, patientController.GetAllRelation},
+		Route{"Genders", http.MethodPost, constant.Gender, patientController.GetAllGender},
+		Route{"Genders", http.MethodPost, constant.GenderId, patientController.GetGenderById},
 
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
@@ -304,8 +307,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Add Custom Range", http.MethodPost, constant.CustomRange, patientController.AddPatientClinicalRange},
 		// Route{"update  prescription", http.MethodPut, constant.UpdatePrescription, patientController.UpdatePrescription},
 
-		{"medical records create", http.MethodPost, "/medical_records", patientController.CreateTblMedicalRecord},
-		{"medical records get", http.MethodGet, "/medical_records", patientController.GetAllTblMedicalRecords},
+		{"medical records create", http.MethodPost, constant.UploadRecord, patientController.CreateTblMedicalRecord},
+		{"medical records", http.MethodPost, constant.MedicalRecord, patientController.GetAllMedicalRecord},
 		{"medical records get", http.MethodPost, "/medical_records/:user_id", patientController.GetUserMedicalRecords},
 		{"medical records get single", http.MethodGet, "/medical_records/:id", patientController.GetSingleTblMedicalRecord},
 		{"medical records update", http.MethodPut, "/medical_records/:id", patientController.UpdateTblMedicalRecord},
@@ -319,7 +322,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadUserUploadedMedicalFile},
 
 		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
-		Route{"patient diagnostic report save", http.MethodPost, constant.MergeComponent, patientController.AddMappingToMergeTestComponent},
+		Route{"DigitizationStatus", http.MethodPost, constant.DigitizationStatus, patientController.GetDigitizationStatus},
+		Route{"Merge component", http.MethodPost, constant.MergeComponent, patientController.AddMappingToMergeTestComponent},
 		Route{"Add health stat", http.MethodPost, constant.HealthStats, patientController.AddHealthStats},
 		Route{"patient diagnostic report save", http.MethodPost, constant.ReportArchive, patientController.ArchivePatientDiagnosticReport},
 

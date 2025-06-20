@@ -5,6 +5,7 @@ import "time"
 type Caregiver struct {
 	CaregiverId uint      `json:"caregiver_id" gorm:"primaryKey;autoIncrement"`
 	FirstName   string    `json:"first_name"`
+	MiddleName  string    `json:"middle_name"`
 	LastName    string    `json:"last_name"`
 	ContactInfo string    `json:"contact_info"`
 	Gender      string    `json:"gender"`

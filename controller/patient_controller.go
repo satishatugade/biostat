@@ -2,12 +2,14 @@ package controller
 
 import (
 	"biostat/auth"
+	"biostat/config"
 	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -26,6 +28,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type PatientController struct {
@@ -81,13 +84,39 @@ func (pc *PatientController) GetRelationById(c *gin.Context) {
 		return
 	}
 
-	relation, err := pc.patientService.GetRelationById(int(relationId))
+	relation, err := pc.patientService.GetRelationById(relationId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relation not found", nil, err)
 		return
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Relation fetched successfully", relation, nil, nil)
+}
+
+func (pc *PatientController) GetAllGender(c *gin.Context) {
+	genders, err := pc.patientService.GetAllGender()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch genders", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Genders fetched successfully", genders, nil, nil)
+}
+
+func (pc *PatientController) GetGenderById(c *gin.Context) {
+	genderIdStr := c.Param("gender_id")
+	genderId, err := strconv.ParseUint(genderIdStr, 10, 32)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid gender ID", nil, err)
+		return
+	}
+
+	gender, err := pc.patientService.GetGenderById(genderId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Gender not found", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Gender fetched successfully", gender, nil, nil)
 }
 
 func (pc *PatientController) GetPatientInfo(c *gin.Context) {
@@ -601,13 +630,13 @@ func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient caregivers", nil, err)
 		return
 	}
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(caregivers),
 		"Patient caregiver retrieved successfully",
 		"Caregiver not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, caregivers, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusNoContent, message, caregivers, nil, nil)
 }
 
 func (pc *PatientController) SetCaregiverMappingDeletedStatus(c *gin.Context) {
@@ -650,13 +679,13 @@ func (pc *PatientController) GetCaregiverList(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient caregivers", nil, err)
 		return
 	}
-	statusCode, message := utils.GetResponseStatusMessage(
+	_, message := utils.GetResponseStatusMessage(
 		len(caregivers),
 		"Caregiver list retrieved successfully",
 		"Caregiver not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, statusCode, message, caregivers, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusNoContent, message, caregivers, nil, nil)
 }
 
 func (pc *PatientController) GetDoctorList(c *gin.Context) {
@@ -799,10 +828,14 @@ func (c *PatientController) GetUserMedicalRecords(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, records, nil, nil)
 }
 
-func (c *PatientController) GetAllTblMedicalRecords(ctx *gin.Context) {
+func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(ctx, c.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	page, limit, offset := utils.GetPaginationParams(ctx)
-
-	data, total, err := c.medicalRecordService.GetAllTblMedicalRecords(limit, offset)
+	data, total, err := c.medicalRecordService.GetAllMedicalRecord(patientId, limit, offset)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return
@@ -875,6 +908,7 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	newRecord.RecordCategory = ctx.PostForm("record_category")
 	newRecord.SourceAccount = fmt.Sprint(user_id)
 	newRecord.UploadedBy = user_id
+	newRecord.Status = constant.StatusQueued
 
 	data, err := pc.medicalRecordService.CreateTblMedicalRecord(newRecord, reqUserId, authUserId, &fileBuf, header.Filename)
 	if err != nil {
@@ -1567,6 +1601,12 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
+	idParam := ctx.Param("record_id")
+	recordId, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid record Id", nil, err)
+		return
+	}
 	log.Printf("Request Content-Type: %v", ctx.Request.Header.Get("Content-Type"))
 	log.Printf("Request Headers: %v", ctx.Request.Header)
 	file, fileHeader, err := ctx.Request.FormFile("file")
@@ -1594,7 +1634,25 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
 		return
 	}
-	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId, nil)
+
+	// _, filename, _, _ := runtime.Caller(0)
+	// dir := filepath.Dir(filename)
+	// reportPath := filepath.Join(dir, "report.json")
+
+	// reportBytes, err := ioutil.ReadFile(reportPath)
+	// if err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+	// 	return
+	// }
+
+	// // Unmarshal the JSON content into the appropriate struct (assuming it's map[string]interface{})
+	// var reportData models.LabReport
+	// err = json.Unmarshal(reportBytes, &reportData)
+	// if err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+	// 	return
+	// }
+	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId, &recordId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, err)
 		return
@@ -2079,7 +2137,21 @@ func (pc *PatientController) AddTestComponentDisplayConfig(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
 		return
 	}
-
+	message := "Test component pinned successfully"
+	if input.IsPinned != nil && !*input.IsPinned {
+		message = "Test component unpinned successfully"
+	}
+	if input.IsPinned != nil && *input.IsPinned {
+		count, err2 := pc.patientService.GetPinnedComponentCount(user_id)
+		if err2 != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed get pinned component count", nil, err2)
+			return
+		}
+		if count >= 6 {
+			models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Oops! You can’t pin more than 6 test components. Please unpin one to proceed", nil, nil, nil)
+			return
+		}
+	}
 	if input.IsPinned == nil && input.DisplayPriority == nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "At least one of is_pinned or display_priority must be provided", nil, nil)
 		return
@@ -2091,8 +2163,7 @@ func (pc *PatientController) AddTestComponentDisplayConfig(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to upsert display config", nil, err1)
 		return
 	}
-
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Display config updated successfully", nil, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, nil, nil, nil)
 }
 
 func (pc *PatientController) GetUserMessages(ctx *gin.Context) {
@@ -2185,4 +2256,18 @@ func (pc *PatientController) SendSOSHandler(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Emergency SOS sent to all relatives", nil, nil, nil)
 	return
+}
+
+func (pc *PatientController) GetDigitizationStatus(ctx *gin.Context) {
+	recordID := ctx.Param("record_id")
+	statusKey := fmt.Sprintf("record_status:%s", recordID)
+	status, err := config.RedisClient.Get(context.Background(), statusKey).Result()
+	if err == redis.Nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "No status found for this record", nil, nil)
+		return
+	} else if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Redis error", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record status fetched", map[string]string{"status": status}, nil, nil)
 }

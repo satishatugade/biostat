@@ -7,14 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
 )
 
 type PatientRepository interface {
+	GetAllGender() ([]models.GenderMaster, error)
+	GetGenderById(genderId uint64) (models.GenderMaster, error)
 	GetAllRelation() ([]models.PatientRelation, error)
-	GetRelationById(relationId int) (models.PatientRelation, error)
+	GetRelationById(relationId uint64) (models.PatientRelation, error)
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
@@ -68,6 +71,7 @@ type PatientRepository interface {
 	CheckPatientHealthProfileExist(tx *gorm.DB, patientId uint64) (bool, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
+	GetPinnedComponentCount(patientId uint64) (int64, error)
 
 	GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error
 	HasPermission(userID, relativeID uint64, permissionCode string) (bool, error)
@@ -96,10 +100,22 @@ func (p *PatientRepositoryImpl) GetAllRelation() ([]models.PatientRelation, erro
 	return relations, err
 }
 
-func (p *PatientRepositoryImpl) GetRelationById(relationId int) (models.PatientRelation, error) {
+func (p *PatientRepositoryImpl) GetRelationById(relationId uint64) (models.PatientRelation, error) {
 	var relation models.PatientRelation
 	err := p.db.First(&relation, relationId).Error
 	return relation, err
+}
+
+func (p *PatientRepositoryImpl) GetAllGender() ([]models.GenderMaster, error) {
+	var genders []models.GenderMaster
+	err := p.db.Where("is_deleted = ?", 0).Find(&genders).Error
+	return genders, err
+}
+
+func (p *PatientRepositoryImpl) GetGenderById(genderId uint64) (models.GenderMaster, error) {
+	var gender models.GenderMaster
+	err := p.db.First(&gender, genderId).Error
+	return gender, err
 }
 
 func (p *PatientRepositoryImpl) AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error {
@@ -284,6 +300,7 @@ func (p *PatientRepositoryImpl) MapSystemUserToPatient(user *models.SystemUser_,
 	return &models.Patient{
 		PatientId:   user.UserId,
 		FirstName:   user.FirstName,
+		MiddleName:  user.MiddleName,
 		LastName:    user.LastName,
 		DateOfBirth: user.DateOfBirth,
 		Gender:      user.Gender,
@@ -490,7 +507,7 @@ func (p *PatientRepositoryImpl) RestructurePatientDiagnosticReport(reports []mod
 	restructuredResponse := make([]map[string]interface{}, len(reports))
 	for i, report := range reports {
 		restructured := map[string]interface{}{
-			"patient_diagnostic_report_id": report.PatientDiagnosticReportId,
+			"patient_diagnostic_report_id": strconv.FormatUint(report.PatientDiagnosticReportId, 10),
 			"patient_id":                   report.PatientId,
 			"payment_status":               report.PaymentStatus,
 			"report_name":                  report.ReportName,
@@ -711,7 +728,7 @@ func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relati
 
 	relative := relatives[0]
 	for _, r := range relations {
-		if relativeId == r.RelationId {
+		if relativeId == *r.RelationId {
 			relative.Relationship = r.RelationShip
 			break
 		}
@@ -727,7 +744,7 @@ func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRe
 	}
 	relationMap := make(map[uint64]string)
 	for _, r := range relationData {
-		relationMap[r.RelationId] = r.RelationShip
+		relationMap[*r.RelationId] = r.RelationShip
 	}
 
 	mappingTypeMap := make(map[uint64]string)
@@ -766,12 +783,13 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 
 	err := p.db.
 		Table("tbl_system_user_ as su").
-		Select(`su.user_id AS relative_id, su.first_name, su.last_name, su.gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
+		Select(`su.user_id AS relative_id, su.first_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
 				(
 					SELECT MAX(report_date)
 					FROM tbl_patient_diagnostic_report AS dr
 					WHERE dr.patient_id = su.user_id
 				) AS latest_diganotisic`).
+		Joins("LEFT JOIN tbl_gender_master gm ON gm.gender_id = su.gender_id").
 		Where("su.user_id IN ?", userIds).
 		Scan(&relatives).Error
 	return relatives, err
@@ -801,18 +819,21 @@ func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]m
 	}
 
 	err := p.db.
-		Table("tbl_system_user_").
-		Select(`user_id AS caregiver_id, 
-		        first_name, 
-		        last_name, 
-		        gender, 
-		        date_of_birth, 
-		        mobile_no AS mobile_no, 
-		        email, 
-				address,
-		        created_at, 
-		        updated_at`).
-		Where("user_id IN ?", caregiverUserIds).
+		Table("tbl_system_user_ AS su").
+		Select(`su.user_id AS caregiver_id, 
+		        su.first_name, 
+				su.middle_name,
+		        su.last_name, 
+		        su.gender_id, 
+				gm.gender_code AS gender,
+		        su.date_of_birth, 
+		        su.mobile_no AS mobile_no, 
+		        su.email, 
+				su.address,
+		        su.created_at, 
+		        su.updated_at`).
+		Joins("LEFT JOIN tbl_gender_master gm ON gm.gender_id = su.gender_id").
+		Where("su.user_id IN ?", caregiverUserIds).
 		Scan(&caregivers).Error
 
 	if err != nil {
@@ -906,6 +927,11 @@ func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.
 	if err != nil {
 		return nil, err
 	}
+	gender, err := p.GetGenderById(user.GenderId)
+	if err != nil {
+		log.Printf("Gender not found for ID %v: %v", user.GenderId, err)
+	}
+	user.Gender = gender.GenderCode
 	return &user, nil
 }
 
@@ -930,7 +956,7 @@ func (p *PatientRepositoryImpl) GetUserDataUserId(user_ids []uint64, limit, offs
 func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool, error) {
 	var user models.SystemUser_
 	isComplete := false
-	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "gender", "date_of_birth").
+	err := p.db.Select("first_name", "last_name", "mobile_no", "email", "gender_id", "date_of_birth").
 		Where("user_id = ?", user_id).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -938,7 +964,7 @@ func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool
 		}
 		return false, err
 	}
-	isComplete = user.Gender != "" && user.DateOfBirth != nil && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != ""
+	isComplete = user.GenderId != 0 && user.DateOfBirth != nil && !user.DateOfBirth.IsZero() && user.MobileNo != "" && user.Email != ""
 	return isComplete, nil
 }
 
@@ -1021,7 +1047,7 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	selectFields := `
 		pdr.patient_diagnostic_report_id,
 		pdr.patient_id,
-		format_datetime(pdr.collected_date)AS collected_date,
+		format_datetime(pdr.collected_date) AS collected_date,
 		format_datetime(pdr.report_date) AS report_date,
 		pdr.report_status,
 		pdt.test_note,
@@ -1183,14 +1209,14 @@ func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.Pati
 		return nil, err
 	}
 	for _, r := range relations {
-		relationMap[r.RelationId] = r.RelationShip
+		relationMap[*r.RelationId] = r.RelationShip
 	}
 
 	var orderedRelations []models.PatientRelation
 	for _, id := range ids {
 		if relationName, ok := relationMap[id]; ok {
 			orderedRelations = append(orderedRelations, models.PatientRelation{
-				RelationId:   id,
+				RelationId:   &id,
 				RelationShip: relationName,
 			})
 		}
@@ -1570,97 +1596,6 @@ func (p *PatientRepositoryImpl) CountPatientDiagnosticReports(patientId uint64, 
 	return totalReports, nil
 }
 
-// func (p *PatientRepositoryImpl) ProcessReportResponse(rows []models.ReportRow) []map[string]interface{} {
-// 	if len(rows) == 0 {
-// 		return []map[string]interface{}{}
-// 	}
-
-// 	reportMap := make(map[uint64]map[string]interface{})
-
-// 	for _, item := range rows {
-// 		reportID := item.PatientDiagnosticReportID
-
-// 		if _, exists := reportMap[reportID]; !exists {
-// 			reportMap[reportID] = map[string]interface{}{
-// 				"patient_diagnostic_report_id": reportID,
-// 				"patient_id":                   item.PatientID,
-// 				"collected_date":               item.CollectedDate,
-// 				"report_date":                  item.ReportDate,
-// 				"report_status":                item.ReportStatus,
-// 				"report_name":                  item.ReportName,
-// 				"comments":                     item.ResultComment,
-// 				"collected_at":                 item.CollectedDate,
-// 				"diagnostic_lab": map[string]interface{}{
-// 					"diagnostic_lab_id":       item.DiagnosticLabID,
-// 					"lab_name":                item.LabName,
-// 					"patient_diagnostic_test": []map[string]interface{}{},
-// 				},
-// 			}
-// 		}
-
-// 		report := reportMap[reportID]
-// 		diagnosticLab := report["diagnostic_lab"].(map[string]interface{})
-
-// 		// Create test result value
-// 		testResultValue := map[string]interface{}{
-// 			"diagnostic_test_id": item.DiagnosticTestID,
-// 			"result_value":       item.ResultValue,
-// 			"result_status":      item.ResultStatus,
-// 			"result_date":        item.ResultDate,
-// 			"result_comment":     item.ResultComment,
-// 			"qualifier":          item.Qualifier,
-// 		}
-
-// 		// Create reference range
-// 		testReferenceRange := map[string]interface{}{
-// 			"diagnostic_test_id":           item.DiagnosticTestID,
-// 			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
-// 			"normal_min":                   item.NormalMin,
-// 			"normal_max":                   item.NormalMax,
-// 			"age":                          item.Age,
-// 			"age_group":                    item.AgeGroup,
-// 			"gender":                       item.Gender,
-// 			"is_deleted":                   item.RefIsDeleted,
-// 			"units":                        item.RefUnits,
-// 		}
-
-// 		// Create test component
-// 		testComponent := map[string]interface{}{
-// 			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
-// 			"test_component_name":          item.TestComponentName,
-// 			"units":                        item.ComponentUnit,
-// 			"test_result_value":            []map[string]interface{}{testResultValue},
-// 			"test_referance_range":         []map[string]interface{}{testReferenceRange},
-// 		}
-
-// 		// Create diagnostic test
-// 		diagnosticTest := map[string]interface{}{
-// 			"diagnostic_test_id": item.DiagnosticTestID,
-// 			"test_name":          item.TestName,
-// 			"test_components":    []map[string]interface{}{testComponent},
-// 		}
-
-// 		// Create patient diagnostic test
-// 		patientDiagnosticTest := map[string]interface{}{
-// 			"test_note":       item.TestNote,
-// 			"test_date":       item.TestDate,
-// 			"diagnostic_test": diagnosticTest,
-// 		}
-
-// 		// Append to list
-// 		pdtList := diagnosticLab["patient_diagnostic_test"].([]map[string]interface{})
-// 		diagnosticLab["patient_diagnostic_test"] = append(pdtList, patientDiagnosticTest)
-// 	}
-
-// 	// Flatten map to list
-// 	finalReports := make([]map[string]interface{}, 0, len(reportMap))
-// 	for _, val := range reportMap {
-// 		finalReports = append(finalReports, val)
-// 	}
-
-// 	return finalReports
-// }
-
 func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) map[string]interface{} {
 	if len(rows) == 0 {
 		return map[string]interface{}{}
@@ -1678,6 +1613,9 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 		rangeStr := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
 		valueStr := fmt.Sprintf("%v", row.ResultValue)
 		colorClass, colour := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
+		if row.ResultValue == "0" {
+			valueStr = row.ResultStatus
+		}
 		key := models.ComponentKey{
 			ComponentID: row.DiagnosticTestComponentID,
 			Name:        row.TestComponentName,
@@ -1687,14 +1625,15 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 		}
 
 		cell := models.CellData{
-			Value:       valueStr,
-			ColourClass: colorClass,
-			Colour:      colour,
-			ReportID:    row.PatientDiagnosticReportID,
-			ResultDate:  row.ResultDate,
-			Qualifier:   row.Qualifier,
-			ReportName:  row.ReportName,
-			IsPinned:    row.IsPinned,
+			Value:        valueStr,
+			ResultStatus: row.ResultStatus,
+			ColourClass:  colorClass,
+			Colour:       colour,
+			ReportID:     row.PatientDiagnosticReportID,
+			ResultDate:   row.ResultDate,
+			Qualifier:    row.Qualifier,
+			ReportName:   row.ReportName,
+			IsPinned:     row.IsPinned,
 		}
 
 		componentMap[key] = append(componentMap[key], cell)
@@ -1871,6 +1810,15 @@ func (ps *PatientRepositoryImpl) AddTestComponentDisplayConfig(input *models.Pat
 
 		return nil
 	})
+}
+
+func (p *PatientRepositoryImpl) GetPinnedComponentCount(patientId uint64) (int64, error) {
+	var count int64
+	err := p.db.
+		Model(&models.PatientTestComponentDisplayConfig{}).
+		Where("patient_id = ? AND is_pinned = ?", patientId, true).
+		Count(&count).Error
+	return count, err
 }
 
 func (r *PatientRepositoryImpl) GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error {

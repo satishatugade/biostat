@@ -97,14 +97,10 @@ func (PatientDiagnosticTest) TableName() string {
 }
 
 type PatientReportAttachment struct {
-	AttachmentId              uint64           `gorm:"column:attachment_id;primaryKey;autoIncrement" json:"attachment_id"`
 	PatientDiagnosticReportId uint64           `gorm:"column:patient_diagnostic_report_id" json:"patient_diagnostic_report_id"`
 	RecordId                  uint64           `gorm:"column:record_id" json:"record_id"`
-	FilePath                  string           `gorm:"column:file_path" json:"file_path"`
-	FileType                  string           `gorm:"column:file_type" json:"file_type"`
-	UploadedAt                time.Time        `gorm:"column:uploaded_at" json:"uploaded_at"`
+	PatientId                 uint64           `gorm:"column:patient_id" json:"patient_id"`
 	MedicalRecord             TblMedicalRecord `gorm:"foreignKey:RecordId;references:RecordId" json:"medical_report_attachment"`
-	// MedicalRecord []TblMedicalRecord `gorm:"-" json:"medical_report_attachment"`
 }
 
 func (PatientReportAttachment) TableName() string {
@@ -200,6 +196,7 @@ type ResultSummary struct {
 type LabReport struct {
 	ReportDetails struct {
 		ReportName       string  `json:"report_name"`
+		PatientName      string  `json:"patient_name"`
 		ReportDate       string  `json:"report_date"`
 		DiagnosticLabId  *uint64 `json:"diagnostic_lab_id"`
 		LabName          string  `json:"lab_name"`
@@ -215,6 +212,7 @@ type LabReport struct {
 		Components     []struct {
 			TestComponentName string `json:"test_component_name"`
 			ResultValue       string `json:"result_value"`
+			Status            string `json:"status"`
 			Units             string `json:"units"`
 			ReferenceRange    struct {
 				Min string `json:"min"`
@@ -394,8 +392,19 @@ type DiagnosticLabResponse struct {
 }
 
 type ReportRow struct {
-	// Top-level report fields
-	PatientID        uint64
+	// Medical record fields
+	RecordId       uint64
+	RecordName     string
+	RecordSize     int64
+	FileType       string
+	UploadSource   string
+	SourceAccount  string
+	RecordCategory string
+	RecordURL      string
+	DigitizeFlag   int
+	Status         string
+
+	PatientId        uint64
 	CollectedAt      string
 	CollectedDate    string
 	ReportStatus     string
@@ -498,12 +507,13 @@ type ComponentKey struct {
 }
 
 type CellData struct {
-	Value       string `json:"value"`
-	ColourClass string `json:"colour_class"`
-	Colour      string `json:"colour"`
-	Qualifier   string `json:"qualifier"`
-	ReportID    uint64 `json:"patient_diagnostic_report_id"`
-	ResultDate  string `json:"result_date"`
-	ReportName  string `json:"report_name"`
-	IsPinned    bool   `json:"is_pinned"`
+	Value        string `json:"value"`
+	ResultStatus string `json:"result_status"`
+	ColourClass  string `json:"colour_class"`
+	Colour       string `json:"colour"`
+	Qualifier    string `json:"qualifier"`
+	ReportID     uint64 `json:"patient_diagnostic_report_id"`
+	ResultDate   string `json:"result_date"`
+	ReportName   string `json:"report_name"`
+	IsPinned     bool   `json:"is_pinned"`
 }

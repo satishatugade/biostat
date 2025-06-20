@@ -170,6 +170,7 @@ func MapSystemUserToPatient(user *models.SystemUser_) *models.Patient {
 	return &models.Patient{
 		PatientId:          user.UserId,
 		FirstName:          user.FirstName,
+		MiddleName:         user.MiddleName,
 		LastName:           user.LastName,
 		DateOfBirth:        user.DateOfBirth,
 		Gender:             user.Gender,
@@ -297,6 +298,7 @@ func MapUsersToSchema(users []models.SystemUser_, roleName string) []interface{}
 			mappedUsers = append(mappedUsers, models.Patient{
 				PatientId:   user.UserId,
 				FirstName:   user.FirstName,
+				MiddleName:  user.MiddleName,
 				LastName:    user.LastName,
 				DateOfBirth: user.DateOfBirth,
 				Gender:      user.Gender,
@@ -437,6 +439,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 		return models.Patient{
 			PatientId:     user.UserId,
 			FirstName:     user.FirstName,
+			MiddleName:    user.MiddleName,
 			LastName:      user.LastName,
 			DateOfBirth:   user.DateOfBirth,
 			Gender:        user.Gender,
@@ -800,6 +803,9 @@ func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) (string, 
 		log.Printf("[ColorCode] Invalid input - resultValue: %v (err: %v), normalMin: %v (err: %v), normalMax: %v (err: %v)",
 			resultValue, err1, normalMin, err2, normalMax, err3)
 		return "text-gray-500", "gray"
+	}
+	if result == 0 {
+		return "text-black-500", "black"
 	}
 	if result < min {
 		return "text-blue-500", "blue"

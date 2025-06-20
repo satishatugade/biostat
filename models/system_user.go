@@ -32,7 +32,7 @@ type SystemUserRoleMapping struct {
 	UserId                  uint64    `gorm:"column:user_id;not null" json:"user_id"`
 	PatientId               uint64    `gorm:"column:patient_id;not null" json:"patient_id"`
 	RoleId                  uint64    `gorm:"column:role_id;not null" json:"role_id"`
-	RelationId              int       `gorm:"column:relation_id;not null" json:"relation_id"`
+	RelationId              uint64    `gorm:"column:relation_id;not null" json:"relation_id"`
 	IsSelf                  bool      `gorm:"column:is_self;default:false" json:"is_self"`
 	MappingType             string    `gorm:"column:mapping_type;type:varchar(50)" json:"mapping_type,omitempty"`
 	IsDeleted               int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
@@ -42,6 +42,14 @@ type SystemUserRoleMapping struct {
 
 func (SystemUserRoleMapping) TableName() string {
 	return "tbl_system_user_role_mapping"
+}
+
+type ReverseRelationMappingResponse struct {
+	RelationId              uint64 `json:"relation_id"`
+	SourceGenderId          uint64 `json:"source_gender_id"`
+	ReverseRelationGenderId uint64 `json:"reverse_relation_gender_id"`
+	ReverseRelationshipId   uint64 `json:"reverse_relationship_id"`
+	ReverseRelationshipName string `json:"reverse_relationship_name"`
 }
 
 type UserResponse struct {
@@ -67,8 +75,10 @@ type SystemUser_ struct {
 	Username      string        `gorm:"column:username;type:varchar(50);unique;not null" json:"username"`
 	Password      string        `gorm:"column:password;type:varchar(255);not null" json:"password"`
 	FirstName     string        `gorm:"column:first_name;type:varchar(50);not null" json:"first_name"`
+	MiddleName    string        `gorm:"column:middle_name;type:varchar(50)" json:"middle_name"`
 	LastName      string        `gorm:"column:last_name;type:varchar(50);not null" json:"last_name"`
-	Gender        string        `gorm:"column:gender;type:varchar(10)" json:"gender"`
+	Gender        string        `gorm:"-" json:"gender"`
+	GenderId      uint64        `gorm:"column:gender_id" json:"gender_id"`
 	DateOfBirth   *time.Time    `gorm:"column:date_of_birth;type:date" json:"date_of_birth"`
 	MobileNo      string        `gorm:"column:mobile_no;type:varchar(50);unique" json:"mobile_no"`
 	Email         string        `gorm:"column:email;type:varchar(100);unique" json:"email"`

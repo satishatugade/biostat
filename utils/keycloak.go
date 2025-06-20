@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/hibiken/asynq"
 	"github.com/joho/godotenv"
 
 	"github.com/Nerzal/gocloak/v13"
@@ -33,4 +34,13 @@ func InitKeycloak() {
 	KeycloakAdminPassword = os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
 
 	Client = gocloak.NewClient(KeycloakAuthURL)
+}
+
+var redisClient *asynq.Client
+
+func init() {
+	_ = godotenv.Load()
+	redisClient = asynq.NewClient(asynq.RedisClientOpt{
+		Addr: os.Getenv("REDIS_ADDR"),
+	})
 }

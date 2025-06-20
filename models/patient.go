@@ -7,6 +7,7 @@ import (
 type Patient struct {
 	PatientId            uint64        `json:"patient_id"`
 	FirstName            string        `json:"first_name"`
+	MiddleName           string        `json:"middle_name"`
 	LastName             string        `json:"last_name"`
 	DateOfBirth          *time.Time    `json:"date_of_birth"`
 	Gender               string        `json:"gender"`
@@ -29,18 +30,30 @@ type Patient struct {
 }
 
 type PatientRelation struct {
-	RelationId   uint64 `json:"relation_id" gorm:"column:relation_id"`
-	RelationShip string `json:"relationship" gorm:"column:relationship"`
+	RelationId     *uint64 `json:"relation_id" gorm:"column:relation_id"`
+	RelationShip   string  `json:"relationship" gorm:"column:relationship"`
+	SourceGenderId uint64  `json:"source_gender_id" gorm:"column:source_gender_id"`
 }
 
 func (PatientRelation) TableName() string {
 	return "tbl_relation_master"
 }
 
+type GenderMaster struct {
+	GenderId    uint64 `json:"gender_id" gorm:"column:gender_id"`
+	GenderCode  string `json:"gender_code" gorm:"column:gender_code"`
+	GenderLabel string `json:"gender_label" gorm:"column:gender_label"`
+}
+
+func (GenderMaster) TableName() string {
+	return "tbl_gender_master"
+}
+
 type PatientRelative struct {
 	RelativeId        uint64             `json:"relative_id"`
 	PatientId         *uint              `json:"patient_id,omitempty"`
 	FirstName         string             `json:"first_name"`
+	MiddleName        string             `json:"middle_name"`
 	LastName          string             `json:"last_name"`
 	Gender            string             `json:"gender"`
 	MappingType       string             `json:"mapping_type"`

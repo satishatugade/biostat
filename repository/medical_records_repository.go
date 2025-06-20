@@ -4,13 +4,15 @@ import (
 	"biostat/models"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
 )
 
 type TblMedicalRecordRepository interface {
-	GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error)
+	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]models.ReportRow, int64, error)
+	ProcessMedicalRecordResponse(data []models.ReportRow) []map[string]interface{}
 	GetMedicalRecordsByUserID(userID uint64, recordIdsMap map[uint64]uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	CreateMultipleTblMedicalRecords(data *[]models.TblMedicalRecord) error
@@ -46,7 +48,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID uint64
 		Joins("INNER JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
 		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID)
 
-	if recordIdMap != nil && len(recordIdMap) > 0 {
+	if len(recordIdMap) > 0 {
 		var recordIds []uint64
 		for _, id := range recordIdMap {
 			recordIds = append(recordIds, id)
@@ -57,24 +59,215 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID uint64
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	return records, nil
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetAllTblMedicalRecords(limit int, offset int) ([]models.TblMedicalRecord, int64, error) {
-	var objs []models.TblMedicalRecord
-	var totalRecords int64
-	err := r.db.Model(&models.TblMedicalRecord{}).Count(&totalRecords).Error
-	if err != nil {
+func (r *tblMedicalRecordRepositoryImpl) GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]models.ReportRow, int64, error) {
+	var results []models.ReportRow
+	var total int64
+
+	query := fmt.Sprintf(`
+	SELECT 
+		mr.record_id,
+		mr.record_name,
+		mr.record_size,
+		mr.file_type,
+		mr.status,
+		mr.upload_source,
+		mr.source_account,
+		mr.record_category,
+		mr.record_url,
+		mr.digitize_flag,
+		pr.patient_diagnostic_report_id,
+		rm.user_id AS patient_id,
+		pr.report_name,
+		format_datetime(pr.collected_date) AS collected_date,
+		format_datetime(pr.report_date) AS report_date,
+		pr.report_status,
+		pr.observation,
+		pr.comments,
+		pr.review_by,
+		format_datetime(pr.review_date) AS review_date,
+		dl.diagnostic_lab_id,
+		dl.lab_name,
+		dl.lab_address,
+		dl.lab_contact_number,
+		rv.diagnostic_test_id,
+		rv.diagnostic_test_component_id,
+		rv.test_result_value_id,
+		rv.result_value,
+		rv.result_status,
+		format_datetime(rv.result_date) AS result_date,
+		rv.result_comment,
+		dtm.test_name,
+		dtcm.test_component_name,
+		rr.normal_min,
+		rr.normal_max,
+		rr.units
+	FROM 
+		tbl_medical_record mr
+	INNER JOIN
+    	tbl_medical_record_user_mapping rm ON rm.record_id = mr.record_id
+	LEFT JOIN 
+		tbl_patient_report_attachment pa ON pa.record_id = mr.record_id
+	LEFT JOIN 
+		tbl_patient_diagnostic_report pr ON pr.patient_diagnostic_report_id = pa.patient_diagnostic_report_id
+	LEFT JOIN 
+		tbl_diagnostic_lab dl ON dl.diagnostic_lab_id = pr.diagnostic_lab_id
+	LEFT JOIN 
+		tbl_patient_diagnostic_test_result_value rv ON rv.patient_diagnostic_report_id = pr.patient_diagnostic_report_id
+	LEFT JOIN 
+		tbl_disease_profile_diagnostic_test_master dtm ON dtm.diagnostic_test_id = rv.diagnostic_test_id
+	LEFT JOIN 
+		tbl_disease_profile_diagnostic_test_component_master dtcm ON dtcm.diagnostic_test_component_id = rv.diagnostic_test_component_id
+	LEFT JOIN 
+		tbl_diagnostic_test_reference_range rr ON rr.diagnostic_test_id = rv.diagnostic_test_id 
+		AND rr.diagnostic_test_component_id = rv.diagnostic_test_component_id
+		AND rr.is_deleted = 0
+	WHERE 
+		mr.is_deleted = 0 AND rm.user_id = %d
+	ORDER BY 
+		pr.patient_diagnostic_report_id DESC NULLS LAST, rv.result_date DESC NULLS LAST
+	LIMIT %d OFFSET %d
+	`, patientId, limit, offset)
+
+	if err := r.db.Raw(query).Scan(&results).Error; err != nil {
 		return nil, 0, err
 	}
-	err = r.db.Limit(limit).Offset(offset).Find(&objs).Error
-	if err != nil {
+
+	// Count query
+	countQuery := fmt.Sprintf(`
+	SELECT COUNT(DISTINCT mr.record_id)
+	FROM 
+		tbl_medical_record mr
+	JOIN 
+		tbl_patient_report_attachment pa ON pa.record_id = mr.record_id
+	JOIN 
+		tbl_patient_diagnostic_report pr ON pr.patient_diagnostic_report_id = pa.patient_diagnostic_report_id
+	WHERE 
+		mr.is_deleted = 0 AND pr.is_deleted = 0 AND pr.patient_id = %d
+	`, patientId)
+	fmt.Println("Executing SQL Query:\n", query)
+	if err := r.db.Raw(countQuery).Scan(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	return objs, totalRecords, nil
+
+	return results, total, nil
+}
+
+func (p *tblMedicalRecordRepositoryImpl) ProcessMedicalRecordResponse(rows []models.ReportRow) []map[string]interface{} {
+	if len(rows) == 0 {
+		return []map[string]interface{}{}
+	}
+
+	reportMap := make(map[string]map[string]interface{})
+
+	for _, item := range rows {
+		reportID := strconv.FormatUint(item.PatientDiagnosticReportID, 10)
+		if _, exists := reportMap[reportID]; !exists {
+			var diagnosticLab map[string]interface{}
+
+			if item.PatientDiagnosticReportID == 0 {
+				diagnosticLab = map[string]interface{}{}
+			} else {
+				diagnosticLab = map[string]interface{}{
+					"diagnostic_lab_id":       item.DiagnosticLabID,
+					"lab_name":                item.LabName,
+					"collected_date":          item.CollectedDate,
+					"report_date":             item.ReportDate,
+					"report_status":           item.ReportStatus,
+					"report_name":             item.ReportName,
+					"comments":                item.ResultComment,
+					"collected_at":            item.CollectedAt,
+					"patient_diagnostic_test": []map[string]interface{}{},
+				}
+			}
+
+			reportMap[reportID] = map[string]interface{}{
+				"record_id":                    item.RecordId,
+				"record_name":                  item.RecordName,
+				"status":                       item.Status,
+				"record_size":                  item.RecordSize,
+				"file_type":                    item.FileType,
+				"upload_source":                item.UploadSource,
+				"source_account":               item.SourceAccount,
+				"record_category":              item.RecordCategory,
+				"record_url":                   item.RecordURL,
+				"digitize_flag":                item.DigitizeFlag,
+				"patient_diagnostic_report_id": reportID,
+				"patient_id":                   item.PatientId,
+				"uploaded_diagnostic":          diagnosticLab,
+			}
+		}
+
+		if item.PatientDiagnosticReportID == 0 {
+			continue
+		}
+
+		report := reportMap[reportID]
+		diagnosticLab := report["uploaded_diagnostic"].(map[string]interface{})
+		testResultValue := map[string]interface{}{
+			"diagnostic_test_id": item.DiagnosticTestID,
+			"result_value":       item.ResultValue,
+			"result_status":      item.ResultStatus,
+			"result_date":        item.ResultDate,
+			"result_comment":     item.ResultComment,
+			"qualifier":          item.Qualifier,
+		}
+		testReferenceRange := map[string]interface{}{
+			"diagnostic_test_id":           item.DiagnosticTestID,
+			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+			"normal_min":                   item.NormalMin,
+			"normal_max":                   item.NormalMax,
+			"age":                          item.Age,
+			"age_group":                    item.AgeGroup,
+			"gender":                       item.Gender,
+			"is_deleted":                   item.RefIsDeleted,
+			"units":                        item.RefUnits,
+		}
+		testComponent := map[string]interface{}{
+			"diagnostic_test_component_id": item.DiagnosticTestComponentID,
+			"test_component_name":          item.TestComponentName,
+			"units":                        item.ComponentUnit,
+			"test_result_value":            []map[string]interface{}{testResultValue},
+			"test_reference_range":         []map[string]interface{}{testReferenceRange},
+		}
+
+		pdtList := diagnosticLab["patient_diagnostic_test"].([]map[string]interface{})
+		var existingTest map[string]interface{}
+		for _, pdt := range pdtList {
+			test := pdt["diagnostic_test"].(map[string]interface{})
+			if test["diagnostic_test_id"] == item.DiagnosticTestID {
+				existingTest = test
+				break
+			}
+		}
+
+		if existingTest != nil {
+			existingTest["test_components"] = append(
+				existingTest["test_components"].([]map[string]interface{}),
+				testComponent,
+			)
+		} else {
+			newTest := map[string]interface{}{
+				"diagnostic_test_id": item.DiagnosticTestID,
+				"test_name":          item.TestName,
+				"test_note":          item.TestNote,
+				"test_date":          item.TestDate,
+				"test_components":    []map[string]interface{}{testComponent},
+			}
+			pdt := map[string]interface{}{
+				"diagnostic_test": newTest,
+			}
+			diagnosticLab["patient_diagnostic_test"] = append(pdtList, pdt)
+		}
+	}
+	finalReports := make([]map[string]interface{}, 0, len(reportMap))
+	for _, val := range reportMap {
+		finalReports = append(finalReports, val)
+	}
+
+	return finalReports
 }
 
 func (r *tblMedicalRecordRepositoryImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
@@ -122,6 +315,9 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	}
 	if data.RecordUrl != "" {
 		updateFields["record_url"] = data.RecordUrl
+	}
+	if data.Status != "" {
+		updateFields["status"] = data.Status
 	}
 	if data.FileData != nil {
 		updateFields["file_data"] = data.FileData

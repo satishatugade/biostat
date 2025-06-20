@@ -19,7 +19,9 @@ import (
 
 type PatientService interface {
 	GetAllRelation() ([]models.PatientRelation, error)
-	GetRelationById(relationId int) (models.PatientRelation, error)
+	GetRelationById(relationId uint64) (models.PatientRelation, error)
+	GetAllGender() ([]models.GenderMaster, error)
+	GetGenderById(genderId uint64) (models.GenderMaster, error)
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (*models.Patient, error)
 	GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error)
@@ -61,6 +63,7 @@ type PatientService interface {
 	GetPatientHealthDetail(patientId uint64) (models.TblPatientHealthProfile, error)
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
+	GetPinnedComponentCount(patientId uint64) (int64, error)
 	SendSOS(patientID uint64, ip, userAgent string) error
 
 	AssignPermission(userID, relativeID uint64, permissionCode string, granted bool) error
@@ -89,8 +92,16 @@ func (s *PatientServiceImpl) GetAllRelation() ([]models.PatientRelation, error) 
 }
 
 // GetRelationById implements PatientService.
-func (s *PatientServiceImpl) GetRelationById(relationId int) (models.PatientRelation, error) {
+func (s *PatientServiceImpl) GetRelationById(relationId uint64) (models.PatientRelation, error) {
 	return s.patientRepo.GetRelationById(relationId)
+}
+
+func (s *PatientServiceImpl) GetAllGender() ([]models.GenderMaster, error) {
+	return s.patientRepo.GetAllGender()
+}
+
+func (s *PatientServiceImpl) GetGenderById(genderId uint64) (models.GenderMaster, error) {
+	return s.patientRepo.GetGenderById(genderId)
 }
 
 func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
@@ -805,6 +816,10 @@ func (s *PatientServiceImpl) AddTestComponentDisplayConfig(config *models.Patien
 	return s.patientRepo.AddTestComponentDisplayConfig(config)
 }
 
+func (s *PatientServiceImpl) GetPinnedComponentCount(patientId uint64) (int64, error) {
+	return s.patientRepo.GetPinnedComponentCount(patientId)
+}
+
 func (s *PatientServiceImpl) AssignPermission(userID, relativeID uint64, code string, granted bool) error {
 	perm, err := s.patientRepo.GetPermissionByCode(code)
 	if err != nil {
@@ -904,7 +919,7 @@ func (s *PatientServiceImpl) AddRelation(tx *gorm.DB, req models.AddRelationRequ
 	mapping := models.SystemUserRoleMapping{
 		UserId:      req.UserID,
 		PatientId:   patientId,
-		RelationId:  int(relationId),
+		RelationId:  relationId,
 		MappingType: mappingType,
 		IsSelf:      false,
 		RoleId:      role.RoleId,

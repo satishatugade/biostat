@@ -1,6 +1,7 @@
 package main
 
 import (
+	"biostat/config"
 	"biostat/database"
 	"biostat/router"
 	"biostat/utils"
@@ -51,6 +52,7 @@ func main() {
 	log.Println("Biostack Application Started.....")
 	utils.InitKeycloak()
 	database.InitDB()
+	config.InitRedisAndAsynq()
 
 	router.Routing(env)
 

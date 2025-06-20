@@ -124,6 +124,8 @@ const (
 	//Roles master
 	GetRole  = "/get-role/:role_id"
 	Relation = "/all-relation"
+	Gender   = "/all-gender"
+	GenderId = "/gender/:gender_id"
 
 	//bulk upload master data
 	BulkUpload = "/bulk-upload/:entity"
@@ -174,12 +176,15 @@ const (
 
 	SyncDigiLocker     = "/sync-digilocker"
 	GetMedicalResource = "/get-medical-resource"
+	MedicalRecord      = "/medical-record-info"
+	UploadRecord       = "/medical_records"
 
 	AddOrder  = "/order"
 	GetOrders = "/orders"
 
 	MergeComponent          = "/merge-component"
-	SaveReport              = "/save-report"
+	SaveReport              = "/save-report/:record_id"
+	DigitizationStatus      = "/report/digitization-status/:record_id"
 	HealthStats             = "/health-stats"
 	ReportArchive           = "/diagnostic-report/archive"
 	AddNote                 = "/add-report-note"
@@ -221,4 +226,14 @@ const (
 	// AuditSaveError         = "Failed to save cause audit: %v"
 	// UpdateCauseStatusError = "Failed to update cause deletion status: %v"
 	// NoRowsAffectedError    = "No cause found with Id: %d to delete"
+)
+
+type JobStatus string
+
+const (
+	StatusQueued     JobStatus = "queued"
+	StatusProcessing JobStatus = "processing"
+	StatusRetrying   JobStatus = "retrying"
+	StatusSuccess    JobStatus = "success"
+	StatusFailed     JobStatus = "failed"
 )
