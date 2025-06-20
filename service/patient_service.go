@@ -29,6 +29,7 @@ type PatientService interface {
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
 	GetPatientDiagnosticResultValue(PatientId uint64, patientDiagnosticReportId uint64) ([]map[string]interface{}, error)
 	GetPatientDiagnosticReportSummary(PatientId uint64, patientDiagnosticReportId uint64, summary bool) (models.ResultSummary, error)
+	GetPatientMedicines(patientID uint64) ([]models.UserMedicineInfo, error)
 
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
@@ -988,4 +989,8 @@ func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) err
 		return fmt.Errorf("SOS sent to %d relatives; failed for %d relative(s): %s", len(successList), len(errorList), strings.Join(errorList, ", "))
 	}
 	return nil
+}
+
+func (us *PatientServiceImpl) GetPatientMedicines(patientID uint64) ([]models.UserMedicineInfo, error) {
+  return us.patientRepo.GetDistinctMedicinesByPatientID(patientID)
 }

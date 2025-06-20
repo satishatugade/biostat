@@ -19,7 +19,7 @@ type UserRepository interface {
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
-	GetUserInfoByIdentifier(loginType, identifier string) (*models.UserLoginInfo, error)
+	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	GetUserIdBySUB(sub string) (uint64, error)
@@ -154,26 +154,23 @@ func (ur *UserRepositoryImpl) GetUserInfoByUserName(username string) (*models.Us
 	return &info, nil
 }
 
-func (ur *UserRepositoryImpl) GetUserInfoByIdentifier(loginType, identifier string) (*models.UserLoginInfo, error) {
+func (ur *UserRepositoryImpl) GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error) {
 	var info models.UserLoginInfo
 
-	query := ur.db.Model(&models.SystemUser_{}).Select("auth_user_id","username", "password", "login_count")
+	err := ur.db.Model(&models.SystemUser_{}).
+		Select("auth_user_id", "username", "password", "login_count").
+		Where("username = ? OR email = ? OR mobile_no = ?", identifier, identifier, identifier).
+		Limit(1).
+		Scan(&info).Error
 
-	switch loginType {
-	case "username":
-		query = query.Where("username = ?", identifier)
-	case "email":
-		query = query.Where("email = ?", identifier)
-	case "phone":
-		query = query.Where("mobile_no = ?", identifier)
-	default:
-		return nil, fmt.Errorf("invalid login type: %s", loginType)
-	}
-
-	err := query.Scan(&info).Error
 	if err != nil {
 		return nil, err
 	}
+
+	if info.Username == "" {
+		return nil, fmt.Errorf("user not found with identifier: %s", identifier)
+	}
+
 	return &info, nil
 }
 

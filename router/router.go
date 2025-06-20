@@ -297,6 +297,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient prescription", http.MethodPost, constant.UpdatePrescription, patientController.UpdatePrescription},
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionByPatientId, patientController.GetPrescriptionByPatientId},
 		Route{"patient prescription", http.MethodPost, constant.PrescriptionDetail, patientController.GetPrescriptionDetailByPatientId},
+		Route{"patient prescription", http.MethodPost, constant.UserMedications, patientController.GetUserMedications},
 		Route{"prescription explanation", http.MethodPost, constant.PrescriptionInfo, patientController.PrescriptionInfobyAIModel},
 		Route{"Pharmacokinetics", http.MethodPost, constant.Pharmacokinetics, patientController.PharmacokineticsInfobyAIModel},
 		Route{"SummarizeHistorybyAIModel", http.MethodPost, constant.SummarizeHistory, patientController.SummarizeHistorybyAIModel},
@@ -307,19 +308,19 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Add Custom Range", http.MethodPost, constant.CustomRange, patientController.AddPatientClinicalRange},
 		// Route{"update  prescription", http.MethodPut, constant.UpdatePrescription, patientController.UpdatePrescription},
 
-		{"medical records create", http.MethodPost, constant.UploadRecord, patientController.CreateTblMedicalRecord},
-		{"medical records", http.MethodPost, constant.MedicalRecord, patientController.GetAllMedicalRecord},
-		{"medical records get", http.MethodPost, "/medical_records/:user_id", patientController.GetUserMedicalRecords},
-		{"medical records get single", http.MethodGet, "/medical_records/:id", patientController.GetSingleTblMedicalRecord},
-		{"medical records update", http.MethodPut, "/medical_records/:id", patientController.UpdateTblMedicalRecord},
-		{"medical records delete", http.MethodDelete, "/medical_records/:id", patientController.DeleteTblMedicalRecord},
+		Route{"medical records create", http.MethodPost, constant.UploadRecord, patientController.CreateTblMedicalRecord},
+		Route{"medical records", http.MethodPost, constant.MedicalRecord, patientController.GetAllMedicalRecord},
+		Route{"medical records get", http.MethodPost, "/medical_records/:user_id", patientController.GetUserMedicalRecords},
+		Route{"medical records get single", http.MethodGet, "/medical_records/:id", patientController.GetSingleTblMedicalRecord},
+		Route{"medical records update", http.MethodPut, "/medical_records/:id", patientController.UpdateTblMedicalRecord},
+		Route{"medical records delete", http.MethodDelete, "/medical_records/:id", patientController.DeleteTblMedicalRecord},
 
-		{"Appointments", http.MethodPost, constant.ScheduleAppointment, patientController.ScheduleAppointment},
-		{"Appointments", http.MethodPost, constant.GetAppointments, patientController.GetUserAppointments},
-		{"Appointments", http.MethodPut, constant.ScheduleAppointment, patientController.UpdateUserAppointment},
+		Route{"Appointments", http.MethodPost, constant.ScheduleAppointment, patientController.ScheduleAppointment},
+		Route{"Appointments", http.MethodPost, constant.GetAppointments, patientController.GetUserAppointments},
+		Route{"Appointments", http.MethodPut, constant.ScheduleAppointment, patientController.UpdateUserAppointment},
 
-		{"Digi Locker", http.MethodPost, constant.SyncDigiLocker, patientController.DigiLockerSyncController},
-		{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadUserUploadedMedicalFile},
+		Route{"Digi Locker", http.MethodPost, constant.SyncDigiLocker, patientController.DigiLockerSyncController},
+		Route{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadUserUploadedMedicalFile},
 
 		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
 		Route{"DigitizationStatus", http.MethodPost, constant.DigitizationStatus, patientController.GetDigitizationStatus},
@@ -369,7 +370,7 @@ func getUserRoutes(userController *controller.UserController) Routes {
 
 func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Routes {
 	return Routes{
-		{"gmail sync route", http.MethodGet, "/inbox/:user_id", gmailSyncController.FetchEmailsHandler},
+		{"gmail sync route", http.MethodPost, "/app-sync", gmailSyncController.FetchEmailsHandler},
 		{"gmail sync route", http.MethodGet, "/oauth2callback", gmailSyncController.GmailCallbackHandler},
 		{"gmail sync route", http.MethodGet, "/login", controller.GmailLoginHandler},
 	}

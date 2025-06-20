@@ -24,7 +24,7 @@ type UserService interface {
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
-	GetUserInfoByIdentifier(loginType string, identifier string) (*models.UserLoginInfo, error)
+	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	IsUsernameExists(username string) bool
@@ -94,8 +94,8 @@ func (s *UserServiceImpl) GetUserInfoByUserName(username string) (*models.UserLo
 	return s.userRepo.GetUserInfoByUserName(username)
 }
 
-func (s *UserServiceImpl) GetUserInfoByIdentifier(loginType string, identifier string) (*models.UserLoginInfo, error) {
-	return s.userRepo.GetUserInfoByIdentifier(loginType, identifier)
+func (s *UserServiceImpl) GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error) {
+  return s.userRepo.GetUserInfoByIdentifier(identifier)
 }
 
 func (s *UserServiceImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error) {

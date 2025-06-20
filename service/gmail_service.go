@@ -40,13 +40,20 @@ func CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Conf
 	return gmail.New(client)
 }
 
+func CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error) {
+    token := &oauth2.Token{AccessToken: accessToken}
+    config := &oauth2.Config{}
+    client := config.Client(ctx, token)
+    return gmail.New(client)
+}
+
 func FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
 	profile, err := service.Users.GetProfile("me").Do()
 	if err != nil {
 		return nil, err
 	}
 	userEmail := profile.EmailAddress
-	query := `("health report" OR "lab result" OR "medical" OR "blood test" OR "diagnosis") has:attachment filename:(pdf OR doc OR docx)`
+	query := `("health report" OR "lab result" OR "blood test") has:attachment`
 	results, err := service.Users.Messages.List("me").Q(query).Do()
 	if err != nil {
 		return nil, err

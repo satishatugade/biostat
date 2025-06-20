@@ -30,6 +30,7 @@ type PatientRepository interface {
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, map[uint64]uint64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
 	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
+	GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error)
 
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AddPatientRelative(relative *models.PatientRelative) error
@@ -1888,4 +1889,25 @@ func (r *PatientRepositoryImpl) UpdatePermissionValue(userID, relativeID uint64,
 	return r.db.Model(&models.UserRelativePermissionMapping{}).
 		Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).
 		Update("granted", value).Error
+}
+
+func (ur *PatientRepositoryImpl) GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error) {
+  var results []models.UserMedicineInfo
+
+  query := `
+  SELECT prescription_detail_id, prescription_id, medicine_name, prescription_type, duration, duration_unit_type
+  FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY medicine_name ORDER BY prescription_id) AS rn
+    FROM tbl_prescription_detail
+    WHERE prescription_id IN (
+      SELECT prescription_id
+      FROM tbl_patient_prescription
+      WHERE patient_id = ?
+    )
+  ) t
+  WHERE rn = 1;
+  `
+
+  err := ur.db.Raw(query, patientID).Scan(&results).Error
+  return results, err
 }

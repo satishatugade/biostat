@@ -197,10 +197,10 @@ func UpdateUserInKeycloak(user models.SystemUser_) error {
 func (uc *UserController) LoginUser(c *gin.Context) {
 	var user models.SystemUser_
 	var input struct {
-		Username string  `json:"username"`
-		Email    string  `json:"email"`
-		Phone    string  `json:"phone"`
-		Type     string  `json:"type" binding:"omitempty"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Phone    string `json:"phone"`
+		// Type     string  `json:"type" binding:"omitempty"`
 		Password string  `json:"password" binding:"required"`
 		LoginAs  *string `json:"login_as"`
 	}
@@ -208,37 +208,8 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing required fields.", nil, err)
 		return
 	}
-	if input.Type == "" {
-		input.Type = "username"
-	}
 
-	var identifier string
-
-	switch input.Type {
-	case "username":
-		if input.Username == "" {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Username is required.", nil, nil)
-			return
-		}
-		identifier = input.Username
-	case "email":
-		if input.Email == "" {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Email is required.", nil, nil)
-			return
-		}
-		identifier = input.Email
-	case "phone":
-		if input.Phone == "" {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Phone number is required.", nil, nil)
-			return
-		}
-		identifier = input.Phone
-	default:
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid login type. Use 'username', 'email', or 'phone'.", nil, nil)
-		return
-	}
-
-	loginInfo, err := uc.userService.GetUserInfoByIdentifier(input.Type, identifier)
+	loginInfo, err := uc.userService.GetUserInfoByIdentifier(input.Username)
 	if err != nil {
 		log.Println("User not found with this username in database : ", input.Username)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)
@@ -388,8 +359,8 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
 	relation, err := uc.patientService.GetRelationById(req.RelationId)
 	if err != nil {
-		return
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Relation not found", nil, err)
+		return
 	}
 
 	password := utils.GenerateRandomPassword()

@@ -72,3 +72,12 @@ type PatientPrescriptionData struct {
 	PrescriptionAttachmentUrl string               `json:"prescription_attachment_url"`
 	PrescriptionDetails       []PrescriptionDetail `json:"prescription_details"`
 }
+
+type UserMedicineInfo struct {
+	PrescriptionDetailID int64  `json:"prescription_detail_id"`
+	PrescriptionID       int64  `json:"prescription_id"`
+	MedicineName         string `json:"medicine_name"`
+	PrescriptionType     string `json:"prescription_type"`
+	Duration             int    `json:"duration"`
+	DurationUnitType     string `json:"duration_unit_type"`
+}

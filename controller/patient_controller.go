@@ -2271,3 +2271,19 @@ func (pc *PatientController) GetDigitizationStatus(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record status fetched", map[string]string{"status": status}, nil, nil)
 }
+
+func (pc *PatientController) GetUserMedications(ctx *gin.Context) {
+  _, patientID, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+  if err != nil {
+    models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+    return
+  }
+
+  medicines, err := pc.patientService.GetPatientMedicines(patientID)
+  if err != nil {
+    models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+    return
+  }
+  models.SuccessResponse(ctx, constant.Success, http.StatusOK, "medicines loaded", medicines, nil, nil)
+  return
+}
