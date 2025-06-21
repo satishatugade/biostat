@@ -29,19 +29,20 @@ type AuthService interface {
 	SendResetPasswordLink(email string) error
 	SendOTP(email string) error
 	// VerifyOTPAndLogin(email string, otp string) (map[string]interface{}, error)
+	CreateUserInKeycloak(user models.SystemUser_) (string, bool, error)
 }
 
 type AuthServiceImpl struct {
-	userRepo         repository.UserRepository
-	userTokenService service.UserService
-	emailService     service.EmailService
+	userRepo     repository.UserRepository
+	userService  service.UserService
+	emailService service.EmailService
 }
 
-func NewAuthService(repo repository.UserRepository, userTokenService service.UserService, emailService service.EmailService) AuthService {
+func NewAuthService(repo repository.UserRepository, userService service.UserService, emailService service.EmailService) AuthService {
 	return &AuthServiceImpl{
-		userRepo:         repo,
-		userTokenService: userTokenService,
-		emailService:     emailService,
+		userRepo:     repo,
+		userService:  userService,
+		emailService: emailService,
 	}
 }
 
@@ -259,7 +260,7 @@ func (as *AuthServiceImpl) SendResetPasswordLink(email string) error {
 	// 	Provider:  "Email",
 	// 	ExpiresAt: time.Now().Add(15 * time.Minute),
 	// }
-	// _, err1 := as.userTokenService.CreateTblUserToken(tokenData)
+	// _, err1 := as.userService.CreateTblUserToken(tokenData)
 	// if err1 != nil {
 	// 	return errors.New("reset password token not saved")
 	// }
@@ -436,4 +437,80 @@ func impersonateUser(userID, adminToken string) (map[string]interface{}, error) 
 	}
 
 	return result, nil
+}
+
+func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string, bool, error) {
+	client := utils.Client
+	ctx := context.Background()
+	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
+	if err != nil {
+		log.Printf("[ERROR] Failed to login to Keycloak: %v", err)
+		return "", false, err
+	}
+	newuser := gocloak.User{
+		Username:      gocloak.StringP(user.Username),
+		Email:         gocloak.StringP(user.Email),
+		FirstName:     gocloak.StringP(user.FirstName),
+		LastName:      gocloak.StringP(user.LastName),
+		Enabled:       gocloak.BoolP(true),
+		EmailVerified: gocloak.BoolP(true),
+		Credentials: &[]gocloak.CredentialRepresentation{
+			{
+				Type:      gocloak.StringP("password"),
+				Value:     gocloak.StringP(user.Password),
+				Temporary: gocloak.BoolP(false),
+			},
+		},
+		RealmRoles: &[]string{(user.RoleName)},
+	}
+
+	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, utils.KeycloakRealm, user.RoleName)
+	if roleErr != nil {
+		log.Printf("[ERROR] Role not found in Keycloak: %v", err)
+		return "User role not found at keycloak server", false, roleErr
+	}
+
+	userID, err := client.CreateUser(ctx, token.AccessToken, utils.KeycloakRealm, newuser)
+	if err != nil {
+		var loginInfo *models.UserLoginInfo
+		loginInfo, err = a.userService.GetUserInfoByIdentifier(user.Email)
+		if err != nil {
+			loginInfo, err = a.userService.GetUserInfoByIdentifier(user.MobileNo)
+			if err != nil {
+				log.Printf("[ERROR] User not found in DB with email: %s or mobile: %s", user.Email, user.MobileNo)
+				return "", false, fmt.Errorf("user not found")
+			}
+		}
+		log.Printf("[WARN] Failed to create user (username: %s, email: %s because Username or email already exists): %v", user.Username, user.Email, err)
+		existingUsers, fetchErr := client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
+			Username: gocloak.StringP(loginInfo.Username),
+			Email:    gocloak.StringP(user.Email),
+			Max:      gocloak.IntP(1),
+		})
+		if fetchErr != nil {
+			log.Printf("[ERROR] Error while fetching existing users: %v", fetchErr)
+			return "", false, fmt.Errorf("user creation failed and checking existing users also failed: %v", fetchErr)
+		}
+		if len(existingUsers) > 0 && existingUsers[0].ID != nil {
+			userID = *existingUsers[0].ID
+			log.Printf("[INFO] User already exists with ID: %s. Proceeding to assign role in keycloak...", userID)
+
+			roleErr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
+			if roleErr != nil {
+				log.Printf("[ERROR] Failed to assign role '%s' to existing user ID %s: %v", role.Name, userID, roleErr)
+				return "", true, fmt.Errorf("unable to assign role to existing user: %v", roleErr)
+			}
+			log.Printf("[INFO] Role '%s' assigned to existing user ID: %s", role.Name, userID)
+			return userID, true, nil
+		}
+		log.Printf("existingUsers id ", existingUsers)
+		log.Printf("[ERROR] User creation failed and no existing user found (username: %s, email: %s)", user.Username, user.Email)
+		return "", false, fmt.Errorf("user creation failed: %v", err)
+	}
+
+	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
+	if adderr != nil {
+		return "Unable to add role to user", false, adderr
+	}
+	return userID, false, nil
 }

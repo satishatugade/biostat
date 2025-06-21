@@ -695,7 +695,29 @@ func (pc *PatientController) GetPatientCaregiverList(c *gin.Context) {
 		"Caregiver not found",
 	)
 
-	models.SuccessResponse(c, constant.Success, http.StatusNoContent, message, caregivers, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, caregivers, nil, nil)
+}
+
+func (pc *PatientController) GetAssignedPatientList(c *gin.Context) {
+	_, caregiverId, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	patients, err := pc.patientService.GetAssignedPatientList(&caregiverId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch assigned patients", nil, err)
+		return
+	}
+
+	_, message := utils.GetResponseStatusMessage(
+		len(patients),
+		"Assigned patient list retrieved successfully",
+		"No patients assigned",
+	)
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, patients, nil, nil)
 }
 
 func (pc *PatientController) SetCaregiverMappingDeletedStatus(c *gin.Context) {

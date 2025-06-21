@@ -24,6 +24,7 @@ const (
 	UpdateHealthDetail   = "/update-health-detail"
 
 	Caregiver       = "/get-caregiver"
+	AssignedPatient = "/caregiver/assigned-patient"
 	RemoveCaregiver = "/caregiver"
 	CaregiverList   = "/caregiver-list"
 
@@ -38,7 +39,7 @@ const (
 	GetResultValue            = "/get-result-value"
 	GetReportResult           = "/report/diagnostic-trend"
 	ExportReport              = "/export-report-data"
-	ExportPDFReport              = "/export-pdf"
+	ExportPDFReport           = "/export-pdf"
 	PatientDiseaseCondition   = "/patient-disease-condition"
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
 	PatientRegistration       = "/patient-registration"

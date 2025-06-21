@@ -368,6 +368,30 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			CreatedAt:         user.CreatedAt,
 			UpdatedAt:         user.UpdatedAt,
 		}
+	case "caregiver":
+		return models.Caregiver{
+			CaregiverId: user.UserId,
+			FirstName:   user.FirstName,
+			MiddleName:  user.MiddleName,
+			LastName:    user.LastName,
+			Gender:      user.Gender,
+			MobileNo:    user.MobileNo,
+			Email:       user.Email,
+			UserAddress: models.AddressMaster{
+				AddressId:    user.AddressMapping.AddressId,
+				AddressLine1: user.AddressMapping.Address.AddressLine1,
+				AddressLine2: user.AddressMapping.Address.AddressLine2,
+				Landmark:     user.AddressMapping.Address.Landmark,
+				City:         user.AddressMapping.Address.City,
+				State:        user.AddressMapping.Address.State,
+				Country:      user.AddressMapping.Address.Country,
+				PostalCode:   user.AddressMapping.Address.PostalCode,
+				Latitude:     user.AddressMapping.Address.Latitude,
+				Longitude:    user.AddressMapping.Address.Longitude,
+			},
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		}
 	case "pharmacist":
 		return models.Pharmacist{
 			PharmacistId:  user.UserId,

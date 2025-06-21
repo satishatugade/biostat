@@ -23,6 +23,7 @@ type UserRepository interface {
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	GetUserIdBySUB(sub string) (uint64, error)
+	GetSystemUserInfo(userId uint64) (models.SystemUser_, error)
 	IsUsernameExists(username string) bool
 }
 
@@ -209,6 +210,15 @@ func (u *UserRepositoryImpl) GetUserIdBySUB(SUB string) (uint64, error) {
 		return 0, err
 	}
 	return user.UserId, nil
+}
+
+func (u *UserRepositoryImpl) GetSystemUserInfo(userId uint64) (models.SystemUser_, error) {
+	var user models.SystemUser_
+	err := u.db.Where("user_id = ?", userId).First(&user).Error
+	if err != nil {
+		return models.SystemUser_{}, err
+	}
+	return user, nil
 }
 
 func (u *UserRepositoryImpl) IsUsernameExists(username string) bool {

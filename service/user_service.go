@@ -21,6 +21,7 @@ type UserService interface {
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 
 	GetUserIdBySUB(sub string) (uint64, error)
+	GetSystemUserInfo(authUserId string) (models.SystemUser_, error)
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
@@ -95,7 +96,7 @@ func (s *UserServiceImpl) GetUserInfoByUserName(username string) (*models.UserLo
 }
 
 func (s *UserServiceImpl) GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error) {
-  return s.userRepo.GetUserInfoByIdentifier(identifier)
+	return s.userRepo.GetUserInfoByIdentifier(identifier)
 }
 
 func (s *UserServiceImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error) {
@@ -112,6 +113,14 @@ func (s *UserServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {
 		return 0, err
 	}
 	return userId, nil
+}
+
+func (s *UserServiceImpl) GetSystemUserInfo(sub string) (models.SystemUser_, error) {
+	userId, err := s.userRepo.GetUserIdBySUB(sub)
+	if err != nil {
+		return models.SystemUser_{}, err
+	}
+	return s.userRepo.GetSystemUserInfo(userId)
 }
 
 func (s *UserServiceImpl) IsUsernameExists(username string) bool {

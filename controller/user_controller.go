@@ -8,7 +8,6 @@ import (
 	"biostat/service"
 	"biostat/utils"
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -71,7 +70,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	keyCloakUser := user
 	keyCloakUser.Password = rawPassword
 	//Add User in Keycloak
-	keyCloakID, _, err := createUserInKeycloak(keyCloakUser)
+	keyCloakID, _, err := uc.authService.CreateUserInKeycloak(keyCloakUser)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
 		return
@@ -112,63 +111,6 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 	return
-}
-
-func createUserInKeycloak(user models.SystemUser_) (string, bool, error) {
-	client := utils.Client
-	ctx := context.Background()
-	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
-	if err != nil {
-		return "", false, err
-	}
-	newuser := gocloak.User{
-		Username:      gocloak.StringP(user.Username),
-		Email:         gocloak.StringP(user.Email),
-		FirstName:     gocloak.StringP(user.FirstName),
-		LastName:      gocloak.StringP(user.LastName),
-		Enabled:       gocloak.BoolP(true),
-		EmailVerified: gocloak.BoolP(true),
-		Credentials: &[]gocloak.CredentialRepresentation{
-			{
-				Type:      gocloak.StringP("password"),
-				Value:     gocloak.StringP(user.Password),
-				Temporary: gocloak.BoolP(false),
-			},
-		},
-		RealmRoles: &[]string{(user.RoleName)},
-	}
-
-	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, utils.KeycloakRealm, user.RoleName)
-	if roleErr != nil {
-		return "User role not found at keycloak server", false, roleErr
-	}
-
-	userID, err := client.CreateUser(ctx, token.AccessToken, utils.KeycloakRealm, newuser)
-	if err != nil {
-		// return "Username or email already exists.", err
-		existingUsers, _ := client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
-			Username: gocloak.StringP(user.Username),
-			Email:    gocloak.StringP(user.Email),
-			Max:      gocloak.IntP(1),
-		})
-		if len(existingUsers) > 0 && existingUsers[0].ID != nil {
-			userID = *existingUsers[0].ID
-
-			// Assign role even for existing user (if needed)
-			err := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
-			if err != nil {
-				return "", true, fmt.Errorf("Unable to assign role to existing user: %v", err)
-			}
-			return userID, true, nil // true => existing user
-		}
-		return "", false, fmt.Errorf("user creation failed: %v", err)
-	}
-
-	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
-	if adderr != nil {
-		return "Unable to add role to user", false, adderr
-	}
-	return userID, false, nil
 }
 
 func UpdateUserInKeycloak(user models.SystemUser_) error {
@@ -382,10 +324,13 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}
 
 	// Create user in Keycloak or authentication system
-	keyCloakID, isExistingUser, err := createUserInKeycloak(req)
+	keyCloakID, isExistingUser, err := uc.authService.CreateUserInKeycloak(req)
+	log.Println("is existing user flag createUserInKeycloak : ", isExistingUser)
+	log.Println("Error for creating user  : ", err)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
-		return
+		// models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
+		// return
+		log.Printf("[Warning] createUserInKeycloak yser already exist ")
 	}
 	req.Password = string(hashedPassword)
 	req.AuthUserId = keyCloakID
@@ -406,7 +351,13 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 			return
 		}
-
+	} else {
+		systemUser, err = uc.userService.GetSystemUserInfo(req.AuthUserId)
+		if err != nil {
+			tx.Rollback()
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "User not found with auth user Id", nil, err)
+			return
+		}
 	}
 	err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relation, &req.GenderId)
 	if err != nil {
@@ -419,7 +370,6 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
-	// log.Println("Email send succesfully ")
 	tx.Commit()
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)

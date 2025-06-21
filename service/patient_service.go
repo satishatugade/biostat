@@ -45,6 +45,7 @@ type PatientService interface {
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
+	GetAssignedPatientList(caregiverID *uint64) ([]models.Patient, error)
 	GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error)
 	GetPatientList() ([]models.Patient, error)
 	GetPatientRelativeById(relativeId uint64, patientId uint64) (models.PatientRelative, error)
@@ -364,6 +365,18 @@ func ExtractUserAndRelationIds(userRelations []models.UserRelation) ([]uint64, [
 	return userIds, relationIds
 }
 
+func ExtractPatientAndRelationIds(userRelations []models.UserRelation) ([]uint64, []uint64) {
+	var patientIds []uint64
+	var relationIds []uint64
+
+	for _, ur := range userRelations {
+		patientIds = append(patientIds, ur.PatientId)
+		relationIds = append(relationIds, ur.RelationId)
+	}
+
+	return patientIds, relationIds
+}
+
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
 	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"R", "PCG"}, false, 0)
 	if err != nil {
@@ -407,6 +420,20 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 	caregiverUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
 
 	return s.patientRepo.GetCaregiverList(caregiverUserIds)
+}
+
+func (s *PatientServiceImpl) GetAssignedPatientList(userId *uint64) ([]models.Patient, error) {
+
+	userRelationIds, err := s.patientRepo.FetchPatientIdByUserId(userId, []string{"C"}, false, 0)
+	if err != nil {
+		return []models.Patient{}, err
+	}
+	if len(userRelationIds) == 0 {
+		return []models.Patient{}, nil
+	}
+	patientIds, _ := ExtractPatientAndRelationIds(userRelationIds)
+
+	return s.patientRepo.GetPatientList(patientIds)
 }
 
 func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error) {

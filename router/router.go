@@ -260,6 +260,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		//patient caregiver list
 		Route{"patient", http.MethodPost, constant.Caregiver, patientController.GetPatientCaregiverList},
+		Route{"AssignedPatient", http.MethodPost, constant.AssignedPatient, patientController.GetAssignedPatientList},
 
 		Route{"patient - caregiver", http.MethodPost, constant.RemoveCaregiver, patientController.SetCaregiverMappingDeletedStatus},
 

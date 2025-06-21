@@ -42,6 +42,7 @@ type PatientRepository interface {
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
 	FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error)
+	FetchPatientIdByUserId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error)
 	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
 	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
@@ -811,6 +812,21 @@ func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappin
 	return userRelations, nil
 }
 
+func (p *PatientRepositoryImpl) FetchPatientIdByUserId(userId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error) {
+	var userRelations []models.UserRelation
+
+	db := p.db.Table("tbl_system_user_role_mapping")
+	if userId != nil {
+		db = db.Where("user_id = ?", *userId)
+	}
+	db = db.Where("mapping_type IN (?) AND is_self = ? AND is_deleted = ? ", mappingType, isSelf, isDeleted)
+	err := db.Select("user_id,patient_id,relation_id,mapping_type").Scan(&userRelations).Error
+	if err != nil {
+		return nil, err
+	}
+	return userRelations, nil
+}
+
 func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error) {
 
 	var caregivers []models.Caregiver
@@ -893,25 +909,26 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 	}
 
 	err := p.db.
-		Table("tbl_system_user_").
-		Select(`user_id AS patient_id,
-				first_name,
-				last_name,
-				date_of_birth,
-				gender,
-				mobile_no,
-				address,
-				emergency_contact,
-				abha_number,
-				blood_group,
-				nationality,
-				citizenship_status,
-				passport_number,
-				country_of_residence,
-				is_indian_origin,
-				email,
-				created_at,
-				updated_at`).
+		Table("tbl_system_user_ su").
+		Select(`su.user_id AS patient_id,
+				su.first_name,
+				su.last_name,
+				su.date_of_birth,
+				gm.gender_code AS gender,
+				su.mobile_no,
+				su.address,
+				su.emergency_contact,
+				su.abha_number,
+				su.blood_group,
+				su.nationality,
+				su.citizenship_status,
+				su.passport_number,
+				su.country_of_residence,
+				su.is_indian_origin,
+				su.email,
+				su.created_at,
+				su.updated_at`).
+		Joins("LEFT JOIN tbl_gender_master gm ON gm.gender_id = su.gender_id").
 		Where("user_id IN ?", patientUserIds).
 		Scan(&patients).Error
 
