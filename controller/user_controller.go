@@ -10,6 +10,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -83,6 +84,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			log.Println("Recovered in RegisterUser:", r)
+			debug.PrintStack()
 		}
 	}()
 	systemUser, err := uc.userService.CreateSystemUser(tx, user)
@@ -91,19 +93,18 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 		return
 	}
-	log.Println("System User Created in DB with ID:", systemUser.UserId)
-	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser.UserId, nil, roleMaster.RoleId, roleMaster.RoleName, nil, nil)
+	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser.UserId, &systemUser, roleMaster.RoleId, roleMaster.RoleName, nil)
 	if mappingError != nil {
-		tx.Rollback()
 		log.Println("Error while adding user mapping", mappingError)
+		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User mapping not added", nil, mappingError)
 		return
 	}
+	log.Println("System User before commiting:", mappingError)
 	if err := tx.Commit().Error; err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
 		return
 	}
-	// mappedPatient := utils.MapSystemUserToPatient(&systemUser)
 	err = uc.emailService.SendLoginCredentials(systemUser, rawPassword, nil, "")
 	if err != nil {
 		log.Println("Error sending email:", err)
@@ -359,7 +360,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			return
 		}
 	}
-	err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relation, &req.GenderId)
+	err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relation)
 	if err != nil {
 		tx.Rollback()
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
@@ -587,3 +588,12 @@ func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
 
 // 	c.JSON(http.StatusOK, gin.H{"message": "OTP verified", "token": token})
 // }
+
+func (uc *UserController) GetAllGender(c *gin.Context) {
+	genders, err := uc.patientService.GetAllGender()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch genders", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Genders fetched successfully", genders, nil, nil)
+}

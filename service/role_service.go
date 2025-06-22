@@ -16,7 +16,7 @@ type RoleService interface {
 	GetRoleById(roleId uint64) (models.RoleMaster, error)
 	GetRoleIdByRoleName(roleName string) (models.RoleMaster, error)
 	GetRoleByUserId(UserId uint64, mappingType *string) (models.RoleMaster, error)
-	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.PatientRelation, reverseGenderId *uint64) error
+	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.PatientRelation) error
 }
 
 type RoleServiceImpl struct {
@@ -46,12 +46,10 @@ func (r *RoleServiceImpl) GetRoleByUserId(UserId uint64, mappingType *string) (m
 	return r.roleRepo.GetRoleById(role.RoleId)
 }
 
-// AddSystemUserMapping implements RoleService.
-func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.PatientRelation, reverseGenderId *uint64) error {
+func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.PatientRelation) error {
 	roleName = strings.ToLower(roleName)
 	mappingType := utils.GetMappingType(roleName)
 	isSelf := roleName == "patient"
-
 	if mappingType == "" {
 		return errors.New("invalid role name")
 	}
@@ -62,7 +60,7 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 	} else {
 		patientId = *patientUserId
 	}
-	if patientRelation.RelationId == nil {
+	if patientRelation == nil {
 		relationId = 0
 	} else {
 		relationId = *patientRelation.RelationId
@@ -90,7 +88,6 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 		}
 		log.Println("Inside MappedRelationAccordingRelationship : relationId : ", relationId)
 		relationshipMapping, err := r.roleRepo.GetReverseRelationshipMapping(relationId, patientRelation.SourceGenderId, &userInfo.GenderId)
-		// newRelationId, err1 := utils.MappedRelationAccordingRelationship(userInfo, relationId)
 		if err != nil {
 			log.Println("GetReverseRelationshipMapping error occures ", err)
 		}

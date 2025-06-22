@@ -96,15 +96,6 @@ func (pc *PatientController) GetRelationById(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Relation fetched successfully", relation, nil, nil)
 }
 
-func (pc *PatientController) GetAllGender(c *gin.Context) {
-	genders, err := pc.patientService.GetAllGender()
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch genders", nil, err)
-		return
-	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Genders fetched successfully", genders, nil, nil)
-}
-
 func (pc *PatientController) GetGenderById(c *gin.Context) {
 	genderIdStr := c.Param("gender_id")
 	genderId, err := strconv.ParseUint(genderIdStr, 10, 32)

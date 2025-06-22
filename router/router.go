@@ -236,7 +236,6 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 	return Routes{
 		//All relations
 		Route{"Relations", http.MethodPost, constant.Relation, patientController.GetAllRelation},
-		Route{"Genders", http.MethodPost, constant.Gender, patientController.GetAllGender},
 		Route{"Genders", http.MethodPost, constant.GenderId, patientController.GetGenderById},
 
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
@@ -362,6 +361,7 @@ func getUserRoutes(userController *controller.UserController) Routes {
 		Route{"User", http.MethodPost, constant.ResetPassword, userController.ResetUserPassword},
 		Route{"User", http.MethodPost, constant.SentLink, userController.SendResetPasswordLink},
 		Route{"User", http.MethodPost, constant.MapUserToPatient, userController.AddRelationHandler},
+		Route{"Genders", http.MethodPost, constant.Gender, userController.GetAllGender},
 		// Route{"User", http.MethodPost, constant.SentOTP, userController.SendOTP},
 		// Route{"User", http.MethodPost, constant.VerifyOTP, userController.VerifyOTP},
 
