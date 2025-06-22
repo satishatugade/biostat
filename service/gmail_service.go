@@ -41,10 +41,10 @@ func CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Conf
 }
 
 func CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error) {
-    token := &oauth2.Token{AccessToken: accessToken}
-    config := &oauth2.Config{}
-    client := config.Client(ctx, token)
-    return gmail.New(client)
+	token := &oauth2.Token{AccessToken: accessToken}
+	config := &oauth2.Config{}
+	client := config.Client(ctx, token)
+	return gmail.New(client)
 }
 
 func FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
@@ -111,6 +111,7 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 				UploadSource:      "Gmail",
 				RecordCategory:    "report",
 				SourceAccount:     userEmail,
+				Status:            "success",
 				UploadedBy:        userId,
 				FetchedAt:         time.Now(),
 			}

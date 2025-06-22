@@ -150,6 +150,7 @@ func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, u
 				RecordCategory:    "Report",
 				Description:       record["description"].(string),
 				UploadedBy:        userId,
+				Status:            "success",
 				RecordUrl:         "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
 				FetchedAt:         time.Now(),
 				CreatedAt:         utils.ParseDateField(record["date"]),
