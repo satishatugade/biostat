@@ -914,6 +914,7 @@ func (p *PatientRepositoryImpl) GetPatientList(patientUserIds []uint64) ([]model
 				su.first_name,
 				su.last_name,
 				su.date_of_birth,
+				gm.gender_id,
 				gm.gender_code AS gender,
 				su.mobile_no,
 				su.address,
@@ -949,7 +950,9 @@ func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.
 	if err != nil {
 		log.Printf("Gender not found for ID %v: %v", user.GenderId, err)
 	}
+	log.Println("gender master data : ", gender)
 	user.Gender = gender.GenderCode
+	user.GenderId = gender.GenderId
 	return &user, nil
 }
 

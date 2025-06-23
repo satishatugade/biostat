@@ -1610,6 +1610,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 					RecordCategory:    "Report",
 					Description:       record["description"].(string),
 					UploadedBy:        userID,
+					Status:            constant.StatusSuccess,
 					RecordUrl:         "https://digilocker.meripehchaan.gov.in/public/oauth2/1/file/" + record["uri"].(string),
 					FetchedAt:         time.Now(),
 					CreatedAt:         utils.ParseDateField(record["date"]),
@@ -2091,7 +2092,7 @@ func (pc *PatientController) SendSMS(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	authHeader := c.GetHeader("Authorization") // Bearer <token>
+	authHeader := c.GetHeader("Authorization") 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	exchanged, err := auth.ExchangeToken(token)
 	if err != nil {
@@ -2139,7 +2140,7 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 	// 	models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Token exchange failed", nil, err)
 	// 	return
 	// }
-
+	// log.Println("exchanged ", exchanged)
 	baseURL := os.Getenv("SHARE_REPORT_BASE_URL")
 	if baseURL == "" {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Missing base URL in environment variables", nil, nil)

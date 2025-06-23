@@ -8,6 +8,7 @@ type Doctor struct {
 	LastName          string        `json:"last_name"`
 	Speciality        string        `json:"speciality"`
 	Gender            string        `json:"gender"`
+	GenderId          uint64        `json:"gender_id"`
 	MobileNo          string        `json:"mobile_no"`
 	LicenseNumber     string        `json:"license_number"`
 	ClinicName        string        `json:"clinic_name"`

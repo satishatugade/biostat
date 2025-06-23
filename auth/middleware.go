@@ -179,9 +179,12 @@ func Authenticate(path string, protectedRoutes map[string][]string, handler gin.
 }
 
 type TokenExchangeResponse struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
-	TokenType   string `json:"token_type"`
+	AccessToken      string `json:"access_token"`
+	ExpiresIn        int    `json:"expires_in"`
+	TokenType        string `json:"token_type"`
+	RefreshToken     string `json:"refresh_token"`
+	RefreshExpiresIn int    `json:"refresh_expires_in"`
+	Scope            string `json:"scope"`
 }
 
 var Client *gocloak.GoCloak

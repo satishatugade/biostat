@@ -238,7 +238,7 @@ func (e *EmailServiceImpl) SendReportResultsEmail(patientInfo *models.SystemUser
 	alertData := make([]map[string]interface{}, 0, len(alerts))
 	for _, a := range alerts {
 		alertData = append(alertData, map[string]interface{}{
-			"resultDate":        a.ResultDate.Format("02 Jan 2006"),
+			"resultDate":        a.ResultDate,
 			"testName":          a.TestName,
 			"testComponentName": a.TestComponentName,
 			"resultValue":       a.ResultValue,
@@ -330,4 +330,3 @@ func (e *EmailServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_,
 	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 	return sendErr
 }
-

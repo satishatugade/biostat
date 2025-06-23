@@ -11,6 +11,7 @@ type Patient struct {
 	LastName             string        `json:"last_name"`
 	DateOfBirth          *time.Time    `json:"date_of_birth"`
 	Gender               string        `json:"gender"`
+	GenderId             uint64        `json:"gender_id"`
 	MobileNo             string        `json:"mobile_no"`
 	MaritalStatus        string        `json:"marital_status"`
 	Address              string        `json:"address"`
@@ -56,13 +57,14 @@ type PatientRelative struct {
 	MiddleName        string             `json:"middle_name"`
 	LastName          string             `json:"last_name"`
 	Gender            string             `json:"gender"`
+	GenderId          int64              `json:"gender_id"`
 	MappingType       string             `json:"mapping_type"`
 	DateOfBirth       string             `json:"date_of_birth"`
 	RelationId        uint64             `json:"relation_id"`
 	Relationship      string             `json:"relationship"`
 	MobileNo          string             `json:"mobile_no"`
 	Email             string             `json:"email"`
-	LatestDiganotisic time.Time          `json:"latest_diganotisic,omitempty"`
+	LatestDiganotisic *string            `json:"latest_diganotisic,omitempty"`
 	Permissions       []PermissionResult `json:"permissions" gorm:"-"`
 	HealthScore       int                `json:"health_score" gorm:"-"`
 	CreatedAt         time.Time          `json:"created_at"`

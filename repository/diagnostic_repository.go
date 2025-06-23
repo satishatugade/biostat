@@ -761,7 +761,7 @@ func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models
 			pdtrv.result_status,
 			dpdtm.test_name,
 			dpdtcm.test_component_name,
-			pdtrv.result_date,
+			format_datetime(pdtrv.result_date) AS result_date,
 			CASE
 				WHEN pdtrv.result_value < dtrr.normal_min THEN 'Below Range'
 				WHEN pdtrv.result_value > dtrr.normal_max THEN 'Above Range'
@@ -781,7 +781,13 @@ func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models
 		)
 		AND pdtrv.result_value IS NOT NULL
 		AND pdtrv.patient_id = ?
-	`, patientId).Scan(&alerts).Error
+		AND pdtrv.patient_diagnostic_report_id = (
+			SELECT patient_diagnostic_report_id
+			FROM tbl_patient_diagnostic_report
+			WHERE patient_id = ?
+			ORDER BY patient_diagnostic_report_id DESC
+		LIMIT 1
+	`, patientId, patientId).Scan(&alerts).Error
 
 	if err != nil {
 		return nil, err
