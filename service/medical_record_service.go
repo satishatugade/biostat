@@ -29,6 +29,7 @@ type TblMedicalRecordService interface {
 	GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordAccessibleToUser(userID uint64, recordID int64) (bool, error)
+	GetMedicalRecords(userID uint64, limit, offset int) ([]models.MedicalRecordResponseRes, int64, error)
 
 	ReadMedicalRecord(ResourceId int64, userId, reqUserId uint64) (interface{}, error)
 }
@@ -384,4 +385,112 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId int64, userId
 		response.HMAC = ""
 	}
 	return response, nil
+}
+
+func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, offset int) ([]models.MedicalRecordResponseRes, int64, error) {
+	records, total, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var recordIDs []uint64
+	for _, r := range records {
+		recordIDs = append(recordIDs, r.RecordId)
+	}
+
+	attachments, err := s.tblMedicalRecordRepo.GetDiagnosticAttachmentByRecordIDs(recordIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	reportMap := make(map[uint64]int64)
+	for _, a := range attachments {
+		reportMap[a.RecordId] = int64(a.PatientDiagnosticReportId) //a.PatientDiagnosticReportID
+	}
+
+	var responses []models.MedicalRecordResponseRes
+	for _, rec := range records {
+		resp := models.MedicalRecordResponseRes{
+			DigitizeFlag:              rec.DigitizeFlag, //rec.DigitizeFlag,
+			FileType:                  rec.FileType,
+			PatientID:                 userID,
+			RecordCategory:            rec.RecordCategory,
+			RecordID:                  rec.RecordId,
+			RecordName:                rec.RecordName,
+			RecordSize:                rec.RecordSize,
+			RecordURL:                 rec.RecordUrl,
+			SourceAccount:             rec.SourceAccount,
+			Status:                    string(rec.Status),
+			UploadSource:              rec.UploadSource,
+			PatientDiagnosticReportID: "0",
+		}
+
+		if reportID, ok := reportMap[rec.RecordId]; ok {
+			resp.PatientDiagnosticReportID = fmt.Sprintf("%d", reportID)
+			report, _ := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID)
+
+			diagnostic := &models.UploadedDiagnosticRes{
+				CollectedAt:     report.CollectedAt,
+				CollectedDate:   report.CollectedDate.Format("02 Jan 2006 15:04:05"),
+				Comments:        report.Comments,
+				DiagnosticLabID: report.DiagnosticLabId,
+				LabName:         "", // can fetch if needed
+				ReportDate:      report.ReportDate.Format("02 Jan 2006 15:04:05"),
+				ReportName:      report.ReportName,
+				ReportStatus:    report.ReportStatus,
+			}
+
+			tests, _ := s.tblMedicalRecordRepo.GetDiagnosticTests(reportID)
+			for _, test := range tests {
+				testMaster, _ := s.tblMedicalRecordRepo.GetDiagnosticTestMaster(test.DiagnosticTestId) //(test.DiagnosticTestID)
+				dt := models.DiagnosticTestRes{
+					DiagnosticTestID: test.DiagnosticTestId,
+					TestName:         testMaster.TestName,
+					TestNote:         test.TestNote,
+					TestDate:         test.TestDate, // if available
+				}
+
+				results, _ := s.tblMedicalRecordRepo.GetTestComponents(reportID, test.DiagnosticTestId)
+				for _, result := range results {
+					comp, _ := s.tblMedicalRecordRepo.GetComponentDetails(result.DiagnosticTestComponentId) //(result.DiagnosticTestComponentID)
+					ranges, _ := s.tblMedicalRecordRepo.GetReferenceRanges(result.DiagnosticTestComponentId)
+
+					dtc := models.TestComponentRes{
+						DiagnosticTestComponentID: result.DiagnosticTestComponentId,
+						TestComponentName:         comp.TestComponentName,
+						Units:                     comp.Units,
+					}
+
+					for _, r := range ranges {
+						dtc.TestReferenceRange = append(dtc.TestReferenceRange, models.DiagnosticReferenceRangeRes{
+							Age:       r.Age,
+							AgeGroup:  r.AgeGroup,
+							Gender:    r.Gender,
+							NormalMin: fmt.Sprintf("%.2f", r.NormalMin),
+							NormalMax: fmt.Sprintf("%.2f", r.NormalMax),
+							Units:     r.Units,
+						})
+					}
+
+					dtc.TestResultValue = append(dtc.TestResultValue, models.TestResultValueRes{
+						ResultValue:   fmt.Sprintf("%.2f", result.ResultValue),
+						Qualifier:     "",
+						ResultComment: result.ResultComment,
+						ResultDate:    result.ResultDate.Format("02 Jan 2006 15:04:05"),
+						ResultStatus:  result.ResultStatus,
+					})
+
+					dt.TestComponents = append(dt.TestComponents, dtc)
+				}
+
+				diagnostic.PatientDiagnosticTest = append(diagnostic.PatientDiagnosticTest, dt)
+			}
+
+			resp.UploadedDiagnostic = diagnostic
+		}
+
+		responses = append(responses, resp)
+	}
+
+	return responses, total, nil
 }

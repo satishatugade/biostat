@@ -27,6 +27,15 @@ type TblMedicalRecordRepository interface {
 	DeleteMecationRecordMappings(id int) error
 
 	DeleteTblMedicalRecordWithMappings(id int, user_id string) error
+
+	GetMedicalRecordsByUser(userID uint64, limit, offset int) ([]models.TblMedicalRecord, int64, error)
+	GetDiagnosticAttachmentByRecordIDs(recordIDs []uint64) ([]models.PatientReportAttachment, error)
+	GetDiagnosticReport(reportID int64) (*models.PatientDiagnosticReport, error)
+	GetDiagnosticTests(reportID int64) ([]models.PatientDiagnosticTest, error)
+	GetTestComponents(reportID int64, testID uint64) ([]models.PatientDiagnosticTestResultValue, error)
+	GetComponentDetails(componentID uint64) (*models.DiagnosticTestComponent, error)
+	GetReferenceRanges(componentID uint64) ([]models.DiagnosticTestReferenceRange, error) //separate table
+	GetDiagnosticTestMaster(testID uint64) (*models.DiagnosticTest, error)
 }
 
 type tblMedicalRecordRepositoryImpl struct {
@@ -38,6 +47,98 @@ func NewTblMedicalRecordRepository(db *gorm.DB) TblMedicalRecordRepository {
 		panic("database instance is null")
 	}
 	return &tblMedicalRecordRepositoryImpl{db: db}
+}
+
+// Get List of ALL MEDICAL RECORDS FOR USER
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, limit, offset int) ([]models.TblMedicalRecord, int64, error) {
+	var records []models.TblMedicalRecord
+	var total int64
+
+	query := r.db.
+		Table("tbl_medical_record").
+		Joins("JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
+		Where("tbl_medical_record_user_mapping.user_id = ?", userID)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.
+		Offset(offset).
+		Limit(limit).
+		Order("tbl_medical_record.created_at DESC").
+		Find(&records).Error
+
+	return records, total, err
+}
+
+// GET LIST OF DIGITIZED RECORDS out of user records
+func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticAttachmentByRecordIDs(recordIDs []uint64) ([]models.PatientReportAttachment, error) {
+	var attachments []models.PatientReportAttachment
+	err := r.db.
+		Where("record_id IN ?", recordIDs).
+		Find(&attachments).Error
+	return attachments, err
+}
+
+// GET BASIC DETAILS OF REPORT
+func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticReport(reportID int64) (*models.PatientDiagnosticReport, error) {
+	var report models.PatientDiagnosticReport
+	err := r.db.
+		Where("patient_diagnostic_report_id = ?", reportID).
+		First(&report).Error
+	if err != nil {
+		return nil, err
+	}
+	return &report, nil
+}
+
+// get list of tests in report
+func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticTests(reportID int64) ([]models.PatientDiagnosticTest, error) {
+	var tests []models.PatientDiagnosticTest
+	err := r.db.
+		Where("patient_diagnostic_report_id = ?", reportID).
+		Find(&tests).Error
+	return tests, err
+}
+
+// GET test_components
+func (r *tblMedicalRecordRepositoryImpl) GetTestComponents(reportID int64, testID uint64) ([]models.PatientDiagnosticTestResultValue, error) {
+	var results []models.PatientDiagnosticTestResultValue
+	err := r.db.
+		Where("patient_diagnostic_report_id = ? AND diagnostic_test_id = ?", reportID, testID).
+		Find(&results).Error
+	return results, err
+}
+
+func (r *tblMedicalRecordRepositoryImpl) GetComponentDetails(componentID uint64) (*models.DiagnosticTestComponent, error) {
+	var comp models.DiagnosticTestComponent
+	err := r.db.
+		Where("diagnostic_test_component_id = ?", componentID).
+		First(&comp).Error
+	if err != nil {
+		return nil, err
+	}
+	return &comp, nil
+}
+
+func (r *tblMedicalRecordRepositoryImpl) GetReferenceRanges(componentID uint64) ([]models.DiagnosticTestReferenceRange, error) {
+	var ranges []models.DiagnosticTestReferenceRange
+	err := r.db.
+		Where("diagnostic_test_component_id = ?", componentID).
+		Find(&ranges).Error
+	return ranges, err
+}
+
+func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticTestMaster(testID uint64) (*models.DiagnosticTest, error) {
+	var test models.DiagnosticTest
+	err := r.db.
+		Where("diagnostic_test_id = ?", testID).
+		First(&test).Error
+	if err != nil {
+		return nil, err
+	}
+	return &test, nil
 }
 
 func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUserID(userID uint64, recordIdMap map[uint64]uint64) ([]models.TblMedicalRecord, error) {

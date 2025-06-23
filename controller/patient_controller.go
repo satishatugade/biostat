@@ -907,7 +907,7 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(ctx)
-	data, total, err := c.medicalRecordService.GetAllMedicalRecord(patientId, limit, offset)
+	data, total, err := c.medicalRecordService.GetMedicalRecords(patientId, limit, offset)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return
@@ -2092,7 +2092,7 @@ func (pc *PatientController) SendSMS(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	authHeader := c.GetHeader("Authorization") 
+	authHeader := c.GetHeader("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	exchanged, err := auth.ExchangeToken(token)
 	if err != nil {

@@ -64,3 +64,64 @@ type LocalServerFile struct {
 	Data        []byte `json:"data"`
 	ContentType string `json:"content-type"`
 }
+
+type DiagnosticReferenceRangeRes struct {
+	Age       int    `json:"age"`
+	AgeGroup  string `json:"age_group"`
+	Gender    string `json:"gender"`
+	NormalMin string `json:"normal_min"`
+	NormalMax string `json:"normal_max"`
+	Units     string `json:"units"`
+}
+
+type TestResultValueRes struct {
+	ResultValue   string `json:"result_value"`
+	Qualifier     string `json:"qualifier"`
+	ResultComment string `json:"result_comment"`
+	ResultDate    string `json:"result_date"`
+	ResultStatus  string `json:"result_status"`
+}
+
+type TestComponentRes struct {
+	DiagnosticTestComponentID uint64                        `json:"diagnostic_test_component_id"`
+	TestComponentName         string                        `json:"test_component_name"`
+	Units                     string                        `json:"units"`
+	TestReferenceRange        []DiagnosticReferenceRangeRes `json:"test_reference_range"`
+	TestResultValue           []TestResultValueRes          `json:"test_result_value"`
+}
+
+type DiagnosticTestRes struct {
+	DiagnosticTestID uint64             `json:"diagnostic_test_id"`
+	TestName         string             `json:"test_name"`
+	TestNote         string             `json:"test_note"`
+	TestDate         time.Time          `json:"test_date"`
+	TestComponents   []TestComponentRes `json:"test_components"`
+}
+
+type UploadedDiagnosticRes struct {
+	CollectedDate         string              `json:"collected_date"`
+	CollectedAt           string              `json:"collected_at"`
+	ReportDate            string              `json:"report_date"`
+	ReportName            string              `json:"report_name"`
+	ReportStatus          string              `json:"report_status"`
+	DiagnosticLabID       uint64              `json:"diagnostic_lab_id"`
+	LabName               string              `json:"lab_name"`
+	Comments              string              `json:"comments"`
+	PatientDiagnosticTest []DiagnosticTestRes `json:"patient_diagnostic_test"`
+}
+
+type MedicalRecordResponseRes struct {
+	DigitizeFlag              int                    `json:"digitize_flag"`
+	FileType                  string                 `json:"file_type"`
+	PatientDiagnosticReportID string                 `json:"patient_diagnostic_report_id"`
+	PatientID                 uint64                 `json:"patient_id"`
+	RecordCategory            string                 `json:"record_category"`
+	RecordID                  uint64                 `json:"record_id"`
+	RecordName                string                 `json:"record_name"`
+	RecordSize                int64                  `json:"record_size"`
+	RecordURL                 string                 `json:"record_url"`
+	SourceAccount             string                 `json:"source_account"`
+	Status                    string                 `json:"status"`
+	UploadSource              string                 `json:"upload_source"`
+	UploadedDiagnostic        *UploadedDiagnosticRes `json:"uploaded_diagnostic"`
+}
