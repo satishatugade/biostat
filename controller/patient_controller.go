@@ -2360,3 +2360,19 @@ func (pc *PatientController) GetUserMedications(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "medicines loaded", medicines, nil, nil)
 	return
 }
+
+func (c *PatientController) GetUserShareList(ctx *gin.Context) {
+	_, patientId, err := utils.GetUserIDFromContext(ctx, c.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	shareList, err := c.patientService.GetUserShares(patientId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch share list", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Share list fetched", shareList, nil, nil)
+	return
+}

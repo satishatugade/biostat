@@ -48,6 +48,7 @@ type PatientRepository interface {
 	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
+	GetUserShares(patientID uint64) ([]models.UserShare, error)
 
 	GetUserProfileByUserId(user_id uint64) (*models.SystemUser_, error)
 	GetUserDataUserId(userId []uint64, limit, offset int) ([]models.SystemUser_, int64, error)
@@ -1930,4 +1931,19 @@ func (ur *PatientRepositoryImpl) GetDistinctMedicinesByPatientID(patientID uint6
 
 	err := ur.db.Raw(query, patientID).Scan(&results).Error
 	return results, err
+}
+func (r *PatientRepositoryImpl) GetUserShares(patientID uint64) ([]models.UserShare, error) {
+	var shares []models.UserShare
+
+	query := `
+	SELECT urm.user_id, su.first_name, su.last_name, urm.mapping_type,
+	       rom.role_name, rem.relationship, su.email, su.mobile_no
+	FROM tbl_system_user_role_mapping AS urm
+	JOIN tbl_role_master AS rom ON urm.role_id = rom.role_id
+	JOIN tbl_relation_master AS rem ON urm.relation_id = rem.relation_id
+	JOIN tbl_system_user_ AS su ON urm.user_id = su.user_id
+	WHERE urm.patient_id = ? AND urm.is_self = false
+	`
+	err := r.db.Raw(query, patientID).Scan(&shares).Error
+	return shares, err
 }

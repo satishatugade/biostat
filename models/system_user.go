@@ -298,3 +298,14 @@ type AddRelationRequest struct {
 	CurrentRole string `json:"current_role" binding:"required"`
 	RoleName    string `json:"role_name" binding:"required"`
 }
+
+type UserShare struct {
+	UserID       uint64 `json:"user_id"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	MappingType  string `json:"mapping_type"`
+	RoleName     string `json:"role_name"`
+	Relationship string `json:"relationship"`
+	Email        string `json:"email"`
+	MobileNo     string `json:"mobile_no"`
+}

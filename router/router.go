@@ -346,6 +346,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
 		Route{"User SOS", http.MethodPost, constant.SOS, patientController.SendSOSHandler},
+		Route{"User Share list", http.MethodPost, constant.ShareList, patientController.GetUserShareList},
 	}
 }
 

@@ -55,6 +55,7 @@ type PatientService interface {
 	GetUserSUBByID(ID uint64) (string, error)
 	ExistsByUserIdAndRoleId(userId uint64, roleId uint64) (bool, error)
 	AddRelation(tx *gorm.DB, req models.AddRelationRequest, patientId uint64) error
+	GetUserShares(patientID uint64) ([]models.UserShare, error)
 
 	GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
 	GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error)
@@ -1238,4 +1239,8 @@ func addTestResultsTable(pdf *gofpdf.Fpdf, results []models.TestResult, dates []
 		}
 		pdf.Ln(-1)
 	}
+}
+
+func (s *PatientServiceImpl) GetUserShares(patientID uint64) ([]models.UserShare, error) {
+	return s.patientRepo.GetUserShares(patientID)
 }

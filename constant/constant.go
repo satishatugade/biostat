@@ -204,6 +204,7 @@ const (
 	Reminder                = "/reminder"
 	Permission              = "/permission"
 	SOS                     = "/sos"
+	ShareList               = "/share-list"
 )
 
 const (
