@@ -260,12 +260,12 @@ type NotificationUserMapping struct {
 }
 
 type PermissionMaster struct {
-	PermissionID int64     `gorm:"primaryKey;column:permission_id"`
-	Code         string    `gorm:"uniqueIndex;column:code"`
-	Name         string    `gorm:"column:name"`
-	Description  string    `gorm:"column:description"`
-	CreatedAt    time.Time `gorm:"column:created_at"`
-	UpdatedAt    time.Time `gorm:"column:updated_at"`
+	PermissionID int64     `gorm:"primaryKey;column:permission_id" json:"permission_id"`
+	Code         string    `gorm:"uniqueIndex;column:code" json:"code"`
+	Name         string    `gorm:"column:name" json:"name"`
+	Description  string    `gorm:"column:description" json:"description"`
+	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
 func (PermissionMaster) TableName() string {

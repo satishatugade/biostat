@@ -72,8 +72,10 @@ type PatientService interface {
 	SendSOS(patientID uint64, ip, userAgent string) error
 
 	AssignPermission(userID, relativeID uint64, permissionCode string, granted bool) error
-	CanPerformAction(userID, relativeID uint64, permissionCode string) (bool, error)
 	AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error
+	GetAllPermissions() ([]models.PermissionMaster, error)
+
+	CanContinue(patientID, userID uint64, permission string) error
 }
 
 type PatientServiceImpl struct {
@@ -934,10 +936,6 @@ func (s *PatientServiceImpl) AssignPermission(userID, relativeID uint64, code st
 	return s.patientRepo.GrantPermission(userID, relativeID, perm.PermissionID, granted)
 }
 
-func (s *PatientServiceImpl) CanPerformAction(userID, relativeID uint64, code string) (bool, error) {
-	return s.patientRepo.HasPermission(userID, relativeID, code)
-}
-
 func (s *PatientServiceImpl) AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error {
 	for code, value := range permissions {
 		perm, err := s.patientRepo.GetPermissionByCode(code)
@@ -1243,4 +1241,31 @@ func addTestResultsTable(pdf *gofpdf.Fpdf, results []models.TestResult, dates []
 
 func (s *PatientServiceImpl) GetUserShares(patientID uint64) ([]models.UserShare, error) {
 	return s.patientRepo.GetUserShares(patientID)
+}
+
+func (s *PatientServiceImpl) GetAllPermissions() ([]models.PermissionMaster, error) {
+	return s.patientRepo.GetAllPermissions()
+}
+
+func (s *PatientServiceImpl) EnsureRelation(patientID, userID uint64) error {
+	ok, err := s.patientRepo.HasRelation(patientID, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("you can't access this user")
+	}
+	return nil
+}
+
+func (s *PatientServiceImpl) CanContinue(patientID, userID uint64, permission string) error {
+	if err := s.EnsureRelation(patientID, userID); err != nil {
+		log.Println("CanContinue->EnsureRelation:", err)
+		return fmt.Errorf("relation check failed: %w", err)
+	}
+	if err := s.patientRepo.HasPermission(patientID, userID, permission); err != nil {
+		log.Println("CanContinue->HasPermission:", err)
+		return fmt.Errorf("permission denied: %w", err)
+	}
+	return nil
 }

@@ -278,7 +278,7 @@ func (uc *UserController) LogoutUser(c *gin.Context) {
 
 func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
-	_, patientUserId, err := utils.GetUserIDFromContext(c, uc.userService.GetUserIdBySUB)
+	sub, patientUserId, isDelegate, err := utils.GetUserIDFromContext(c, uc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -287,6 +287,26 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
+	}
+	if isDelegate {
+		reqUserID, err := uc.userService.GetUserIdBySUB(sub)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
+			return
+		}
+		if req.RoleName == "relative" {
+			err = uc.patientService.CanContinue(patientUserId, reqUserID, constant.PermissionAddFamily)
+			if err != nil {
+				models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+				return
+			}
+		} else {
+			err = uc.patientService.CanContinue(patientUserId, reqUserID, constant.PermissionAddCaregiver)
+			if err != nil {
+				models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+				return
+			}
+		}
 	}
 	if req.RoleName != "relative" && req.RoleName != "caregiver" && req.RoleName != "doctor" {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role. Only relative or caregiver can be registered.", nil, nil)
@@ -519,7 +539,7 @@ func (uc *UserController) FetchAddressByPincode(c *gin.Context) {
 }
 
 func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
-	_, patientId, err := utils.GetUserIDFromContext(ctx, uc.userService.GetUserIdBySUB)
+	sub, patientId, isDelegate, err := utils.GetUserIDFromContext(ctx, uc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -528,6 +548,27 @@ func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
 		return
+	}
+
+	if isDelegate {
+		reqUserID, err := uc.userService.GetUserIdBySUB(sub)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
+			return
+		}
+		if req.RoleName == "relative" {
+			err = uc.patientService.CanContinue(patientId, reqUserID, constant.PermissionAddFamily)
+			if err != nil {
+				models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+				return
+			}
+		} else {
+			err = uc.patientService.CanContinue(patientId, reqUserID, constant.PermissionAddCaregiver)
+			if err != nil {
+				models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+				return
+			}
+		}
 	}
 	tx := database.DB.Begin()
 	defer func() {

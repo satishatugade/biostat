@@ -75,9 +75,11 @@ type PatientRepository interface {
 	UpdatePatientHealthDetail(req *models.TblPatientHealthProfile) error
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 	GetPinnedComponentCount(patientId uint64) (int64, error)
+	HasRelation(patientId uint64, userId uint64) (bool, error)
 
+	GetAllPermissions() ([]models.PermissionMaster, error)
 	GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error
-	HasPermission(userID, relativeID uint64, permissionCode string) (bool, error)
+	HasPermission(userID, relativeID uint64, permissionCode string) error
 	ListPermissions(userID, relativeID uint64) ([]models.PermissionResult, error)
 	GetPermissionByCode(code string) (*models.PermissionMaster, error)
 	CheckPermissionValue(userID, relativeID uint64, permissionID int64) (exists bool, currentValue bool, err error)
@@ -1084,7 +1086,9 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		pdtrv.result_status,
 		format_datetime(pdtrv.result_date) AS result_date,
 		pdtrv.result_comment,
-		dc.is_pinned `
+		dc.is_pinned,
+		dl.diagnostic_lab_id,
+        dl.lab_name`
 
 	query := fmt.Sprintf(`
 		SELECT %s
@@ -1100,7 +1104,9 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 			ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id
 		LEFT JOIN tbl_patient_test_component_display_config dc 
 			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
-			AND pdtrv.patient_id = dc.patient_id`, selectFields)
+			AND pdtrv.patient_id = dc.patient_id
+		LEFT JOIN tbl_diagnostic_lab dl 
+            ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id`, selectFields)
 
 	query += ` WHERE pdr.patient_id = ?  AND pdr.is_deleted = 0 `
 	args := []interface{}{input.PatientId}
@@ -1184,6 +1190,8 @@ func (p *PatientRepositoryImpl) ParseDiagnosticTrendData(rawData []map[string]in
 				"is_pinned":                    row["is_pinned"],
 				"diagnostic_test_id":           row["diagnostic_test_id"],
 				"patient_id":                   row["patient_id"],
+				"diagnostic_lab_id":            row["diagnostic_lab_id"],
+				"lab_name":                     row["lab_name"],
 				"trend_history":                []map[string]interface{}{},
 			}
 		}
@@ -1199,6 +1207,7 @@ func (p *PatientRepositoryImpl) ParseDiagnosticTrendData(rawData []map[string]in
 			"result_value":                 row["result_value"],
 			"result_comment":               row["result_comment"],
 			"test_note":                    row["test_note"],
+			"lab_name":                     row["lab_name"],
 		}
 
 		group := grouped[componentID]
@@ -1843,6 +1852,15 @@ func (p *PatientRepositoryImpl) GetPinnedComponentCount(patientId uint64) (int64
 	return count, err
 }
 
+func (r *PatientRepositoryImpl) GetAllPermissions() ([]models.PermissionMaster, error) {
+	var permissions []models.PermissionMaster
+	result := r.db.Order("permission_id").Find(&permissions)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return permissions, nil
+}
+
 func (r *PatientRepositoryImpl) GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error {
 	var mapping models.UserRelativePermissionMapping
 	err := r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).First(&mapping).Error
@@ -1859,20 +1877,15 @@ func (r *PatientRepositoryImpl) GrantPermission(userID, relativeID uint64, permi
 	return r.db.Save(&mapping).Error
 }
 
-func (r *PatientRepositoryImpl) HasPermission(userID, relativeID uint64, permissionCode string) (bool, error) {
+func (r *PatientRepositoryImpl) HasPermission(userID, relativeID uint64, permissionCode string) error {
 	var permission models.PermissionMaster
-	err := r.db.Where("code = ?", permissionCode).First(&permission).Error
-	if err != nil {
-		return false, err
+	if err := r.db.Where("code = ?", permissionCode).First(&permission).Error; err != nil {
+		return fmt.Errorf("permission code not found: %w", err)
 	}
-
 	var mapping models.UserRelativePermissionMapping
-	err = r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ? AND granted = true",
-		userID, relativeID, permission.PermissionID).First(&mapping).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	return err == nil, err
+	err := r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ? AND granted = true", userID, relativeID, permission.PermissionID).First(&mapping).Error
+
+	return err
 }
 
 func (r *PatientRepositoryImpl) ListPermissions(userID, relativeID uint64) ([]models.PermissionResult, error) {
@@ -1936,7 +1949,7 @@ func (r *PatientRepositoryImpl) GetUserShares(patientID uint64) ([]models.UserSh
 	var shares []models.UserShare
 
 	query := `
-	SELECT urm.user_id, su.first_name, su.last_name, urm.mapping_type,
+	SELECT  DISTINCT ON (urm.user_id) urm.user_id, su.first_name, su.last_name, urm.mapping_type,
 	       rom.role_name, rem.relationship, su.email, su.mobile_no
 	FROM tbl_system_user_role_mapping AS urm
 	JOIN tbl_role_master AS rom ON urm.role_id = rom.role_id
@@ -1946,4 +1959,15 @@ func (r *PatientRepositoryImpl) GetUserShares(patientID uint64) ([]models.UserSh
 	`
 	err := r.db.Raw(query, patientID).Scan(&shares).Error
 	return shares, err
+}
+
+func (p *PatientRepositoryImpl) HasRelation(patientId uint64, userId uint64) (bool, error) {
+	var count int64
+	err := p.db.Table("tbl_system_user_role_mapping").
+		Where("patient_id = ? AND user_id = ?", patientId, userId).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

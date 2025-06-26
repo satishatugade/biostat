@@ -241,3 +241,12 @@ const (
 	StatusSuccess    JobStatus = "success"
 	StatusFailed     JobStatus = "failed"
 )
+
+const (
+	PermissionViewHealth           = "view_health"
+	PermissionEditProfile          = "edit_profile"
+	PermissionAddFamily            = "add_family"
+	PermissionScheduleAppointments = "schedule_appointments"
+	PermissionAddCaregiver         = "add_caregiver"
+	PermissionUploadReport         = "upload_report"
+)

@@ -638,25 +638,25 @@ func ToDiseaseProfileSummaryDTOs(profiles []models.DiseaseProfile) []models.Dise
 	return summaries
 }
 
-func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (string, uint64, error) {
+func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uint64, error)) (string, uint64, bool, error) {
 	sub, subExists := ctx.Get("sub")
 	if !subExists {
-		return "", 0, errors.New("user not found")
+		return "", 0, false, errors.New("user not found")
 	}
 
 	delegateUserID := ctx.GetHeader("X-Delegate-User-Id")
 	if delegateUserID != "" {
 		id, err := strconv.ParseUint(delegateUserID, 10, 64)
 		if err != nil {
-			return "", 0, errors.New("invalid X-Delegate-User-Id")
+			return "", 0, false, errors.New("invalid X-Delegate-User-Id")
 		}
-		return sub.(string), id, nil
+		return sub.(string), id, true, nil
 	}
 	userID, err := getUserIdBySubFunc(sub.(string))
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to get user ID by sub: %w", err)
+		return "", 0, false, fmt.Errorf("failed to get user ID by sub: %w", err)
 	}
-	return sub.(string), userID, nil
+	return sub.(string), userID, false, nil
 }
 
 func MappedRelationAccordingRelationship(userInfo *models.SystemUser_, relationId int) (int, error) {

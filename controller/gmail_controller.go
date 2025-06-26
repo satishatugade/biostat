@@ -89,15 +89,9 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 			return
 		}
 
-		limit := 5
-		if len(emailMedRecord) < limit {
-			limit = len(emailMedRecord)
-		}
-		first5Emails := emailMedRecord[:limit]
+		log.Println("Following email models will be saved:", len(emailMedRecord))
 
-		log.Println("Following email models will be saved:", len(first5Emails))
-
-		err = c.service.SaveMedicalRecords(&first5Emails, userID)
+		err = c.service.SaveMedicalRecords(&emailMedRecord, userID)
 		if err != nil {
 			log.Println("Error while saving email data:", err)
 			return

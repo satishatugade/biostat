@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Caregiver struct {
-	CaregiverId uint64        `json:"caregiver_id" gorm:"primaryKey;autoIncrement"`
+	CaregiverId uint64        `json:"patient_id" gorm:"primaryKey;autoIncrement"`
 	FirstName   string        `json:"first_name"`
 	MiddleName  string        `json:"middle_name"`
 	LastName    string        `json:"last_name"`
@@ -17,10 +17,6 @@ type Caregiver struct {
 	UserAddress AddressMaster `gorm:"-" json:"user_address"`
 	CreatedAt   time.Time     `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
-}
-
-func (Caregiver) TableName() string {
-	return "tbl_caregiver"
 }
 
 type UserRelation struct {

@@ -48,7 +48,7 @@ func NewMasterController(allergyService service.AllergyService, diseaseService s
 }
 
 func (mc *MasterController) CreateDiseaseProfile(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -68,7 +68,7 @@ func (mc *MasterController) CreateDiseaseProfile(c *gin.Context) {
 }
 
 func (mc *MasterController) CreateDisease(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -88,7 +88,7 @@ func (mc *MasterController) CreateDisease(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -113,7 +113,7 @@ func (mc *MasterController) UpdateDiseaseInfo(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteDisease(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -132,7 +132,7 @@ func (mc *MasterController) DeleteDisease(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -189,7 +189,7 @@ func (mc *MasterController) GetDiseaseAuditLogs(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDiseaseInfo(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -218,7 +218,7 @@ func (mc *MasterController) GetDiseaseInfo(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDiseaseProfile(c *gin.Context) {
-	_, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -242,7 +242,7 @@ func (mc *MasterController) GetDiseaseProfile(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDiseaseProfileById(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -257,7 +257,7 @@ func (mc *MasterController) GetDiseaseProfileById(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllCauses(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -278,7 +278,7 @@ func (mc *MasterController) GetAllCauses(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseCauseMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -298,7 +298,7 @@ func (mc *MasterController) AddDiseaseCauseMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseCause(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -319,7 +319,7 @@ func (mc *MasterController) AddDiseaseCause(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllCauseTypes(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -346,7 +346,7 @@ func (mc *MasterController) GetAllCauseTypes(c *gin.Context) {
 }
 
 func (mc *MasterController) AddCauseType(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -367,7 +367,7 @@ func (mc *MasterController) AddCauseType(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateCauseType(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -392,7 +392,7 @@ func (mc *MasterController) UpdateCauseType(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteCauseType(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -409,7 +409,7 @@ func (mc *MasterController) DeleteCauseType(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -433,7 +433,7 @@ func (mc *MasterController) UpdateDiseaseCause(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteCause(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -453,7 +453,7 @@ func (mc *MasterController) DeleteCause(c *gin.Context) {
 }
 
 func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -506,7 +506,7 @@ func (mc *MasterController) GetCauseAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) GetCauseTypeAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -563,7 +563,7 @@ func (mc *MasterController) GetCauseTypeAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllSymptom(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -584,7 +584,7 @@ func (mc *MasterController) GetAllSymptom(c *gin.Context) {
 }
 
 func (mc *MasterController) AddSymptom(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -606,7 +606,7 @@ func (mc *MasterController) AddSymptom(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseSymptomMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -627,7 +627,7 @@ func (mc *MasterController) AddDiseaseSymptomMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -651,7 +651,7 @@ func (mc *MasterController) UpdateDiseaseSymptom(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteSymptom(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -671,7 +671,7 @@ func (mc *MasterController) DeleteSymptom(c *gin.Context) {
 }
 
 func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -725,7 +725,7 @@ func (mc *MasterController) GetSymptomAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllSymptomTypes(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -751,7 +751,7 @@ func (mc *MasterController) GetAllSymptomTypes(c *gin.Context) {
 }
 
 func (mc *MasterController) AddSymptomType(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -772,7 +772,7 @@ func (mc *MasterController) AddSymptomType(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateSymptomType(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -796,7 +796,7 @@ func (mc *MasterController) UpdateSymptomType(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteSymptomType(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -813,7 +813,7 @@ func (mc *MasterController) DeleteSymptomType(c *gin.Context) {
 }
 
 func (mc *MasterController) GetSymptomTypeAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -869,7 +869,7 @@ func (mc *MasterController) GetSymptomTypeAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDietPlanTemplate(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -889,7 +889,7 @@ func (mc *MasterController) AddDietPlanTemplate(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Diet plan added successfully", dietPlan, nil, nil)
 }
 func (mc *MasterController) GetAllDietPlanTemplates(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -910,7 +910,7 @@ func (mc *MasterController) GetAllDietPlanTemplates(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDietPlanById(c *gin.Context) {
-	_, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -927,7 +927,7 @@ func (mc *MasterController) GetDietPlanById(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDietPlanTemplate(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -953,7 +953,7 @@ func (mc *MasterController) UpdateDietPlanTemplate(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseDietMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -974,7 +974,7 @@ func (mc *MasterController) AddDiseaseDietMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseExerciseMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -995,7 +995,7 @@ func (mc *MasterController) AddDiseaseExerciseMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) AddExercise(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1015,7 +1015,7 @@ func (mc *MasterController) AddExercise(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllExercises(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1036,7 +1036,7 @@ func (mc *MasterController) GetAllExercises(c *gin.Context) {
 }
 
 func (mc *MasterController) GetExerciseById(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1056,7 +1056,7 @@ func (mc *MasterController) GetExerciseById(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateExercise(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1074,7 +1074,7 @@ func (mc *MasterController) UpdateExercise(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteExercise(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1093,7 +1093,7 @@ func (mc *MasterController) DeleteExercise(c *gin.Context) {
 }
 
 func (mc *MasterController) GetExerciseAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1147,7 +1147,7 @@ func (mc *MasterController) GetExerciseAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllergyRestrictions(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1161,7 +1161,7 @@ func (mc *MasterController) GetAllergyRestrictions(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllMedication(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1182,7 +1182,7 @@ func (mc *MasterController) GetAllMedication(c *gin.Context) {
 }
 
 func (mc *MasterController) AddMedication(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1201,7 +1201,7 @@ func (mc *MasterController) AddMedication(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateMedication(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1219,7 +1219,7 @@ func (mc *MasterController) UpdateMedication(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteMedication(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1238,7 +1238,7 @@ func (mc *MasterController) DeleteMedication(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseMedicationMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1258,7 +1258,7 @@ func (mc *MasterController) AddDiseaseMedicationMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1311,7 +1311,7 @@ func (mc *MasterController) GetMedicationAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) AddDiseaseDiagnosticTestMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1331,7 +1331,7 @@ func (mc *MasterController) AddDiseaseDiagnosticTestMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDiagnosticTests(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1351,7 +1351,7 @@ func (mc *MasterController) GetDiagnosticTests(c *gin.Context) {
 }
 
 func (mc *MasterController) CreateDiagnosticTest(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1371,7 +1371,7 @@ func (mc *MasterController) CreateDiagnosticTest(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiagnosticTest(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1395,7 +1395,7 @@ func (mc *MasterController) UpdateDiagnosticTest(c *gin.Context) {
 }
 
 func (mc *MasterController) GetSingleDiagnosticTest(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1414,7 +1414,7 @@ func (mc *MasterController) GetSingleDiagnosticTest(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteDiagnosticTest(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1433,7 +1433,7 @@ func (mc *MasterController) DeleteDiagnosticTest(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllDiagnosticComponents(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1453,7 +1453,7 @@ func (mc *MasterController) GetAllDiagnosticComponents(c *gin.Context) {
 }
 
 func (mc *MasterController) CreateDiagnosticComponent(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1474,7 +1474,7 @@ func (mc *MasterController) CreateDiagnosticComponent(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateDiagnosticComponent(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1498,7 +1498,7 @@ func (mc *MasterController) UpdateDiagnosticComponent(c *gin.Context) {
 }
 
 func (mc *MasterController) GetSingleDiagnosticComponent(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1517,7 +1517,7 @@ func (mc *MasterController) GetSingleDiagnosticComponent(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllDiagnosticTestComponentMappings(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1537,7 +1537,7 @@ func (mc *MasterController) GetAllDiagnosticTestComponentMappings(c *gin.Context
 }
 
 func (mc *MasterController) CreateDiagnosticTestComponentMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1558,7 +1558,7 @@ func (mc *MasterController) CreateDiagnosticTestComponentMapping(c *gin.Context)
 }
 
 func (mc *MasterController) UpdateDiagnosticTestComponentMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1583,7 +1583,7 @@ func (mc *MasterController) UpdateDiagnosticTestComponentMapping(c *gin.Context)
 }
 
 func (mc *MasterController) DeleteDiagnosticTestComponentMapping(c *gin.Context) {
-	_, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1607,7 +1607,7 @@ func (mc *MasterController) DeleteDiagnosticTestComponentMapping(c *gin.Context)
 }
 
 func (mc *MasterController) DeleteDiagnosticTestComponent(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1650,7 +1650,7 @@ func (mc *MasterController) UploadMasterData(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "file is required", nil, err)
 		return
 	}
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1673,7 +1673,7 @@ func (mc *MasterController) UploadMasterData(c *gin.Context) {
 }
 
 func (mc *MasterController) CreateLab(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1693,7 +1693,7 @@ func (mc *MasterController) CreateLab(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllLabs(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1716,7 +1716,7 @@ func (mc *MasterController) GetAllLabs(c *gin.Context) {
 }
 
 func (mc *MasterController) GetLabById(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1735,7 +1735,7 @@ func (mc *MasterController) GetLabById(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateLab(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1753,7 +1753,7 @@ func (mc *MasterController) UpdateLab(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteLab(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1771,7 +1771,7 @@ func (mc *MasterController) DeleteLab(c *gin.Context) {
 }
 
 func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1825,7 +1825,7 @@ func (mc *MasterController) GetDiagnosticLabAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) AddSupportGroup(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1846,7 +1846,7 @@ func (mc *MasterController) AddSupportGroup(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllSupportGroups(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1863,7 +1863,7 @@ func (mc *MasterController) GetAllSupportGroups(c *gin.Context) {
 }
 
 func (mc *MasterController) GetSupportGroupById(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1882,7 +1882,7 @@ func (mc *MasterController) GetSupportGroupById(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateSupportGroup(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -1902,7 +1902,7 @@ func (mc *MasterController) UpdateSupportGroup(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteSupportGroup(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1920,7 +1920,7 @@ func (mc *MasterController) DeleteSupportGroup(c *gin.Context) {
 }
 
 func (mc *MasterController) GetSupportGroupAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1973,7 +1973,7 @@ func (mc *MasterController) GetSupportGroupAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) AddHospital(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -1992,7 +1992,7 @@ func (mc *MasterController) AddHospital(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateHospital(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2011,7 +2011,7 @@ func (mc *MasterController) UpdateHospital(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllHospitals(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2027,7 +2027,7 @@ func (mc *MasterController) GetAllHospitals(c *gin.Context) {
 }
 
 func (mc *MasterController) GetHospitalById(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2047,7 +2047,7 @@ func (mc *MasterController) GetHospitalById(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteHospital(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2066,7 +2066,7 @@ func (mc *MasterController) DeleteHospital(c *gin.Context) {
 }
 
 func (mc *MasterController) CreateService(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2086,7 +2086,7 @@ func (mc *MasterController) CreateService(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllServices(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2100,7 +2100,7 @@ func (mc *MasterController) GetAllServices(c *gin.Context) {
 }
 
 func (mc *MasterController) GetServiceById(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2115,7 +2115,7 @@ func (mc *MasterController) GetServiceById(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateService(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2133,7 +2133,7 @@ func (mc *MasterController) UpdateService(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteService(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2152,7 +2152,7 @@ func (mc *MasterController) DeleteService(c *gin.Context) {
 }
 
 func (mc *MasterController) GetHospitalAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2206,7 +2206,7 @@ func (mc *MasterController) GetHospitalAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) GetServiceAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2260,7 +2260,7 @@ func (mc *MasterController) GetServiceAuditRecord(c *gin.Context) {
 }
 
 func (mc *MasterController) AddServiceMapping(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -2284,7 +2284,7 @@ func (mc *MasterController) AddServiceMapping(c *gin.Context) {
 }
 
 func (mc *MasterController) AddTestReferenceRange(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -2305,7 +2305,7 @@ func (mc *MasterController) AddTestReferenceRange(c *gin.Context) {
 }
 
 func (mc *MasterController) UpdateTestReferenceRange(c *gin.Context) {
-	authUserId, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
 		return
@@ -2324,7 +2324,7 @@ func (mc *MasterController) UpdateTestReferenceRange(c *gin.Context) {
 }
 
 func (mc *MasterController) DeleteTestReferenceRange(c *gin.Context) {
-	authUserId, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	authUserId, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2347,7 +2347,7 @@ func (mc *MasterController) DeleteTestReferenceRange(c *gin.Context) {
 }
 
 func (mc *MasterController) ViewTestReferenceRange(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2369,7 +2369,7 @@ func (mc *MasterController) ViewTestReferenceRange(c *gin.Context) {
 }
 
 func (mc *MasterController) GetAllTestReferenceRange(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
@@ -2394,7 +2394,7 @@ func (mc *MasterController) GetAllTestReferenceRange(c *gin.Context) {
 }
 
 func (mc *MasterController) GetTestReferenceRangeAuditRecord(c *gin.Context) {
-	_, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	_, _, _, err := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return

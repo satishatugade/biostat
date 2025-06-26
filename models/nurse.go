@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Nurse struct {
-	NurseId           uint64        `json:"nurse_id"`
+	NurseId           uint64        `json:"patient_id"`
 	FirstName         string        `json:"first_name"`
 	LastName          string        `json:"last_name"`
 	Speciality        string        `json:"speciality"`
@@ -23,7 +23,7 @@ type Nurse struct {
 }
 
 type Pharmacist struct {
-	PharmacistId      uint64        `json:"pharmacist_id"`
+	PharmacistId      uint64        `json:"patient_id"`
 	FirstName         string        `json:"first_name"`
 	LastName          string        `json:"last_name"`
 	Gender            string        `json:"gender"`
