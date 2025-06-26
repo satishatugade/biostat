@@ -427,7 +427,11 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 
 		if reportID, ok := reportMap[rec.RecordId]; ok {
 			resp.PatientDiagnosticReportID = fmt.Sprintf("%d", reportID)
-			report, _ := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID)
+			report, err := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID)
+			if err != nil {
+				log.Println("@GetMedicalRecords->GetDiagnosticReport:", err)
+				continue
+			}
 
 			diagnostic := &models.UploadedDiagnosticRes{
 				CollectedAt:     report.CollectedAt,

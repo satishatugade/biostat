@@ -57,7 +57,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, 
 	query := r.db.
 		Table("tbl_medical_record").
 		Joins("JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
-		Where("tbl_medical_record_user_mapping.user_id = ?", userID)
+		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -85,7 +85,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticAttachmentByRecordIDs(reco
 func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticReport(reportID int64) (*models.PatientDiagnosticReport, error) {
 	var report models.PatientDiagnosticReport
 	err := r.db.
-		Where("patient_diagnostic_report_id = ?", reportID).
+		Where("patient_diagnostic_report_id = ? AND is_deleted=0", reportID).
 		First(&report).Error
 	if err != nil {
 		return nil, err

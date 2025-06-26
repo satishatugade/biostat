@@ -796,14 +796,31 @@ func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models
 	return alerts, nil
 }
 
-func (dr *DiagnosticRepositoryImpl) ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error {
+func (dr *DiagnosticRepositoryImpl) ArchivePatientDiagnosticReport(recordId uint64, isDeleted int) error {
 	tx := dr.db.Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
+	err := tx.Model(&models.TblMedicalRecord{}).
+		Where("record_id = ?", recordId).
+		Update("is_deleted", isDeleted).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	err := tx.Model(&models.PatientDiagnosticReport{}).
-		Where("patient_diagnostic_report_id = ?", reportID).
+	var reportId uint64
+	err = tx.Model(&models.PatientReportAttachment{}).
+		Select("patient_diagnostic_report_id").
+		Where("record_id = ?", recordId).
+		Scan(&reportId).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Model(&models.PatientDiagnosticReport{}).
+		Where("patient_diagnostic_report_id = ?", reportId).
 		Update("is_deleted", isDeleted).Error
 	if err != nil {
 		tx.Rollback()

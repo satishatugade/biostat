@@ -1886,7 +1886,7 @@ func (pc *PatientController) ArchivePatientDiagnosticReport(c *gin.Context) {
 		return
 	}
 
-	reportIDStr := c.Query("patient_diagnostic_report_id")
+	reportIDStr := c.Query("report_id")
 	isDeletedStr := c.Query("is_deleted")
 
 	if reportIDStr == "" || isDeletedStr == "" {
