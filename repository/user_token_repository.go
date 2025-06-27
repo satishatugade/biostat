@@ -3,6 +3,7 @@ package repository
 import (
 	"biostat/models"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -127,7 +128,7 @@ func (ur *UserRepositoryImpl) CheckUserEmailMobileExist(input *models.CheckUserM
 	}
 	if input.Email != "" {
 		err := ur.db.Model(&models.SystemUser_{}).
-			Where("email = ?", input.Email).
+			Where("email = ?", strings.ToLower(input.Email)).
 			Count(&count).Error
 		if err != nil {
 			return false, err

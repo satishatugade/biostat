@@ -66,6 +66,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	}
 	user.RoleName = roleMaster.RoleName
 	user.RoleId = roleMaster.RoleId
+	user.Email = strings.ToLower(user.Email)
 	user.Username = uc.userService.GenerateUniqueUsername(user.FirstName, user.LastName)
 
 	keyCloakUser := user
@@ -152,7 +153,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		return
 	}
 
-	loginInfo, err := uc.userService.GetUserInfoByIdentifier(input.Username)
+	loginInfo, err := uc.userService.GetUserInfoByIdentifier(strings.ToLower(input.Username))
 	if err != nil {
 		log.Println("User not found with this username in database : ", input.Username)
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, nil)
@@ -328,6 +329,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 
 	password := utils.GenerateRandomPassword()
 	req.Password = password
+	req.Email = strings.ToLower(req.Email)
 	req.Username = uc.userService.GenerateUniqueUsername(req.FirstName, req.LastName)
 	log.Println("System Generated Password for system user:", password)
 	// Hash password
@@ -459,7 +461,7 @@ func (ac *UserController) SendResetPasswordLink(c *gin.Context) {
 		return
 	}
 
-	err := ac.authService.SendResetPasswordLink(req.Email)
+	err := ac.authService.SendResetPasswordLink(strings.ToLower(req.Email))
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send reset link", nil, err)
 		return
