@@ -203,6 +203,7 @@ const (
 	Messages                = "/messages"
 	Reminder                = "/reminder"
 	Permission              = "/permission"
+	Address                 = "/mapped-user/address"
 	SOS                     = "/sos"
 	ShareList               = "/share-list"
 )

@@ -786,7 +786,7 @@ func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models
 			FROM tbl_patient_diagnostic_report
 			WHERE patient_id = ?
 			ORDER BY patient_diagnostic_report_id DESC
-		LIMIT 1
+		LIMIT 1 );
 	`, patientId, patientId).Scan(&alerts).Error
 
 	if err != nil {

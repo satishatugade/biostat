@@ -335,8 +335,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Disease profile", http.MethodPost, constant.AttachDiseaseProfile, patientController.AttachDiseaseProfileTOPatient},
 		Route{"Disease profile", http.MethodPost, constant.UpdateDiseaseProfile, patientController.UpdateDiseaseProfile},
 
-		Route{"User Oders", http.MethodPost, constant.AddOrder, patientController.CreateOrder},
-		Route{"User Oders", http.MethodPost, constant.GetOrders, patientController.GetUserOrders},
+		Route{"User Orders", http.MethodPost, constant.AddOrder, patientController.CreateOrder},
+		Route{"User Orders", http.MethodPost, constant.GetOrders, patientController.GetUserOrders},
 
 		Route{"send-sms", http.MethodPost, constant.SendSMS, patientController.SendSMS},
 		Route{"send-sms", http.MethodPost, constant.ShareReport, patientController.ShareReport},
@@ -344,6 +344,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
 
+		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
 		Route{"User permissions", http.MethodGet, constant.Permission, patientController.GetAllPermissions},
 		Route{"User SOS", http.MethodPost, constant.SOS, patientController.SendSOSHandler},

@@ -168,6 +168,14 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p service.D
 	matchedUserID := p.UserID
 	if reportData.ReportDetails.PatientName != "" {
 		matchedUserID = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID)
+		if matchedUserID != p.UserID {
+			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(&p.RecordID, map[string]interface{}{
+				"user_id": matchedUserID,
+			})
+			if err != nil {
+				return err
+			}
+		}
 	}
 	reportData.ReportDetails.IsDigital = true
 

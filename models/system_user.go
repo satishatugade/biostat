@@ -309,3 +309,17 @@ type UserShare struct {
 	Email        string `json:"email"`
 	MobileNo     string `json:"mobile_no"`
 }
+
+type UserAddressResponse struct {
+	UserId       uint64 `json:"user_id"`
+	MappingType  string `json:"mapping_type"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	AddressId    uint64 `json:"address_id"`
+	AddressLine1 string `json:"address_line1"`
+	AddressLine2 string `json:"address_line2"`
+	City         string `json:"city"`
+	State        string `json:"state"`
+	Country      string `json:"country"`
+	PostalCode   string `json:"postal_code"`
+}

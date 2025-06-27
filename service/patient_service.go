@@ -421,8 +421,22 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 		return []models.Caregiver{}, nil
 	}
 	caregiverUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
+	caregivers, err := s.patientRepo.GetCaregiverList(caregiverUserIds)
+	if err != nil {
+		return []models.Caregiver{}, err
+	}
 
-	return s.patientRepo.GetCaregiverList(caregiverUserIds)
+	for idx := range caregivers {
+		perms, err := s.patientRepo.ListPermissions(*patientId, caregivers[idx].CaregiverId)
+		if err != nil {
+			log.Println("@GetCaregiverList -> ListPermissions,", err)
+			continue
+		}
+		caregivers[idx].HealthScore = s.GetUserHealthScore(caregivers[idx].CaregiverId)
+		caregivers[idx].Permissions = perms
+	}
+
+	return caregivers, nil
 }
 
 func (s *PatientServiceImpl) GetAssignedPatientList(userId *uint64) ([]models.Patient, error) {

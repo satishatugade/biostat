@@ -101,7 +101,7 @@ func NewPatientRepository(db *gorm.DB) PatientRepository {
 
 func (p *PatientRepositoryImpl) GetAllRelation() ([]models.PatientRelation, error) {
 	var relations []models.PatientRelation
-	err := p.db.Find(&relations).Error
+	err := p.db.Where("is_deleted = ?", 0).Find(&relations).Error
 	return relations, err
 }
 
@@ -953,7 +953,6 @@ func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.
 	if err != nil {
 		log.Printf("Gender not found for ID %v: %v", user.GenderId, err)
 	}
-	log.Println("gender master data : ", gender)
 	user.Gender = gender.GenderCode
 	user.GenderId = gender.GenderId
 	return &user, nil
@@ -1646,6 +1645,9 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 		colorClass, colour := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
 		if row.ResultValue == "0" {
 			valueStr = row.ResultStatus
+			if row.ResultStatus == "" {
+				valueStr = "-"
+			}
 		}
 		key := models.ComponentKey{
 			ComponentID: row.DiagnosticTestComponentID,

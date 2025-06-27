@@ -23,6 +23,7 @@ type TblMedicalRecordRepository interface {
 	ExistsRecordForUser(userId uint64, source, url string) (bool, error)
 
 	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
+	UpdateMedicalRecordMappingByRecordId(RecordId *uint64, mapping map[string]interface{}) error
 	GetMedicalRecordMappings(recordID int64) (*models.TblMedicalRecordUserMapping, error)
 	DeleteMecationRecordMappings(id int) error
 
@@ -475,6 +476,24 @@ func (r *tblMedicalRecordRepositoryImpl) DeleteTblMedicalRecord(id int, updatedB
 
 func (r *tblMedicalRecordRepositoryImpl) CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error {
 	return r.db.Create(mappings).Error
+}
+
+func (r *tblMedicalRecordRepositoryImpl) UpdateMedicalRecordMappingByRecordId(recordId *uint64, updates map[string]interface{}) error {
+	if recordId == nil || len(updates) == 0 {
+		return errors.New("invalid record ID or empty update data")
+	}
+
+	result := r.db.Model(&models.TblMedicalRecordUserMapping{}).
+		Where("record_id = ?", recordId).
+		Updates(updates)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no mapping found with record_id %d", recordId)
+	}
+	return nil
 }
 
 func (r *tblMedicalRecordRepositoryImpl) DeleteMecationRecordMappings(id int) error {

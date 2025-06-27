@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -119,7 +118,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 		}
 		log.Printf("record Id : %d : status : %s ", record.RecordId, "queued")
 		// Optionally set Redis status
-		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", 10*time.Minute)
+		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", 0)
 	}
 
 	return record, nil

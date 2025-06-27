@@ -2466,3 +2466,28 @@ func (c *PatientController) GetAllPermissions(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "permissions list fetched", permissions, nil, nil)
 	return
 }
+
+func (pc *PatientController) GetMappedUserAddress(c *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	page, limit, offset := utils.GetPaginationParams(c)
+
+	data, totalRecords, err := pc.userService.GetAllMappedUserAddress(userId, limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve mapped user addresses", nil, err)
+		return
+	}
+
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(data),
+		"Mapped user addresses retrieved successfully",
+		"Mapped user addresses not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+}
