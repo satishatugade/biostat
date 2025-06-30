@@ -517,3 +517,16 @@ type CellData struct {
 	ReportName   string `json:"report_name"`
 	IsPinned     bool   `json:"is_pinned"`
 }
+
+type HealthVitalSource struct {
+	SourceId    uint64 `json:"source_id" gorm:"primaryKey;column:source_id"`
+	SourceName  string `json:"source_name"`
+	SourceType  string `json:"source_type"`
+	Description string `json:"description"`
+	IsDeleted   int    `json:"is_deleted"`
+	CreatedAt   string `json:"created_at"`
+}
+
+func (HealthVitalSource) TableName() string {
+	return "tbl_health_vital_source"
+}

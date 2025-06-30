@@ -1184,6 +1184,30 @@ func (mc *PatientController) GetMedication(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, medications, pagination, nil)
 }
 
+func (pc *PatientController) GetSources(c *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	page, limit, offset := utils.GetPaginationParams(c)
+
+	sources, totalRecords, err := pc.diagnosticService.GetSources(limit, offset)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve health vital sources", nil, err)
+		return
+	}
+
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	statusCode, message := utils.GetResponseStatusMessage(
+		len(sources),
+		"Health vital sources retrieved successfully",
+		"Health vital sources not found",
+	)
+
+	models.SuccessResponse(c, constant.Success, statusCode, message, sources, pagination, nil)
+}
+
 func (pc *PatientController) GetNursesList(c *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(c)
 	nurses, totalRecords, err := pc.patientService.GetNursesList(nil, limit, offset)
@@ -2473,10 +2497,19 @@ func (pc *PatientController) GetMappedUserAddress(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
+	allowedMappingTypes := map[string]bool{
+		"C": true,
+		"R": true,
+	}
 
+	mappingType := c.Query("mapping_type")
+	if !allowedMappingTypes[mappingType] {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid mapping_type. Allowed values are: C, R", nil, nil)
+		return
+	}
 	page, limit, offset := utils.GetPaginationParams(c)
 
-	data, totalRecords, err := pc.userService.GetAllMappedUserAddress(userId, limit, offset)
+	data, totalRecords, err := pc.userService.GetAllMappedUserAddress(userId, limit, offset, mappingType)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve mapped user addresses", nil, err)
 		return

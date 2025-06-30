@@ -95,6 +95,7 @@ const (
 	DiagnosticTests                      = "/diagnostic-tests"
 	DDTMapping                           = "/ddt-mapping"
 	Medication                           = "/get-medication"
+	Sources                              = "/get-sources"
 	DMMapping                            = "/dm-mapping"
 	AddMedication                        = "/add-medication"
 	UpdateMedication                     = "/update-medication"

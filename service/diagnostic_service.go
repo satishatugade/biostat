@@ -56,6 +56,7 @@ type DiagnosticService interface {
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
+	GetSources(limit, offset int) ([]models.HealthVitalSource, int64, error)
 }
 
 type DiagnosticServiceImpl struct {
@@ -66,6 +67,10 @@ type DiagnosticServiceImpl struct {
 
 func NewDiagnosticService(repo repository.DiagnosticRepository, emailService EmailService, patientService PatientService) DiagnosticService {
 	return &DiagnosticServiceImpl{diagnosticRepo: repo, emailService: emailService, patientService: patientService}
+}
+
+func (s *DiagnosticServiceImpl) GetSources(limit, offset int) ([]models.HealthVitalSource, int64, error) {
+	return s.diagnosticRepo.FetchSources(limit, offset)
 }
 
 func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {

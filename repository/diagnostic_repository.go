@@ -61,6 +61,7 @@ type DiagnosticRepository interface {
 	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
+	FetchSources(limit, offset int) ([]models.HealthVitalSource, int64, error)
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -832,4 +833,17 @@ func (dr *DiagnosticRepositoryImpl) ArchivePatientDiagnosticReport(recordId uint
 
 func (r *DiagnosticRepositoryImpl) AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error {
 	return r.db.Create(mapping).Error
+}
+
+func (r *DiagnosticRepositoryImpl) FetchSources(limit, offset int) ([]models.HealthVitalSource, int64, error) {
+	var sources []models.HealthVitalSource
+	var total int64
+
+	query := r.db.Model(&models.HealthVitalSource{}).Where("is_deleted = ?", 0)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.Limit(limit).Offset(offset).Find(&sources).Error
+	return sources, total, err
 }
