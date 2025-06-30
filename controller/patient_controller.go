@@ -1185,14 +1185,14 @@ func (mc *PatientController) GetMedication(c *gin.Context) {
 }
 
 func (pc *PatientController) GetSources(c *gin.Context) {
-	_, _, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	_, user_id, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
 
-	sources, totalRecords, err := pc.diagnosticService.GetSources(limit, offset)
+	sources, totalRecords, err := pc.diagnosticService.GetSources(user_id, limit, offset)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve health vital sources", nil, err)
 		return
@@ -1880,26 +1880,24 @@ func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	var reportData models.LabReport
+	var reportData models.AudioNoteParsedData
 	if err := ctx.ShouldBindJSON(&reportData); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid health stats report", nil, err)
 		return
 	}
-
-	response, err := pc.diagnosticService.GetSinglePatientDiagnosticLab(userId, reportData.ReportDetails.DiagnosticLabId)
+	response, err := pc.diagnosticService.GetSinglePatientDiagnosticLab(userId, reportData.Data.ParsedJSON.ReportDetails.DiagnosticLabId)
 	if err != nil {
 		log.Printf("Lab not found  %d: %v", userId, err)
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Lab not found", nil, err)
 		return
 	}
-	reportData.ReportDetails.LabName = response.LabName
-	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, func() *uint64 { v := uint64(0); return &v }())
+	reportData.Data.ParsedJSON.ReportDetails.LabName = response.LabName
+	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData.Data.ParsedJSON, userId, func() *uint64 { v := uint64(0); return &v }())
 	if err1 != nil {
-		log.Printf("Healht stats update error : %d: %v", userId, err1)
+		log.Printf("Health stats update error : %d: %v", userId, err1)
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err1.Error(), nil, err1)
 		return
 	}
-
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health stats updated successfully.", nil, nil, nil)
 }
 

@@ -16,8 +16,8 @@ type DiagnosticRepository interface {
 	//Diagnostic labs
 	CreateLab(tx *gorm.DB, lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
 	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
-	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
 	GetSinglePatientDiagnosticLab(patientId uint64, labId *uint64) (*models.DiagnosticLabResponse, error)
+	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
@@ -61,11 +61,17 @@ type DiagnosticRepository interface {
 	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
-	FetchSources(limit, offset int) ([]models.HealthVitalSource, int64, error)
+	FetchSources(limit, offset int) ([]models.HealthVitalSourceType, int64, error)
+	GetSourceById(sourceId int) (models.HealthVitalSource, error)
 }
 
 type DiagnosticRepositoryImpl struct {
 	db *gorm.DB
+}
+
+// GetSourceById implements DiagnosticRepository.
+func (r *DiagnosticRepositoryImpl) GetSourceById(sourceId int) (models.HealthVitalSource, error) {
+	panic("unimplemented")
 }
 
 func (r *DiagnosticRepositoryImpl) LoadDiagnosticLabData() map[string]uint64 {
@@ -835,15 +841,21 @@ func (r *DiagnosticRepositoryImpl) AddMappingToMergeTestComponent(mapping []mode
 	return r.db.Create(mapping).Error
 }
 
-func (r *DiagnosticRepositoryImpl) FetchSources(limit, offset int) ([]models.HealthVitalSource, int64, error) {
-	var sources []models.HealthVitalSource
+func (r *DiagnosticRepositoryImpl) FetchSources(limit, offset int) ([]models.HealthVitalSourceType, int64, error) {
+	var results []models.HealthVitalSourceType
 	var total int64
 
-	query := r.db.Model(&models.HealthVitalSource{}).Where("is_deleted = ?", 0)
-	if err := query.Count(&total).Error; err != nil {
+	err := r.db.Model(&models.HealthVitalSourceType{}).
+		Count(&total).Error
+	if err != nil {
 		return nil, 0, err
 	}
 
-	err := query.Limit(limit).Offset(offset).Find(&sources).Error
-	return sources, total, err
+	err = r.db.
+		Preload("Sources", "is_deleted = ?", 0).
+		Order("source_type_id").
+		Limit(limit).Offset(offset).
+		Find(&results).Error
+
+	return results, total, err
 }

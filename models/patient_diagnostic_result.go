@@ -193,12 +193,22 @@ type ResultSummary struct {
 	Summary string `json:"summary"`
 }
 
+type AudioNoteParsedData struct {
+	Data struct {
+		ParsedJSON    LabReport `json:"parsed_json"`
+		Transcription string    `json:"transcription"`
+		Type          string    `json:"type"`
+	} `json:"data"`
+	Message string `json:"message"`
+}
+
 type LabReport struct {
 	ReportDetails struct {
 		ReportName       string  `json:"report_name"`
 		PatientName      string  `json:"patient_name"`
 		ReportDate       string  `json:"report_date"`
 		DiagnosticLabId  *uint64 `json:"diagnostic_lab_id"`
+		SourceId         *uint64 `json:"source_id"`
 		LabName          string  `json:"lab_name"`
 		LabEmail         string  `json:"lab_email"`
 		LabId            string  `json:"lab_id"`
@@ -519,14 +529,24 @@ type CellData struct {
 }
 
 type HealthVitalSource struct {
-	SourceId    uint64 `json:"source_id" gorm:"primaryKey;column:source_id"`
-	SourceName  string `json:"source_name"`
-	SourceType  string `json:"source_type"`
-	Description string `json:"description"`
-	IsDeleted   int    `json:"is_deleted"`
-	CreatedAt   string `json:"created_at"`
+	SourceId     uint64    `json:"source_id" gorm:"primaryKey;column:source_id"`
+	SourceName   string    `json:"source_name"`
+	SourceTypeId uint64    `json:"-"`
+	IsDeleted    int       `json:"-"`
+	CreatedAt    time.Time `json:"-"`
 }
 
 func (HealthVitalSource) TableName() string {
 	return "tbl_health_vital_source"
+}
+
+type HealthVitalSourceType struct {
+	SourceTypeId uint64              `json:"source_type_id" gorm:"primaryKey;column:source_type_id"`
+	SourceType   string              `json:"source_type"`
+	CreatedAt    time.Time           `json:"-"`
+	Sources      []HealthVitalSource `json:"sources" gorm:"foreignKey:SourceTypeId;references:SourceTypeId"`
+}
+
+func (HealthVitalSourceType) TableName() string {
+	return "tbl_health_vital_source_type"
 }

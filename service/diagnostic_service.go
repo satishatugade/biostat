@@ -56,7 +56,8 @@ type DiagnosticService interface {
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
-	GetSources(limit, offset int) ([]models.HealthVitalSource, int64, error)
+	GetSources(patientId uint64, limit, offset int) ([]models.HealthVitalSourceType, int64, error)
+	GetSourceById(sourceId int) (models.HealthVitalSource, error)
 }
 
 type DiagnosticServiceImpl struct {
@@ -69,8 +70,33 @@ func NewDiagnosticService(repo repository.DiagnosticRepository, emailService Ema
 	return &DiagnosticServiceImpl{diagnosticRepo: repo, emailService: emailService, patientService: patientService}
 }
 
-func (s *DiagnosticServiceImpl) GetSources(limit, offset int) ([]models.HealthVitalSource, int64, error) {
-	return s.diagnosticRepo.FetchSources(limit, offset)
+func (s *DiagnosticServiceImpl) GetSources(patientId uint64, limit, offset int) ([]models.HealthVitalSourceType, int64, error) {
+	data, totalRecord, err := s.diagnosticRepo.FetchSources(limit, offset)
+	if err != nil {
+		return []models.HealthVitalSourceType{}, 0, err
+	}
+	lab, _, _ := s.diagnosticRepo.GetPatientDiagnosticLabs(patientId, limit, offset)
+	return AddSourceName(data, lab, totalRecord)
+}
+
+func AddSourceName(data []models.HealthVitalSourceType, labs []models.DiagnosticLabResponse, totalRecord int64) ([]models.HealthVitalSourceType, int64, error) {
+	for i, sourceType := range data {
+		if sourceType.SourceTypeId == 3 {
+			newSources := []models.HealthVitalSource{}
+			for _, lab := range labs {
+				newSources = append(newSources, models.HealthVitalSource{
+					SourceId:   lab.DiagnosticLabId,
+					SourceName: lab.LabName,
+				})
+			}
+			data[i].Sources = newSources
+		}
+	}
+	return data, totalRecord, nil
+}
+
+func (s *DiagnosticServiceImpl) GetSourceById(sourceId int) (models.HealthVitalSource, error) {
+	return s.diagnosticRepo.GetSourceById(sourceId)
 }
 
 func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
@@ -304,7 +330,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		if err != nil {
 			log.Println("ERROR saving DiagnosticLab info:", err)
 			tx.Rollback()
-			return "", fmt.Errorf("error while saving diagnostic lab info: %w", err) // Wrap error
+			return "", fmt.Errorf("error while saving diagnostic lab info: %w", err)
 		}
 		diagnosticLabId = labInfo.DiagnosticLabId
 	}
