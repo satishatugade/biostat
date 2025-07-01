@@ -13,6 +13,8 @@ type PatientPrescription struct {
 	Description      string     `gorm:"column:description" json:"description"`
 	PrescriptionDate *time.Time `gorm:"column:prescription_date" json:"prescription_date"`
 	IsDigital        bool       `gorm:"column:is_digital;default:false" json:"is_digital"`
+	StartDate        *time.Time `gorm:"column:prescription_start_date" json:"prescription_start_date"`
+	EndDate          *time.Time `gorm:"column:prescription_end_date" json:"prescription_end_date"`
 
 	// Relationship to PrescriptionDetail
 	PrescriptionDetails []PrescriptionDetail `gorm:"foreignKey:PrescriptionId;references:PrescriptionId" json:"prescription_details"`
@@ -33,6 +35,8 @@ type PrescriptionDetail struct {
 	DoseQuantity           float64                    `gorm:"-" json:"dose_quantity,omitempty"`
 	UnitValue              float64                    `gorm:"-" json:"unit_value,omitempty"`
 	UnitType               string                     `gorm:"-" json:"unit_type,omitempty"`
+	MedUnit                string                     `gorm:"column:med_unit" json:"med_unit"`
+	MedUnitValue           float64                    `gorm:"column:med_unit_value" json:"med_unit_value"`
 	Instruction            string                     `gorm:"-" json:"instruction,omitempty"`
 	DosageInfo             []PrescriptionDoseSchedule `gorm:"foreignKey:PrescriptionDetailId;references:PrescriptionDetailId" json:"dosage_info"`
 	PrescriptionAttachment TblMedicalRecord           `gorm:"-" json:"prescription_attachment"`
