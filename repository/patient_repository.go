@@ -31,6 +31,7 @@ type PatientRepository interface {
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
 	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
 	GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error)
+	UpdatePrescriptionArchiveState(patientId uint64, prescriptionID uint64, isDeleted int) error
 
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AddPatientRelative(relative *models.PatientRelative) error
@@ -222,7 +223,7 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 	var totalRecords int64
 
 	query := p.db.
-		Where("patient_id = ?", patientId).
+		Where("patient_id = ? and is_deleted = 0", patientId).
 		Preload("PrescriptionDetails").Preload("PrescriptionDetails.DosageInfo").Preload("MedicalRecord").Order("prescription_id DESC").
 		Limit(limit).
 		Offset(offset).
@@ -234,6 +235,21 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, lim
 	}
 
 	return prescriptions, totalRecords, nil
+}
+func (p *PatientRepositoryImpl) UpdatePrescriptionArchiveState(patientId uint64, prescriptionID uint64, isDeleted int) error {
+	result := p.db.Model(&models.PatientPrescription{}).
+		Where("patient_id = ? AND prescription_id = ?", patientId, prescriptionID).
+		Update("is_deleted", isDeleted)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("prescription not found")
+	}
+
+	return nil
 }
 
 func (ps *PatientRepositoryImpl) GetPrescriptionDetailByPatientId(patientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error) {

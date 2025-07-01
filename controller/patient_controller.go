@@ -427,6 +427,30 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient prescription added.", prescription, nil, nil)
 }
 
+func (pc *PatientController) ArchivePrescription(c *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	type UserRequest struct {
+		PrescriptionID uint64 `json:"prescription_id"`
+	}
+	fmt.Println("Got Request")
+	var req UserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid prescription input data", nil, err)
+		return
+	}
+	err1 := pc.patientService.ArchivePatientPrescription(userId, req.PrescriptionID)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to archive prescription", nil, err1)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "prescription archived", nil, nil, nil)
+	return
+}
+
 func (pc *PatientController) UpdatePrescription(c *gin.Context) {
 	authUserId, user_id, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {

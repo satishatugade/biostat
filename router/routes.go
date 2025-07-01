@@ -64,6 +64,8 @@ func PatientRoutes(g *gin.RouterGroup, patientController *controller.PatientCont
 			patient.POST(patientRoute.Path, protectedHandler)
 		case http.MethodPut:
 			patient.PUT(patientRoute.Path, protectedHandler)
+		case http.MethodDelete:
+			patient.DELETE(patientRoute.Path, protectedHandler)
 		}
 	}
 }

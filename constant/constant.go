@@ -44,6 +44,7 @@ const (
 	PatientDietPlan           = "/patient-diet-plan/:patient_id"
 	PatientRegistration       = "/patient-registration"
 	PatientPrescription       = "/patient-prescription"
+	ArchivePrescription       = "/archive-prescription"
 	UpdatePrescription        = "/update-prescription"
 	PrescriptionByPatientId   = "/get-prescription"
 	PrescriptionDetail        = "/prescription-detail"

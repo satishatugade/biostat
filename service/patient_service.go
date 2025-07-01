@@ -33,6 +33,7 @@ type PatientService interface {
 	GetPatientMedicines(patientID uint64) ([]models.UserMedicineInfo, error)
 
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
+	ArchivePatientPrescription(PatientId uint64, prescriptionID uint64) error
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
 	GetPrescriptionByPatientId(PatientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionDetailByPatientId(PatientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error)
@@ -1282,4 +1283,8 @@ func (s *PatientServiceImpl) CanContinue(patientID, userID uint64, permission st
 		return fmt.Errorf("permission denied: %w", err)
 	}
 	return nil
+}
+
+func (s *PatientServiceImpl) ArchivePatientPrescription(patientId uint64, prescriptionID uint64) error {
+	return s.patientRepo.UpdatePrescriptionArchiveState(patientId, prescriptionID, 1)
 }
