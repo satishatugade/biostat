@@ -371,14 +371,14 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 		}
 	case "caregiver":
 		return models.Caregiver{
-			CaregiverId: user.UserId,
-			FirstName:   user.FirstName,
-			MiddleName:  user.MiddleName,
-			LastName:    user.LastName,
-			Gender:      user.Gender,
-			GenderId:    user.GenderId,
-			MobileNo:    user.MobileNo,
-			Email:       user.Email,
+			PatientId:  user.UserId,
+			FirstName:  user.FirstName,
+			MiddleName: user.MiddleName,
+			LastName:   user.LastName,
+			Gender:     user.Gender,
+			GenderId:   user.GenderId,
+			MobileNo:   user.MobileNo,
+			Email:      user.Email,
 			UserAddress: models.AddressMaster{
 				AddressId:    user.AddressMapping.AddressId,
 				AddressLine1: user.AddressMapping.Address.AddressLine1,
@@ -846,7 +846,10 @@ func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) (string, 
 	}
 }
 
-func GetMappingType(roleName string) string {
+func GetMappingType(roleName string, mappingType *string) string {
+	if mappingType != nil && *mappingType == "PCG" {
+		return "C"
+	}
 	switch roleName {
 	case "patient":
 		return "S"

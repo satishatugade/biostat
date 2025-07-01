@@ -2,7 +2,6 @@ package repository
 
 import (
 	"biostat/models"
-	"fmt"
 	"log"
 
 	"gorm.io/gorm"
@@ -81,7 +80,6 @@ func (r *RoleRepositoryImpl) AddSystemUserMapping(tx *gorm.DB, systemUserMapping
 
 func (r *RoleRepositoryImpl) GetReverseRelationshipMapping(sourceRelationId, sourceGenderId uint64, reverseGenderId *uint64) (*models.ReverseRelationMappingResponse, error) {
 	var result models.ReverseRelationMappingResponse
-	fmt.Println("GetReverseRelationshipMapping reverseGenderId ", *reverseGenderId)
 	err := r.db.Debug().Raw(`
 		SELECT
 			rm.relation_id AS relation_id,

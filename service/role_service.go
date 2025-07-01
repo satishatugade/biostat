@@ -5,7 +5,6 @@ import (
 	"biostat/repository"
 	"biostat/utils"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 
@@ -48,7 +47,7 @@ func (r *RoleServiceImpl) GetRoleByUserId(UserId uint64, mappingType *string) (m
 
 func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.PatientRelation) error {
 	roleName = strings.ToLower(roleName)
-	mappingType := utils.GetMappingType(roleName)
+	mappingType := utils.GetMappingType(roleName, nil)
 	isSelf := roleName == "patient"
 	if mappingType == "" {
 		return errors.New("invalid role name")
@@ -73,7 +72,7 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 		PatientId:   patientId,
 		RelationId:  relationId,
 	}
-	if roleName == "relative" {
+	if roleName == "relative" || roleName == "caregiver" {
 		usermapping := models.SystemUserRoleMapping{
 			UserId:      userId,
 			RoleId:      roleId,
@@ -91,7 +90,7 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 		if err != nil {
 			log.Println("GetReverseRelationshipMapping error occures ", err)
 		}
-		fmt.Println("relationshipMapping : ", relationshipMapping)
+		log.Println("relationshipMapping : ", relationshipMapping)
 		newmapping := models.SystemUserRoleMapping{
 			UserId:      patientId,
 			RoleId:      roleId,

@@ -421,19 +421,24 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 	if len(userRelationIds) == 0 {
 		return []models.Caregiver{}, nil
 	}
-	caregiverUserIds, _ := ExtractUserAndRelationIds(userRelationIds)
-	caregivers, err := s.patientRepo.GetCaregiverList(caregiverUserIds)
+	caregiverUserIds, relationIds := ExtractUserAndRelationIds(userRelationIds)
+	var relation []models.PatientRelation
+	relation, err = s.patientRepo.GetRelationNameById(relationIds)
+	if err != nil {
+		log.Println("GetRelationNameById Not found :")
+	}
+	caregivers, err := s.patientRepo.GetCaregiverList(caregiverUserIds, userRelationIds, relation)
 	if err != nil {
 		return []models.Caregiver{}, err
 	}
 
 	for idx := range caregivers {
-		perms, err := s.patientRepo.ListPermissions(*patientId, caregivers[idx].CaregiverId)
+		perms, err := s.patientRepo.ListPermissions(*patientId, caregivers[idx].PatientId)
 		if err != nil {
 			log.Println("@GetCaregiverList -> ListPermissions,", err)
 			continue
 		}
-		caregivers[idx].HealthScore = s.GetUserHealthScore(caregivers[idx].CaregiverId)
+		caregivers[idx].HealthScore = s.GetUserHealthScore(caregivers[idx].PatientId)
 		caregivers[idx].Permissions = perms
 	}
 
@@ -1011,26 +1016,24 @@ func (s *PatientServiceImpl) GetUserHealthScore(userID uint64) int {
 }
 
 func (s *PatientServiceImpl) AddRelation(tx *gorm.DB, req models.AddRelationRequest, patientId uint64) error {
-	var checkType string
-	switch req.CurrentRole {
-	case "caregiver":
-		checkType = "C"
-	case "relative":
-		checkType = "R"
-	default:
-		return fmt.Errorf("unsupported role: %s", req.CurrentRole)
-	}
 
-	_, relationId, err := s.patientRepo.CheckPatientRelativeMapping(req.UserID, patientId, checkType)
-	if err != nil {
-		return err
+	var mappingCondition string
+	switch req.RoleName {
+	case "caregiver":
+		mappingCondition = "C"
+	case "relative":
+		mappingCondition = "R"
+	}
+	_, relationId, err := s.patientRepo.CheckPatientRelativeMapping(req.UserID, patientId, mappingCondition)
+	if err == nil {
+		return errors.New("Relation already exists")
 	}
 	role, err := s.roleRepo.GetRoleIdByRoleName(req.RoleName)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	mappingType := utils.GetMappingType(role.RoleName)
+	mappingType := utils.GetMappingType(role.RoleName, &req.CurrentRole)
 	if mappingType == "" {
 		tx.Rollback()
 		return fmt.Errorf("invalid mapping type for role: %s", role.RoleName)

@@ -39,7 +39,7 @@ type PatientRepository interface {
 	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.PatientRelative, error)
-	GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error)
+	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
 	FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error)
@@ -149,10 +149,12 @@ func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, pr
 	if err := tx.Model(&models.PatientPrescription{}).
 		Where("prescription_id = ? AND patient_id = ?", prescription.PrescriptionId, prescription.PatientId).
 		Updates(map[string]interface{}{
-			"prescribed_by":     prescription.PrescribedBy,
-			"prescription_name": prescription.PrescriptionName,
-			"description":       prescription.Description,
-			"prescription_date": prescription.PrescriptionDate,
+			"prescribed_by":           prescription.PrescribedBy,
+			"prescription_name":       prescription.PrescriptionName,
+			"description":             prescription.Description,
+			"prescription_date":       prescription.PrescriptionDate,
+			"prescription_start_date": prescription.StartDate,
+			"prescription_end_date":   prescription.EndDate,
 		}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -179,6 +181,12 @@ func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, pr
 			}
 			if detail.DurationUnitType != "" {
 				updateMap["duration_unit_type"] = detail.DurationUnitType
+			}
+			if detail.MedUnit != "" {
+				updateMap["med_unit"] = detail.MedUnit
+			}
+			if detail.MedUnitValue != 0 {
+				updateMap["med_unit_value"] = detail.MedUnitValue
 			}
 			if err := tx.Model(&models.PrescriptionDetail{}).
 				Where("prescription_detail_id = ? AND prescription_id = ?", detail.PrescriptionDetailId, detail.PrescriptionId).
@@ -641,12 +649,19 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 	}
 	if relation.MappingType == mappingType {
 		var role string
-		if mappingType == "R" {
+		if mappingType == "R" || mappingType == "PCG" {
 			role = "relative"
 		} else {
 			role = "primary-caregiver"
 		}
 		return rollbackErr(fmt.Errorf("user is already assigned as %s", role))
+	}
+	var mappingCondition string
+	switch mappingType {
+	case "PCG":
+		mappingCondition = "R"
+	case "R":
+		mappingCondition = "PCG"
 	}
 	if mappingType == "PCG" {
 		var pcgCount int64
@@ -659,7 +674,7 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 			return rollbackErr(fmt.Errorf("maximum 2 primary caregivers allowed"))
 		}
 	}
-	if err := tx.Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ?", patientId, relativeId).Update("mapping_type", mappingType).Error; err != nil {
+	if err := tx.Debug().Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ? AND mapping_type = ? ", patientId, relativeId, mappingCondition).Update("mapping_type", mappingType).Error; err != nil {
 		return rollbackErr(err)
 	}
 
@@ -795,6 +810,27 @@ func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRe
 	return relativeInfo, nil
 }
 
+func (p *PatientRepositoryImpl) fetchCaregivers(userIds []uint64) ([]models.Caregiver, error) {
+	var caregiver []models.Caregiver
+
+	if len(userIds) == 0 {
+		return caregiver, nil
+	}
+
+	err := p.db.
+		Table("tbl_system_user_ as su").
+		Select(`su.user_id AS patient_id, su.first_name, su.middle_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
+				(
+					SELECT MAX(format_datetime(report_date))
+					FROM tbl_patient_diagnostic_report AS dr
+					WHERE dr.patient_id = su.user_id
+				) AS latest_diganotisic`).
+		Joins("LEFT JOIN tbl_gender_master gm ON gm.gender_id = su.gender_id").
+		Where("su.user_id IN ?", userIds).
+		Scan(&caregiver).Error
+	return caregiver, err
+}
+
 func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.PatientRelative, error) {
 	var relatives []models.PatientRelative
 
@@ -804,7 +840,7 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 
 	err := p.db.
 		Table("tbl_system_user_ as su").
-		Select(`su.user_id AS relative_id, su.first_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
+		Select(`su.user_id AS relative_id, su.first_name, su.middle_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
 				(
 					SELECT MAX(format_datetime(report_date))
 					FROM tbl_patient_diagnostic_report AS dr
@@ -846,36 +882,105 @@ func (p *PatientRepositoryImpl) FetchPatientIdByUserId(userId *uint64, mappingTy
 	return userRelations, nil
 }
 
-func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error) {
+// func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64) ([]models.Caregiver, error) {
 
-	var caregivers []models.Caregiver
+// 	var caregivers []models.Caregiver
 
-	if len(caregiverUserIds) == 0 {
-		return caregivers, nil
-	}
+// 	if len(caregiverUserIds) == 0 {
+// 		return caregivers, nil
+// 	}
 
-	err := p.db.
-		Table("tbl_system_user_ AS su").
-		Select(`su.user_id AS caregiver_id, 
-		        su.first_name, 
-				su.middle_name,
-		        su.last_name, 
-		        su.gender_id, 
-				gm.gender_code AS gender,
-		        su.date_of_birth, 
-		        su.mobile_no AS mobile_no, 
-		        su.email, 
-				su.address,
-		        su.created_at, 
-		        su.updated_at`).
-		Joins("LEFT JOIN tbl_gender_master gm ON gm.gender_id = su.gender_id").
-		Where("su.user_id IN ?", caregiverUserIds).
-		Scan(&caregivers).Error
+// 	err := p.db.
+// 		Table("tbl_system_user_ AS su").
+// 		Select(`su.user_id AS caregiver_id,
+// 		        su.first_name,
+// 				su.middle_name,
+// 		        su.last_name,
+// 		        su.gender_id,
+// 				gm.gender_code AS gender,
+// 		        su.date_of_birth,
+// 		        su.mobile_no AS mobile_no,
+// 		        su.email,
+// 				su.address,
+// 		        su.created_at,
+// 		        su.updated_at`).
+// 		Joins("LEFT JOIN tbl_gender_master gm ON gm.gender_id = su.gender_id").
+// 		Where("su.user_id IN ?", caregiverUserIds).
+// 		Scan(&caregivers).Error
 
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return caregivers, nil
+// }
+
+func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64, userRelations []models.UserRelation, relationData []models.PatientRelation) ([]models.Caregiver, error) {
+	log.Println("GetCaregiverList caregiverUserIds :", caregiverUserIds)
+	relativeInfo, err := p.fetchCaregivers(caregiverUserIds)
 	if err != nil {
 		return nil, err
 	}
-	return caregivers, nil
+	relationMap := make(map[uint64]string)
+	for _, r := range relationData {
+		relationMap[*r.RelationId] = r.RelationShip
+	}
+
+	mappingTypeMap := make(map[uint64]string)
+	for _, r := range userRelations {
+		mappingTypeMap[r.UserId] = r.MappingType
+	}
+
+	userToRelationIdMap := make(map[uint64]uint64)
+	for _, ur := range userRelations {
+		userToRelationIdMap[ur.UserId] = ur.RelationId
+	}
+
+	for i := range relativeInfo {
+		uid := relativeInfo[i].PatientId
+		if relId, ok := userToRelationIdMap[uid]; ok {
+			if relationName, ok := relationMap[relId]; ok {
+				relativeInfo[i].RelationId = relId
+				relativeInfo[i].Relationship = relationName
+			}
+			if mapping_name, ok := mappingTypeMap[uid]; ok {
+				relativeInfo[i].MappingType = mapping_name
+			}
+		}
+
+	}
+
+	return relativeInfo, nil
+	// log.Println("GetCaregiverList relativeInfo : ", relativeInfo)
+	// relationMap := make(map[uint64]string)
+	// for _, r := range relationData {
+	// 	relationMap[*r.RelationId] = r.RelationShip
+	// }
+
+	// mappingTypeMap := make(map[uint64]string)
+	// for _, r := range userRelations {
+	// 	mappingTypeMap[r.UserId] = r.MappingType
+	// }
+
+	// userToRelationIdMap := make(map[uint64]uint64)
+	// for _, ur := range userRelations {
+	// 	userToRelationIdMap[ur.UserId] = ur.RelationId
+	// }
+
+	// for i := range relativeInfo {
+	// 	uid := relativeInfo[i].PatientId
+	// 	if relId, ok := userToRelationIdMap[uid]; ok {
+	// 		if relationName, ok := relationMap[relId]; ok {
+	// 			relativeInfo[i].PatientId = relId
+	// 			relativeInfo[i].Relationship = relationName
+	// 		}
+	// 		if mapping_name, ok := mappingTypeMap[uid]; ok {
+	// 			relativeInfo[i].MappingType = mapping_name
+	// 		}
+	// 	}
+
+	// }
+	// log.Println("relativeInfo:", relativeInfo)
+	// return relativeInfo, nil
 }
 
 func (p *PatientRepositoryImpl) GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error) {

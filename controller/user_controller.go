@@ -353,7 +353,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	if err != nil {
 		// models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
 		// return
-		log.Printf("[Warning] createUserInKeycloak yser already exist ")
+		log.Printf("[Warning] createUserInKeycloak user already exist ")
 	}
 	req.Password = string(hashedPassword)
 	req.AuthUserId = keyCloakID
@@ -558,7 +558,7 @@ func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
 			return
 		}
-		if req.RoleName == "relative" {
+		if req.RoleName == "R" {
 			err = uc.patientService.CanContinue(patientId, reqUserID, constant.PermissionAddFamily)
 			if err != nil {
 				models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
@@ -581,10 +581,10 @@ func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
 			return
 		}
 	}()
-	err = uc.patientService.AddRelation(tx, req, patientId)
-	if err != nil {
+	mappingErr := uc.patientService.AddRelation(tx, req, patientId)
+	if mappingErr != nil {
 		tx.Rollback()
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to add relation", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, mappingErr.Error(), nil, mappingErr)
 		return
 	}
 	if err := tx.Commit().Error; err != nil {

@@ -81,13 +81,18 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	if p.Category == "Prescriptions" {
 		queueName = "prescription_digitization"
 	}
-	log.Printf("Digitization started: recordId=%d queue Name := %s ", p.RecordID, queueName)
+	retryCount, _ := asynq.GetRetryCount(ctx)
+	status := constant.StatusProcessing
+	if retryCount > 0 {
+		status = constant.StatusRetrying
+	}
+	log.Printf("Digitization started: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, status)
 
-	_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusProcessing, 0, nil, p.AuthUserID)
+	_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, status, 0, nil, p.AuthUserID, retryCount)
 
 	fileBytes, err := os.ReadFile(p.FilePath)
 	if err != nil {
-		return w.failTask(ctx, queueName, p.RecordID, "Failed to read file", p.AuthUserID)
+		return w.failTask(ctx, queueName, p.RecordID, "Failed to read file", p.AuthUserID, retryCount)
 	}
 
 	fileBuf := bytes.NewBuffer(fileBytes)
@@ -95,32 +100,32 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	switch p.Category {
 	case "Test Reports":
 		if err := w.handleTestReport(fileBuf, p); err != nil {
-			return w.failTask(ctx, queueName, p.RecordID, err.Error(), p.AuthUserID)
+			return w.failTask(ctx, queueName, p.RecordID, err.Error(), p.AuthUserID, retryCount)
 		}
 	case "Prescriptions":
 		if err := w.handlePrescription(fileBuf, p); err != nil {
-			return w.failTask(ctx, queueName, p.RecordID, err.Error(), p.AuthUserID)
+			return w.failTask(ctx, queueName, p.RecordID, err.Error(), p.AuthUserID, retryCount)
 		}
 	}
 
-	if err := w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusSuccess, 1, nil, p.AuthUserID); err != nil {
+	if err := w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusSuccess, 1, nil, p.AuthUserID, retryCount); err != nil {
 		return err
 	}
 
-	log.Printf("Digitization success: recordId=%d queue Name := %s ", p.RecordID, queueName)
+	log.Printf("Digitization success: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, status)
 	_ = os.Remove(p.FilePath)
 	return nil
 }
 
 func (w *DigitizationWorker) logAndUpdateStatus(ctx context.Context, recordID uint64, queue string,
-	status constant.JobStatus, flag int, errMsg *string, authUserID string) error {
+	status constant.JobStatus, flag int, errMsg *string, authUserID string, retryCount int) error {
 	now := time.Now()
-
 	update := &models.TblMedicalRecord{
 		RecordId:     recordID,
 		DigitizeFlag: flag,
 		Status:       status,
 		QueueName:    queue,
+		RetryCount:   retryCount,
 	}
 
 	switch status {
@@ -152,9 +157,9 @@ func ptrTime(t time.Time) *time.Time {
 	return &t
 }
 
-func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, recordID uint64, msg, authUserID string) error {
-	log.Printf("Digitization failed: recordId=%d queue Name := %s error=%s", recordID, queueName, msg)
-	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, authUserID)
+func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, recordID uint64, msg, authUserID string, retryCount int) error {
+	log.Printf("Digitization failed: recordId=%d queue Name := %s : retrying count := %d : record status := %s : error=%s", recordID, queueName, retryCount, constant.StatusFailed, msg)
+	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, authUserID, retryCount)
 	return fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
 }
 
@@ -167,7 +172,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p service.D
 	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
 	if reportData.ReportDetails.PatientName != "" {
-		matchedUserID = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID)
+		matchedUserID = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
 		if matchedUserID != p.UserID {
 			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(&p.RecordID, map[string]interface{}{
 				"user_id": matchedUserID,
