@@ -1051,6 +1051,67 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Your record has been created successfully. Digitization is in progress and should complete within 4–5 minutes.", data, nil, nil)
 }
 
+func (pc *PatientController) SaveReport(ctx *gin.Context) {
+	authUserId, patientId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	idParam := ctx.Param("record_id")
+	recordId, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid record Id", nil, err)
+		return
+	}
+
+	record, err := pc.medicalRecordService.GetMedicalRecordByRecordId(recordId)
+	if err != nil || record == nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Medical record not found", nil, err)
+		return
+	}
+	userInfo, err := pc.userService.GetSystemUserInfo(authUserId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "User info fetch failed", nil, err)
+		return
+	}
+	if record.RecordUrl == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "No file found for this record", nil, nil)
+		return
+	}
+	resp, err := http.Get(record.RecordUrl)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch file from URL", nil, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "File not accessible or missing", nil, nil)
+		return
+	}
+
+	fileBuf := new(bytes.Buffer)
+	_, err = io.Copy(fileBuf, resp.Body)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error reading file content", nil, err)
+		return
+	}
+
+	filename := filepath.Base(record.RecordUrl)
+	record.RecordCategory = "Test Reports"
+	if record.RecordCategory == "report" {
+		record.RecordCategory = "Test Reports"
+	}
+	err = pc.medicalRecordService.CreateDigitizationTask(record, userInfo, patientId, authUserId, fileBuf, filename)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to queue digitization", nil, err)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Digitization queued successfully", nil, nil, nil)
+}
+
 func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
 	var payload models.TblMedicalRecord
 	if err := ctx.ShouldBindJSON(&payload); err != nil {
@@ -1070,13 +1131,13 @@ func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record updated successfully", data, nil, nil)
 }
 
-func (c *PatientController) GetSingleTblMedicalRecord(ctx *gin.Context) {
-	id := utils.GetParamAsInt(ctx, "id")
-	if id == 0 {
+func (c *PatientController) GetMedicalRecordByRecordId(ctx *gin.Context) {
+	recordId := utils.GetParamAsInt(ctx, "id")
+	if recordId == 0 {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
 		return
 	}
-	data, err := c.medicalRecordService.GetSingleTblMedicalRecord(int64(id))
+	data, err := c.medicalRecordService.GetMedicalRecordByRecordId(uint64(recordId))
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve record", nil, err)
 		return
@@ -1779,7 +1840,7 @@ func (pc *PatientController) ReadUserUploadedMedicalFile(ctx *gin.Context) {
 		return
 	}
 	type UserRequest struct {
-		ResourceId int64 `json:"resource_id"`
+		ResourceId uint64 `json:"resource_id"`
 	}
 	var req UserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -1794,77 +1855,6 @@ func (pc *PatientController) ReadUserUploadedMedicalFile(ctx *gin.Context) {
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
 	return
-}
-
-func (pc *PatientController) SaveReport(ctx *gin.Context) {
-	_, patientId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
-		return
-	}
-	idParam := ctx.Param("record_id")
-	recordId, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid record Id", nil, err)
-		return
-	}
-	log.Printf("Request Content-Type: %v", ctx.Request.Header.Get("Content-Type"))
-	log.Printf("Request Headers: %v", ctx.Request.Header)
-	file, fileHeader, err := ctx.Request.FormFile("file")
-	if err != nil {
-		log.Printf("No image attached or failed to read image: %v", err)
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to get image from request", nil, err)
-		return
-	}
-	defer file.Close()
-
-	contentType := fileHeader.Header.Get("Content-Type")
-	allowedTypes := map[string]bool{
-		"image/jpeg":      true,
-		"image/png":       true,
-		"application/pdf": true,
-	}
-
-	if !allowedTypes[contentType] {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Unsupported file type. Only JPEG, PNG, and PDF are allowed", nil, nil)
-		return
-	}
-
-	reportData, err := pc.apiService.CallGeminiService(file, fileHeader.Filename)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to call ai service", nil, err)
-		return
-	}
-
-	// _, filename, _, _ := runtime.Caller(0)
-	// dir := filepath.Dir(filename)
-	// reportPath := filepath.Join(dir, "report.json")
-
-	// reportBytes, err := ioutil.ReadFile(reportPath)
-	// if err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
-	// 	return
-	// }
-
-	// // Unmarshal the JSON content into the appropriate struct (assuming it's map[string]interface{})
-	// var reportData models.LabReport
-	// err = json.Unmarshal(reportBytes, &reportData)
-	// if err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
-	// 	return
-	// }
-	message, err := pc.diagnosticService.DigitizeDiagnosticReport(reportData, patientId, &recordId)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, err)
-		return
-	}
-	go func(pid uint64) {
-		if err := pc.diagnosticService.NotifyAbnormalResult(pid); err != nil {
-			log.Printf("NotifyAbnormalResult error: %v", err)
-		}
-	}(patientId)
-
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Report created successfully", reportData, nil, nil)
 }
 
 func (pc *PatientController) AddMappingToMergeTestComponent(c *gin.Context) {
@@ -2545,4 +2535,50 @@ func (pc *PatientController) GetMappedUserAddress(c *gin.Context) {
 	)
 
 	models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
+}
+
+func (pc *PatientController) MovePatientRecord(ctx *gin.Context) {
+	sub, userId, isDelegate, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	if isDelegate {
+		reqUserID, err := pc.userService.GetUserIdBySUB(sub)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
+			return
+		}
+		err = pc.patientService.CanContinue(userId, reqUserID, constant.PermissionEditProfile)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			return
+		}
+	}
+	targetPatientIdStr := ctx.Query("user_id")
+	recordIdStr := ctx.Query("record_id")
+	reportIdStr := ctx.Query("report_id")
+
+	if targetPatientIdStr == "" || recordIdStr == "" || reportIdStr == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Missing query parameters", nil, nil)
+		return
+	}
+
+	targetPatientId, err1 := strconv.ParseUint(targetPatientIdStr, 10, 64)
+	recordId, err2 := strconv.ParseUint(recordIdStr, 10, 64)
+	reportId, err3 := strconv.ParseUint(reportIdStr, 10, 64)
+
+	if err1 != nil || err2 != nil || err3 != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid query parameter values", nil, fmt.Errorf("parse errors: %v %v %v", err1, err2, err3))
+		return
+	}
+
+	updateErr := pc.medicalRecordService.MovePatientRecord(userId, targetPatientId, recordId, reportId)
+	if updateErr != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to move patient records", nil, updateErr)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Patient records moved successfully", nil, nil, nil)
 }

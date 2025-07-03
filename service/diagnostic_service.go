@@ -478,11 +478,12 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					return "", fmt.Errorf("error while creating diagnostic test component mapping: %w", err) // Wrap error
 				}
 				referenceRange := models.DiagnosticTestReferenceRange{
-					DiagnosticTestId:          diagnosticTestId,
-					DiagnosticTestComponentId: diagnosticComponentId,
-					NormalMin:                 func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Min, 64); return v }(),
-					NormalMax:                 func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Max, 64); return v }(),
-					Units:                     component.Units,
+					DiagnosticTestId:               diagnosticTestId,
+					DiagnosticTestComponentId:      diagnosticComponentId,
+					NormalMin:                      func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Min, 64); return v }(),
+					NormalMax:                      func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Max, 64); return v }(),
+					BiologicalReferenceDescription: component.BiologicalReferenceDescription,
+					Units:                          component.Units,
 				}
 				refRangeErr := s.diagnosticRepo.AddTestReferenceRange(&referenceRange)
 				if refRangeErr != nil {

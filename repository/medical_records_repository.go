@@ -17,14 +17,14 @@ type TblMedicalRecordRepository interface {
 	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	CreateMultipleTblMedicalRecords(data *[]models.TblMedicalRecord) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
-	GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error)
+	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
-	IsRecordBelongsToUser(userID uint64, recordID int64) (bool, error)
+	IsRecordBelongsToUser(userID uint64, recordID uint64) (bool, error)
 	ExistsRecordForUser(userId uint64, source, url string) (bool, error)
 
 	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
-	UpdateMedicalRecordMappingByRecordId(RecordId *uint64, mapping map[string]interface{}) error
-	GetMedicalRecordMappings(recordID int64) (*models.TblMedicalRecordUserMapping, error)
+	UpdateMedicalRecordMappingByRecordId(tx *gorm.DB, RecordId *uint64, mapping map[string]interface{}) error
+	GetMedicalRecordMappings(recordID uint64) (*models.TblMedicalRecordUserMapping, error)
 	DeleteMecationRecordMappings(id int) error
 
 	DeleteTblMedicalRecordWithMappings(id int, user_id string) error
@@ -37,6 +37,7 @@ type TblMedicalRecordRepository interface {
 	GetComponentDetails(componentID uint64) (*models.DiagnosticTestComponent, error)
 	GetReferenceRanges(componentID uint64) ([]models.DiagnosticTestReferenceRange, error) //separate table
 	GetDiagnosticTestMaster(testID uint64) (*models.DiagnosticTest, error)
+	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
 }
 
 type tblMedicalRecordRepositoryImpl struct {
@@ -439,6 +440,9 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	if data.DigitizeFlag > 0 {
 		updateFields["digitize_flag"] = data.DigitizeFlag
 	}
+	if data.RetryCount > 0 {
+		updateFields["retry_count"] = data.RetryCount
+	}
 	if len(data.Metadata) != 0 {
 		updateFields["metadata"] = data.Metadata
 	}
@@ -461,9 +465,9 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	return data, nil
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error) {
 	var obj models.TblMedicalRecord
-	err := r.db.First(&obj, id).Error
+	err := r.db.First(&obj, RecordId).Error
 	if err != nil {
 		return nil, err
 	}
@@ -478,12 +482,12 @@ func (r *tblMedicalRecordRepositoryImpl) CreateMedicalRecordMappings(mappings *[
 	return r.db.Create(mappings).Error
 }
 
-func (r *tblMedicalRecordRepositoryImpl) UpdateMedicalRecordMappingByRecordId(recordId *uint64, updates map[string]interface{}) error {
+func (r *tblMedicalRecordRepositoryImpl) UpdateMedicalRecordMappingByRecordId(tx *gorm.DB, recordId *uint64, updates map[string]interface{}) error {
 	if recordId == nil || len(updates) == 0 {
 		return errors.New("invalid record ID or empty update data")
 	}
 
-	result := r.db.Model(&models.TblMedicalRecordUserMapping{}).
+	result := tx.Model(&models.TblMedicalRecordUserMapping{}).
 		Where("record_id = ?", recordId).
 		Updates(updates)
 
@@ -500,7 +504,7 @@ func (r *tblMedicalRecordRepositoryImpl) DeleteMecationRecordMappings(id int) er
 	return r.db.Where("record_id = ?", id).Delete(&models.TblMedicalRecordUserMapping{}).Error
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordMappings(recordID int64) (*models.TblMedicalRecordUserMapping, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordMappings(recordID uint64) (*models.TblMedicalRecordUserMapping, error) {
 	var mapping models.TblMedicalRecordUserMapping
 	err := r.db.Where("record_id=?", recordID).Find(&mapping).Error
 	return &mapping, err
@@ -549,7 +553,7 @@ func (r *tblMedicalRecordRepositoryImpl) ExistsRecordForUser(userId uint64, sour
 	return count > 0, err
 }
 
-func (r *tblMedicalRecordRepositoryImpl) IsRecordBelongsToUser(userID uint64, recordID int64) (bool, error) {
+func (r *tblMedicalRecordRepositoryImpl) IsRecordBelongsToUser(userID uint64, recordID uint64) (bool, error) {
 	var mapping models.TblMedicalRecordUserMapping
 	err := r.db.Where("user_id = ? AND record_id = ?", userID, recordID).First(&mapping).Error
 	if err != nil {
@@ -559,4 +563,40 @@ func (r *tblMedicalRecordRepositoryImpl) IsRecordBelongsToUser(userID uint64, re
 		return false, err
 	}
 	return true, nil
+}
+
+func (r *tblMedicalRecordRepositoryImpl) MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := r.UpdateMedicalRecordMappingByRecordId(tx, &recordId, map[string]interface{}{"user_id": targetPatientId}); err != nil {
+			return fmt.Errorf("record mapping move failed: %w", err)
+		}
+		if err := r.UpdatePatientDiagnosticReports(tx, patientId, targetPatientId, reportId); err != nil {
+			return fmt.Errorf("report move failed: %w", err)
+		}
+		if err := r.UpdatePatientDiagnosticTestResults(tx, patientId, targetPatientId, reportId); err != nil {
+			return fmt.Errorf("test results move failed: %w", err)
+		}
+		if err := r.UpdatePatientReportAttachments(tx, patientId, targetPatientId, reportId); err != nil {
+			return fmt.Errorf("attachments move failed: %w", err)
+		}
+		return nil
+	})
+}
+
+func (r *tblMedicalRecordRepositoryImpl) UpdatePatientDiagnosticReports(tx *gorm.DB, patientId, targetPatientId, reportId uint64) error {
+	return tx.Model(&models.PatientDiagnosticReport{}).
+		Where("patient_id = ? AND patient_diagnostic_report_id = ?", patientId, reportId).
+		Update("patient_id", targetPatientId).Error
+}
+
+func (r *tblMedicalRecordRepositoryImpl) UpdatePatientDiagnosticTestResults(tx *gorm.DB, patientId, targetPatientId, reportId uint64) error {
+	return tx.Model(&models.PatientDiagnosticTestResultValue{}).
+		Where("patient_id = ? AND patient_diagnostic_report_id = ?", patientId, reportId).
+		Update("patient_id", targetPatientId).Error
+}
+
+func (r *tblMedicalRecordRepositoryImpl) UpdatePatientReportAttachments(tx *gorm.DB, patientId, targetPatientId, reportId uint64) error {
+	return tx.Model(&models.PatientReportAttachment{}).
+		Where("patient_id = ? AND patient_diagnostic_report_id = ?", patientId, reportId).
+		Update("patient_id", targetPatientId).Error
 }

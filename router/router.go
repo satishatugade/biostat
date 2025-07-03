@@ -90,6 +90,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
 	// Workers
+	worker.NewDigitizationWorker(db)
 	worker.StartAppointmentScheduler(appointmentService)
 	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo)
 
@@ -317,10 +318,10 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"medical records create", http.MethodPost, constant.UploadRecord, patientController.CreateTblMedicalRecord},
 		Route{"medical records", http.MethodPost, constant.MedicalRecord, patientController.GetAllMedicalRecord},
-		Route{"medical records get", http.MethodPost, "/medical_records/:user_id", patientController.GetUserMedicalRecords},
-		Route{"medical records get single", http.MethodGet, "/medical_records/:id", patientController.GetSingleTblMedicalRecord},
-		Route{"medical records update", http.MethodPut, "/medical_records/:id", patientController.UpdateTblMedicalRecord},
-		Route{"medical records delete", http.MethodDelete, "/medical_records/:id", patientController.DeleteTblMedicalRecord},
+		Route{"medical records get", http.MethodPost, constant.UserMedicalRecord, patientController.GetUserMedicalRecords},
+		Route{"medical records get single", http.MethodGet, constant.GetByRecordId, patientController.GetMedicalRecordByRecordId},
+		Route{"medical records update", http.MethodPut, constant.UpdateMedicalRecord, patientController.UpdateTblMedicalRecord},
+		Route{"medical records delete", http.MethodDelete, constant.DeleteMedicalRecord, patientController.DeleteTblMedicalRecord},
 
 		Route{"Appointments", http.MethodPost, constant.ScheduleAppointment, patientController.ScheduleAppointment},
 		Route{"Appointments", http.MethodPost, constant.GetAppointments, patientController.GetUserAppointments},
@@ -329,7 +330,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Digi Locker", http.MethodPost, constant.SyncDigiLocker, patientController.DigiLockerSyncController},
 		Route{"Digi Locker", http.MethodPost, constant.GetMedicalResource, patientController.ReadUserUploadedMedicalFile},
 
-		Route{"patient diagnostic report save", http.MethodPost, constant.SaveReport, patientController.SaveReport},
+		Route{"patient diagnostic report save", http.MethodPost, constant.ReportDigitization, patientController.SaveReport},
+		Route{"Move record", http.MethodPost, constant.MoveRecord, patientController.MovePatientRecord},
 		Route{"DigitizationStatus", http.MethodPost, constant.DigitizationStatus, patientController.GetDigitizationStatus},
 		Route{"Merge component", http.MethodPost, constant.MergeComponent, patientController.AddMappingToMergeTestComponent},
 		Route{"Add health stat", http.MethodPost, constant.HealthStats, patientController.AddHealthStats},

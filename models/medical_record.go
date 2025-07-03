@@ -125,3 +125,13 @@ type MedicalRecordResponseRes struct {
 	UploadSource              string                 `json:"upload_source"`
 	UploadedDiagnostic        *UploadedDiagnosticRes `json:"uploaded_diagnostic"`
 }
+
+type DigitizationPayload struct {
+	RecordID    uint64 `json:"record_id"`
+	UserID      uint64 `json:"user_id"`
+	PatientName string `json:"patient_name"`
+	FilePath    string `json:"file_path"`
+	Category    string `json:"category"`
+	FileName    string `json:"file_name"`
+	AuthUserID  string `json:"auth_user_id"`
+}

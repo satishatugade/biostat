@@ -23,14 +23,16 @@ type TblMedicalRecordService interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]map[string]interface{}, int64, error)
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, file *bytes.Buffer, filename string) (*models.TblMedicalRecord, error)
+	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, authUserId string, file *bytes.Buffer, filename string) error
 	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
-	GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error)
+	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
-	IsRecordAccessibleToUser(userID uint64, recordID int64) (bool, error)
+	IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error)
 	GetMedicalRecords(userID uint64, limit, offset int) ([]models.MedicalRecordResponseRes, int64, error)
 
-	ReadMedicalRecord(ResourceId int64, userId, reqUserId uint64) (interface{}, error)
+	ReadMedicalRecord(ResourceId uint64, userId, reqUserId uint64) (interface{}, error)
+	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
 }
 
 type tblMedicalRecordServiceImpl struct {
@@ -62,24 +64,14 @@ func (s *tblMedicalRecordServiceImpl) GetAllMedicalRecord(patientId uint64, limi
 	return processed, totalRecords, nil
 }
 
-type DigitizationPayload struct {
-	RecordID    uint64 `json:"record_id"`
-	UserID      uint64 `json:"user_id"`
-	PatientName string `json:"patient_name"`
-	FilePath    string `json:"file_path"`
-	Category    string `json:"category"`
-	FileName    string `json:"file_name"`
-	AuthUserID  string `json:"auth_user_id"`
-}
-
-func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, fileBuf *bytes.Buffer, filename string) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, userId uint64, authUserId string, fileBuf *bytes.Buffer, filename string) (*models.TblMedicalRecord, error) {
 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(data)
 	if err != nil {
 		return nil, err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	mappings = append(mappings, models.TblMedicalRecordUserMapping{
-		UserID:   createdBy,
+		UserID:   userId,
 		RecordID: record.RecordId,
 	})
 	mappingErr := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
@@ -90,18 +82,26 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 	if err != nil {
 		return nil, err
 	}
+	if err := s.CreateDigitizationTask(record, userInfo, userId, authUserId, fileBuf, filename); err != nil {
+		log.Printf("Digitization task failed: %v", err)
+	}
+	return record, nil
+}
+
+func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
+	userId uint64, authUserId string, fileBuf *bytes.Buffer, filename string) error {
 	if record.RecordCategory == "Test Reports" || record.RecordCategory == "Prescriptions" {
-		// Save file temporarily to disk
+		log.Println("Queue worker starts............")
 		tempDir := os.TempDir()
 		tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))
+
 		if err := os.WriteFile(tempPath, fileBuf.Bytes(), 0644); err != nil {
 			log.Printf("Failed to write temp file for record %d: %v", record.RecordId, err)
-			return record, nil
+			return err
 		}
-		log.Println("Queue worker starts............")
-		payload := DigitizationPayload{
+		payload := models.DigitizationPayload{
 			RecordID:    record.RecordId,
-			UserID:      createdBy,
+			UserID:      userId,
 			PatientName: userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
 			FilePath:    tempPath,
 			Category:    record.RecordCategory,
@@ -112,19 +112,18 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
 			log.Printf("Failed to marshal digitization payload for record %d: %v", record.RecordId, err)
-			return record, nil
+			return err
 		}
 
 		task := asynq.NewTask("digitize:record", payloadBytes)
 		if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(1)); err != nil {
 			log.Printf("Failed to enqueue digitization task for record %d: %v", record.RecordId, err)
-			return record, nil
+			return err
 		}
-		log.Printf("record Id : %d : status : %s ", record.RecordId, "queued")
+		log.Printf("record Id : %d : status : %s", record.RecordId, "queued")
 		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", 0)
 	}
-
-	return record, nil
+	return nil
 }
 
 // func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, fileBuf *bytes.Buffer, filename string) (*models.TblMedicalRecord, error) {
@@ -345,15 +344,15 @@ func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(data *models.TblMed
 	return s.tblMedicalRecordRepo.UpdateTblMedicalRecord(data, updatedBy)
 }
 
-func (s *tblMedicalRecordServiceImpl) GetSingleTblMedicalRecord(id int64) (*models.TblMedicalRecord, error) {
-	return s.tblMedicalRecordRepo.GetSingleTblMedicalRecord(id)
+func (s *tblMedicalRecordServiceImpl) GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error) {
+	return s.tblMedicalRecordRepo.GetMedicalRecordByRecordId(RecordId)
 }
 
 func (s *tblMedicalRecordServiceImpl) DeleteTblMedicalRecord(id int, updatedBy string) error {
 	return s.tblMedicalRecordRepo.DeleteTblMedicalRecordWithMappings(id, updatedBy)
 }
 
-func (s *tblMedicalRecordServiceImpl) IsRecordAccessibleToUser(userID uint64, recordID int64) (bool, error) {
+func (s *tblMedicalRecordServiceImpl) IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error) {
 	belongsTouser, err := s.tblMedicalRecordRepo.IsRecordBelongsToUser(userID, recordID)
 	if belongsTouser == true {
 		return true, nil
@@ -400,7 +399,7 @@ func (s *tblMedicalRecordServiceImpl) ReadUserLocalServerFile(localFileUrl strin
 	return &res, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId int64, userId, reqUserId uint64) (interface{}, error) {
+func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userId, reqUserId uint64) (interface{}, error) {
 	isAccessible, err := s.IsRecordAccessibleToUser(userId, ResourceId)
 	if err != nil {
 		return nil, err
@@ -409,7 +408,7 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId int64, userId
 		return nil, errors.New("you do not have access to this resource")
 	}
 
-	record, err := s.GetSingleTblMedicalRecord(ResourceId)
+	record, err := s.GetMedicalRecordByRecordId(ResourceId)
 	if err != nil {
 		return nil, err
 	}
@@ -548,4 +547,8 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 	}
 
 	return responses, total, nil
+}
+
+func (s *tblMedicalRecordServiceImpl) MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error {
+	return s.tblMedicalRecordRepo.MovePatientRecord(patientId, targetPatientId, recordId, reportId)
 }

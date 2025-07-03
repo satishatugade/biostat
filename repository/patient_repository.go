@@ -1615,6 +1615,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			pdtrv.result_value,
 			dtrr.normal_min,
 			dtrr.normal_max,
+			dtrr.biological_reference_description,
 			dtrr.units AS ref_units,
 			pdtrv.result_status,
 			format_datetime(pdtrv.result_date) AS result_date,
@@ -1747,13 +1748,21 @@ func (p *PatientRepositoryImpl) CountPatientDiagnosticReports(patientId uint64, 
 	return totalReports, nil
 }
 
+func GetReferenceRange(minStr, maxStr, bioRange string) string {
+	if (minStr == "0" || minStr == "" || minStr == "0.0" || minStr == "0.00") &&
+		(maxStr == "0" || maxStr == "" || maxStr == "0.0" || maxStr == "0.00") &&
+		bioRange != "" {
+		return bioRange
+	}
+	return fmt.Sprintf("%s - %s", minStr, maxStr)
+}
+
 func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) map[string]interface{} {
 	if len(rows) == 0 {
 		return map[string]interface{}{}
 	}
 	componentMap := make(map[models.ComponentKey][]models.CellData)
 
-	// Dates
 	dateSet := make(map[string]struct{})
 
 	for _, row := range rows {
@@ -1761,7 +1770,8 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			continue
 		}
 
-		rangeStr := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
+		// rangeStr := fmt.Sprintf("%v - %v", row.NormalMin, row.NormalMax)
+		rangeStr := GetReferenceRange(row.NormalMin, row.NormalMax, row.BiologicalReferenceDescription)
 		valueStr := fmt.Sprintf("%v", row.ResultValue)
 		colorClass, colour := utils.GetRefRangeAndColorCode(valueStr, row.NormalMin, row.NormalMax)
 		if row.ResultValue == "0" {

@@ -17,6 +17,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 func StartAppointmentScheduler(service service.AppointmentService) {
@@ -44,6 +45,14 @@ type DigitizationWorker struct {
 	patientService    service.PatientService
 	diagnosticService service.DiagnosticService
 	recordRepo        repository.TblMedicalRecordRepository
+	db                *gorm.DB
+}
+
+func NewDigitizationWorker(db *gorm.DB) *DigitizationWorker {
+	if db == nil {
+		panic("database instance is null")
+	}
+	return &DigitizationWorker{db: db}
 }
 
 func InitAsynqWorker(
@@ -73,7 +82,7 @@ func InitAsynqWorker(
 	}
 }
 func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asynq.Task) error {
-	var p service.DigitizationPayload
+	var p models.DigitizationPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return err
 	}
@@ -163,7 +172,7 @@ func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, rec
 	return fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
 }
 
-func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p service.DigitizationPayload) error {
+func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
 	reportData, err := w.apiService.CallGeminiService(fileBuf, p.FileName)
 	if err != nil {
 		return err
@@ -174,10 +183,12 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p service.D
 	if reportData.ReportDetails.PatientName != "" {
 		matchedUserID = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
 		if matchedUserID != p.UserID {
-			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(&p.RecordID, map[string]interface{}{
-				"user_id": matchedUserID,
-			})
+			tx := w.db.Begin()
+			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID})
 			if err != nil {
+				return err
+			}
+			if err := tx.Commit().Error; err != nil {
 				return err
 			}
 		}
@@ -191,7 +202,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p service.D
 	return w.diagnosticService.NotifyAbnormalResult(matchedUserID)
 }
 
-func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p service.DigitizationPayload) error {
+func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
 	data, err := w.apiService.CallPrescriptionDigitizeAPI(fileBuf, p.FileName)
 	if err != nil {
 		return err

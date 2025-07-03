@@ -136,19 +136,20 @@ type Diagnostic_Test_Component_ReferenceRange struct {
 }
 
 type DiagnosticTestReferenceRange struct {
-	TestReferenceRangeId      uint64    `json:"test_reference_range_id" gorm:"primaryKey;autoIncrement"`
-	DiagnosticTestId          uint64    `json:"diagnostic_test_id"`
-	DiagnosticTestComponentId uint64    `json:"diagnostic_test_component_id"`
-	Age                       int       `json:"age"`
-	AgeGroup                  string    `json:"age_group"`
-	Gender                    string    `json:"gender"`
-	NormalMin                 float64   `json:"normal_min"`
-	NormalMax                 float64   `json:"normal_max"`
-	Units                     string    `json:"units"`
-	IsDeleted                 int       `json:"is_deleted"`
-	CreatedAt                 time.Time `json:"created_at"`
-	UpdatedAt                 time.Time `json:"updated_at"`
-	CreatedBy                 string    `json:"created_by"`
+	TestReferenceRangeId           uint64    `json:"test_reference_range_id" gorm:"primaryKey;autoIncrement"`
+	DiagnosticTestId               uint64    `json:"diagnostic_test_id"`
+	DiagnosticTestComponentId      uint64    `json:"diagnostic_test_component_id"`
+	Age                            int       `json:"age"`
+	AgeGroup                       string    `json:"age_group"`
+	Gender                         string    `json:"gender"`
+	NormalMin                      float64   `json:"normal_min"`
+	NormalMax                      float64   `json:"normal_max"`
+	BiologicalReferenceDescription *string   `json:"biological_reference_description"`
+	Units                          string    `json:"units"`
+	IsDeleted                      int       `json:"is_deleted"`
+	CreatedAt                      time.Time `json:"created_at"`
+	UpdatedAt                      time.Time `json:"updated_at"`
+	CreatedBy                      string    `json:"created_by"`
 }
 
 func (DiagnosticTestReferenceRange) TableName() string {
@@ -220,11 +221,12 @@ type LabReport struct {
 		TestName       string `json:"test_name"`
 		Interpretation string `json:"interpretation"`
 		Components     []struct {
-			TestComponentName string `json:"test_component_name"`
-			ResultValue       string `json:"result_value"`
-			Status            string `json:"status"`
-			Units             string `json:"units"`
-			ReferenceRange    struct {
+			TestComponentName              string  `json:"test_component_name"`
+			ResultValue                    string  `json:"result_value"`
+			Status                         string  `json:"status"`
+			Units                          string  `json:"units"`
+			BiologicalReferenceDescription *string `json:"biological_reference_description"`
+			ReferenceRange                 struct {
 				Min string `json:"min"`
 				Max string `json:"max"`
 			} `json:"reference_range"`
@@ -493,11 +495,12 @@ type ReportRow struct {
 	Udf4            string
 
 	// Reference range fields
-	Age       int
-	AgeGroup  string
-	Gender    string
-	NormalMin string
-	NormalMax string
+	Age                            int
+	AgeGroup                       string
+	Gender                         string
+	NormalMin                      string
+	NormalMax                      string
+	BiologicalReferenceDescription string
 	// NormalMin            interface{}
 	// NormalMax            interface{}
 	RefUnits     string
