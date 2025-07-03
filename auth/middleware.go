@@ -484,7 +484,6 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 				return "", false, fmt.Errorf("user not found")
 			}
 		}
-		log.Printf("[WARN] Failed to create user (username: %s, email: %s because Username or email already exists): %v", user.Username, user.Email, err)
 		existingUsers, fetchErr := client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
 			Username: gocloak.StringP(loginInfo.Username),
 			Email:    gocloak.StringP(user.Email),

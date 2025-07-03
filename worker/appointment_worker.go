@@ -60,6 +60,7 @@ func InitAsynqWorker(
 	patientService service.PatientService,
 	diagnosticService service.DiagnosticService,
 	recordRepo repository.TblMedicalRecordRepository,
+	db *gorm.DB,
 ) {
 	worker := &DigitizationWorker{
 		redisClient:       config.RedisClient,
@@ -67,6 +68,7 @@ func InitAsynqWorker(
 		patientService:    patientService,
 		diagnosticService: diagnosticService,
 		recordRepo:        recordRepo,
+		db:                db,
 	}
 
 	srv := asynq.NewServer(

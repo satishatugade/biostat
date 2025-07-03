@@ -92,7 +92,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	// Workers
 	worker.NewDigitizationWorker(db)
 	worker.StartAppointmentScheduler(appointmentService)
-	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo)
+	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo, db)
 
 }
 
@@ -318,6 +318,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"medical records create", http.MethodPost, constant.UploadRecord, patientController.CreateTblMedicalRecord},
 		Route{"medical records", http.MethodPost, constant.MedicalRecord, patientController.GetAllMedicalRecord},
+		Route{"LabReportName", http.MethodPost, constant.LabReportName, patientController.GetDiagnosticLabReportName},
 		Route{"medical records get", http.MethodPost, constant.UserMedicalRecord, patientController.GetUserMedicalRecords},
 		Route{"medical records get single", http.MethodGet, constant.GetByRecordId, patientController.GetMedicalRecordByRecordId},
 		Route{"medical records update", http.MethodPut, constant.UpdateMedicalRecord, patientController.UpdateTblMedicalRecord},

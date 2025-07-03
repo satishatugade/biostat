@@ -79,6 +79,11 @@ func (PatientDiagnosticReport) TableName() string {
 	return "tbl_patient_diagnostic_report"
 }
 
+type DiagnosticReport struct {
+	ReportName                string `json:"report_name"`
+	PatientDiagnosticReportId string `json:"patient_diagnostic_report_id"`
+}
+
 type PatientDiagnosticTest struct {
 	PatientTestId             uint64    `gorm:"column:patient_test_id;primaryKey;autoIncrement" json:"patient_test_id"`
 	PatientDiagnosticReportId uint64    `gorm:"column:patient_diagnostic_report_id" json:"patient_diagnostic_report_id"`
@@ -341,7 +346,7 @@ type DiagnosticReportResponse struct {
 }
 
 type DiagnosticReportFilter struct {
-	ReportID          *uint64 `json:"patient_diagnostic_report_id,omitempty"`
+	ReportID          *string `json:"patient_diagnostic_report_id,omitempty"`
 	ReportName        *string `json:"report_name,omitempty"`
 	TestName          *string `json:"test_name,omitempty"`
 	TestNote          *string `json:"test_note,omitempty"`
@@ -525,7 +530,8 @@ type CellData struct {
 	ColourClass  string `json:"colour_class"`
 	Colour       string `json:"colour"`
 	Qualifier    string `json:"qualifier"`
-	ReportID     uint64 `json:"patient_diagnostic_report_id"`
+	ReportID     string `json:"patient_diagnostic_report_id"`
+	RecordId     string `json:"record_id"`
 	ResultDate   string `json:"result_date"`
 	ReportName   string `json:"report_name"`
 	IsPinned     bool   `json:"is_pinned"`

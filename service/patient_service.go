@@ -236,7 +236,7 @@ func (s *PatientServiceImpl) SummarizeHistorybyAIModel(patientId uint64) (string
 		allergyList = append(allergyList, allergy.Allergy.AllergyName)
 	}
 
-	results, err2 := s.FetchPatientDiagnosticReports(patientId, models.DiagnosticReportFilter{ReportID: func() *uint64 { id, _ := s.patientRepo.GetDiagnosticReportId(patientId); return &id }()})
+	results, err2 := s.FetchPatientDiagnosticReports(patientId, models.DiagnosticReportFilter{ReportID: func() *string { id, _ := s.patientRepo.GetDiagnosticReportId(patientId); return id }()})
 
 	if err2 != nil {
 		return "", err2

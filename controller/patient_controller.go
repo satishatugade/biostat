@@ -969,6 +969,20 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, pagination, nil)
 }
 
+func (c *PatientController) GetDiagnosticLabReportName(ctx *gin.Context) {
+	_, patientId, _, err := utils.GetUserIDFromContext(ctx, c.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	data, err := c.diagnosticService.GetDiagnosticLabReportName(patientId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Lab report name fetched.", data, nil, nil)
+}
+
 func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	authUserId, userId, isDelegate, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {

@@ -63,10 +63,18 @@ type DiagnosticRepository interface {
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	FetchSources(limit, offset int) ([]models.HealthVitalSourceType, int64, error)
 	GetSourceById(sourceId int) (models.HealthVitalSource, error)
+	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
 }
 
 type DiagnosticRepositoryImpl struct {
 	db *gorm.DB
+}
+
+func NewDiagnosticRepository(db *gorm.DB) DiagnosticRepository {
+	if db == nil {
+		panic("database instance is null")
+	}
+	return &DiagnosticRepositoryImpl{db: db}
 }
 
 // GetSourceById implements DiagnosticRepository.
@@ -88,24 +96,15 @@ func (r *DiagnosticRepositoryImpl) LoadDiagnosticLabData() map[string]uint64 {
 	return labMap
 }
 
-func NewDiagnosticRepository(db *gorm.DB) DiagnosticRepository {
-	if db == nil {
-		panic("database instance is null")
-	}
-	return &DiagnosticRepositoryImpl{db: db}
-}
-
 func (r *DiagnosticRepositoryImpl) GetAllDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
 
 	var diagnosticTests []models.DiagnosticTest
 	var totalRecords int64
-	// Count total records in the table
 	err := r.db.Model(&models.DiagnosticTest{}).Count(&totalRecords).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Fetch paginated data
 	err = r.db.Preload("Components").Order("diagnostic_test_id DESC").Limit(limit).Offset(offset).Find(&diagnosticTests).Error
 	if err != nil {
 		return nil, 0, err
@@ -858,4 +857,14 @@ func (r *DiagnosticRepositoryImpl) FetchSources(limit, offset int) ([]models.Hea
 		Find(&results).Error
 
 	return results, total, err
+}
+
+func (r *DiagnosticRepositoryImpl) GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error) {
+	var reportNameInfo []models.DiagnosticReport
+	if err := r.db.Model(&models.PatientDiagnosticReport{}).Select(`patient_diagnostic_report_id, report_name || ' - ' || format_datetime(report_date) AS report_name `).
+		Where("patient_id = ? AND is_deleted = ?", patientId, 0).Scan(&reportNameInfo).Error; err != nil {
+		log.Println("Error loading diagnostic lab report name:", err)
+		return []models.DiagnosticReport{}, nil
+	}
+	return reportNameInfo, nil
 }

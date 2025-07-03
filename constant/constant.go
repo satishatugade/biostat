@@ -182,6 +182,7 @@ const (
 	SyncDigiLocker      = "/sync-digilocker"
 	GetMedicalResource  = "/get-medical-resource"
 	MedicalRecord       = "/medical-record-info"
+	LabReportName       = "/diagnostic-lab-report-name"
 	UserMedicalRecord   = "/medical_records/:user_id"
 	GetByRecordId       = "/medical_records/:id"
 	UploadRecord        = "/medical_records"

@@ -69,7 +69,7 @@ type PatientRepository interface {
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
 	ProcessReportGridData(rows []models.ReportRow) map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
-	GetDiagnosticReportId(patientId uint64) (uint64, error)
+	GetDiagnosticReportId(patientId uint64) (*string, error)
 
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
 	CheckPatientHealthProfileExist(tx *gorm.DB, patientId uint64) (bool, error)
@@ -1571,7 +1571,7 @@ func (p *PatientRepositoryImpl) FetchPatientDiagnosticReports(patientId uint64, 
 
 func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error) {
 	var results []models.ReportRow
-
+	fmt.Println("filter ", filter)
 	totalReports, err := p.CountPatientDiagnosticReports(patientId, filter)
 	if err != nil {
 		return nil, 0, err
@@ -1601,6 +1601,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		SELECT 
 			pdr.patient_diagnostic_report_id,
 			pdr.patient_id,
+			mruc.record_id,
 			format_datetime(pdr.collected_date) AS collected_date,
 			format_datetime(pdr.report_date) AS report_date,
 			pdr.report_status,
@@ -1643,6 +1644,8 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		LEFT JOIN tbl_patient_test_component_display_config dc 
 			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
 			AND pdtrv.patient_id = dc.patient_id
+		LEFT JOIN tbl_medical_record_user_mapping mruc 
+			ON pdtrv.patient_id = mruc.user_id
 		LEFT JOIN tbl_diagnostic_lab dl 
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
 		WHERE pdtrv.patient_diagnostic_report_id IN (
@@ -1793,7 +1796,8 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			ResultStatus: row.ResultStatus,
 			ColourClass:  colorClass,
 			Colour:       colour,
-			ReportID:     row.PatientDiagnosticReportID,
+			ReportID:     strconv.Itoa(int(row.PatientDiagnosticReportID)),
+			RecordId:     strconv.Itoa(int(row.RecordId)),
 			ResultDate:   row.ResultDate,
 			Qualifier:    row.Qualifier,
 			ReportName:   row.ReportName,
@@ -1817,7 +1821,6 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			"test_component_name":          key.Name,
 			"ref_unit":                     key.Units,
 			"ref_range":                    key.RefRange,
-			"report_name":                  key.ReportName,
 			"is_pinned":                    key.IsPinned,
 			"trend_values":                 values,
 		}
@@ -1901,18 +1904,18 @@ func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.D
 	return finalReports
 }
 
-func (r *PatientRepositoryImpl) GetDiagnosticReportId(patientId uint64) (uint64, error) {
-	var reportId uint64
+func (r *PatientRepositoryImpl) GetDiagnosticReportId(patientId uint64) (*string, error) {
+	var reportId string
 	err := r.db.Table("tbl_patient_diagnostic_report").
 		Where("patient_id = ?", patientId).
 		Select("MAX(patient_diagnostic_report_id)").
 		Scan(&reportId).Error
 
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return reportId, nil
+	return &reportId, nil
 }
 
 func (pr *PatientRepositoryImpl) GetPatientHealthDetail(userID uint64) (models.TblPatientHealthProfile, error) {
