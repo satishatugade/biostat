@@ -51,6 +51,9 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var roleRepo = repository.NewRoleRepository(db)
 	var roleService = service.NewRoleService(roleRepo)
 
+	var processStatusRepo = repository.NewProcessStatusRepository(db)
+	var processStatusService = service.NewProcessStatusService(processStatusRepo)
+
 	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
@@ -81,7 +84,8 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService)
 	UserRoutes(apiGroup, userController)
 
-	var gmailRecordsController = controller.NewGmailSyncController(medicalRecordService, userService)
+	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService)
+	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
@@ -379,6 +383,6 @@ func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Rout
 	return Routes{
 		{"gmail sync route", http.MethodPost, "/app-sync", gmailSyncController.FetchEmailsHandler},
 		{"gmail sync route", http.MethodGet, "/oauth2callback", gmailSyncController.GmailCallbackHandler},
-		{"gmail sync route", http.MethodGet, "/login", controller.GmailLoginHandler},
+		{"gmail sync route", http.MethodGet, "/login", gmailSyncController.GmailLoginHandler},
 	}
 }

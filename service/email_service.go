@@ -13,6 +13,7 @@ import (
 
 type EmailService interface {
 	SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error
+	SendConnectionMail(systemUser models.SystemUser_, patient *models.Patient, relationship string) error
 	SendAppointmentMail(appointment models.AppointmentResponse, userProfile models.Patient, providerInfo interface{}) error
 	SendReportResultsEmail(patientInfo *models.SystemUser_, alerts []models.TestResultAlert) error
 	ShareReportEmail(recipientEmail []string, userDetails *models.SystemUser_, shortURL string) error
@@ -76,6 +77,36 @@ func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, p
 		if err != nil {
 			log.Println("@SendLoginCredentials: failed to save mapping")
 		}
+	}
+	return nil
+}
+
+func (e *EmailServiceImpl) SendConnectionMail(systemUser models.SystemUser_, patient *models.Patient, relationship string) error {
+	roleName := systemUser.RoleName
+	if relationship != "" {
+		roleName = fmt.Sprintf("%s ( %s )", roleName, relationship)
+	}
+	patientFullName := ""
+	if patient != nil {
+		patientFullName = patient.FirstName + " " + patient.LastName
+	}
+	sendBody := map[string]interface{}{
+		"user_id":           systemUser.UserId,
+		"recipient_mail_id": systemUser.Email,
+		"template_code":     11,
+		"channels":          []string{"email", "whatsapp"},
+		"data": map[string]interface{}{
+			"fullName":        systemUser.FirstName + " " + systemUser.LastName,
+			"patientFullName": patientFullName,
+			"roleName":        roleName,
+		},
+	}
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
+	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	if sendErr != nil {
+		return sendErr
 	}
 	return nil
 }

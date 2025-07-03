@@ -388,11 +388,18 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
 		return
 	}
-
-	err = uc.emailService.SendLoginCredentials(systemUser, password, registrant, relation.RelationShip)
-	if err != nil {
-		log.Println("Error sending email:", err)
+	if isExistingUser {
+		err = uc.emailService.SendConnectionMail(systemUser, registrant, relation.RelationShip)
+		if err != nil {
+			log.Println("Error sending connection email:", err)
+		}
+	} else {
+		err = uc.emailService.SendLoginCredentials(systemUser, password, registrant, relation.RelationShip)
+		if err != nil {
+			log.Println("Error sending email:", err)
+		}
 	}
+
 	tx.Commit()
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,7 +20,25 @@ import (
 	"google.golang.org/api/gmail/v1"
 )
 
-func GetGmailAuthURL(userId string) (authUrl string) {
+type GmailSyncService interface {
+	GetGmailAuthURL(userId string) (authUrl string)
+	CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error)
+	CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error)
+	FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error)
+	SyncGmail(userID uint64, code string) error
+}
+
+type GmailSyncServiceImpl struct {
+	processStatusService ProcessStatusService
+	medRecordService     TblMedicalRecordService
+	gTokenService        UserService
+}
+
+func NewGmailSyncService(processStatusService ProcessStatusService, medRecordService TblMedicalRecordService, gTokenService UserService) GmailSyncService {
+	return &GmailSyncServiceImpl{processStatusService: processStatusService, medRecordService: medRecordService, gTokenService: gTokenService}
+}
+
+func (s *GmailSyncServiceImpl) GetGmailAuthURL(userId string) (authUrl string) {
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
@@ -34,20 +53,20 @@ func GetGmailAuthURL(userId string) (authUrl string) {
 	return authURL
 }
 
-func CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error) {
+func (s *GmailSyncServiceImpl) CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error) {
 	creds := oauth2.Token{AccessToken: accessToken}
 	client := googleOauthConfig.Client(context.Background(), &creds)
 	return gmail.New(client)
 }
 
-func CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error) {
+func (s *GmailSyncServiceImpl) CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error) {
 	token := &oauth2.Token{AccessToken: accessToken}
 	config := &oauth2.Config{}
 	client := config.Client(ctx, token)
 	return gmail.New(client)
 }
 
-func FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
+func (s *GmailSyncServiceImpl) FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
 	profile, err := service.Users.GetProfile("me").Do()
 	if err != nil {
 		return nil, err
@@ -142,4 +161,68 @@ func getHeader(headers []*gmail.MessagePartHeader, name string) string {
 		}
 	}
 	return ""
+}
+
+func (s *GmailSyncServiceImpl) SyncGmail(userID uint64, code string) error {
+	processID := s.processStatusService.StartProcess(userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
+	msg := ""
+	step := "token_exchange"
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
+	var googleOauthConfig = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"https://mail.google.com/"},
+		Endpoint:     google.Endpoint,
+	}
+
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		msg = "Token exchange failed"
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, &step, true)
+		return err
+	}
+
+	s.gTokenService.CreateTblUserToken(&models.TblUserToken{UserId: userID, AuthToken: token.AccessToken, Provider: "Gmail"})
+
+	gmailService, err := s.CreateGmailServiceClient(token.AccessToken, googleOauthConfig)
+	if err != nil {
+		msg = "Failed to create Gmail client"
+		step = "gmail_client"
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, &step, true)
+		return err
+	}
+	profile, err := gmailService.Users.GetProfile("me").Do()
+	if err != nil {
+		return err
+	}
+
+	s.processStatusService.UpdateProcess(processID, "running", &profile.EmailAddress, nil, nil, false)
+
+	emailMedRecord, err := s.FetchEmailsWithAttachments(gmailService, userID)
+	if err != nil {
+		msg = "Failed to fetch emails"
+		step = "fetch_emails"
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, nil, true)
+		log.Println("Failed to fetch emails:", err)
+		return err
+	}
+
+	msg = "Email records fetched"
+	step = "save_records"
+	s.processStatusService.UpdateProcess(processID, "running", nil, &msg, &step, false)
+
+	err = s.medRecordService.SaveMedicalRecords(&emailMedRecord, userID)
+	if err != nil {
+		msg = "Failed to save medical records"
+		log.Println("Error while saving email data:", err)
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, nil, true)
+		return err
+	}
+	msg = "Sync completed"
+	s.processStatusService.UpdateProcess(processID, "completed", nil, &msg, nil, true)
+	log.Println("Email sync completed for user:", userID)
+	return nil
 }
