@@ -49,13 +49,16 @@ type PatientController struct {
 	emailService         service.EmailService
 	orderService         service.OrderService
 	notificationService  service.NotificationService
+	authService          auth.AuthService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
 	allergyService service.AllergyService, medicalRecordService service.TblMedicalRecordService,
 	medicationService service.MedicationService, appointmentService service.AppointmentService,
 	diagnosticService service.DiagnosticService, userService service.UserService,
-	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService, emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService) *PatientController {
+	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService,
+	emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService,
+	authService auth.AuthService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -67,6 +70,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		emailService:        emailService,
 		orderService:        orderService,
 		notificationService: notificationService,
+		authService:         authService,
 	}
 }
 
@@ -134,7 +138,7 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-
+	log.Println("isDelegate : userid", isDelegate, userId)
 	if isDelegate {
 		reqUserID, err := pc.userService.GetUserIdBySUB(sub)
 		if err != nil {
@@ -164,12 +168,11 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 	user.FirstName = patientData.FirstName
 	user.LastName = patientData.LastName
 
-	err = UpdateUserInKeycloak(*user)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to update user in keycloak", nil, err)
+	userUpdateErr := pc.authService.UpdateUserInKeycloak(*user)
+	if userUpdateErr != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to update user in keycloak", nil, userUpdateErr)
 		return
 	}
-
 	updatedPatient, err := pc.patientService.UpdatePatientById(userId, &patientData)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient info", nil, err)

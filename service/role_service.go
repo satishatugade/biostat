@@ -47,7 +47,7 @@ func (r *RoleServiceImpl) GetRoleByUserId(UserId uint64, mappingType *string) (m
 
 func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.PatientRelation) error {
 	roleName = strings.ToLower(roleName)
-	mappingType := utils.GetMappingType(roleName, nil)
+	mappingType := utils.GetMappingTypeByRoleName(roleName, nil)
 	isSelf := roleName == "patient"
 	if mappingType == "" {
 		return errors.New("invalid role name")

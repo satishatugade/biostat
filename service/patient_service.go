@@ -295,6 +295,13 @@ func (s *PatientServiceImpl) UpdatePatientById(userId uint64, patientData *model
 	if err != nil {
 		return &models.Patient{}, err
 	}
+	if patientData.RelationId > 0 {
+		log.Println("Inside UpdateSystemUserRoleMapping :: ", patientData.RelationId)
+		err := s.patientRepo.UpdateSystemUserRoleMapping(userId, patientData)
+		if err != nil {
+			return &models.Patient{}, err
+		}
+	}
 	return s.patientRepo.MapSystemUserToPatient(&updatedPatient, updatedAddress), nil
 }
 
@@ -1017,12 +1024,9 @@ func (s *PatientServiceImpl) GetUserHealthScore(userID uint64) int {
 
 func (s *PatientServiceImpl) AddRelation(tx *gorm.DB, req models.AddRelationRequest, patientId uint64) error {
 
-	var mappingCondition string
-	switch req.RoleName {
-	case "caregiver":
-		mappingCondition = "C"
-	case "relative":
-		mappingCondition = "R"
+	mappingCondition := utils.GetMappingTypeByRoleName(req.RoleName, nil)
+	if mappingCondition == "" {
+		return fmt.Errorf("invalid mapping type for role: %s", req.RoleName)
 	}
 	_, relationId, err := s.patientRepo.CheckPatientRelativeMapping(req.UserID, patientId, mappingCondition)
 	if err == nil {
@@ -1033,7 +1037,7 @@ func (s *PatientServiceImpl) AddRelation(tx *gorm.DB, req models.AddRelationRequ
 		tx.Rollback()
 		return err
 	}
-	mappingType := utils.GetMappingType(role.RoleName, &req.CurrentRole)
+	mappingType := utils.GetMappingTypeByRoleName(role.RoleName, &req.CurrentRole)
 	if mappingType == "" {
 		tx.Rollback()
 		return fmt.Errorf("invalid mapping type for role: %s", role.RoleName)

@@ -30,6 +30,7 @@ type PatientRepository interface {
 	GetPatientDiagnosticResultValue(patientId uint64, patientDiagnosticReportId uint64) ([]models.PatientDiagnosticReport, map[uint64]uint64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (models.SystemUser_, error)
 	UpdateUserAddressByUserId(userId uint64, newaddress models.AddressMaster) (models.AddressMaster, error)
+	UpdateSystemUserRoleMapping(userId uint64, patientData *models.Patient) error
 	GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error)
 	UpdatePrescriptionArchiveState(patientId uint64, prescriptionID uint64, isDeleted int) error
 
@@ -2106,4 +2107,23 @@ func (p *PatientRepositoryImpl) HasRelation(patientId uint64, userId uint64) (bo
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *PatientRepositoryImpl) UpdateSystemUserRoleMapping(userId uint64, patientData *models.Patient) error {
+	log.Println("PatientRepositoryImpl UpdateSystemUserRoleMapping :: ", patientData)
+	updateData := map[string]interface{}{}
+	if patientData.RelationId > 0 {
+		updateData["relation_id"] = patientData.RelationId
+	}
+	if len(updateData) == 0 {
+		return nil
+	}
+
+	if err := r.db.Debug().Model(&models.SystemUserRoleMapping{}).
+		Where("user_id = ? AND patient_id = ? AND mapping_type = ? ", userId, patientData.PatientId, patientData.MappingType).
+		Updates(updateData).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

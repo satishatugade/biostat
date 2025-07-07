@@ -9,6 +9,8 @@ type Patient struct {
 	FirstName            string        `json:"first_name"`
 	MiddleName           string        `json:"middle_name"`
 	LastName             string        `json:"last_name"`
+	MappingType          string        `json:"mapping_type"`
+	RelationId           int64         `json:"relation_id,omitempty"`
 	DateOfBirth          *time.Time    `json:"date_of_birth"`
 	Gender               string        `json:"gender"`
 	GenderId             uint64        `json:"gender_id"`

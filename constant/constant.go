@@ -251,6 +251,20 @@ const (
 	StatusFailed     JobStatus = "failed"
 )
 
+type MappingType string
+
+const (
+	MappingTypeA   MappingType = "A"
+	MappingTypeS   MappingType = "S"
+	MappingTypeC   MappingType = "C"
+	MappingTypePCG MappingType = "PCG"
+	MappingTypeHOF MappingType = "HOF"
+	MappingTypeR   MappingType = "R"
+	MappingTypeD   MappingType = "D"
+	MappingTypeN   MappingType = "N"
+	MappingTypeP   MappingType = "P"
+)
+
 const (
 	PermissionViewHealth           = "view_health"
 	PermissionEditProfile          = "edit_profile"

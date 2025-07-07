@@ -73,14 +73,14 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var orderRepo = repository.NewOrderRepository(db)
 	var orderService = service.NewOrderService(orderRepo)
+	var authService = auth.NewAuthService(userRepo, userService, emailService)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService, authService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var authService = auth.NewAuthService(userRepo, userService, emailService)
 	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService)
 	UserRoutes(apiGroup, userController)
 

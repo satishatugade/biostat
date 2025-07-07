@@ -9,14 +9,12 @@ import (
 	"biostat/utils"
 	"context"
 	"log"
-	"os"
 	"runtime/debug"
 	"strings"
 	"time"
 
 	"net/http"
 
-	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -113,29 +111,6 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 	return
-}
-
-func UpdateUserInKeycloak(user models.SystemUser_) error {
-	client := utils.Client
-	ctx := context.Background()
-	username := os.Getenv("KEYCLOAK_ADMIN_USER")
-	password := os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
-	token, err := client.LoginAdmin(ctx, username, password, "master")
-	if err != nil {
-		return err
-	}
-
-	log.Println(token.AccessToken)
-
-	updatedUser := gocloak.User{
-		ID:        gocloak.StringP(user.AuthUserId),
-		Username:  gocloak.StringP(user.Username),
-		Email:     gocloak.StringP(user.Email),
-		FirstName: gocloak.StringP(user.FirstName),
-		LastName:  gocloak.StringP(user.LastName),
-	}
-
-	return client.UpdateUser(ctx, token.AccessToken, utils.KeycloakRealm, updatedUser)
 }
 
 func (uc *UserController) LoginUser(c *gin.Context) {

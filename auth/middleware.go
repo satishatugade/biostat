@@ -30,6 +30,7 @@ type AuthService interface {
 	SendOTP(email string) error
 	// VerifyOTPAndLogin(email string, otp string) (map[string]interface{}, error)
 	CreateUserInKeycloak(user models.SystemUser_) (string, bool, error)
+	UpdateUserInKeycloak(user models.SystemUser_) error
 }
 
 type AuthServiceImpl struct {
@@ -457,6 +458,9 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 		LastName:      gocloak.StringP(user.LastName),
 		Enabled:       gocloak.BoolP(true),
 		EmailVerified: gocloak.BoolP(true),
+		Attributes: &map[string][]string{
+			"phoneNumber": {user.MobileNo},
+		},
 		Credentials: &[]gocloak.CredentialRepresentation{
 			{
 				Type:      gocloak.StringP("password"),
@@ -515,4 +519,27 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 		return "Unable to add role to user", false, adderr
 	}
 	return userID, false, nil
+}
+
+func (a *AuthServiceImpl) UpdateUserInKeycloak(user models.SystemUser_) error {
+	client := utils.Client
+	ctx := context.Background()
+	username := os.Getenv("KEYCLOAK_ADMIN_USER")
+	password := os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
+	token, err := client.LoginAdmin(ctx, username, password, "master")
+	if err != nil {
+		return err
+	}
+	updatedUser := gocloak.User{
+		ID:        gocloak.StringP(user.AuthUserId),
+		Username:  gocloak.StringP(user.Username),
+		Email:     gocloak.StringP(user.Email),
+		FirstName: gocloak.StringP(user.FirstName),
+		LastName:  gocloak.StringP(user.LastName),
+		Attributes: &map[string][]string{
+			"phoneNumber": {user.MobileNo},
+		},
+	}
+
+	return client.UpdateUser(ctx, token.AccessToken, utils.KeycloakRealm, updatedUser)
 }

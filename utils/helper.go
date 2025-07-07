@@ -659,77 +659,6 @@ func GetUserIDFromContext(ctx *gin.Context, getUserIdBySubFunc func(string) (uin
 	return sub.(string), userID, false, nil
 }
 
-func MappedRelationAccordingRelationship(userInfo *models.SystemUser_, relationId int) (int, error) {
-	log.Println("Mapping relation based on gender and relationship...")
-
-	var newRelationId int
-	gender := strings.ToLower(userInfo.Gender)
-
-	switch relationId {
-	case 1, 2: // Father or Mother -> Son or Daughter
-		if gender == "male" {
-			newRelationId = 5 // Son
-		} else if gender == "female" {
-			newRelationId = 6 // Daughter
-		}
-	case 3, 4: // Brother or Sister -> Brother or Sister
-		if gender == "male" {
-			newRelationId = 3 // Brother
-		} else if gender == "female" {
-			newRelationId = 4 // Sister
-		}
-	case 5, 6: // Son or Daughter -> Father or Mother
-		if gender == "male" {
-			newRelationId = 1 // Father
-		} else if gender == "female" {
-			newRelationId = 2 // Mother
-		}
-	case 7, 8: // Husband or Wife -> Husband or Wife
-		if gender == "male" {
-			newRelationId = 7 // Husband
-		} else if gender == "female" {
-			newRelationId = 8 // Wife
-		}
-	case 9, 10: // Uncle or Aunt
-		if gender == "male" {
-			newRelationId = 9 // Uncle
-		} else if gender == "female" {
-			newRelationId = 10 // Aunt
-		}
-	case 11: // Cousin (gender-neutral)
-		newRelationId = 11
-	case 12, 13: // Grandfather or Grandmother
-		if gender == "male" {
-			newRelationId = 12 // Grandfather
-		} else if gender == "female" {
-			newRelationId = 13 // Grandmother
-		}
-	case 14, 15: // Nephew or Niece
-		if gender == "male" {
-			newRelationId = 14 // Nephew
-		} else if gender == "female" {
-			newRelationId = 15 // Niece
-		}
-	case 16: // Friend (gender-neutral)
-		newRelationId = 16
-	case 17: // Colleague (gender-neutral)
-		newRelationId = 17
-	case 18: // Guardian (gender-neutral)
-		newRelationId = 18
-	default:
-		log.Printf("Unknown or unsupported relation ID: %d", relationId)
-		return 0, fmt.Errorf("unsupported relation ID: %d", relationId)
-	}
-
-	if newRelationId == 0 {
-		log.Printf("Unable to determine relationship for gender: %s", gender)
-		return 0, fmt.Errorf("unable to determine relationship for gender: %s", gender)
-	}
-
-	log.Printf("Mapped relation ID: %d based on gender: %s", newRelationId, gender)
-	return newRelationId, nil
-}
-
 func CalculatePatientBMI(weightKg, heightCm float64) (float64, string) {
 	if heightCm <= 0 {
 		log.Println("Height must be greater than 0")
@@ -846,27 +775,36 @@ func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) (string, 
 	}
 }
 
-func GetMappingType(roleName string, mappingType *string) string {
+func GetMappingTypeByRoleName(roleName string, mappingType *string) string {
 	if mappingType != nil && *mappingType == "PCG" {
-		return "C"
+		return string(constant.MappingTypeC)
 	}
 	switch roleName {
 	case "patient":
-		return "S"
+		return string(constant.MappingTypeP)
 	case "doctor":
-		return "D"
+		return string(constant.MappingTypeD)
 	case "nurse":
-		return "N"
+		return string(constant.MappingTypeN)
 	case "relative":
-		return "R"
+		return string(constant.MappingTypeR)
 	case "caregiver":
-		return "C"
+		return string(constant.MappingTypeC)
 	case "admin":
-		return "A"
+		return string(constant.MappingTypeA)
 	case "pharmacist":
-		return "P"
+		return string(constant.MappingTypeP)
 	default:
 		return ""
+	}
+}
+
+func IsValidMappingType(value string) bool {
+	switch constant.MappingType(value) {
+	case constant.MappingTypeS, constant.MappingTypeC, constant.MappingTypeR, constant.MappingTypeD, constant.MappingTypeP:
+		return true
+	default:
+		return false
 	}
 }
 
