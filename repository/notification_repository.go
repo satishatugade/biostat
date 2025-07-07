@@ -10,6 +10,7 @@ import (
 type UserNotificationRepository interface {
 	CreateNotificationMapping(mapping models.UserNotificationMapping) error
 	GetNotificationByUserId(userId uint64) ([]models.UserNotificationMapping, error)
+	GetRemindersByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 }
 
 type UserNotificationRepositoryImpl struct {
@@ -32,4 +33,10 @@ func (r *UserNotificationRepositoryImpl) GetNotificationByUserId(userId uint64) 
 	var notifs []models.UserNotificationMapping
 	err := r.db.Where("user_id = ?", userId).Order("created_at DESC").Find(&notifs).Error
 	return notifs, err
+}
+
+func (r *UserNotificationRepositoryImpl) GetRemindersByUserId(userId uint64) ([]models.UserNotificationMapping, error) {
+	var reminders []models.UserNotificationMapping
+	err := r.db.Where("user_id = ? and tags='medication,reminder'", userId).Find(&reminders).Error
+	return reminders, err
 }

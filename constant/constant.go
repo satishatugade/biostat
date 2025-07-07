@@ -210,6 +210,7 @@ const (
 	Postalcode              = "/address/postalcode"
 	Messages                = "/messages"
 	Reminder                = "/reminder"
+	Reminders               = "/reminders"
 	Permission              = "/permission"
 	Address                 = "/mapped-user/address"
 	SOS                     = "/sos"

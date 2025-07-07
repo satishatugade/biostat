@@ -4,17 +4,22 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"biostat/utils"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type NotificationService interface {
 	GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error)
 	ScheduleReminders(email, name string, user_id uint64, config []models.ReminderConfig) error
 	SendSOS(recipientEmail, familyMember, patientName, location, dateTime, deviceId string) error
+	GetUserReminders(userId uint64) ([]models.UserReminder, error)
 }
 
 type NotificationServiceImpl struct {
@@ -117,4 +122,51 @@ func (e *NotificationServiceImpl) SendSOS(recipientEmail, familyMember, patientN
 	}
 	_, _, err := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", scheduleBody, header)
 	return err
+}
+
+func (s *NotificationServiceImpl) GetUserReminders(userId uint64) ([]models.UserReminder, error) {
+	var reminders []models.UserReminder
+	reminderMapping, err := s.notificationRepo.GetRemindersByUserId(userId)
+	if err != nil {
+		return nil, err
+	}
+	metadataMap := make(map[uuid.UUID]models.UserNotificationMapping)
+	var notificationIds []uuid.UUID
+
+	for _, m := range reminderMapping {
+		notificationIds = append(notificationIds, m.NotificationID)
+		metadataMap[m.NotificationID] = m
+	}
+	sendBody := map[string]interface{}{
+		"notification_id": notificationIds,
+	}
+	header := map[string]string{
+		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+	}
+	_, response, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/info", sendBody, header)
+	if sendErr != nil {
+		return nil, sendErr
+	}
+	content, ok := response["content"].([]interface{})
+	if !ok {
+		return nil, errors.New("invalid or missing 'content' field")
+	}
+	for _, res := range content {
+		jsonBytes, err := json.Marshal(res)
+		if err != nil {
+			log.Println("@GetUserReminders=>Marshal:", res)
+			continue
+		}
+		var reminder models.UserReminder
+		if err := json.Unmarshal(jsonBytes, &reminder); err != nil {
+			log.Println("@GetUserReminders:>error unmarshaling reminder:", err)
+			continue
+		}
+		if mapping, exists := metadataMap[reminder.ReminderID]; exists {
+			reminder.Title = mapping.Title
+			reminder.Message = mapping.Message
+		}
+		reminders = append(reminders, reminder)
+	}
+	return reminders, nil
 }

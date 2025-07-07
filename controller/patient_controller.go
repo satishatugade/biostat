@@ -2413,6 +2413,17 @@ func (pc *PatientController) SetUserReminder(ctx *gin.Context) {
 	return
 }
 
+func (pc *PatientController) GetUserReminders(ctx *gin.Context) {
+	_, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	notifications, err := pc.notificationService.GetUserReminders(user_id)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "reminders loaded", notifications, nil, nil)
+	return
+}
+
 func (pc *PatientController) AssignPermissionHandler(ctx *gin.Context) {
 	_, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {

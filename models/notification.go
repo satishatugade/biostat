@@ -35,3 +35,21 @@ type ReminderConfig struct {
 		Unit string `json:"unit"`
 	} `json:"medicines"`
 }
+
+type UserReminder struct {
+	ReminderID         uuid.UUID  `json:"notification_id"`
+	Title              string     `json:"title"`
+	Message            string     `json:"message"`
+	ScheduleTime       *time.Time `json:"schedule_time"`
+	NotificationStatus string     `json:"notification_status"`
+	RetryCount         uint64     `json:"retry_count"`
+	IsRecurring        bool       `json:"is_recurring"`
+	RepeatType         string     `json:"repeat_type"`
+	RepeatTimes        uint64     `json:"repeat_times"`
+	RepeatInterval     uint64     `json:"repeat_interval"`
+	SentTimes          uint64     `json:"sent_times"`
+	RepeatUntil        *time.Time `json:"repeat_until"`
+	NextSendAt         *time.Time `json:"next_send_at"`
+	NotificationType   string     `json:"notification_type"`
+	IsActive           bool       `json:"is_active"`
+}

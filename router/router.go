@@ -351,6 +351,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"send-sms", http.MethodPost, constant.ShareReport, patientController.ShareReport},
 
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
+		Route{"User Notifications", http.MethodGet, constant.Reminders, patientController.GetUserReminders},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
 
 		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
