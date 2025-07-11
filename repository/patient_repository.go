@@ -1825,7 +1825,6 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			ColourClass:  colorClass,
 			Colour:       colour,
 			ReportID:     strconv.Itoa(int(row.PatientDiagnosticReportID)),
-			RecordId:     strconv.Itoa(int(row.RecordId)),
 			ResultDate:   row.ResultDate,
 			Qualifier:    row.Qualifier,
 			ReportName:   row.ReportName,
