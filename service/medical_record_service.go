@@ -24,7 +24,7 @@ type TblMedicalRecordService interface {
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, file *bytes.Buffer, filename string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, authUserId string, file *bytes.Buffer, filename string) error
-	SaveMedicalRecords(data *[]models.TblMedicalRecord, userId uint64) error
+	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
@@ -90,7 +90,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 
 func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
 	userId uint64, authUserId string, fileBuf *bytes.Buffer, filename string) error {
-	if record.RecordCategory == "Test Reports" || record.RecordCategory == "Prescriptions" {
+	if record.RecordCategory == "Test Reports" || record.RecordCategory == "Prescriptions" || record.RecordCategory == "test_report" {
 		log.Println("Queue worker starts............")
 		tempDir := os.TempDir()
 		tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))
@@ -310,10 +310,10 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 	return bestMatchID
 }
 
-func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMedicalRecord, userId uint64) error {
-	var uniqueRecords []models.TblMedicalRecord
+func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64) error {
+	var uniqueRecords []*models.TblMedicalRecord
 
-	for _, record := range *records {
+	for _, record := range records {
 		exists, err := s.tblMedicalRecordRepo.ExistsRecordForUser(userId, record.UploadSource, record.RecordUrl)
 		if err != nil {
 			return err
@@ -326,12 +326,13 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records *[]models.TblMe
 		return nil
 	}
 
-	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(&uniqueRecords)
+	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(uniqueRecords)
 	if err != nil {
 		return err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	for _, record := range uniqueRecords {
+		log.Println("Creating mapping for %s", record.RecordId)
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
 			UserID:   userId,
 			RecordID: record.RecordId,

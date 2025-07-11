@@ -4,7 +4,7 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"biostat/service"
-	"context"
+	"biostat/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -30,13 +30,18 @@ func NewGmailSyncController(gmailSyncService service.GmailSyncService, service s
 }
 
 func (gc *GmailSyncController) GmailLoginHandler(ctx *gin.Context) {
-	userID := ctx.Query("user_id")
-	if userID == "" {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User Id missing in request", nil, errors.New("User Id missing in request"))
+	userId := utils.GetParamAsUInt(ctx, "user_id")
+	if userId == 0 {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Error while syncing", nil, errors.New("User Id missing in request"))
 		return
 	}
-	authURL := gc.gmailSyncService.GetGmailAuthURL(userID)
+	authURL, err := gc.gmailSyncService.GetGmailAuthURL(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Gmail couldn't be synced", nil, err)
+		return
+	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", gin.H{"auth_url": authURL}, nil, nil)
+	return
 }
 
 func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
@@ -56,40 +61,30 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, fmt.Sprintf(os.Getenv("APP_URL")+"/dashboard/medical-reports?status=processing"))
 
 	go func() {
-		if err := c.gmailSyncService.SyncGmail(userIDInt64, code); err != nil {
+		if err := c.gmailSyncService.SyncGmailWeb(userIDInt64, code); err != nil {
 			log.Println("Gmail sync error:", err)
 		}
 	}()
 }
 
-func (c *GmailSyncController) FetchEmailsHandler(ctx *gin.Context) {
+func (c *GmailSyncController) FetchEmailsHandlerApp(ctx *gin.Context) {
 	var req models.GmailSyncRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
 		return
 	}
-	context := context.Background()
-	gmailService, err := c.gmailSyncService.CreateGmailServiceFromToken(context, req.AccessToken)
+	gmailService, err := c.gmailSyncService.GmailServiceApp(req.UserID, req.AccessToken)
 	if err != nil {
-		log.Println("FetchEmailsHandler->CreateGmailServiceFromToken:", err)
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "failed to create Gmail service", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Gmail couldn't be synced", nil, err)
 		return
 	}
+	go func() {
+		if err := c.gmailSyncService.SyncGmailApp(req.UserID, gmailService); err != nil {
+			log.Panicln("FetchEmailsHandlerApp:", err)
+		}
+	}()
 
-	emailMedRecord, err := c.gmailSyncService.FetchEmailsWithAttachments(gmailService, req.UserID)
-	if err != nil {
-		log.Println("FetchEmailsHandler->FetchEmailsWithAttachments:", err)
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "failed to fetch emails", nil, err)
-		return
-	}
-
-	err = c.service.SaveMedicalRecords(&emailMedRecord, req.UserID)
-	if err != nil {
-		log.Println("FetchEmailsHandler->SaveMedicalRecords:", err)
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Error while saving email data:", nil, err)
-		return
-	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "gmail sync completed", emailMedRecord, nil, nil)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", gin.H{"message": "Gmail syncing process started will update you once done"}, nil, nil)
 	return
 
 }

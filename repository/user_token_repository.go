@@ -124,7 +124,9 @@ func (r *UserRepositoryImpl) FetchMappedUserAddress(patientID uint64, mappingTyp
 		Joins("JOIN tbl_system_user_ AS su ON urm.user_id = su.user_id").
 		Joins("JOIN tbl_system_user_address_mapping AS suad ON suad.user_id = su.user_id").
 		Joins("JOIN tbl_address_master AS am ON am.address_id = suad.address_id").
-		Where("urm.patient_id = ? AND urm.mapping_type = ?", patientID, mappingType)
+		Where(`urm.patient_id = ? AND urm.mapping_type = ?
+		AND COALESCE(am.address_line1, '') <> '' AND COALESCE(am.city, '') <> ''
+		AND COALESCE(am.state, '') <> '' AND COALESCE(am.postal_code, '') <> ''`, patientID, mappingType)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

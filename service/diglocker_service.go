@@ -119,8 +119,8 @@ func GetDigiLockerDocumentsList(accessToken string, dir_code string) (map[string
 	return result, nil
 }
 
-func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, userId uint64) ([]models.TblMedicalRecord, error) {
-	var allDocs []models.TblMedicalRecord
+func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, userId uint64) ([]*models.TblMedicalRecord, error) {
+	var allDocs []*models.TblMedicalRecord
 
 	dirRes, err := GetDigiLockerDocumentsList(token, dirId)
 	if err != nil {
@@ -156,7 +156,7 @@ func FetchDirItemsRecursively(token string, dirId string, digiLockerId string, u
 				FetchedAt:         time.Now(),
 				CreatedAt:         utils.ParseDateField(record["date"]),
 			}
-			allDocs = append(allDocs, newRecord)
+			allDocs = append(allDocs, &newRecord)
 		case "dir":
 			log.Printf("Entering sub-directory: %v", record["name"])
 			subDocs, err := FetchDirItemsRecursively(token, record["id"].(string), digiLockerId, userId)

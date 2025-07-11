@@ -46,29 +46,27 @@ func (s *ProcessStatusServiceImpl) StartProcess(userID uint64, processType, enti
 }
 
 func (s *ProcessStatusServiceImpl) UpdateProcess(processID uuid.UUID, status string, entityID *string, message *string, step *string, completed bool) {
-	go func() {
-		defer s.suppressError()
+	defer s.suppressError()
 
-		updates := map[string]interface{}{
-			"status": status,
-		}
-		if entityID != nil {
-			updates["entity_id"] = *entityID
-		}
-		if message != nil {
-			updates["status_message"] = *message
-		}
-		if step != nil {
-			updates["step"] = *step
-		}
-		if completed {
-			updates["completed_at"] = time.Now()
-		}
+	updates := map[string]interface{}{
+		"status": status,
+	}
+	if entityID != nil {
+		updates["entity_id"] = *entityID
+	}
+	if message != nil {
+		updates["status_message"] = *message
+	}
+	if step != nil {
+		updates["step"] = *step
+	}
+	if completed {
+		updates["completed_at"] = time.Now()
+	}
 
-		if err := s.repo.UpdateProcess(processID, updates); err != nil {
-			log.Printf("@UpdateProcess->UpdateProcess failed to update: %v", err)
-		}
-	}()
+	if err := s.repo.UpdateProcess(processID, updates); err != nil {
+		log.Printf("@UpdateProcess->UpdateProcess failed to update: %v", err)
+	}
 }
 
 func (s *ProcessStatusServiceImpl) suppressError() {

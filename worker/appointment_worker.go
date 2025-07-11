@@ -109,7 +109,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	fileBuf := bytes.NewBuffer(fileBytes)
 
 	switch p.Category {
-	case "Test Reports":
+	case "Test Reports","test_report":
 		if err := w.handleTestReport(fileBuf, p); err != nil {
 			return w.failTask(ctx, queueName, p.RecordID, err.Error(), p.AuthUserID, retryCount)
 		}

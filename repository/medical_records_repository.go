@@ -15,7 +15,7 @@ type TblMedicalRecordRepository interface {
 	ProcessMedicalRecordResponse(data []models.ReportRow) []map[string]interface{}
 	GetMedicalRecordsByUserID(userID uint64, recordIdsMap map[uint64]uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
-	CreateMultipleTblMedicalRecords(data *[]models.TblMedicalRecord) error
+	CreateMultipleTblMedicalRecords(data []*models.TblMedicalRecord) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
@@ -375,7 +375,7 @@ func (r *tblMedicalRecordRepositoryImpl) CreateTblMedicalRecord(data *models.Tbl
 	return data, nil
 }
 
-func (r *tblMedicalRecordRepositoryImpl) CreateMultipleTblMedicalRecords(records *[]models.TblMedicalRecord) error {
+func (r *tblMedicalRecordRepositoryImpl) CreateMultipleTblMedicalRecords(records []*models.TblMedicalRecord) error {
 	return r.db.Create(records).Error
 }
 

@@ -2,10 +2,15 @@ package service
 
 import (
 	"biostat/models"
+	"biostat/repository"
+	"biostat/utils"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -21,24 +26,31 @@ import (
 )
 
 type GmailSyncService interface {
-	GetGmailAuthURL(userId string) (authUrl string)
+	GetGmailAuthURL(userId uint64) (string, error)
 	CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error)
 	CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error)
-	FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error)
-	SyncGmail(userID uint64, code string) error
+	FetchEmailsWithAttachments(service *gmail.Service, userId uint64, filterString string) ([]*models.TblMedicalRecord, error)
+	GmailServiceApp(userID uint64, accessToken string) (*gmail.Service, error)
+	SyncGmailWeb(userID uint64, code string) error
+	SyncGmailApp(userID uint64, service *gmail.Service) error
 }
 
 type GmailSyncServiceImpl struct {
 	processStatusService ProcessStatusService
 	medRecordService     TblMedicalRecordService
-	gTokenService        UserService
+	userService          UserService
+	diagnosticRepo       repository.DiagnosticRepository
 }
 
-func NewGmailSyncService(processStatusService ProcessStatusService, medRecordService TblMedicalRecordService, gTokenService UserService) GmailSyncService {
-	return &GmailSyncServiceImpl{processStatusService: processStatusService, medRecordService: medRecordService, gTokenService: gTokenService}
+func NewGmailSyncService(processStatusService ProcessStatusService, medRecordService TblMedicalRecordService, userService UserService, diagnosticRepo repository.DiagnosticRepository) GmailSyncService {
+	return &GmailSyncServiceImpl{processStatusService: processStatusService, medRecordService: medRecordService, userService: userService, diagnosticRepo: diagnosticRepo}
 }
 
-func (s *GmailSyncServiceImpl) GetGmailAuthURL(userId string) (authUrl string) {
+func (gs *GmailSyncServiceImpl) GetGmailAuthURL(userId uint64) (string, error) {
+	_, err := gs.diagnosticRepo.GetPatientLabNameAndEmail(userId)
+	if err != nil {
+		return "", err
+	}
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
@@ -49,8 +61,8 @@ func (s *GmailSyncServiceImpl) GetGmailAuthURL(userId string) (authUrl string) {
 		Scopes:       []string{"https://mail.google.com/"},
 		Endpoint:     google.Endpoint,
 	}
-	authURL := googleOauthConfig.AuthCodeURL(userId, oauth2.AccessTypeOffline)
-	return authURL
+	authURL := googleOauthConfig.AuthCodeURL(strconv.FormatUint(userId, 10), oauth2.AccessTypeOffline)
+	return authURL, nil
 }
 
 func (s *GmailSyncServiceImpl) CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error) {
@@ -66,19 +78,20 @@ func (s *GmailSyncServiceImpl) CreateGmailServiceFromToken(ctx context.Context, 
 	return gmail.New(client)
 }
 
-func (s *GmailSyncServiceImpl) FetchEmailsWithAttachments(service *gmail.Service, userId uint64) ([]models.TblMedicalRecord, error) {
+func (s *GmailSyncServiceImpl) FetchEmailsWithAttachments(service *gmail.Service, userId uint64, filterString string) ([]*models.TblMedicalRecord, error) {
 	profile, err := service.Users.GetProfile("me").Do()
 	if err != nil {
 		return nil, err
 	}
 	userEmail := profile.EmailAddress
-	query := `("health report" OR "lab result" OR "blood test") has:attachment`
+	query := fmt.Sprintf("(%s) has:attachment", filterString)
+	log.Println(query)
 	results, err := service.Users.Messages.List("me").Q(query).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	var records []models.TblMedicalRecord
+	var records []*models.TblMedicalRecord
 
 	for _, msg := range results.Messages {
 		message, err := service.Users.Messages.Get("me", msg.Id).Do()
@@ -87,14 +100,17 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachments(service *gmail.Service
 		}
 
 		attachments := ExtractAttachments(service, message, userEmail, userId)
+		for i, record := range attachments {
+			log.Printf("Attachment [%d]: %+v", i, record)
+		}
 		records = append(records, attachments...)
 	}
 	log.Println("Gmail Records found:", len(records), "userEmail: ", userEmail)
 	return records, nil
 }
 
-func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64) []models.TblMedicalRecord {
-	var records []models.TblMedicalRecord
+func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64) []*models.TblMedicalRecord {
+	var records []*models.TblMedicalRecord
 	for _, part := range message.Payload.Parts {
 		if part.Filename != "" {
 			attachmentData, err := DownloadAttachment(service, message.Id, part.Body.AttachmentId)
@@ -113,6 +129,15 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 			extension := filepath.Ext(part.Filename)
 			uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
 			safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
+
+			docTypeResp, err := utils.CallDocumentTypeAPI(bytes.NewReader(attachmentData), safeFileName)
+			if err != nil {
+				log.Printf("Failed to detect document type:%s %v ", part.Filename, err)
+				continue
+			} else {
+				log.Printf("Doc Type Response:%s %v", part.Filename, docTypeResp)
+			}
+
 			destinationPath := filepath.Join("uploads", safeFileName)
 
 			if err := os.WriteFile(destinationPath, attachmentData, 0644); err != nil {
@@ -128,13 +153,13 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 				UploadDestination: "LocalServer",
 				Description:       getHeader(message.Payload.Headers, "Subject"),
 				UploadSource:      "Gmail",
-				RecordCategory:    "report",
+				RecordCategory:    docTypeResp,
 				SourceAccount:     userEmail,
 				Status:            "success",
 				UploadedBy:        userId,
 				FetchedAt:         time.Now(),
 			}
-			records = append(records, *newRecord)
+			records = append(records, newRecord)
 		}
 	}
 	return records
@@ -163,7 +188,7 @@ func getHeader(headers []*gmail.MessagePartHeader, name string) string {
 	return ""
 }
 
-func (s *GmailSyncServiceImpl) SyncGmail(userID uint64, code string) error {
+func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 	processID := s.processStatusService.StartProcess(userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
 	msg := ""
 	step := "token_exchange"
@@ -185,8 +210,14 @@ func (s *GmailSyncServiceImpl) SyncGmail(userID uint64, code string) error {
 		return err
 	}
 
-	s.gTokenService.CreateTblUserToken(&models.TblUserToken{UserId: userID, AuthToken: token.AccessToken, Provider: "Gmail"})
-
+	s.userService.CreateTblUserToken(&models.TblUserToken{UserId: userID, AuthToken: token.AccessToken, Provider: "Gmail"})
+	labs, err := s.diagnosticRepo.GetPatientLabNameAndEmail(userID)
+	if err != nil {
+		msg = "query generation failed"
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, &step, true)
+		return err
+	}
+	filterString := utils.FormatLabsForGmailFilter(labs)
 	gmailService, err := s.CreateGmailServiceClient(token.AccessToken, googleOauthConfig)
 	if err != nil {
 		msg = "Failed to create Gmail client"
@@ -201,7 +232,7 @@ func (s *GmailSyncServiceImpl) SyncGmail(userID uint64, code string) error {
 
 	s.processStatusService.UpdateProcess(processID, "running", &profile.EmailAddress, nil, nil, false)
 
-	emailMedRecord, err := s.FetchEmailsWithAttachments(gmailService, userID)
+	emailMedRecord, err := s.FetchEmailsWithAttachments(gmailService, userID, filterString)
 	if err != nil {
 		msg = "Failed to fetch emails"
 		step = "fetch_emails"
@@ -214,7 +245,88 @@ func (s *GmailSyncServiceImpl) SyncGmail(userID uint64, code string) error {
 	step = "save_records"
 	s.processStatusService.UpdateProcess(processID, "running", nil, &msg, &step, false)
 
-	err = s.medRecordService.SaveMedicalRecords(&emailMedRecord, userID)
+	err = s.medRecordService.SaveMedicalRecords(emailMedRecord, userID)
+	if err != nil {
+		msg = "Failed to save medical records"
+		log.Println("Error while saving email data:", err)
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, nil, true)
+		return err
+	}
+	msg = "Sync completed"
+
+	s.processStatusService.UpdateProcess(processID, "completed", nil, &msg, nil, true)
+	log.Println("Email sync completed for user:", userID)
+	userInfo, err := s.userService.GetSystemUserInfoByUserID(userID)
+	if err != nil {
+		return err
+	}
+	for _, record := range emailMedRecord {
+		log.Println("Starting to Digitize saved record : %s", record.RecordId)
+		resp, err := http.Get(record.RecordUrl)
+		if err != nil {
+			log.Println("Error @SyncGmailWeb->Read File From URL:%v", err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		fileBuf := new(bytes.Buffer)
+		_, err = io.Copy(fileBuf, resp.Body)
+		filename := filepath.Base(record.RecordUrl)
+		err = s.medRecordService.CreateDigitizationTask(record, userInfo, userID, userInfo.AuthUserId, fileBuf, filename)
+		if err != nil {
+			log.Println("Error @SyncGmailWeb->CreateDigitizationTask:%v", err)
+		}
+	}
+	return nil
+}
+
+func (s *GmailSyncServiceImpl) GmailServiceApp(userID uint64, accessToken string) (*gmail.Service, error) {
+	context := context.Background()
+	gmailService, err := s.CreateGmailServiceFromToken(context, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.diagnosticRepo.GetPatientLabNameAndEmail(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return gmailService, nil
+}
+
+func (s *GmailSyncServiceImpl) SyncGmailApp(userID uint64, gmailService *gmail.Service) error {
+	processID := s.processStatusService.StartProcess(userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
+	msg := ""
+	step := ""
+	labs, err := s.diagnosticRepo.GetPatientLabNameAndEmail(userID)
+	if err != nil {
+		msg = "query generation failed"
+		step = "fetch_labs"
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, &step, true)
+		return err
+	}
+	filterString := utils.FormatLabsForGmailFilter(labs)
+	profile, err := gmailService.Users.GetProfile("me").Do()
+	if err != nil {
+
+		return err
+	}
+	s.processStatusService.UpdateProcess(processID, "running", &profile.EmailAddress, nil, nil, false)
+
+	emailMedRecord, err := s.FetchEmailsWithAttachments(gmailService, userID, filterString)
+	if err != nil {
+		msg = "Failed to fetch emails"
+		step = "fetch_emails"
+		s.processStatusService.UpdateProcess(processID, "failed", nil, &msg, nil, true)
+		log.Println("Failed to fetch emails:", err)
+		return err
+	}
+
+	msg = "Email records fetched"
+	step = "save_records"
+	s.processStatusService.UpdateProcess(processID, "running", nil, &msg, &step, false)
+
+	err = s.medRecordService.SaveMedicalRecords(emailMedRecord, userID)
 	if err != nil {
 		msg = "Failed to save medical records"
 		log.Println("Error while saving email data:", err)

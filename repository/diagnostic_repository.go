@@ -64,6 +64,7 @@ type DiagnosticRepository interface {
 	FetchSources(limit, offset int) ([]models.HealthVitalSourceType, int64, error)
 	GetSourceById(sourceId int) (models.HealthVitalSource, error)
 	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
+	GetPatientLabNameAndEmail(userId uint64) ([]models.DiagnosticLabResponse, error)
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -407,6 +408,27 @@ func (r *DiagnosticRepositoryImpl) GetAllLabs(limit, offset int) ([]models.Diagn
 	return labs, total, err
 }
 
+func (dr *DiagnosticRepositoryImpl) GetPatientLabNameAndEmail(userId uint64) ([]models.DiagnosticLabResponse, error) {
+	var labs []models.DiagnosticLabResponse
+
+	err := dr.db.
+		Table("tbl_diagnostic_lab AS dl").
+		Select("dl.lab_name, dl.lab_email").
+		Joins("JOIN tbl_patient_diagnostic_lab_mapping AS dlm ON dl.diagnostic_lab_id = dlm.diagnostic_lab_id").
+		Where("dlm.patient_id = ?", userId).
+		Scan(&labs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(labs) == 0 {
+		return nil, errors.New("no labs found please add labs first")
+	}
+
+	return labs, nil
+}
+
 func (dr *DiagnosticRepositoryImpl) GetPatientDiagnosticLabs(patientId uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error) {
 	var labs []models.DiagnosticLabResponse
 	var count int64
@@ -516,7 +538,7 @@ func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 func (repo *DiagnosticRepositoryImpl) AddMapping(patientId uint64, labInfo *models.DiagnosticLab) error {
 	var existingMapping models.SystemUserRoleMapping
 	err := repo.db.Where("user_id = ? AND patient_id = ? AND mapping_type = ? AND is_self = ?",
-		patientId, patientId, "S", true).
+		patientId, patientId, string(constant.MappingTypeS), true).
 		First(&existingMapping).Error
 
 	if err != nil {

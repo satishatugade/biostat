@@ -11,7 +11,9 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"reflect"
@@ -722,6 +724,76 @@ func MakeRESTRequest(method, url string, body interface{}, headers map[string]st
 	return resp.StatusCode, responseData, nil
 }
 
+func CallDocumentTypeAPI(file io.Reader, filename string) (string, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	log.Println("File Name : ", filename)
+
+	buf := make([]byte, 512)
+	n, err := file.Read(buf)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file for MIME detection: %w", err)
+	}
+	mimeType := http.DetectContentType(buf[:n])
+	log.Printf("Detected MIME type: %s", mimeType)
+
+	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
+	h.Set("Content-Type", mimeType)
+
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return "", fmt.Errorf("failed to create form part: %w", err)
+	}
+
+	if _, err := io.Copy(part, fileReader); err != nil {
+		return "", fmt.Errorf("failed to copy file data: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("failed to close writer: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "http://bio.alrn.in/api/document_type", body)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
+	}
+
+	var reportData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
+		return "", fmt.Errorf("failed to parse JSON response: %w", err)
+	}
+	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
+	if err != nil {
+		log.Println("Failed to format JSON:", err)
+	} else {
+		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+	}
+	if errMsg, ok := reportData["error"].(string); ok && errMsg != "" {
+		return "", fmt.Errorf("document type error: %s", errMsg)
+	}
+	docType, ok := reportData["document_type"].(string)
+	if !ok || docType == "" {
+		return "", fmt.Errorf("document type not found in response")
+	}
+
+	return docType, nil
+}
+
 func GenerateGoogleCalendarLink(title, description, location string, start, end time.Time) string {
 	base := "https://calendar.google.com/calendar/render?action=TEMPLATE"
 
@@ -776,23 +848,23 @@ func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) (string, 
 }
 
 func GetMappingTypeByRoleName(roleName string, mappingType *string) string {
-	if mappingType != nil && *mappingType == "PCG" {
+	if mappingType != nil && *mappingType == string(constant.MappingTypePCG) {
 		return string(constant.MappingTypeC)
 	}
 	switch roleName {
-	case "patient":
-		return string(constant.MappingTypeP)
-	case "doctor":
+	case string(constant.Patient):
+		return string(constant.MappingTypeHOF)
+	case string(constant.Doctor):
 		return string(constant.MappingTypeD)
-	case "nurse":
+	case string(constant.Nurse):
 		return string(constant.MappingTypeN)
-	case "relative":
+	case string(constant.Relative):
 		return string(constant.MappingTypeR)
-	case "caregiver":
+	case string(constant.Caregiver):
 		return string(constant.MappingTypeC)
-	case "admin":
+	case string(constant.Admin):
 		return string(constant.MappingTypeA)
-	case "pharmacist":
+	case string(constant.Pharmacist):
 		return string(constant.MappingTypeP)
 	default:
 		return ""
@@ -813,4 +885,156 @@ func GetConcurrentTaskCount() int {
 		return n
 	}
 	return 50
+}
+
+func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
+	var parts []string
+	for _, lab := range labs {
+		parts = append(parts, fmt.Sprintf("\"%s\"", lab.LabName))
+		parts = append(parts, fmt.Sprintf("\"%s\"", lab.LabEmail))
+	}
+	return strings.Join(parts, " OR ")
+}
+
+func GetReverseRelation(relationId int, myGenderId int) *int {
+	switch relationId {
+	case 1: // Father
+		if myGenderId == 1 {
+			r := 5 // Son
+			return &r
+		} else {
+			r := 6 // Daughter
+			return &r
+		}
+	case 2: // Mother
+		if myGenderId == 1 {
+			r := 5
+			return &r
+		} else {
+			r := 6
+			return &r
+		}
+	case 3: // Brother
+		if myGenderId == 1 {
+			r := 3
+			return &r
+		} else {
+			r := 4
+			return &r
+		}
+	case 4: // Sister
+		if myGenderId == 1 {
+			r := 3
+			return &r
+		} else {
+			r := 4
+			return &r
+		}
+	case 5: // Son
+		if myGenderId == 1 {
+			r := 1
+			return &r
+		} else {
+			r := 2
+			return &r
+		}
+	case 6: // Daughter
+		if myGenderId == 1 {
+			r := 1
+			return &r
+		} else {
+			r := 2
+			return &r
+		}
+	case 7: // Husband
+		r := 8
+		return &r
+	case 8: // Wife
+		r := 7
+		return &r
+	case 9: // Uncle
+		if myGenderId == 1 {
+			r := 14 // Nephew
+			return &r
+		} else {
+			r := 15 // Niece
+			return &r
+		}
+	case 10: // Aunt
+		if myGenderId == 1 {
+			r := 14
+			return &r
+		} else {
+			r := 15
+			return &r
+		}
+	case 11: // Cousin
+		r := 11
+		return &r
+	case 12: // Grandfather
+		if myGenderId == 1 {
+			r := 19 // Grandchild
+			return &r
+		} else {
+			r := 19
+			return &r
+		}
+	case 13: // Grandmother
+		if myGenderId == 1 {
+			r := 19
+			return &r
+		} else {
+			r := 19
+			return &r
+		}
+	case 14: // Nephew
+		if myGenderId == 1 {
+			r := 9
+			return &r
+		} else {
+			r := 10
+			return &r
+		}
+	case 15: // Niece
+		if myGenderId == 1 {
+			r := 9
+			return &r
+		} else {
+			r := 10
+			return &r
+		}
+	case 16: // Friend
+		r := 16
+		return &r
+	case 17: // Colleague
+		r := 17
+		return &r
+	case 18: // Guardian
+		r := 20 // Ward
+		return &r
+	case 19: // Grandchild
+		if myGenderId == 1 {
+			r := 12 // Grandfather
+			return &r
+		} else {
+			r := 13 // Grandmother
+			return &r
+		}
+	case 20: // Ward
+		r := 18 // Guardian
+		return &r
+	case 21: // Doctor
+		r := 21
+		return &r
+	case 22: // In-laws
+		r := 22
+		return &r
+	case 23: // Assistant
+		r := 23
+		return &r
+	case 24: // Nurse
+		r := 24
+		return &r
+	}
+	return nil
 }

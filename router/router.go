@@ -49,12 +49,16 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var patientRepo = repository.NewPatientRepository(db)
 
 	var roleRepo = repository.NewRoleRepository(db)
-	var roleService = service.NewRoleService(roleRepo)
 
 	var processStatusRepo = repository.NewProcessStatusRepository(db)
 	var processStatusService = service.NewProcessStatusService(processStatusRepo)
 
 	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService)
+
+	var roleService = service.NewRoleService(roleRepo, patientService)
+	
+	var permissionRepo = repository.NewPermissionRepository(db)
+	var permissionService = service.NewPermissionService(permissionRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
@@ -75,7 +79,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var orderService = service.NewOrderService(orderRepo)
 	var authService = auth.NewAuthService(userRepo, userService, emailService)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService, authService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService, authService, permissionService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService)
 	MasterRoutes(apiGroup, masterController, patientController)
@@ -84,7 +88,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService)
 	UserRoutes(apiGroup, userController)
 
-	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService)
+	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo)
 	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
@@ -245,16 +249,18 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
-		Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
-		Route{"patient", http.MethodPost, constant.Relative, patientController.GetPatientRelativeList},
+		Route{"patient", http.MethodPut, constant.UpdateRelative, patientController.UpdateRelativeInfoById},
+		// Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
+		Route{"patient", http.MethodPost, constant.RelativeInfo, patientController.GetPatientRelativeList},
 		Route{"patient", http.MethodPost, constant.PrimaryCaregiver, patientController.AssignPrimaryCaregiver},
 
 		Route{"patient", http.MethodPost, constant.UserProfile, patientController.GetUserProfile},
 		Route{"patient", http.MethodPost, constant.UserOnboardingStatus, patientController.GetUserOnBoardingStatus},
 
-		Route{"D-LAB", http.MethodPost, constant.GetAllLab, patientController.GetAllLabs},
+		// Route{"D-LAB", http.MethodPost, constant.GetAllLab, patientController.GetAllLabs},
 		Route{"D-LAB", http.MethodPost, constant.AddLab, patientController.AddLab},
 		Route{"D-LAB", http.MethodPost, constant.GetPatientLabs, patientController.GetPatientDiagnosticLabs},
+		Route{"D-LAB", http.MethodPut, constant.UpdateLabInfo, patientController.UpdateLab},
 
 		// patient relatives
 		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
@@ -263,7 +269,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.RelativeList, patientController.GetRelativeList},
 
 		//patient caregiver list
-		Route{"patient", http.MethodPost, constant.Caregiver, patientController.GetPatientCaregiverList},
+		Route{"patient", http.MethodPost, constant.GetCaregiver, patientController.GetPatientCaregiverList},
 		Route{"AssignedPatient", http.MethodPost, constant.AssignedPatient, patientController.GetAssignedPatientList},
 
 		Route{"patient - caregiver", http.MethodPost, constant.RemoveCaregiver, patientController.SetCaregiverMappingDeletedStatus},
@@ -357,6 +363,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
 		Route{"User permissions", http.MethodGet, constant.Permission, patientController.GetAllPermissions},
+		Route{"User permissions", http.MethodPost, constant.ManageFamilyPermission, patientController.ManagePermission},
 		Route{"User SOS", http.MethodPost, constant.SOS, patientController.SendSOSHandler},
 		Route{"User Share list", http.MethodPost, constant.ShareList, patientController.GetUserShareList},
 	}
@@ -385,8 +392,8 @@ func getUserRoutes(userController *controller.UserController) Routes {
 
 func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Routes {
 	return Routes{
-		{"gmail sync route", http.MethodPost, "/app-sync", gmailSyncController.FetchEmailsHandler},
+		{"gmail sync route", http.MethodPost, "/app-sync", gmailSyncController.FetchEmailsHandlerApp},
 		{"gmail sync route", http.MethodGet, "/oauth2callback", gmailSyncController.GmailCallbackHandler},
-		{"gmail sync route", http.MethodGet, "/login", gmailSyncController.GmailLoginHandler},
+		{"gmail sync route", http.MethodGet, "/web-sync/:user_id", gmailSyncController.GmailLoginHandler},
 	}
 }
