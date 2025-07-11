@@ -20,17 +20,19 @@ import (
 )
 
 type UserController struct {
-	patientService service.PatientService
-	roleService    service.RoleService
-	userService    service.UserService
-	emailService   service.EmailService
-	authService    auth.AuthService
+	patientService    service.PatientService
+	roleService       service.RoleService
+	userService       service.UserService
+	emailService      service.EmailService
+	authService       auth.AuthService
+	permissionService service.PermissionService
 }
 
 func NewUserController(patientService service.PatientService, roleService service.RoleService,
-	userService service.UserService, emailService service.EmailService, authService auth.AuthService) *UserController {
+	userService service.UserService, emailService service.EmailService, authService auth.AuthService,
+	permissionService service.PermissionService) *UserController {
 	return &UserController{patientService: patientService, roleService: roleService,
-		userService: userService, emailService: emailService, authService: authService}
+		userService: userService, emailService: emailService, authService: authService, permissionService: permissionService}
 }
 
 func (uc *UserController) RegisterUser(c *gin.Context) {
@@ -354,7 +356,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		}
 	}
 
-	if req.RoleName == string(constant.MappingTypeR) {
+	if req.RoleName == string(constant.Relative) {
 		err = uc.roleService.AddUserRelativeMappings(tx, patientUserId, systemUser.UserId, relation, roleMaster.RoleId, patient, &systemUser)
 		if err != nil {
 			tx.Rollback()
@@ -382,6 +384,10 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		}
 	}
 	tx.Commit()
+	permErr := uc.permissionService.GiveAllPermissionToHOF(&patientUserId, systemUser.UserId)
+	if permErr != nil {
+		log.Println("GiveAllPermissionToHOF ERROR : ", permErr)
+	}
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 	return

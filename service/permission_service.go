@@ -1,8 +1,10 @@
 package service
 
 import (
+	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
+	"errors"
 	"log"
 )
 
@@ -10,14 +12,16 @@ type PermissionService interface {
 	ManagePermission(input models.ManagePermissionsRequest) error
 	GetAllPermissions() ([]models.PermissionMaster, error)
 	AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error
+	GiveAllPermissionToHOF(HOFUserId *uint64, relativeUserId uint64) error
 }
 
 type PermissionServiceImpl struct {
 	permissionRepo repository.PermissionRepository
+	roleRepo       repository.RoleRepository
 }
 
-func NewPermissionService(repo repository.PermissionRepository) PermissionService {
-	return &PermissionServiceImpl{permissionRepo: repo}
+func NewPermissionService(repo repository.PermissionRepository, roleRepo repository.RoleRepository) PermissionService {
+	return &PermissionServiceImpl{permissionRepo: repo, roleRepo: roleRepo}
 }
 
 func (s *PermissionServiceImpl) GetAllPermissions() ([]models.PermissionMaster, error) {
@@ -78,4 +82,40 @@ func (s *PermissionServiceImpl) AssignMultiplePermissions(userID, relativeID uin
 		}
 	}
 	return nil
+}
+
+func (s *PermissionServiceImpl) GiveAllPermissionToHOF(HOFUserId *uint64, relativeUserId uint64) error {
+
+	if HOFUserId == nil {
+		return errors.New("HOFUserId is nil")
+	}
+	mappingType, err := s.roleRepo.GetMappingTypeByPatientId(HOFUserId)
+	if mappingType != string(constant.MappingTypeHOF) {
+		return errors.New("Patient User not a HOF ")
+	}
+	allPermissions, err := s.permissionRepo.GetAllPermissions()
+	if err != nil {
+		log.Println("Error fetching all permissions:", err)
+		return err
+	}
+
+	var permissionDtos []models.PermissionUpdateDto
+	for _, perm := range allPermissions {
+		permissionDtos = append(permissionDtos, models.PermissionUpdateDto{
+			Code:      perm.Code,
+			Value:     true,
+			GrantedTo: *HOFUserId,
+		})
+	}
+
+	relativeInput := models.RelativePermissionInput{
+		RelativeID:  relativeUserId,
+		Permissions: permissionDtos,
+	}
+
+	manageReq := models.ManagePermissionsRequest{
+		RelativePermissions: []models.RelativePermissionInput{relativeInput},
+	}
+
+	return s.ManagePermission(manageReq)
 }

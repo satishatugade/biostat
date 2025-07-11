@@ -54,7 +54,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var processStatusService = service.NewProcessStatusService(processStatusRepo)
 
 	var permissionRepo = repository.NewPermissionRepository(db)
-	var permissionService = service.NewPermissionService(permissionRepo)
+	var permissionService = service.NewPermissionService(permissionRepo, roleRepo)
 
 	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo)
 
@@ -85,7 +85,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService)
+	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService, permissionService)
 	UserRoutes(apiGroup, userController)
 
 	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo)

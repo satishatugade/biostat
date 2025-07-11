@@ -20,6 +20,7 @@ type RoleService interface {
 	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster) error
 	CreateReverseMappingsForRelative(patientUserId, userId uint64, genderId uint64) error
 	AddUserRelativeMappings(tx *gorm.DB, userId uint64, relativeId uint64, relation models.RelationMaster, roleId uint64, registeringUser *models.SystemUser_, newUser *models.SystemUser_) error
+	GetMappingTypeByPatientId(patientUserId *uint64) (string, error)
 }
 
 type RoleServiceImpl struct {
@@ -34,7 +35,6 @@ func NewRoleService(repo repository.RoleRepository, patientService PatientServic
 // GetRoleById implements RoleService.
 func (r *RoleServiceImpl) GetRoleById(roleId uint64) (models.RoleMaster, error) {
 	return r.roleRepo.GetRoleById(roleId)
-
 }
 
 func (r *RoleServiceImpl) GetRoleIdByRoleName(roleName string) (models.RoleMaster, error) {
@@ -243,4 +243,8 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 		})
 	}
 	return nil
+}
+
+func (r *RoleServiceImpl) GetMappingTypeByPatientId(patientId *uint64) (string, error) {
+	return r.roleRepo.GetMappingTypeByPatientId(patientId)
 }

@@ -221,6 +221,7 @@ func (p *RoleRepositoryImpl) GetRelationById(relationId uint64) (models.Relation
 	err := p.db.First(&relation, relationId).Error
 	return relation, err
 }
+
 func (r *RoleRepositoryImpl) GetMappingTypeByPatientId(patientId *uint64) (string, error) {
 	var mapping models.SystemUserRoleMapping
 
