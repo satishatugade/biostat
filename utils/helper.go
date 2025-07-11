@@ -373,14 +373,15 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 		}
 	case "caregiver":
 		return models.Caregiver{
-			PatientId:  user.UserId,
-			FirstName:  user.FirstName,
-			MiddleName: user.MiddleName,
-			LastName:   user.LastName,
-			Gender:     user.Gender,
-			GenderId:   user.GenderId,
-			MobileNo:   user.MobileNo,
-			Email:      user.Email,
+			PatientId:   user.UserId,
+			FirstName:   user.FirstName,
+			MiddleName:  user.MiddleName,
+			LastName:    user.LastName,
+			Gender:      user.Gender,
+			GenderId:    user.GenderId,
+			MobileNo:    user.MobileNo,
+			Email:       user.Email,
+			DateOfBirth: *user.DateOfBirth,
 			UserAddress: models.AddressMaster{
 				AddressId:    user.AddressMapping.AddressId,
 				AddressLine1: user.AddressMapping.Address.AddressLine1,
@@ -1037,4 +1038,37 @@ func GetReverseRelation(relationId int, myGenderId int) *int {
 		return &r
 	}
 	return nil
+}
+
+func ParseDate(input string) (time.Time, error) {
+	if strings.TrimSpace(input) == "" {
+		log.Println("Empty date string, using current time")
+		return time.Now().UTC(), nil
+	}
+
+	location, err := time.LoadLocation("Asia/Kolkata")
+	if err != nil {
+		log.Println("Failed to load timezone:", err)
+		return time.Time{}, err
+	}
+
+	layouts := []string{
+		time.RFC3339,
+		"02-Jan-2006 15:04:05",
+		"02-Jan-06 15:04:05",
+		"02/01/2006 15:04:05",
+		"02/01/06 15:04:05",
+		"02-Jan-2006",
+		"02-Jan-06",
+		"02/01/2006",
+		"02/01/06",
+	}
+	for _, layout := range layouts {
+		if parsedDate, err := time.ParseInLocation(layout, input, location); err == nil {
+			return parsedDate.UTC(), nil
+		}
+	}
+
+	log.Printf("Invalid date format for input: %s", input)
+	return time.Time{}, fmt.Errorf("invalid date format: %s", input)
 }

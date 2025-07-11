@@ -4,6 +4,7 @@ import (
 	"biostat/database"
 	"biostat/models"
 	"biostat/repository"
+	"biostat/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -335,35 +336,18 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		}
 		diagnosticLabId = labInfo.DiagnosticLabId
 	}
-
-	var parsedDate time.Time
-	var err error
-	if reportData.ReportDetails.ReportDate != "" {
-		layouts := []string{
-			time.RFC3339,
-			"02-Jan-2006 15:04:05",
-			"02-Jan-06 15:04:05",
-			"02/01/2006 15:04:05",
-			"02-Jan-2006",
-			"02-Jan-06",
-			"02/01/2006",
-		}
-		for _, layout := range layouts {
-			parsedDate, err = time.Parse(layout, reportData.ReportDetails.ReportDate)
-			if err == nil {
-				parsedDate = parsedDate.UTC()
-				break
-			}
-		}
-		if err != nil {
-			log.Println("Invalid date format:", err)
-			tx.Rollback()
-			return "", fmt.Errorf("invalid date format: %w", err)
-		}
-	} else {
-		log.Println("Empty report date, using default date")
-		parsedDate = time.Now()
+	reportDate, err := utils.ParseDate(reportData.ReportDetails.ReportDate)
+	if err != nil {
+		log.Println("ReportDate parsing failed:", err)
+		tx.Rollback()
+		return "", err
 	}
+	collectionDate, err := utils.ParseDate(reportData.ReportDetails.CollectionDate)
+	if err != nil {
+		log.Println("collectionDate parsing failed set report date as colection date :", err)
+		collectionDate = reportDate
+	}
+
 	reporId := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
 	log.Println("PatientDiagnosticReport Id 19 digit : ", reporId)
 	patientReport := models.PatientDiagnosticReport{
@@ -372,8 +356,8 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		PatientId:                 patientId,
 		PaymentStatus:             "Pending",
 		ReportName:                reportData.ReportDetails.ReportName,
-		CollectedDate:             parsedDate,
-		ReportDate:                parsedDate,
+		CollectedDate:             collectionDate,
+		ReportDate:                reportDate,
 		Observation:               "",
 		IsDigital:                 reportData.ReportDetails.IsDigital,
 		CollectedAt:               reportData.ReportDetails.LabLocation,
@@ -419,7 +403,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 			PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
 			DiagnosticTestId:          diagnosticTestId,
 			TestNote:                  testInterpretation,
-			TestDate:                  parsedDate,
+			TestDate:                  reportDate,
 		}
 		_, err := s.diagnosticRepo.SavePatientDiagnosticTestInterpretation(tx, &testRecord)
 		if err != nil {
@@ -443,7 +427,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					DiagnosticTestComponentId: diagnosticComponentId,
 					ResultStatus:              resultStatus,
 					ResultValue:               parsedResultValue,
-					ResultDate:                parsedDate,
+					ResultDate:                reportDate,
 					PatientId:                 patientId,
 					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
 				}
@@ -497,7 +481,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					DiagnosticTestComponentId: diagnosticComponentId,
 					ResultStatus:              resultStatus,
 					ResultValue:               parsedResultValue,
-					ResultDate:                parsedDate,
+					ResultDate:                reportDate,
 					PatientId:                 patientId,
 					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
 				}

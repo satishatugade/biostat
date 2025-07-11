@@ -213,6 +213,7 @@ type LabReport struct {
 		ReportName       string  `json:"report_name"`
 		PatientName      string  `json:"patient_name"`
 		ReportDate       string  `json:"report_date"`
+		CollectionDate   string  `json:"collection_date"`
 		DiagnosticLabId  *uint64 `json:"diagnostic_lab_id"`
 		SourceId         *uint64 `json:"source_id"`
 		LabName          string  `json:"lab_name"`
@@ -520,6 +521,7 @@ type ComponentKey struct {
 	Name        string
 	Units       string
 	RefRange    string
+	RecordId    string
 	ReportName  string
 	IsPinned    bool
 }
@@ -531,7 +533,6 @@ type CellData struct {
 	Colour       string `json:"colour"`
 	Qualifier    string `json:"qualifier"`
 	ReportID     string `json:"patient_diagnostic_report_id"`
-	RecordId     string `json:"record_id"`
 	ResultDate   string `json:"result_date"`
 	ReportName   string `json:"report_name"`
 	IsPinned     bool   `json:"is_pinned"`
