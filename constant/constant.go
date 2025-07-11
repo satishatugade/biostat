@@ -11,7 +11,6 @@ const (
 	SinglePatient        = "/patient-info/:patient_id"
 	UpdatePatient        = "/update-patient-info"
 	UpdateRelative       = "/update-relative-info"
-	PatientRelative      = "/patient-relative"
 	GetRelative          = "/patient-relative/:patient_id"
 	RelativeInfo         = "/get-relative/:patient_id"
 	PrimaryCaregiver     = "/primary-caregiver"

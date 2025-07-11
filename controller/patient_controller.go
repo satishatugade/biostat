@@ -426,6 +426,11 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
 		return
 	}
+	canAccess := pc.patientService.CanAccessAPI(userId, []uint64{3, 5})
+	if !canAccess {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, errors.New("You need subscription for uploading own records"))
+		return
+	}
 	err1 := pc.patientService.AddPatientPrescription(authUserId, &prescription)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add patient prescription", nil, err1)
@@ -596,37 +601,23 @@ func (pc *PatientController) GetPatientDietPlan(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, dietPlans, nil, nil)
 }
 
-func (pc *PatientController) AddPatientRelative(c *gin.Context) {
-	var relative models.PatientRelative
-	if err := c.ShouldBindJSON(&relative); err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
-		return
-	}
+//TODO DEL V
+// func (pc *PatientController) GetPatientRelative(c *gin.Context) {
+// 	patientId := c.Param("patient_id")
 
-	if err := pc.patientService.AddPatientRelative(&relative); err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create patient relative", nil, err)
-		return
-	}
+// 	relatives, err := pc.patientService.GetPatientRelative(patientId)
+// 	if err != nil {
+// 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient relatives", nil, err)
+// 		return
+// 	}
+// 	statusCode, message := utils.GetResponseStatusMessage(
+// 		len(relatives),
+// 		"Patient relatives retrieved successfully",
+// 		"Relatives not found",
+// 	)
 
-	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Patient relative created successfully", relative, nil, nil)
-}
-
-func (pc *PatientController) GetPatientRelative(c *gin.Context) {
-	patientId := c.Param("patient_id")
-
-	relatives, err := pc.patientService.GetPatientRelative(patientId)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch patient relatives", nil, err)
-		return
-	}
-	statusCode, message := utils.GetResponseStatusMessage(
-		len(relatives),
-		"Patient relatives retrieved successfully",
-		"Relatives not found",
-	)
-
-	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
-}
+// 	models.SuccessResponse(c, constant.Success, statusCode, message, relatives, nil, nil)
+// }
 
 func (pc *PatientController) GetPatientRelativeList(c *gin.Context) {
 	_, user_id, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
@@ -1024,6 +1015,12 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		err = pc.patientService.CanContinue(userId, reqUserID, constant.PermissionUploadReport)
 		if err != nil {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, err)
+			return
+		}
+	} else {
+		canAccess := pc.patientService.CanAccessAPI(userId, []uint64{3, 5})
+		if !canAccess {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, errors.New("You need subscription for uploading own records"))
 			return
 		}
 	}

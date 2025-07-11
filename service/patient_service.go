@@ -42,8 +42,7 @@ type PatientService interface {
 	GetPrescriptionInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	GetPharmacokineticsInfo(prescriptiuonId uint64, patientId uint64) (string, error)
 	SummarizeHistorybyAIModel(patientId uint64) (string, error)
-	AddPatientRelative(relative *models.PatientRelative) error
-	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	// GetPatientRelative(patientId string) ([]models.PatientRelative, error) //TODO DEL V
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
@@ -75,6 +74,7 @@ type PatientService interface {
 	SendSOS(patientID uint64, ip, userAgent string) error
 
 	CanContinue(patientID, userID uint64, permission string) error
+	CanAccessAPI(userID uint64, roles []uint64) bool
 }
 
 type PatientServiceImpl struct {
@@ -328,10 +328,6 @@ func (s *PatientServiceImpl) UpdateFlag(patientId uint64, req *models.DPRequest)
 	return s.patientRepo.UpdateFlag(patientId, req)
 }
 
-func (s *PatientServiceImpl) AddPatientRelative(relative *models.PatientRelative) error {
-	return s.patientRepo.AddPatientRelative(relative)
-}
-
 func (s *PatientServiceImpl) AssignPrimaryCaregiver(patientId, relativeId uint64, mappingType string) error {
 	return s.patientRepo.AssignPrimaryCaregiver(patientId, relativeId, mappingType)
 }
@@ -340,10 +336,10 @@ func (s *PatientServiceImpl) SetCaregiverMappingDeletedStatus(patientId, caregiv
 	return s.patientRepo.SetCaregiverMappingDeletedStatus(patientId, caregiverId, isDeleted)
 }
 
-// GetPatientRelatives implements PatientService.
-func (s *PatientServiceImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
-	return s.patientRepo.GetPatientRelative(patientId)
-}
+// GetPatientRelatives implements PatientService. //TODO DEL V
+// func (s *PatientServiceImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
+// 	return s.patientRepo.GetPatientRelative(patientId)
+// }
 
 // AddPatientClinicalRange implements PatientService.
 func (s *PatientServiceImpl) AddPatientClinicalRange(customRange *models.PatientCustomRange) error {
@@ -1291,4 +1287,8 @@ func (ps *PatientServiceImpl) UpdateRelativeInfo(userId uint64, patientData *mod
 		}
 	}
 	return nil
+}
+
+func (ps *PatientServiceImpl) CanAccessAPI(userID uint64, roles []uint64) bool {
+	return ps.patientRepo.UserHasAnyOfRole(userID, roles)
 }

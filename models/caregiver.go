@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Caregiver struct {
-	PatientId    uint64             `json:"patient_id"`
+	PatientId    uint64             `json:"user_id"` //patient_id
 	FirstName    string             `json:"first_name"`
 	MiddleName   string             `json:"middle_name"`
 	LastName     string             `json:"last_name"`

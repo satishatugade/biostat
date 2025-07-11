@@ -36,10 +36,9 @@ type PatientRepository interface {
 	UpdatePrescriptionArchiveState(patientId uint64, prescriptionID uint64, isDeleted int) error
 
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
-	AddPatientRelative(relative *models.PatientRelative) error
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
-	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	// GetPatientRelative(patientId string) ([]models.PatientRelative, error)
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.PatientRelative, error)
 	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
@@ -79,6 +78,7 @@ type PatientRepository interface {
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 	GetPinnedComponentCount(patientId uint64) (int64, error)
 	HasRelation(patientId uint64, userId uint64) (bool, error)
+	UserHasAnyOfRole(userId uint64, roles []uint64) bool
 }
 
 type PatientRepositoryImpl struct {
@@ -623,10 +623,6 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticTestResult(patientId uint64,
 	return patientReport, nil
 }
 
-func (p *PatientRepositoryImpl) AddPatientRelative(relative *models.PatientRelative) error {
-	return p.db.Create(relative).Error
-}
-
 func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error {
 	tx := ps.db.Begin()
 	rollbackErr := func(err error) error {
@@ -727,11 +723,12 @@ func (pr *PatientRepositoryImpl) SetCaregiverMappingDeletedStatus(patientId, car
 	return nil
 }
 
-func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
-	var relatives []models.PatientRelative
-	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
-	return relatives, err
-}
+//TODO DEL V
+// func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
+// 	var relatives []models.PatientRelative
+// 	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
+// 	return relatives, err
+// }
 
 func (s *PatientRepositoryImpl) IsPatientExists(patientID uint) (bool, error) {
 	var count int64
@@ -1818,6 +1815,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			Name:        row.TestComponentName,
 			Units:       row.ComponentUnit,
 			RefRange:    rangeStr,
+			RecordId:    strconv.Itoa(int(row.RecordId)),
 			IsPinned:    row.IsPinned,
 		}
 
@@ -1831,7 +1829,6 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			ResultDate:   row.ResultDate,
 			Qualifier:    row.Qualifier,
 			ReportName:   row.ReportName,
-			IsPinned:     row.IsPinned,
 		}
 
 		componentMap[key] = append(componentMap[key], cell)
@@ -1852,6 +1849,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			"ref_unit":                     key.Units,
 			"ref_range":                    key.RefRange,
 			"is_pinned":                    key.IsPinned,
+			"record_id":                    key.RecordId,
 			"trend_values":                 values,
 		}
 		finalRows = append(finalRows, row)
@@ -2082,4 +2080,15 @@ func (r *PatientRepositoryImpl) UpdateSystemUserRoleMapping(userId uint64, patie
 	}
 
 	return nil
+}
+
+func (p *PatientRepositoryImpl) UserHasAnyOfRole(userId uint64, roles []uint64) bool {
+	var count int64
+	err := p.db.Table("tbl_system_user_role_mapping").
+		Where("user_id = ? AND role_id in ?", userId, roles).
+		Count(&count).Error
+	if err != nil {
+		return false
+	}
+	return count > 0
 }

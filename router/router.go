@@ -250,7 +250,6 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.PatientInfo, patientController.GetPatientInfo},
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
 		Route{"patient", http.MethodPut, constant.UpdateRelative, patientController.UpdateRelativeInfoById},
-		// Route{"patient", http.MethodPost, constant.PatientRelative, patientController.AddPatientRelative},
 		Route{"patient", http.MethodPost, constant.RelativeInfo, patientController.GetPatientRelativeList},
 		Route{"patient", http.MethodPost, constant.PrimaryCaregiver, patientController.AssignPrimaryCaregiver},
 
@@ -263,7 +262,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"D-LAB", http.MethodPut, constant.UpdateLabInfo, patientController.UpdateLab},
 
 		// patient relatives
-		Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},
+		// Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},//TODO DEL V
 
 		//all relatives list
 		Route{"patient", http.MethodPost, constant.RelativeList, patientController.GetRelativeList},

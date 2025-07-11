@@ -536,15 +536,6 @@ func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 }
 
 func (repo *DiagnosticRepositoryImpl) AddMapping(patientId uint64, labInfo *models.DiagnosticLab) error {
-	var existingMapping models.SystemUserRoleMapping
-	err := repo.db.Where("user_id = ? AND patient_id = ? AND mapping_type = ? AND is_self = ?",
-		patientId, patientId, string(constant.MappingTypeS), true).
-		First(&existingMapping).Error
-
-	if err != nil {
-		return err
-	}
-
 	newLabMapping := models.PatientDiagnosticLabMapping{
 		PatientId:       patientId,
 		DiagnosticLabId: labInfo.DiagnosticLabId,

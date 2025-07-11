@@ -5,7 +5,7 @@ import (
 )
 
 type Patient struct {
-	PatientId            uint64        `json:"patient_id"`
+	PatientId            uint64        `json:"user_id"` //patient_id
 	FirstName            string        `json:"first_name"`
 	MiddleName           string        `json:"middle_name"`
 	LastName             string        `json:"last_name"`
@@ -54,7 +54,7 @@ func (GenderMaster) TableName() string {
 }
 
 type PatientRelative struct {
-	RelativeId        uint64             `json:"relative_id"`
+	RelativeId        uint64             `json:"user_id"` //relative_id
 	PatientId         *uint              `json:"patient_id,omitempty"`
 	FirstName         string             `json:"first_name"`
 	MiddleName        string             `json:"middle_name"`
