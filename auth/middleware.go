@@ -503,14 +503,12 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 
 			roleErr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
 			if roleErr != nil {
-				log.Printf("[ERROR] Failed to assign role '%s' to existing user ID %s: %v", role.Name, userID, roleErr)
+				log.Printf("[ERROR] Failed to assign role %s to existing user ID %s: %v", *role.Name, userID, roleErr)
 				return "", true, fmt.Errorf("unable to assign role to existing user: %v", roleErr)
 			}
-			log.Printf("[INFO] Role '%s' assigned to existing user ID: %s", role.Name, userID)
+			log.Printf("[INFO] Role '%s' assigned to existing user ID: %s", *role.Name, userID)
 			return userID, true, nil
 		}
-		log.Printf("existingUsers id ", existingUsers)
-		log.Printf("[ERROR] User creation failed and no existing user found (username: %s, email: %s)", user.Username, user.Email)
 		return "", false, fmt.Errorf("user creation failed: %v", err)
 	}
 

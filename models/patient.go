@@ -32,14 +32,14 @@ type Patient struct {
 	UpdatedAt            time.Time     `json:"updated_at"`
 }
 
-type PatientRelation struct {
+type RelationMaster struct {
 	RelationId     *uint64 `json:"relation_id" gorm:"column:relation_id"`
 	RelationShip   string  `json:"relationship" gorm:"column:relationship"`
 	SourceGenderId uint64  `json:"source_gender_id" gorm:"column:source_gender_id"`
 	IsDeleted      int     `json:"is_deleted" gorm:"column:is_deleted"`
 }
 
-func (PatientRelation) TableName() string {
+func (RelationMaster) TableName() string {
 	return "tbl_relation_master"
 }
 

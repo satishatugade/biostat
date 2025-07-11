@@ -170,7 +170,6 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, err)
 		return
 	}
-	log.Println("User login as role ", user.RoleName)
 	role, err := uc.roleService.GetRoleByUserId(user.UserId, input.LoginAs)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User role not found", nil, err)
@@ -270,7 +269,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
 			return
 		}
-		if req.RoleName == "relative" {
+		if req.RoleName == string(constant.Relative) {
 			err = uc.patientService.CanContinue(patientUserId, reqUserID, constant.PermissionAddFamily)
 			if err != nil {
 				models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
@@ -284,7 +283,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			}
 		}
 	}
-	if req.RoleName != "relative" && req.RoleName != "caregiver" && req.RoleName != "doctor" {
+	if req.RoleName != string(constant.Relative) && req.RoleName != string(constant.Caregiver) && req.RoleName != string(constant.Doctor) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role. Only relative or caregiver can be registered.", nil, nil)
 		return
 	}
@@ -322,13 +321,9 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}
 
 	// Create user in Keycloak or authentication system
-	keyCloakID, isExistingUser, err := uc.authService.CreateUserInKeycloak(req)
-	log.Println("is existing user flag createUserInKeycloak : ", isExistingUser)
-	log.Println("Error for creating user  : ", err)
-	if err != nil {
-		// models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, keyCloakID, nil, err)
-		// return
-		log.Printf("[Warning] createUserInKeycloak user already exist ")
+	keyCloakID, isExistingUser, CreateUserInKeycloakError := uc.authService.CreateUserInKeycloak(req)
+	if CreateUserInKeycloakError != nil {
+		log.Printf("CreateUserInKeycloak ERROR : %s ", CreateUserInKeycloakError)
 	}
 	req.Password = string(hashedPassword)
 	req.AuthUserId = keyCloakID
@@ -342,39 +337,50 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}()
 
 	var systemUser models.SystemUser_
+	var systemUserErr error
 	if !isExistingUser {
-		systemUser, err = uc.userService.CreateSystemUser(tx, req)
-		if err != nil {
+		systemUser, systemUserErr = uc.userService.CreateSystemUser(tx, req)
+		if systemUserErr != nil {
 			tx.Rollback()
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, systemUserErr)
 			return
 		}
 	} else {
-		systemUser, err = uc.userService.GetSystemUserInfo(req.AuthUserId)
-		if err != nil {
+		systemUser, systemUserErr = uc.userService.GetSystemUserInfo(req.AuthUserId)
+		if systemUserErr != nil {
 			tx.Rollback()
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "User not found with auth user Id", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "User not found with auth user Id", nil, systemUserErr)
 			return
 		}
 	}
-	err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relation)
-	if err != nil {
-		tx.Rollback()
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
-		return
+
+	if req.RoleName == string(constant.MappingTypeR) {
+		err = uc.roleService.AddUserRelativeMappings(tx, patientUserId, systemUser.UserId, relation, roleMaster.RoleId, patient, &systemUser)
+		if err != nil {
+			tx.Rollback()
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
+			return
+		}
+	} else {
+		err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relation)
+		if err != nil {
+			tx.Rollback()
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
+			return
+		}
 	}
+
 	if isExistingUser {
-		err = uc.emailService.SendConnectionMail(systemUser, registrant, relation.RelationShip)
+		err := uc.emailService.SendConnectionMail(systemUser, registrant, relation.RelationShip)
 		if err != nil {
 			log.Println("Error sending connection email:", err)
 		}
 	} else {
-		err = uc.emailService.SendLoginCredentials(systemUser, password, registrant, relation.RelationShip)
+		err := uc.emailService.SendLoginCredentials(systemUser, password, registrant, relation.RelationShip)
 		if err != nil {
 			log.Println("Error sending email:", err)
 		}
 	}
-
 	tx.Commit()
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
@@ -540,7 +546,7 @@ func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
 			return
 		}
-		if req.RoleName == "R" {
+		if req.RoleName == string(constant.MappingTypeR) {
 			err = uc.patientService.CanContinue(patientId, reqUserID, constant.PermissionAddFamily)
 			if err != nil {
 				models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)

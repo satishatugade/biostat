@@ -53,12 +53,12 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var processStatusRepo = repository.NewProcessStatusRepository(db)
 	var processStatusService = service.NewProcessStatusService(processStatusRepo)
 
-	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService)
-
-	var roleService = service.NewRoleService(roleRepo, patientService)
-	
 	var permissionRepo = repository.NewPermissionRepository(db)
 	var permissionService = service.NewPermissionService(permissionRepo)
+
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo)
+
+	var roleService = service.NewRoleService(roleRepo, patientService)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
@@ -79,7 +79,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var orderService = service.NewOrderService(orderRepo)
 	var authService = auth.NewAuthService(userRepo, userService, emailService)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService, authService, permissionService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService, authService, roleService, permissionService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService)
 	MasterRoutes(apiGroup, masterController, patientController)

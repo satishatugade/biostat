@@ -50,6 +50,8 @@ type PatientController struct {
 	orderService         service.OrderService
 	notificationService  service.NotificationService
 	authService          auth.AuthService
+	roleService          service.RoleService
+	permissionService    service.PermissionService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
@@ -58,7 +60,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 	diagnosticService service.DiagnosticService, userService service.UserService,
 	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService,
 	emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService,
-	authService auth.AuthService) *PatientController {
+	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -71,6 +73,8 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		orderService:        orderService,
 		notificationService: notificationService,
 		authService:         authService,
+		roleService:         roleService,
+		permissionService:   permissionService,
 	}
 }
 
@@ -147,7 +151,7 @@ func (pc *PatientController) UpdatePatientInfoById(c *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(userId, reqUserID, constant.PermissionEditProfile)
 		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, string(constant.PermissionEditInfo), nil, err)
 			return
 		}
 	}
@@ -646,9 +650,28 @@ func (pc *PatientController) GetPatientRelativeList(c *gin.Context) {
 }
 
 func (pc *PatientController) AssignPrimaryCaregiver(c *gin.Context) {
-	_, patientId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	sub, patientId, isDelegate, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	log.Printf("sub : %s patientId: %d isDelegate : %t", sub, patientId, isDelegate)
+	if isDelegate {
+		log.Printf(" Inside isDelegate true sub : %s patientId: %d isDelegate : %t", sub, patientId, isDelegate)
+		reqUserID, err := pc.userService.GetUserIdBySUB(sub)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
+			return
+		}
+		err = pc.patientService.CanContinue(patientId, reqUserID, constant.PermissionViewHealth)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, string(constant.PermissionHOFAssignUnassign), nil, err)
+			return
+		}
+	}
+	hasHOF, err := pc.roleService.HasHOFMapping(patientId, string(constant.MappingTypeHOF))
+	if !hasHOF {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, " Only the Head of Family can assign or unassign a new Head of Family", nil, err)
 		return
 	}
 	relativeIdStr := c.Query("relative_id")
@@ -658,7 +681,7 @@ func (pc *PatientController) AssignPrimaryCaregiver(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid relative ID", nil, err)
 		return
 	}
-	if mappingType != "R" && mappingType != "PCG" {
+	if mappingType != string(constant.MappingTypeR) && mappingType != string(constant.MappingTypeHOF) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Only 'Relative' or 'Primary Caregiver' roles can be assigned.", nil, nil)
 		return
 	}
@@ -954,7 +977,7 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 		}
 		err = c.patientService.CanContinue(patientId, reqUserID, constant.PermissionViewHealth)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionViewMedicalRecord), nil, err)
 			return
 		}
 	}
@@ -1000,7 +1023,7 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(userId, reqUserID, constant.PermissionUploadReport)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, err)
 			return
 		}
 	}
@@ -1210,7 +1233,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(user_id, reqUserID, constant.PermissionViewHealth)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionViewProfile), nil, err)
 			return
 		}
 		log.Println("Its Delegated Request with UserId:", user_id, " by User with Id:", reqUserID)
@@ -1364,7 +1387,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(user_id, reqUserID, constant.PermissionScheduleAppointments)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionScheduleAppointment), nil, err)
 			return
 		}
 		log.Println("Its Delegated Request with UserId:", user_id, " by User with Id:", reqUserID)
@@ -1516,7 +1539,7 @@ func (pc *PatientController) GetUserAppointments(ctx *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(user_id, reqUserID, constant.PermissionScheduleAppointments)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionViewAppointment), nil, err)
 			return
 		}
 		log.Println("Its Delegated Request with UserId:", user_id, " by User with Id:", reqUserID)
@@ -1595,7 +1618,7 @@ func (pc *PatientController) UpdateUserAppointment(ctx *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(user_id, reqUserID, constant.PermissionScheduleAppointments)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionRescheduleAppointment), nil, err)
 			return
 		}
 		log.Println("Its Delegated Request with UserId:", user_id, " by User with Id:", reqUserID)
@@ -1798,7 +1821,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 			return
 		}
 
-		var allDocs []models.TblMedicalRecord
+		var allDocs []*models.TblMedicalRecord
 		for _, item := range items {
 			record, ok := item.(map[string]interface{})
 			if !ok {
@@ -1821,7 +1844,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 					FetchedAt:         time.Now(),
 					CreatedAt:         utils.ParseDateField(record["date"]),
 				}
-				allDocs = append(allDocs, newRecord)
+				allDocs = append(allDocs, &newRecord)
 			}
 
 			if record["type"] == "dir" {
@@ -1834,7 +1857,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 			}
 		}
 		log.Printf("Total documents collected: %d %v", len(allDocs), allDocs)
-		err = pc.medicalRecordService.SaveMedicalRecords(&allDocs, userID)
+		err = pc.medicalRecordService.SaveMedicalRecords(allDocs, userID)
 		if err != nil {
 			log.Println("Error occurend while saving medical records from digilocker for", userID, digiLockerId, err)
 		}
@@ -2430,6 +2453,11 @@ func (pc *PatientController) AssignPermissionHandler(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
+	hasHOF, err := pc.roleService.HasHOFMapping(user_id, string(constant.MappingTypeHOF))
+	if !hasHOF {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Only the Head of Family can manage all permission", nil, err)
+		return
+	}
 	type PermissionEntry struct {
 		Code  string `json:"code"`
 		Value bool   `json:"value"`
@@ -2449,13 +2477,67 @@ func (pc *PatientController) AssignPermissionHandler(ctx *gin.Context) {
 		permMap[p.Code] = p.Value
 	}
 
-	err = pc.patientService.AssignMultiplePermissions(user_id, req.RelativeID, permMap)
+	err = pc.permissionService.AssignMultiplePermissions(user_id, req.RelativeID, permMap)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to assign permission", nil, err)
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Permission assigned successfully", nil, nil, nil)
 	return
+}
+
+func (pc *PatientController) ManagePermission(c *gin.Context) {
+	sub, patientId, isDelegate, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	log.Printf("[ManagePermission] sub: %s, patientId: %d, isDelegate: %t", sub, patientId, isDelegate)
+
+	// If the user is a delegate, check if they have permission
+	if isDelegate {
+		log.Printf("[ManagePermission] Delegate check: sub: %s, patientId: %d", sub, patientId)
+
+		reqUserID, err := pc.userService.GetUserIdBySUB(sub)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "unable to fetch user ID", nil, err)
+			return
+		}
+
+		// Validate if delegate has permission to manage
+		err = pc.patientService.CanContinue(patientId, reqUserID, constant.PermissionViewHealth)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusForbidden, string(constant.PermissionManage), nil, err)
+			return
+		}
+	}
+
+	// Ensure patientId has HOF mapping
+	hasHOF, err := pc.roleService.HasHOFMapping(patientId, string(constant.MappingTypeHOF))
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "error while checking HOF", nil, err)
+		return
+	}
+
+	if !hasHOF {
+		models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "only the Head of Family can manage permissions", nil, nil)
+		return
+	}
+
+	var req models.ManagePermissionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "invalid request format", nil, err)
+		return
+	}
+
+	err = pc.permissionService.ManagePermission(req)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusForbidden, err.Error(), nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Permissions updated successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) SendSOSHandler(ctx *gin.Context) {
@@ -2518,17 +2600,15 @@ func (c *PatientController) GetUserShareList(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Share list fetched", shareList, nil, nil)
-	return
 }
 
 func (c *PatientController) GetAllPermissions(ctx *gin.Context) {
-	permissions, err := c.patientService.GetAllPermissions()
+	permissions, err := c.permissionService.GetAllPermissions()
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to fetch permission list", nil, err)
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "permissions list fetched", permissions, nil, nil)
-	return
 }
 
 func (pc *PatientController) GetMappedUserAddress(c *gin.Context) {
@@ -2538,8 +2618,8 @@ func (pc *PatientController) GetMappedUserAddress(c *gin.Context) {
 		return
 	}
 	allowedMappingTypes := map[string]bool{
-		"C": true,
-		"R": true,
+		string(constant.MappingTypeC): true,
+		string(constant.MappingTypeR): true,
 	}
 
 	mappingType := c.Query("mapping_type")
@@ -2580,7 +2660,7 @@ func (pc *PatientController) MovePatientRecord(ctx *gin.Context) {
 		}
 		err = pc.patientService.CanContinue(userId, reqUserID, constant.PermissionEditProfile)
 		if err != nil {
-			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionChangeOwner), nil, err)
 			return
 		}
 	}
@@ -2609,4 +2689,71 @@ func (pc *PatientController) MovePatientRecord(ctx *gin.Context) {
 	}
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Patient records moved successfully", nil, nil, nil)
+
+}
+
+func (pc *PatientController) UpdateLab(ctx *gin.Context) {
+	authUserId, _, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var lab models.DiagnosticLab
+	if err := ctx.ShouldBindJSON(&lab); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+	if err := pc.diagnosticService.UpdateLab(&lab, authUserId); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update lab", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Lab updated successfully", lab, nil, nil)
+	return
+}
+
+func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	var relativeData models.UpdateRelativeRequest
+	if err := c.ShouldBindJSON(&relativeData); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
+		return
+	}
+
+	_, err = pc.patientService.GetPatientRelativeById(relativeData.RelativeID, userId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "failed to update user", nil, err)
+		return
+	}
+
+	user, err := pc.patientService.GetUserProfileByUserId(userId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to get user", nil, err)
+		return
+	}
+	user.Email = relativeData.Email
+	user.MobileNo = relativeData.MobileNo
+	user.FirstName = relativeData.FirstName
+	user.LastName = relativeData.LastName
+	exist, err := pc.userService.CheckUserEmailMobileExist(&models.CheckUserMobileEmail{Email: relativeData.Email})
+	if !exist {
+		log.Println("GOing to Keycloak Update")
+		userUpdateErr := pc.authService.UpdateUserInKeycloak(*user)
+		if userUpdateErr != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to update user in keycloak", nil, userUpdateErr)
+			return
+		}
+	}
+	err = pc.patientService.UpdateRelativeInfo(userId, &relativeData)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update patient info", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient info updated successfully", nil, nil, nil)
+	return
 }

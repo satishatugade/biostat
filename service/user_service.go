@@ -30,6 +30,7 @@ type UserService interface {
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	IsUsernameExists(username string) bool
 	GenerateUniqueUsername(firstName, lastName string) string
+	GetSystemUserInfoByUserID(userId uint64) (models.SystemUser_, error)
 }
 
 type UserServiceImpl struct {
@@ -150,4 +151,8 @@ func (s *UserServiceImpl) GenerateUniqueUsername(firstName, lastName string) str
 	}
 	timestamp := time.Now().Unix()
 	return fmt.Sprintf("%s.%d", base, timestamp)
+}
+
+func (s *UserServiceImpl) GetSystemUserInfoByUserID(userId uint64) (models.SystemUser_, error) {
+	return s.userRepo.GetSystemUserInfo(userId)
 }

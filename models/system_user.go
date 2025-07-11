@@ -35,6 +35,7 @@ type SystemUserRoleMapping struct {
 	RelationId              uint64    `gorm:"column:relation_id;not null" json:"relation_id"`
 	IsSelf                  bool      `gorm:"column:is_self;default:false" json:"is_self"`
 	MappingType             string    `gorm:"column:mapping_type;type:varchar(50)" json:"mapping_type,omitempty"`
+	GenderId                uint64    `gorm:"-" json:"gender_id,omitempty"`
 	IsDeleted               int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
 	CreatedAt               time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt               time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
@@ -259,40 +260,6 @@ type NotificationUserMapping struct {
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
 }
 
-type PermissionMaster struct {
-	PermissionID int64     `gorm:"primaryKey;column:permission_id" json:"permission_id"`
-	Code         string    `gorm:"uniqueIndex;column:code" json:"code"`
-	Name         string    `gorm:"column:name" json:"name"`
-	Description  string    `gorm:"column:description" json:"description"`
-	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
-}
-
-func (PermissionMaster) TableName() string {
-	return "tbl_permissions_master"
-}
-
-type UserRelativePermissionMapping struct {
-	MappingID    uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"mapping_id"`
-	UserID       uint64    `gorm:"column:user_id" json:"user_id"`
-	RelativeID   uint64    `gorm:"column:relative_id" json:"relative_id"`
-	PermissionID int64     `gorm:"column:permission_id" json:"permission_id"`
-	Granted      bool      `gorm:"column:granted" json:"granted"`
-	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
-}
-
-func (UserRelativePermissionMapping) TableName() string {
-	return "tbl_user_relative_permission_mappings"
-}
-
-type PermissionResult struct {
-	UserID     uint64 `json:"user_id"`
-	RelativeID uint64 `json:"relative_id"`
-	Code       string `json:"code"`
-	Granted    bool   `json:"granted"`
-}
-
 type AddRelationRequest struct {
 	UserID      uint64 `json:"user_id" binding:"required"`
 	CurrentRole string `json:"current_role" binding:"required"`
@@ -322,4 +289,32 @@ type UserAddressResponse struct {
 	State        string `json:"state"`
 	Country      string `json:"country"`
 	PostalCode   string `json:"postal_code"`
+}
+
+type UpdateRelativeRequest struct {
+	RelativeID   uint64     `json:"relative_id"`
+	FirstName    string     `json:"first_name"`
+	MiddleName   string     `json:"middle_name"`
+	LastName     string     `json:"last_name"`
+	Gender       string     `json:"gender"`
+	GenderID     uint64     `json:"gender_id"`
+	MappingType  string     `json:"mapping_type"`
+	DateOfBirth  *time.Time `json:"date_of_birth"`
+	RelationID   int64      `json:"relation_id"`
+	Relationship string     `json:"relationship"`
+	MobileNo     string     `json:"mobile_no"`
+	Email        string     `json:"email"`
+}
+
+type TblRelationInference struct {
+	ID                           uint64 `gorm:"primaryKey;column:id"`
+	MyRelationID                 uint64 `gorm:"column:my_relation_id"`
+	NewRelationID                uint64 `gorm:"column:new_relation_id"`
+	ComparingRelationID          uint64 `gorm:"column:comparing_relation_id"`
+	InferredRelationWithNew      uint64 `gorm:"column:inferred_relation_with_new"`
+	InferredRelationWithExisting uint64 `gorm:"column:inferred_relation_with_existing"`
+}
+
+func (TblRelationInference) TableName() string {
+	return "tbl_relation_inference"
 }

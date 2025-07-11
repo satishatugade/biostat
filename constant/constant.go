@@ -6,14 +6,14 @@ const (
 	AllergyMaster        = "allergy"
 	CustomRange          = "/custom-range"
 	PatientAllergy       = "/add-allergy"
-	Patient              = "/registration"
 	PatientList          = "/patient-list"
 	PatientInfo          = "/patient-info"
 	SinglePatient        = "/patient-info/:patient_id"
 	UpdatePatient        = "/update-patient-info"
+	UpdateRelative       = "/update-relative-info"
 	PatientRelative      = "/patient-relative"
 	GetRelative          = "/patient-relative/:patient_id"
-	Relative             = "/get-relative/:patient_id"
+	RelativeInfo         = "/get-relative/:patient_id"
 	PrimaryCaregiver     = "/primary-caregiver"
 	RelativeList         = "/relative-list"
 	SingleRelative       = "/relative/:relative_id"
@@ -23,7 +23,7 @@ const (
 	HealthDetail         = "/health-detail"
 	UpdateHealthDetail   = "/update-health-detail"
 
-	Caregiver       = "/get-caregiver"
+	GetCaregiver    = "/get-caregiver"
 	AssignedPatient = "/caregiver/assigned-patient"
 	RemoveCaregiver = "/caregiver"
 	CaregiverList   = "/caregiver-list"
@@ -212,6 +212,7 @@ const (
 	Reminder                = "/reminder"
 	Reminders               = "/reminders"
 	Permission              = "/permission"
+	ManageFamilyPermission  = "/family/manage-permission"
 	Address                 = "/mapped-user/address"
 	SOS                     = "/sos"
 	ShareList               = "/share-list"
@@ -266,6 +267,30 @@ const (
 	MappingTypeP   MappingType = "P"
 )
 
+var FallbackMappingTypes = []MappingType{
+	MappingTypeA,
+	MappingTypeS,
+	MappingTypeC,
+	MappingTypePCG,
+	MappingTypeHOF,
+	MappingTypeR,
+	MappingTypeD,
+	MappingTypeN,
+	MappingTypeP,
+}
+
+type UserRole string
+
+const (
+	Admin      UserRole = "admin"
+	Doctor     UserRole = "doctor"
+	Nurse      UserRole = "nurse"
+	Caregiver  UserRole = "caregiver"
+	Relative   UserRole = "relative"
+	Patient    UserRole = "patient"
+	Pharmacist UserRole = "pharmacist"
+)
+
 const (
 	PermissionViewHealth           = "view_health"
 	PermissionEditProfile          = "edit_profile"
@@ -273,4 +298,19 @@ const (
 	PermissionScheduleAppointments = "schedule_appointments"
 	PermissionAddCaregiver         = "add_caregiver"
 	PermissionUploadReport         = "upload_report"
+)
+
+type PermissionMessage string
+
+const (
+	PermissionViewProfile           PermissionMessage = "You don't have permission to view profile and health info"
+	PermissionEditInfo              PermissionMessage = "You don't have permission to edit profile"
+	PermissionViewMedicalRecord     PermissionMessage = "You don't have permission to view medical record"
+	PermissionUploadMedicalRecord   PermissionMessage = "You don't have permission to upload medical record"
+	PermissionScheduleAppointment   PermissionMessage = "You don't have permission to schedule appointment"
+	PermissionRescheduleAppointment PermissionMessage = "You don't have permission to reschedule appointment"
+	PermissionViewAppointment       PermissionMessage = "You don't have permission to view appointment"
+	PermissionManage                PermissionMessage = "You don't have permission to manage permission"
+	PermissionChangeOwner           PermissionMessage = "You don't have permission to change owner of record"
+	PermissionHOFAssignUnassign     PermissionMessage = "You don't have permission to assign or unassign HOF"
 )

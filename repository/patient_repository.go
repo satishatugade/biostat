@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
 	"biostat/utils"
@@ -16,8 +17,8 @@ import (
 type PatientRepository interface {
 	GetAllGender() ([]models.GenderMaster, error)
 	GetGenderById(genderId uint64) (models.GenderMaster, error)
-	GetAllRelation() ([]models.PatientRelation, error)
-	GetRelationById(relationId uint64) (models.PatientRelation, error)
+	GetAllRelation() ([]models.RelationMaster, error)
+	GetRelationById(relationId uint64) (models.RelationMaster, error)
 	GetAllPatients(limit int, offset int) ([]models.Patient, int64, error)
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
@@ -39,15 +40,15 @@ type PatientRepository interface {
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
 	GetPatientRelative(patientId string) ([]models.PatientRelative, error)
-	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.PatientRelative, error)
-	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.PatientRelation) ([]models.Caregiver, error)
+	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.PatientRelative, error)
+	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
 	FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error)
 	FetchPatientIdByUserId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error)
-	GetPatientRelativeById(relativeId uint64, relation []models.PatientRelation) (models.PatientRelative, error)
+	GetPatientRelativeById(relativeId uint64, relation []models.RelationMaster) (models.PatientRelative, error)
 	CheckPatientRelativeMapping(relativeId uint64, patientId uint64, mappingType string) (uint64, uint64, error)
-	GetRelationNameById(relationId []uint64) ([]models.PatientRelation, error)
+	GetRelationNameById(relationId []uint64) ([]models.RelationMaster, error)
 	AddPatientClinicalRange(customeRange *models.PatientCustomRange) error
 	GetNursesList(limit int, offset int) ([]models.Nurse, int64, error)
 	GetUserShares(patientID uint64) ([]models.UserShare, error)
@@ -78,14 +79,6 @@ type PatientRepository interface {
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 	GetPinnedComponentCount(patientId uint64) (int64, error)
 	HasRelation(patientId uint64, userId uint64) (bool, error)
-
-	GetAllPermissions() ([]models.PermissionMaster, error)
-	GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error
-	HasPermission(userID, relativeID uint64, permissionCode string) error
-	ListPermissions(userID, relativeID uint64) ([]models.PermissionResult, error)
-	GetPermissionByCode(code string) (*models.PermissionMaster, error)
-	CheckPermissionValue(userID, relativeID uint64, permissionID int64) (exists bool, currentValue bool, err error)
-	UpdatePermissionValue(userID, relativeID uint64, permissionID int64, value bool) error
 }
 
 type PatientRepositoryImpl struct {
@@ -101,14 +94,14 @@ func NewPatientRepository(db *gorm.DB) PatientRepository {
 	return &PatientRepositoryImpl{db: db}
 }
 
-func (p *PatientRepositoryImpl) GetAllRelation() ([]models.PatientRelation, error) {
-	var relations []models.PatientRelation
+func (p *PatientRepositoryImpl) GetAllRelation() ([]models.RelationMaster, error) {
+	var relations []models.RelationMaster
 	err := p.db.Where("is_deleted = ?", 0).Find(&relations).Error
 	return relations, err
 }
 
-func (p *PatientRepositoryImpl) GetRelationById(relationId uint64) (models.PatientRelation, error) {
-	var relation models.PatientRelation
+func (p *PatientRepositoryImpl) GetRelationById(relationId uint64) (models.RelationMaster, error) {
+	var relation models.RelationMaster
 	err := p.db.First(&relation, relationId).Error
 	return relation, err
 }
@@ -650,7 +643,7 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 	}
 	if relation.MappingType == mappingType {
 		var role string
-		if mappingType == "R" || mappingType == "PCG" {
+		if mappingType == string(constant.MappingTypeR) || mappingType == string(constant.MappingTypeHOF) {
 			role = "relative"
 		} else {
 			role = "primary-caregiver"
@@ -659,32 +652,68 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 	}
 	var mappingCondition string
 	switch mappingType {
-	case "PCG":
-		mappingCondition = "R"
-	case "R":
-		mappingCondition = "PCG"
+	case string(constant.MappingTypeHOF):
+		mappingCondition = string(constant.MappingTypeR)
+	case string(constant.MappingTypeR):
+		mappingCondition = string(constant.MappingTypeHOF)
 	}
-	if mappingType == "PCG" {
-		var pcgCount int64
+	if mappingType == string(constant.MappingTypeHOF) || mappingType == string(constant.MappingTypeR) {
+		var existingHOF []models.SystemUserRoleMapping
 		if err := tx.Model(&models.SystemUserRoleMapping{}).
-			Where("patient_id = ? AND mapping_type = ?", patientId, "PCG").
-			Count(&pcgCount).Error; err != nil {
+			Where("patient_id = ? AND mapping_type = ?", patientId, string(constant.MappingTypeHOF)).
+			Find(&existingHOF).Error; err != nil {
 			return rollbackErr(err)
 		}
-		if pcgCount >= 2 {
-			return rollbackErr(fmt.Errorf("maximum 2 primary caregivers allowed"))
+		if len(existingHOF) >= 1 {
+			log.Println("existing found ", existingHOF)
+			for _, existing := range existingHOF {
+				if mappingType == string(constant.MappingTypeR) {
+					selfMapping, err := ps.GetSelfMappingWithType(tx, patientId, string(constant.MappingTypeS), true)
+					if err == nil && selfMapping != nil {
+						if err := ps.UpdateMappingType(tx, patientId, selfMapping.UserId, string(constant.MappingTypeHOF)); err != nil {
+							return rollbackErr(err)
+						}
+					}
+				}
+				newMappingType := string(constant.MappingTypeR)
+				if existing.MappingType == string(constant.MappingTypeHOF) && existing.IsSelf == true {
+					newMappingType = string(constant.MappingTypeS)
+				}
+				if err := ps.UpdateMappingType(tx, patientId, existing.UserId, newMappingType); err != nil {
+					return rollbackErr(err)
+				}
+			}
 		}
+
 	}
-	if err := tx.Debug().Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ? AND mapping_type = ? ", patientId, relativeId, mappingCondition).Update("mapping_type", mappingType).Error; err != nil {
+	if err := tx.Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ? AND mapping_type = ? ", patientId, relativeId, mappingCondition).Update("mapping_type", mappingType).Error; err != nil {
 		return rollbackErr(err)
 	}
 
 	return tx.Commit().Error
 }
 
+func (ps *PatientRepositoryImpl) UpdateMappingType(tx *gorm.DB, patientId uint64, userId uint64, newMappingType string) error {
+	return tx.Model(&models.SystemUserRoleMapping{}).
+		Where("patient_id = ? AND user_id = ?", patientId, userId).
+		Update("mapping_type", newMappingType).Error
+}
+
+func (ps *PatientRepositoryImpl) GetSelfMappingWithType(tx *gorm.DB, patientId uint64, mappingType string, isSelf bool) (*models.SystemUserRoleMapping, error) {
+	var mapping models.SystemUserRoleMapping
+	err := tx.Model(&models.SystemUserRoleMapping{}).
+		Where("patient_id = ? AND mapping_type = ? AND is_self = ? ", patientId, mappingType, isSelf).
+		First(&mapping).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &mapping, nil
+}
+
 func (pr *PatientRepositoryImpl) SetCaregiverMappingDeletedStatus(patientId, caregiverId uint64, isDeleted int) error {
 	result := pr.db.Model(&models.SystemUserRoleMapping{}).
-		Where("patient_id = ? AND user_id = ? AND mapping_type IN ?", patientId, caregiverId, []string{"C"}).
+		Where("patient_id = ? AND user_id = ? AND mapping_type IN ?", patientId, caregiverId, []string{string(constant.MappingTypeC)}).
 		Update("is_deleted", isDeleted)
 
 	if result.Error != nil {
@@ -757,7 +786,7 @@ func (p *PatientRepositoryImpl) CheckPatientRelativeMapping(relativeId uint64, p
 	return userId, relationId, nil
 }
 
-func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relations []models.PatientRelation) (models.PatientRelative, error) {
+func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relations []models.RelationMaster) (models.PatientRelative, error) {
 	relatives, err := p.fetchRelatives([]uint64{relativeId})
 	if err != nil || len(relatives) == 0 {
 		return models.PatientRelative{}, err
@@ -774,7 +803,7 @@ func (p *PatientRepositoryImpl) GetPatientRelativeById(relativeId uint64, relati
 	return relative, nil
 }
 
-func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRelations []models.UserRelation, relationData []models.PatientRelation) ([]models.PatientRelative, error) {
+func (p *PatientRepositoryImpl) GetRelativeList(relativeUserIds []uint64, userRelations []models.UserRelation, relationData []models.RelationMaster) ([]models.PatientRelative, error) {
 	relativeInfo, err := p.fetchRelatives(relativeUserIds)
 	if err != nil {
 		return nil, err
@@ -915,7 +944,7 @@ func (p *PatientRepositoryImpl) FetchPatientIdByUserId(userId *uint64, mappingTy
 // 	return caregivers, nil
 // }
 
-func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64, userRelations []models.UserRelation, relationData []models.PatientRelation) ([]models.Caregiver, error) {
+func (p *PatientRepositoryImpl) GetCaregiverList(caregiverUserIds []uint64, userRelations []models.UserRelation, relationData []models.RelationMaster) ([]models.Caregiver, error) {
 	log.Println("GetCaregiverList caregiverUserIds :", caregiverUserIds)
 	relativeInfo, err := p.fetchCaregivers(caregiverUserIds)
 	if err != nil {
@@ -1115,7 +1144,7 @@ func (p *PatientRepositoryImpl) IsUserBasicProfileComplete(user_id uint64) (bool
 
 func (p *PatientRepositoryImpl) IsUserFamilyDetailsComplete(user_id uint64) (bool, error) {
 	var count int64
-	err := p.db.Table("tbl_system_user_role_mapping").Where("patient_id = ? AND mapping_type != 'S'", user_id).Count(&count).Error
+	err := p.db.Table("tbl_system_user_role_mapping").Where("patient_id = ? AND is_self = ? ", user_id, false).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -1145,7 +1174,7 @@ func (p *PatientRepositoryImpl) GetNursesList(limit int, offset int) ([]models.N
 	if err := p.db.
 		Table("tbl_system_user_ AS u").
 		Joins("JOIN tbl_system_user_role_mapping AS m ON u.user_id = m.user_id").
-		Where("m.mapping_type = ?", "N").
+		Where("m.mapping_type = ?", string(constant.MappingTypeN)).
 		Count(&totalRecords).Error; err != nil {
 		return nil, 0, err
 	}
@@ -1167,7 +1196,7 @@ func (p *PatientRepositoryImpl) GetNursesList(limit int, offset int) ([]models.N
 				tbl_system_user_.created_at,
 				tbl_system_user_.updated_at`).
 		Joins("JOIN tbl_system_user_role_mapping ON tbl_system_user_.user_id = tbl_system_user_role_mapping.user_id").
-		Where("tbl_system_user_role_mapping.mapping_type = ?", "N").
+		Where("tbl_system_user_role_mapping.mapping_type = ?", string(constant.MappingTypeN)).
 		Limit(limit).
 		Offset(offset).
 		Scan(&nurses).Error
@@ -1343,7 +1372,7 @@ func (p *PatientRepositoryImpl) ParseDiagnosticTrendData(rawData []map[string]in
 	return result, nil
 }
 
-func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.PatientRelation, error) {
+func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.RelationMaster, error) {
 	uniqueIds := make(map[uint64]struct{})
 	for _, id := range ids {
 		uniqueIds[id] = struct{}{}
@@ -1355,7 +1384,7 @@ func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.Pati
 	}
 
 	relationMap := make(map[uint64]string)
-	var relations []models.PatientRelation
+	var relations []models.RelationMaster
 	err := p.db.Where("relation_id IN ?", relationIds).Find(&relations).Error
 	if err != nil {
 		return nil, err
@@ -1364,10 +1393,10 @@ func (p *PatientRepositoryImpl) GetRelationNameById(ids []uint64) ([]models.Pati
 		relationMap[*r.RelationId] = r.RelationShip
 	}
 
-	var orderedRelations []models.PatientRelation
+	var orderedRelations []models.RelationMaster
 	for _, id := range ids {
 		if relationName, ok := relationMap[id]; ok {
-			orderedRelations = append(orderedRelations, models.PatientRelation{
+			orderedRelations = append(orderedRelations, models.RelationMaster{
 				RelationId:   &id,
 				RelationShip: relationName,
 			})
@@ -1989,79 +2018,6 @@ func (p *PatientRepositoryImpl) GetPinnedComponentCount(patientId uint64) (int64
 	return count, err
 }
 
-func (r *PatientRepositoryImpl) GetAllPermissions() ([]models.PermissionMaster, error) {
-	var permissions []models.PermissionMaster
-	result := r.db.Order("permission_id").Find(&permissions)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return permissions, nil
-}
-
-func (r *PatientRepositoryImpl) GrantPermission(userID, relativeID uint64, permissionID int64, granted bool) error {
-	var mapping models.UserRelativePermissionMapping
-	err := r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).First(&mapping).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		mapping = models.UserRelativePermissionMapping{
-			UserID: userID, RelativeID: relativeID, PermissionID: permissionID, Granted: granted,
-		}
-		return r.db.Create(&mapping).Error
-	}
-	if err != nil {
-		return err
-	}
-	mapping.Granted = granted
-	return r.db.Save(&mapping).Error
-}
-
-func (r *PatientRepositoryImpl) HasPermission(userID, relativeID uint64, permissionCode string) error {
-	var permission models.PermissionMaster
-	if err := r.db.Where("code = ?", permissionCode).First(&permission).Error; err != nil {
-		return fmt.Errorf("permission code not found: %w", err)
-	}
-	var mapping models.UserRelativePermissionMapping
-	err := r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ? AND granted = true", userID, relativeID, permission.PermissionID).First(&mapping).Error
-
-	return err
-}
-
-func (r *PatientRepositoryImpl) ListPermissions(userID, relativeID uint64) ([]models.PermissionResult, error) {
-	var results []models.PermissionResult
-
-	err := r.db.Table("tbl_user_relative_permission_mappings").
-		Select("tbl_user_relative_permission_mappings.user_id, tbl_user_relative_permission_mappings.relative_id, tbl_permissions_master.code, tbl_user_relative_permission_mappings.granted").
-		Joins("JOIN tbl_permissions_master ON tbl_user_relative_permission_mappings.permission_id = tbl_permissions_master.permission_id").
-		Where("tbl_user_relative_permission_mappings.user_id = ? AND tbl_user_relative_permission_mappings.relative_id = ?", userID, relativeID).
-		Scan(&results).Error
-
-	return results, err
-}
-
-func (r *PatientRepositoryImpl) GetPermissionByCode(code string) (*models.PermissionMaster, error) {
-	var permission models.PermissionMaster
-	err := r.db.Where("code = ?", code).First(&permission).Error
-	if err != nil {
-		return nil, err
-	}
-	return &permission, nil
-}
-
-func (r *PatientRepositoryImpl) CheckPermissionValue(userID, relativeID uint64, permissionID int64) (exists bool, currentValue bool, err error) {
-	var mapping models.UserRelativePermissionMapping
-	err = r.db.Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).
-		First(&mapping).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, false, nil
-	}
-	return true, mapping.Granted, err
-}
-
-func (r *PatientRepositoryImpl) UpdatePermissionValue(userID, relativeID uint64, permissionID int64, value bool) error {
-	return r.db.Model(&models.UserRelativePermissionMapping{}).
-		Where("user_id = ? AND relative_id = ? AND permission_id = ?", userID, relativeID, permissionID).
-		Update("granted", value).Error
-}
-
 func (ur *PatientRepositoryImpl) GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error) {
 	var results []models.UserMedicineInfo
 
@@ -2119,7 +2075,7 @@ func (r *PatientRepositoryImpl) UpdateSystemUserRoleMapping(userId uint64, patie
 		return nil
 	}
 
-	if err := r.db.Debug().Model(&models.SystemUserRoleMapping{}).
+	if err := r.db.Model(&models.SystemUserRoleMapping{}).
 		Where("user_id = ? AND patient_id = ? AND mapping_type = ? ", userId, patientData.PatientId, patientData.MappingType).
 		Updates(updateData).Error; err != nil {
 		return err

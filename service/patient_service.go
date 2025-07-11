@@ -1,6 +1,7 @@
 package service
 
 import (
+	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
 	"biostat/utils"
@@ -19,12 +20,13 @@ import (
 )
 
 type PatientService interface {
-	GetAllRelation() ([]models.PatientRelation, error)
-	GetRelationById(relationId uint64) (models.PatientRelation, error)
+	GetAllRelation() ([]models.RelationMaster, error)
+	GetRelationById(relationId uint64) (models.RelationMaster, error)
 	GetAllGender() ([]models.GenderMaster, error)
 	GetGenderById(genderId uint64) (models.GenderMaster, error)
 	GetPatients(limit int, offset int) ([]models.Patient, int64, error)
 	UpdatePatientById(userId uint64, patientData *models.Patient) (*models.Patient, error)
+	UpdateRelativeInfo(userId uint64, patientData *models.UpdateRelativeRequest) error
 	GetPatientDiseaseProfiles(PatientId uint64) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
 	UpdateFlag(patientId uint64, req *models.DPRequest) error
@@ -72,10 +74,6 @@ type PatientService interface {
 	GetPinnedComponentCount(patientId uint64) (int64, error)
 	SendSOS(patientID uint64, ip, userAgent string) error
 
-	AssignPermission(userID, relativeID uint64, permissionCode string, granted bool) error
-	AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error
-	GetAllPermissions() ([]models.PermissionMaster, error)
-
 	CanContinue(patientID, userID uint64, permission string) error
 }
 
@@ -87,20 +85,25 @@ type PatientServiceImpl struct {
 	medicalRecordRepo   repository.TblMedicalRecordRepository
 	roleRepo            repository.RoleRepository
 	notificationService NotificationService
+	permissionRepo      repository.PermissionRepository
 }
 
 // Ensure patientRepo is properly initialized
-func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService, medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository, notificationService NotificationService) PatientService {
-	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService, medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo, notificationService: notificationService}
+func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService,
+	medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository,
+	notificationService NotificationService, permissionRepo repository.PermissionRepository) PatientService {
+	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService,
+		medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo, notificationService: notificationService,
+		permissionRepo: permissionRepo}
 }
 
 // GetAllRelation implements PatientService.
-func (s *PatientServiceImpl) GetAllRelation() ([]models.PatientRelation, error) {
+func (s *PatientServiceImpl) GetAllRelation() ([]models.RelationMaster, error) {
 	return s.patientRepo.GetAllRelation()
 }
 
 // GetRelationById implements PatientService.
-func (s *PatientServiceImpl) GetRelationById(relationId uint64) (models.PatientRelation, error) {
+func (s *PatientServiceImpl) GetRelationById(relationId uint64) (models.RelationMaster, error) {
 	return s.patientRepo.GetRelationById(relationId)
 }
 
@@ -354,7 +357,7 @@ func (s *PatientServiceImpl) GetPatientRelativeById(relativeId uint64, patientId
 		return models.PatientRelative{}, err
 	}
 	relationeIds := []uint64{relativeId}
-	var relation []models.PatientRelation
+	var relation []models.RelationMaster
 	if relationeId != 0 {
 		relation, err = s.patientRepo.GetRelationNameById(relationeIds)
 		if err != nil {
@@ -389,7 +392,7 @@ func ExtractPatientAndRelationIds(userRelations []models.UserRelation) ([]uint64
 }
 
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"R", "PCG"}, false, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF)}, false, 0)
 	if err != nil {
 		return []models.PatientRelative{}, err
 	}
@@ -397,7 +400,7 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 		return []models.PatientRelative{}, nil
 	}
 	relativeUserIds, relationIds := ExtractUserAndRelationIds(userRelationIds)
-	var relation []models.PatientRelation
+	var relation []models.RelationMaster
 	relation, err = s.patientRepo.GetRelationNameById(relationIds)
 	if err != nil {
 		log.Println("GetRelationNameById Not found :")
@@ -407,7 +410,7 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 		return []models.PatientRelative{}, err
 	}
 	for idx, _ := range userRelatives {
-		perms, err := s.patientRepo.ListPermissions(*patientId, userRelatives[idx].RelativeId)
+		perms, err := s.permissionRepo.ListPermissions(*patientId, userRelatives[idx].RelativeId)
 		if err != nil {
 			log.Println("@GetRelativeList -> ListPermissions,", err)
 			continue
@@ -421,7 +424,7 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {
 
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"C"}, false, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{string(constant.MappingTypeC)}, false, 0)
 	if err != nil {
 		return []models.Caregiver{}, err
 	}
@@ -429,7 +432,7 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 		return []models.Caregiver{}, nil
 	}
 	caregiverUserIds, relationIds := ExtractUserAndRelationIds(userRelationIds)
-	var relation []models.PatientRelation
+	var relation []models.RelationMaster
 	relation, err = s.patientRepo.GetRelationNameById(relationIds)
 	if err != nil {
 		log.Println("GetRelationNameById Not found :")
@@ -440,7 +443,7 @@ func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Careg
 	}
 
 	for idx := range caregivers {
-		perms, err := s.patientRepo.ListPermissions(*patientId, caregivers[idx].PatientId)
+		perms, err := s.permissionRepo.ListPermissions(*patientId, caregivers[idx].PatientId)
 		if err != nil {
 			log.Println("@GetCaregiverList -> ListPermissions,", err)
 			continue
@@ -468,7 +471,7 @@ func (s *PatientServiceImpl) GetAssignedPatientList(userId *uint64) ([]models.Pa
 
 func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error) {
 
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"D"}, false, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{string(constant.MappingTypeD)}, false, 0)
 	if err != nil {
 		return []models.SystemUser_{}, 0, err
 	}
@@ -496,7 +499,7 @@ func (s *PatientServiceImpl) GetDoctorList(patientId *uint64, User string, limit
 
 func (s *PatientServiceImpl) GetPatientList() ([]models.Patient, error) {
 
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(nil, []string{"S"}, true, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(nil, []string{string(constant.MappingTypeS)}, true, 0)
 	if err != nil {
 		return []models.Patient{}, err
 	}
@@ -575,7 +578,7 @@ func (s *PatientServiceImpl) GetUserSUBByID(id uint64) (string, error) {
 
 func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {
 	//return s.patientRepo.GetNursesList(limit, offset)
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"N"}, false, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{string(constant.MappingTypeN)}, false, 0)
 	if err != nil {
 		return []models.SystemUser_{}, 0, err
 	}
@@ -587,7 +590,7 @@ func (s *PatientServiceImpl) GetNursesList(patientId *uint64, limit int, offset 
 }
 
 func (s *PatientServiceImpl) GetPharmacistList(patientId *uint64, limit int, offset int) ([]models.SystemUser_, int64, error) {
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{"P"}, false, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(patientId, []string{string(constant.MappingTypeP)}, false, 0)
 	if err != nil {
 		return []models.SystemUser_{}, 0, err
 	}
@@ -955,38 +958,6 @@ func (s *PatientServiceImpl) GetPinnedComponentCount(patientId uint64) (int64, e
 	return s.patientRepo.GetPinnedComponentCount(patientId)
 }
 
-func (s *PatientServiceImpl) AssignPermission(userID, relativeID uint64, code string, granted bool) error {
-	perm, err := s.patientRepo.GetPermissionByCode(code)
-	if err != nil {
-		return err
-	}
-	return s.patientRepo.GrantPermission(userID, relativeID, perm.PermissionID, granted)
-}
-
-func (s *PatientServiceImpl) AssignMultiplePermissions(userID, relativeID uint64, permissions map[string]bool) error {
-	for code, value := range permissions {
-		perm, err := s.patientRepo.GetPermissionByCode(code)
-		if err != nil {
-			log.Printf("Permission code '%s' not found", code)
-			continue
-		}
-
-		exists, currentValue, _ := s.patientRepo.CheckPermissionValue(userID, relativeID, perm.PermissionID)
-		if !exists {
-			err := s.patientRepo.GrantPermission(userID, relativeID, perm.PermissionID, value)
-			if err != nil {
-				log.Printf("Failed to create mapping for permission %s: %v", code, err)
-			}
-		} else if currentValue != value {
-			err := s.patientRepo.UpdatePermissionValue(userID, relativeID, perm.PermissionID, value)
-			if err != nil {
-				log.Printf("Failed to update permission %s: %v", code, err)
-			}
-		}
-	}
-	return nil
-}
-
 func (s *PatientServiceImpl) GetUserHealthScore(userID uint64) int {
 	healthScore := 0
 	basicDetailsAdded, _ := s.patientRepo.IsUserBasicProfileComplete(userID)
@@ -1058,7 +1029,7 @@ func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) err
 	if err != nil {
 		return err
 	}
-	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(&patientID, []string{"R", "PCG"}, false, 0)
+	userRelationIds, err := s.patientRepo.FetchUserIdByPatientId(&patientID, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF)}, false, 0)
 	if err != nil {
 		return err
 	}
@@ -1068,7 +1039,7 @@ func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) err
 
 	relativeUserIds, relationIds := ExtractUserAndRelationIds(userRelationIds)
 
-	var relation []models.PatientRelation
+	var relation []models.RelationMaster
 	relation, err = s.patientRepo.GetRelationNameById(relationIds)
 	if err != nil {
 		return err
@@ -1265,10 +1236,6 @@ func (s *PatientServiceImpl) GetUserShares(patientID uint64) ([]models.UserShare
 	return s.patientRepo.GetUserShares(patientID)
 }
 
-func (s *PatientServiceImpl) GetAllPermissions() ([]models.PermissionMaster, error) {
-	return s.patientRepo.GetAllPermissions()
-}
-
 func (s *PatientServiceImpl) EnsureRelation(patientID, userID uint64) error {
 	ok, err := s.patientRepo.HasRelation(patientID, userID)
 	if err != nil {
@@ -1285,7 +1252,7 @@ func (s *PatientServiceImpl) CanContinue(patientID, userID uint64, permission st
 		log.Println("CanContinue->EnsureRelation:", err)
 		return fmt.Errorf("relation check failed: %w", err)
 	}
-	if err := s.patientRepo.HasPermission(patientID, userID, permission); err != nil {
+	if err := s.permissionRepo.HasPermission(patientID, userID, permission); err != nil {
 		log.Println("CanContinue->HasPermission:", err)
 		return fmt.Errorf("permission denied: %w", err)
 	}
@@ -1294,4 +1261,34 @@ func (s *PatientServiceImpl) CanContinue(patientID, userID uint64, permission st
 
 func (s *PatientServiceImpl) ArchivePatientPrescription(patientId uint64, prescriptionID uint64) error {
 	return s.patientRepo.UpdatePrescriptionArchiveState(patientId, prescriptionID, 1)
+}
+
+func (ps *PatientServiceImpl) UpdateRelativeInfo(userId uint64, patientData *models.UpdateRelativeRequest) error {
+	_, err := ps.patientRepo.UpdatePatientById(patientData.RelativeID, &models.Patient{
+		PatientId:   patientData.RelativeID,
+		FirstName:   patientData.FirstName,
+		MiddleName:  patientData.MiddleName,
+		LastName:    patientData.LastName,
+		Gender:      patientData.Gender,
+		GenderId:    patientData.GenderID,
+		MappingType: patientData.MappingType,
+		RelationId:  patientData.RelationID,
+		DateOfBirth: patientData.DateOfBirth,
+		MobileNo:    patientData.MobileNo,
+		Email:       patientData.Email,
+	})
+	if err != nil {
+		return err
+	}
+	if patientData.RelationID > 0 {
+		err := ps.patientRepo.UpdateSystemUserRoleMapping(patientData.RelativeID, &models.Patient{
+			PatientId:   userId,
+			MappingType: patientData.MappingType,
+			RelationId:  patientData.RelationID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
