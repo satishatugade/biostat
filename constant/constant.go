@@ -1,6 +1,7 @@
 package constant
 
 const (
+	Version              = "/api/version"
 	Allergy              = "/allergy"
 	UpdateAllergy        = "/update-allergy"
 	AllergyMaster        = "allergy"
@@ -232,15 +233,14 @@ const (
 	UPDATE = "Update"
 	DELETE = "Delete"
 )
+
 const (
 	KeyCloakErrorMessage = "User not found on keycloak server. please check!"
 	AuditErrorMessage    = "Unable to show a history of this record. It has not been changed since it was created"
 	AuditSuccessMessage  = "Audit records fetched successfully"
-	// CauseNotFoundError     = "Cause not found with given Id: %d"
-	// AuditSaveError         = "Failed to save cause audit: %v"
-	// UpdateCauseStatusError = "Failed to update cause deletion status: %v"
-	// NoRowsAffectedError    = "No cause found with Id: %d to delete"
 )
+
+var ServiceError = "AI service unavailable"
 
 type JobStatus string
 

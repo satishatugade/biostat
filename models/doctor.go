@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Doctor struct {
-	DoctorId          uint64        `json:"patient_id"`
+	DoctorId          uint64        `json:"user_id"`
 	FirstName         string        `json:"first_name"`
 	LastName          string        `json:"last_name"`
 	Speciality        string        `json:"speciality"`

@@ -1135,6 +1135,11 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		return
 	}
 
+	_, updateErr := pc.medicalRecordService.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: recordId, Status: constant.StatusRetrying})
+	if updateErr != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update record", nil, updateErr)
+		return
+	}
 	filename := filepath.Base(record.RecordUrl)
 	record.RecordCategory = "Test Reports"
 	if record.RecordCategory == "report" {
@@ -1159,8 +1164,8 @@ func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
 		return
 	}
-	updatedBy := ctx.GetString("user")
-	data, err := c.medicalRecordService.UpdateTblMedicalRecord(&payload, updatedBy)
+	// updatedBy := ctx.GetString("user")
+	data, err := c.medicalRecordService.UpdateTblMedicalRecord(&payload)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update record", nil, nil)
 		return

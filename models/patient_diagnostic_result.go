@@ -184,6 +184,25 @@ func (DiagnosticTestReferenceRangeAudit) TableName() string {
 	return "tbl_diagnostic_test_reference_range_audit"
 }
 
+type PatientTestReferenceRange struct {
+	PatientId                 uint64     `gorm:"column:patient_id;not null"`
+	DiagnosticTestID          uint64     `gorm:"column:diagnostic_test_id;not null"`
+	DiagnosticTestComponentId uint64     `gorm:"column:diagnostic_test_component_id;not null"`
+	NormalMin                 float64    `gorm:"column:normal_min"`
+	NormalMax                 float64    `gorm:"column:normal_max"`
+	BiologicalReferenceDesc   string     `gorm:"column:biological_reference_description"`
+	Units                     string     `gorm:"column:units"`
+	IsDeleted                 int        `gorm:"column:is_deleted;default:0"`
+	CreatedAt                 time.Time  `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
+	UpdatedAt                 *time.Time `gorm:"column:updated_at"`
+	CreatedBy                 string     `gorm:"column:created_by"`
+	UpdatedBy                 string     `gorm:"column:updated_by"`
+}
+
+func (PatientTestReferenceRange) TableName() string {
+	return "tbl_patient_test_reference_range"
+}
+
 type DiagnosticResultRequest struct {
 	PatientId                 uint64     `json:"patient_id,omitempty"`
 	PatientDiagnosticReportId *uint64    `json:"patient_diagnostic_report_id,omitempty"`
@@ -521,7 +540,6 @@ type ComponentKey struct {
 	Name        string
 	Units       string
 	RefRange    string
-	RecordId    string
 	ReportName  string
 	IsPinned    bool
 }
@@ -532,10 +550,10 @@ type CellData struct {
 	ColourClass  string `json:"colour_class"`
 	Colour       string `json:"colour"`
 	Qualifier    string `json:"qualifier"`
-	ReportID     string `json:"patient_diagnostic_report_id"`
+	ReportId     string `json:"patient_diagnostic_report_id"`
+	RecordId     string `json:"record_id"`
 	ResultDate   string `json:"result_date"`
 	ReportName   string `json:"report_name"`
-	IsPinned     bool   `json:"is_pinned"`
 }
 
 type HealthVitalSource struct {

@@ -381,7 +381,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			GenderId:    user.GenderId,
 			MobileNo:    user.MobileNo,
 			Email:       user.Email,
-			DateOfBirth: *user.DateOfBirth,
+			DateOfBirth: user.DateOfBirth,
 			UserAddress: models.AddressMaster{
 				AddressId:    user.AddressMapping.AddressId,
 				AddressLine1: user.AddressMapping.Address.AddressLine1,
@@ -1071,4 +1071,9 @@ func ParseDate(input string) (time.Time, error) {
 
 	log.Printf("Invalid date format for input: %s", input)
 	return time.Time{}, fmt.Errorf("invalid date format: %s", input)
+}
+
+func GetBuildVersion() string {
+	buildVersion := os.Getenv("BUILD_VERSION")
+	return buildVersion
 }

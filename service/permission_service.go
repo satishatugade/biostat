@@ -104,12 +104,12 @@ func (s *PermissionServiceImpl) GiveAllPermissionToHOF(HOFUserId *uint64, relati
 		permissionDtos = append(permissionDtos, models.PermissionUpdateDto{
 			Code:      perm.Code,
 			Value:     true,
-			GrantedTo: *HOFUserId,
+			GrantedTo: relativeUserId,
 		})
 	}
 
 	relativeInput := models.RelativePermissionInput{
-		RelativeID:  relativeUserId,
+		RelativeID:  *HOFUserId,
 		Permissions: permissionDtos,
 	}
 

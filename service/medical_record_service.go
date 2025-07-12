@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -25,7 +26,7 @@ type TblMedicalRecordService interface {
 	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, file *bytes.Buffer, filename string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, authUserId string, file *bytes.Buffer, filename string) error
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
-	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
+	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error)
@@ -116,7 +117,7 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 		}
 
 		task := asynq.NewTask("digitize:record", payloadBytes)
-		if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(1)); err != nil {
+		if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(1), asynq.Retention(24*time.Hour), asynq.ProcessIn(5*time.Minute)); err != nil {
 			log.Printf("Failed to enqueue digitization task for record %d: %v", record.RecordId, err)
 			return err
 		}
@@ -125,138 +126,6 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 	}
 	return nil
 }
-
-// func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, fileBuf *bytes.Buffer, filename string) (*models.TblMedicalRecord, error) {
-// 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	var mappings []models.TblMedicalRecordUserMapping
-// 	mappings = append(mappings, models.TblMedicalRecordUserMapping{
-// 		UserID:   createdBy,
-// 		RecordID: record.RecordId,
-// 	})
-// 	err = s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if record.RecordCategory == "Test Reports" {
-// 		var imageCopy bytes.Buffer
-
-// 		if _, err := io.Copy(&imageCopy, bytes.NewReader(fileBuf.Bytes())); err != nil {
-// 			log.Printf("Failed to copy image buffer for async call (record %d): %v", record.RecordId, err)
-// 			return record, nil
-// 		}
-
-// 		go func(imageBuf bytes.Buffer, recordID, userID uint64) {
-// 			reportData, err := s.apiService.CallGeminiService(&imageBuf, filename)
-// 			if err != nil {
-// 				log.Printf("Gemini Service Error for record %d: %v", recordID, err)
-// 				return
-// 			}
-
-// 			relatives, err := s.patientService.GetRelativeList(&userID)
-// 			if err != nil {
-// 				log.Printf("Relative not added or not found  %d: %v", recordID, err)
-
-// 			}
-// 			matchedUserID := MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, userID)
-// 			fmt.Println("matchedUserID ", matchedUserID)
-// 			reportData.ReportDetails.IsDigital = true
-// 			message, err := s.diagnosticService.DigitizeDiagnosticReport(reportData, matchedUserID, &record.RecordId)
-// 			if err != nil {
-// 				log.Printf("Digitize error for record %d: %v", recordID, err)
-// 				return
-// 			}
-// 			payload := models.TblMedicalRecord{
-// 				RecordId:     record.RecordId,
-// 				DigitizeFlag: 1,
-// 			}
-// 			_, err1 := s.tblMedicalRecordRepo.UpdateTblMedicalRecord(&payload, authUserId)
-// 			if err1 != nil {
-// 				log.Println("Failed to update record : ", err1)
-// 				return
-// 			}
-// 			if err := s.diagnosticService.NotifyAbnormalResult(matchedUserID); err != nil {
-// 				log.Printf("NotifyAbnormalResult error: %v", err)
-// 			}
-// 			log.Printf("Digitization result for record %d: %v", recordID, message)
-// 		}(imageCopy, uint64(record.RecordId), createdBy)
-// 	} else if record.RecordCategory == "Prescriptions" {
-// 		var imageCopy bytes.Buffer
-
-// 		if _, err := io.Copy(&imageCopy, bytes.NewReader(fileBuf.Bytes())); err != nil {
-// 			log.Printf("Failed to copy image buffer for prescription async call (record %d): %v", record.RecordId, err)
-// 			return record, nil
-// 		}
-
-// 		go func(imageBuf bytes.Buffer, recordID, userID uint64) {
-// 			prescriptionData, err := s.apiService.CallPrescriptionDigitizeAPI(&imageBuf, filename)
-// 			if err != nil {
-// 				log.Printf("Prescription Digitization API error for record %d: %+v", recordID, err)
-// 				return
-// 			}
-// 			prescriptionData.PatientId = userID
-// 			prescriptionData.RecordId = recordID
-// 			prescriptionData.IsDigital = true
-// 			err1 := s.patientService.AddPatientPrescription(authUserId, &prescriptionData)
-// 			if err1 != nil {
-// 				log.Printf("SavePrescriptionData error for record %d: %v", recordID, err1)
-// 				return
-// 			}
-// 			payload := models.TblMedicalRecord{
-// 				RecordId:     record.RecordId,
-// 				DigitizeFlag: 1,
-// 			}
-// 			_, err2 := s.tblMedicalRecordRepo.UpdateTblMedicalRecord(&payload, authUserId)
-// 			if err2 != nil {
-// 				log.Println("Failed to update record : ", err2)
-// 				return
-// 			}
-// 			log.Printf("Prescription digitization result for record %d: %v", recordID, prescriptionData)
-// 		}(imageCopy, uint64(record.RecordId), createdBy)
-// 	}
-
-// 	return record, nil
-// }
-
-// func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64) uint64 {
-// 	normalizedPatientName := strings.TrimSpace(strings.ToLower(patientName))
-
-// 	highestScore := 0
-// 	bestMatchID := fallbackUserID
-
-// 	for _, relative := range relatives {
-// 		fullName := strings.TrimSpace(strings.ToLower(relative.FirstName + " " + relative.LastName))
-
-// 		soundexPatient := smetrics.Soundex(normalizedPatientName)
-// 		soundexRelative := smetrics.Soundex(fullName)
-
-// 		levDistance := smetrics.WagnerFischer(normalizedPatientName, fullName, 1, 1, 2)
-// 		maxLen := max(len(normalizedPatientName), len(fullName))
-// 		similarity := 100 - (levDistance * 100 / maxLen)
-
-// 		score := similarity
-// 		if soundexPatient == soundexRelative {
-// 			score += 20
-// 		}
-
-// 		log.Printf("Matching '%s' <-> '%s' | Similarity: %d%% | Score: %d", normalizedPatientName, fullName, similarity, score)
-
-// 		if score > highestScore && score >= 40 {
-// 			highestScore = score
-// 			bestMatchID = relative.RelativeId
-// 		}
-// 	}
-
-// 	if bestMatchID != fallbackUserID {
-// 		log.Printf("Best relatives Id match found. Relative Id: %d", bestMatchID)
-// 	} else {
-// 		log.Printf("No match found. Falling back to default user Id: %d", fallbackUserID)
-// 	}
-
-// 	return bestMatchID
-// }
 
 func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) uint64 {
 	normalizedPatientName := strings.TrimSpace(strings.ToLower(patientName))
@@ -341,8 +210,8 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	return s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
 }
 
-func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error) {
-	return s.tblMedicalRecordRepo.UpdateTblMedicalRecord(data, updatedBy)
+func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
+	return s.tblMedicalRecordRepo.UpdateTblMedicalRecord(data)
 }
 
 func (s *tblMedicalRecordServiceImpl) GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error) {

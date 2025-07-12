@@ -1815,7 +1815,6 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			Name:        row.TestComponentName,
 			Units:       row.ComponentUnit,
 			RefRange:    rangeStr,
-			RecordId:    strconv.Itoa(int(row.RecordId)),
 			IsPinned:    row.IsPinned,
 		}
 
@@ -1824,9 +1823,10 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			ResultStatus: row.ResultStatus,
 			ColourClass:  colorClass,
 			Colour:       colour,
-			ReportID:     strconv.Itoa(int(row.PatientDiagnosticReportID)),
+			ReportId:     strconv.Itoa(int(row.PatientDiagnosticReportID)),
 			ResultDate:   row.ResultDate,
 			Qualifier:    row.Qualifier,
+			RecordId:     strconv.Itoa(int(row.RecordId)),
 			ReportName:   row.ReportName,
 		}
 
@@ -1848,7 +1848,6 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			"ref_unit":                     key.Units,
 			"ref_range":                    key.RefRange,
 			"is_pinned":                    key.IsPinned,
-			"record_id":                    key.RecordId,
 			"trend_values":                 values,
 		}
 		finalRows = append(finalRows, row)

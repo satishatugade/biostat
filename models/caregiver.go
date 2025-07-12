@@ -10,7 +10,7 @@ type Caregiver struct {
 	ContactInfo  string             `json:"contact_info"`
 	Gender       string             `json:"gender"`
 	GenderId     uint64             `json:"gender_id"`
-	DateOfBirth  time.Time          `json:"date_of_birth"`
+	DateOfBirth  *time.Time         `json:"date_of_birth"`
 	MobileNo     string             `json:"mobile_no"`
 	Email        string             `json:"email"`
 	MappingType  string             `json:"mapping_type"`

@@ -2,8 +2,10 @@ package router
 
 import (
 	"biostat/auth"
+	"biostat/constant"
 	"biostat/controller"
 	"biostat/database"
+	"biostat/utils"
 	"log"
 	"net/http"
 	"os"
@@ -115,6 +117,7 @@ func Routing(envFile string) {
 	r.router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "Biostack server running..."})
 	})
+	r.router.GET(constant.Version, func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": utils.GetBuildVersion()}) })
 	r.router.Static("/uploads", "./uploads")
 	apiGroup := r.router.Group(os.Getenv("ApiVersion"))
 	db := database.GetDBConn()

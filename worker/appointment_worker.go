@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -41,6 +42,7 @@ func processAppointments(s service.AppointmentService) {
 
 type DigitizationWorker struct {
 	redisClient       *redis.Client
+	taskQueue         *asynq.Client
 	apiService        service.ApiService
 	patientService    service.PatientService
 	diagnosticService service.DiagnosticService
@@ -62,8 +64,10 @@ func InitAsynqWorker(
 	recordRepo repository.TblMedicalRecordRepository,
 	db *gorm.DB,
 ) {
+	client := asynq.NewClient(asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")})
 	worker := &DigitizationWorker{
 		redisClient:       config.RedisClient,
+		taskQueue:         client,
 		apiService:        apiService,
 		patientService:    patientService,
 		diagnosticService: diagnosticService,
@@ -73,7 +77,9 @@ func InitAsynqWorker(
 
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")},
-		asynq.Config{Concurrency: utils.GetConcurrentTaskCount()},
+		asynq.Config{Concurrency: utils.GetConcurrentTaskCount(), RetryDelayFunc: func(n int, err error, t *asynq.Task) time.Duration {
+			return 5 * time.Minute
+		}},
 	)
 
 	mux := asynq.NewServeMux()
@@ -83,6 +89,7 @@ func InitAsynqWorker(
 		log.Fatalf("Could not run Asynq server: %v", err)
 	}
 }
+
 func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asynq.Task) error {
 	var p models.DigitizationPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
@@ -97,6 +104,18 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	if retryCount > 0 {
 		status = constant.StatusRetrying
 	}
+	if !CheckServiceHealth(w.redisClient, os.Getenv("SERVICE_HEALTH_CHECK")) {
+		log.Println("AI service is down, retrying later.")
+		_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusQueued, 0, &constant.ServiceError, p.AuthUserID, retryCount)
+		newTask := asynq.NewTask("digitize:record", t.Payload())
+		_, err := w.taskQueue.Enqueue(newTask, asynq.ProcessIn(2*time.Minute))
+		if err != nil {
+			log.Printf("Failed to reschedule task for record %d: %v", p.RecordID, err)
+			return err
+		}
+
+		return nil
+	}
 	log.Printf("Digitization started: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, status)
 
 	_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, status, 0, nil, p.AuthUserID, retryCount)
@@ -109,7 +128,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	fileBuf := bytes.NewBuffer(fileBytes)
 
 	switch p.Category {
-	case "Test Reports","test_report":
+	case "Test Reports", "test_report":
 		if err := w.handleTestReport(fileBuf, p); err != nil {
 			return w.failTask(ctx, queueName, p.RecordID, err.Error(), p.AuthUserID, retryCount)
 		}
@@ -154,7 +173,7 @@ func (w *DigitizationWorker) logAndUpdateStatus(ctx context.Context, recordID ui
 		update.ErrorMessage = *errMsg
 	}
 
-	if _, err := w.recordRepo.UpdateTblMedicalRecord(update, authUserID); err != nil {
+	if _, err := w.recordRepo.UpdateTblMedicalRecord(update); err != nil {
 		return err
 	}
 
@@ -215,4 +234,44 @@ func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.
 	data.IsDigital = true
 
 	return w.patientService.AddPatientPrescription(p.AuthUserID, &data)
+}
+
+func CheckServiceHealth(redisClient *redis.Client, serviceURL string) bool {
+	log.Println("CheckServiceHealth for AI service ....")
+	ctx := context.Background()
+
+	// Check Redis cache first
+	key := fmt.Sprintf("ai-service_status:%s", serviceURL)
+	cachedStatus, err := redisClient.Get(ctx, key).Result()
+	if err == nil {
+		if cachedStatus == "up" {
+			log.Println("[CheckServiceHealth] Service is marked UP in cache.")
+			return true
+		}
+		if cachedStatus == "down" {
+			log.Println("[CheckServiceHealth] Service is marked DOWN in cache.")
+			return false
+		}
+	}
+
+	// If no cache, hit the actual health endpoint
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(serviceURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		// Service DOWN cache result for 2 minutes
+		log.Println("CheckServiceHealth Marking service as DOWN in cache for 2 minutes.")
+		_ = redisClient.Set(ctx, key, "down", 2*time.Minute).Err()
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("CheckServiceHealth Marking service as DOWN in cache for 2 minutes RESPONSE CODE : %d ", resp.StatusCode)
+		_ = redisClient.Set(ctx, key, "down", 2*time.Minute).Err()
+		return false
+	}
+
+	log.Println("CheckServiceHealth Service is UP. Caching status for 5 minutes.")
+	_ = redisClient.Set(ctx, key, "up", 5*time.Minute).Err()
+	return true
 }

@@ -16,7 +16,7 @@ type TblMedicalRecordRepository interface {
 	GetMedicalRecordsByUserID(userID uint64, recordIdsMap map[uint64]uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	CreateMultipleTblMedicalRecords(data []*models.TblMedicalRecord) error
-	UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error)
+	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordBelongsToUser(userID uint64, recordID uint64) (bool, error)
@@ -379,7 +379,7 @@ func (r *tblMedicalRecordRepositoryImpl) CreateMultipleTblMedicalRecords(records
 	return r.db.Create(records).Error
 }
 
-func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord, updatedBy string) (*models.TblMedicalRecord, error) {
+func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
 	tx := r.db.Begin()
 	if tx.Error != nil {
 		return nil, tx.Error
