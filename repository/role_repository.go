@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -18,10 +19,12 @@ type RoleRepository interface {
 	GetSystemUserRoleMappingByPatientIdMappingType(patientId uint64, mappingType []string) ([]models.SystemUserRoleMapping, error)
 	HasHOFMapping(patientId uint64, mappingType string) (bool, error)
 	AddSystemUserMapping(tx *gorm.DB, systemUserMapping *models.SystemUserRoleMapping) error
+	UpdateSystemUserMapping(updatedSystemUserMapping *models.SystemUserRoleMapping) error
 	GetReverseRelationshipMapping(sourceRelationId, sourceGenderId uint64, reverseGenderId *uint64) (*models.ReverseRelationMappingResponse, error)
 	CreateReverseMappingsForRelative(patientUserId, userId uint64, genderId uint64) error
 	GetMappingTypeByPatientId(patientUserId *uint64) (string, error)
 	GetInferredRelations(myRelationID, newRelationID, comparingRelationID uint64) (inferredNew uint64, inferredExisting uint64, err error)
+	CheckDeletedUserMappingWithPatient(userId uint64, patientId uint64, mappingType string) (bool, *models.SystemUserRoleMapping)
 }
 
 type RoleRepositoryImpl struct {
@@ -121,6 +124,76 @@ func (r *RoleRepositoryImpl) GetSystemUserRoleMappingByPatientIdMappingType(pati
 
 func (r *RoleRepositoryImpl) AddSystemUserMapping(tx *gorm.DB, systemUserMapping *models.SystemUserRoleMapping) error {
 	return tx.Create(systemUserMapping).Error
+}
+
+func (r *RoleRepositoryImpl) UpdateSystemUserMapping(updatedSystemUserMapping *models.SystemUserRoleMapping) error {
+	if updatedSystemUserMapping == nil {
+		return errors.New("invalid SystemUserRoleMapping data")
+	}
+
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		log.Printf("[UpdateSystemUserMapping] Failed to start transaction: %v", tx.Error)
+		return tx.Error
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("[UpdateSystemUserMapping] Transaction rolled back due to panic.")
+			panic(r)
+		}
+	}()
+
+	updateFields := map[string]interface{}{
+		"is_self":    updatedSystemUserMapping.IsSelf,
+		"is_deleted": updatedSystemUserMapping.IsDeleted,
+		"updated_at": time.Now(),
+	}
+
+	if updatedSystemUserMapping.UserId != 0 {
+		updateFields["user_id"] = updatedSystemUserMapping.UserId
+	}
+	if updatedSystemUserMapping.PatientId != 0 {
+		updateFields["patient_id"] = updatedSystemUserMapping.PatientId
+	}
+	if updatedSystemUserMapping.RoleId != 0 {
+		updateFields["role_id"] = updatedSystemUserMapping.RoleId
+	}
+	if updatedSystemUserMapping.RelationId != 0 {
+		updateFields["relation_id"] = updatedSystemUserMapping.RelationId
+	}
+	if updatedSystemUserMapping.MappingType != "" {
+		updateFields["mapping_type"] = updatedSystemUserMapping.MappingType
+	}
+
+	txResult := tx.Model(&models.SystemUserRoleMapping{}).
+		Where("patient_id = ? AND user_id = ? AND mapping_type = ?",
+			updatedSystemUserMapping.PatientId,
+			updatedSystemUserMapping.UserId,
+			updatedSystemUserMapping.MappingType).
+		Select("user_id", "patient_id", "role_id", "relation_id", "mapping_type", "is_self", "is_deleted", "updated_at").
+		Updates(updateFields)
+
+	if txResult.Error != nil {
+		log.Printf("[UpdateSystemUserMapping] Error during update: %v", txResult.Error)
+		tx.Rollback()
+		return txResult.Error
+	}
+
+	if txResult.RowsAffected == 0 {
+		log.Printf("[UpdateSystemUserMapping] No rows matched for update. Rolling back.")
+		tx.Rollback()
+		return errors.New("no matching record found to update")
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("[UpdateSystemUserMapping] Failed to commit transaction: %v", err)
+		return err
+	}
+
+	log.Printf("[UpdateSystemUserMapping] Successfully updated %d row(s) and committed transaction for patient_id=%d, user_id=%d", txResult.RowsAffected, updatedSystemUserMapping.PatientId, updatedSystemUserMapping.UserId)
+	return nil
 }
 
 func (r *RoleRepositoryImpl) GetReverseRelationshipMapping(sourceRelationId, sourceGenderId uint64, reverseGenderId *uint64) (*models.ReverseRelationMappingResponse, error) {
@@ -256,4 +329,21 @@ func (r *RoleRepositoryImpl) GetInferredRelations(myRelationID, newRelationID, c
 	}
 
 	return res.InferredRelationWithNew, res.InferredRelationWithExisting, nil
+}
+
+func (r *RoleRepositoryImpl) CheckDeletedUserMappingWithPatient(userId uint64, patientId uint64, mappingType string) (bool, *models.SystemUserRoleMapping) {
+	var mapping models.SystemUserRoleMapping
+
+	err := r.db.Model(&models.SystemUserRoleMapping{}).
+		Where("user_id = ? AND patient_id = ? AND mapping_type = ? AND is_deleted = 1", userId, patientId, mappingType).
+		First(&mapping).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, nil
+	}
+
+	return true, &mapping
 }

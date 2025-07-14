@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -19,7 +20,7 @@ type UserRepository interface {
 	CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 	FetchMappedUserAddress(patientId uint64, mappingType string, limit, offset int) ([]models.UserAddressResponse, int64, error)
-	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
+	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, *models.SystemUser_, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
 	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
@@ -136,32 +137,28 @@ func (r *UserRepositoryImpl) FetchMappedUserAddress(patientID uint64, mappingTyp
 	return data, total, err
 }
 
-func (ur *UserRepositoryImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error) {
-	var count int64
+func (ur *UserRepositoryImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, *models.SystemUser_, error) {
+	var user models.SystemUser_
+
+	query := ur.db.Model(&models.SystemUser_{})
 
 	if input.Mobile != "" {
-		err := ur.db.Model(&models.SystemUser_{}).
-			Where("mobile_no = ?", input.Mobile).
-			Count(&count).Error
-		if err != nil {
-			return false, err
-		}
-		if count > 0 {
-			return true, nil
-		}
+		query = query.Where("mobile_no = ?", input.Mobile)
+	} else if input.Email != "" {
+		query = query.Where("LOWER(email) = ?", strings.ToLower(input.Email))
+	} else {
+		return false, nil, nil
 	}
-	if input.Email != "" {
-		err := ur.db.Model(&models.SystemUser_{}).
-			Where("email = ?", strings.ToLower(input.Email)).
-			Count(&count).Error
-		if err != nil {
-			return false, err
+
+	err := query.First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil, nil
 		}
-		if count > 0 {
-			return true, nil
-		}
+		return false, nil, err
 	}
-	return false, nil
+
+	return true, &user, nil
 }
 
 func (ur *UserRepositoryImpl) GetUserInfoByUserName(username string) (*models.UserLoginInfo, error) {

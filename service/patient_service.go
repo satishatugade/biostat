@@ -45,7 +45,7 @@ type PatientService interface {
 	// GetPatientRelative(patientId string) ([]models.PatientRelative, error) //TODO DEL V
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
-	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
+	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
 	GetAssignedPatientList(caregiverID *uint64) ([]models.Patient, error)
 	GetDoctorList(patientId *uint64, User string, limit, offset int) ([]models.SystemUser_, int64, error)
@@ -332,16 +332,10 @@ func (s *PatientServiceImpl) AssignPrimaryCaregiver(patientId, relativeId uint64
 	return s.patientRepo.AssignPrimaryCaregiver(patientId, relativeId, mappingType)
 }
 
-func (s *PatientServiceImpl) SetCaregiverMappingDeletedStatus(patientId, caregiverId uint64, isDeleted int) error {
-	return s.patientRepo.SetCaregiverMappingDeletedStatus(patientId, caregiverId, isDeleted)
+func (s *PatientServiceImpl) SetPatientUserDeletedMappingStatus(patientId, userId uint64, isDeleted int, mappingType string) error {
+	return s.patientRepo.SetPatientUserDeletedMappingStatus(patientId, userId, isDeleted, mappingType)
 }
 
-// GetPatientRelatives implements PatientService. //TODO DEL V
-// func (s *PatientServiceImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
-// 	return s.patientRepo.GetPatientRelative(patientId)
-// }
-
-// AddPatientClinicalRange implements PatientService.
 func (s *PatientServiceImpl) AddPatientClinicalRange(customRange *models.PatientCustomRange) error {
 	return s.patientRepo.AddPatientClinicalRange(customRange)
 }

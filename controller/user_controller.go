@@ -94,7 +94,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 		return
 	}
-	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser.UserId, &systemUser, roleMaster.RoleId, roleMaster.RoleName, nil)
+	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser, &systemUser, roleMaster.RoleId, roleMaster.RoleName, nil, nil)
 	if mappingError != nil {
 		log.Println("Error while adding user mapping", mappingError)
 		tx.Rollback()
@@ -348,7 +348,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			return
 		}
 	} else {
-		systemUser, systemUserErr = uc.userService.GetSystemUserInfo(req.AuthUserId)
+		systemUser, systemUserErr = uc.userService.GetSystemUserInfoByAuthUserId(req.AuthUserId)
 		if systemUserErr != nil {
 			tx.Rollback()
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "User not found with auth user Id", nil, systemUserErr)
@@ -360,14 +360,15 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		err = uc.roleService.AddUserRelativeMappings(tx, patientUserId, systemUser.UserId, relation, roleMaster.RoleId, patient, &systemUser)
 		if err != nil {
 			tx.Rollback()
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user relative to patient", nil, err)
 			return
 		}
 	} else {
-		err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser.UserId, patient, roleMaster.RoleId, roleMaster.RoleName, &relation)
+		systemUser.RelationId = req.RelationId
+		err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser, patient, roleMaster.RoleId, roleMaster.RoleName, &relation, &isExistingUser)
 		if err != nil {
 			tx.Rollback()
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user to patient", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user caregiver to patient", nil, err)
 			return
 		}
 	}
@@ -410,7 +411,7 @@ func (uc *UserController) CheckUserEmailMobileExist(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
 		return
 	}
-	result, err := uc.userService.CheckUserEmailMobileExist(&input)
+	result, _, err := uc.userService.CheckUserEmailMobileExist(&input)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to check user contact", nil, err)
 		return

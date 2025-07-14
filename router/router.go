@@ -58,7 +58,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo)
 
-	var roleService = service.NewRoleService(roleRepo, patientService)
+	var roleService = service.NewRoleService(roleRepo, patientService, userRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
@@ -271,7 +271,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.GetCaregiver, patientController.GetPatientCaregiverList},
 		Route{"AssignedPatient", http.MethodPost, constant.AssignedPatient, patientController.GetAssignedPatientList},
 
-		Route{"patient - caregiver", http.MethodPost, constant.RemoveCaregiver, patientController.SetCaregiverMappingDeletedStatus},
+		Route{"remove patient-user mapping", http.MethodPost, constant.RemoveMapping, patientController.SetPatientUserDeletedMappingStatus},
 
 		//all caregiver
 		Route{"patient", http.MethodPost, constant.CaregiverList, patientController.GetCaregiverList},

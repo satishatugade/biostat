@@ -25,7 +25,7 @@ const (
 
 	GetCaregiver    = "/get-caregiver"
 	AssignedPatient = "/caregiver/assigned-patient"
-	RemoveCaregiver = "/caregiver"
+	RemoveMapping   = "/remove/user-mapping"
 	CaregiverList   = "/caregiver-list"
 
 	DoctorList = "/doctor-list/:user"

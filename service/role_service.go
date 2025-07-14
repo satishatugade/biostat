@@ -17,7 +17,7 @@ type RoleService interface {
 	HasHOFMapping(patientId uint64, mappingType string) (bool, error)
 	GetRoleIdByRoleName(roleName string) (models.RoleMaster, error)
 	GetRoleByUserId(UserId uint64, mappingType *string) (models.RoleMaster, error)
-	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster) error
+	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, newUserInfo models.SystemUser_, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster, isExistingUser *bool) error
 	CreateReverseMappingsForRelative(patientUserId, userId uint64, genderId uint64) error
 	AddUserRelativeMappings(tx *gorm.DB, userId uint64, relativeId uint64, relation models.RelationMaster, roleId uint64, registeringUser *models.SystemUser_, newUser *models.SystemUser_) error
 	GetMappingTypeByPatientId(patientUserId *uint64) (string, error)
@@ -26,10 +26,11 @@ type RoleService interface {
 type RoleServiceImpl struct {
 	roleRepo       repository.RoleRepository
 	patientService PatientService
+	userRepo       repository.UserRepository
 }
 
-func NewRoleService(repo repository.RoleRepository, patientService PatientService) RoleService {
-	return &RoleServiceImpl{roleRepo: repo, patientService: patientService}
+func NewRoleService(repo repository.RoleRepository, patientService PatientService, userRepo repository.UserRepository) RoleService {
+	return &RoleServiceImpl{roleRepo: repo, patientService: patientService, userRepo: userRepo}
 }
 
 // GetRoleById implements RoleService.
@@ -54,7 +55,7 @@ func (r *RoleServiceImpl) HasHOFMapping(patinetId uint64, mappingType string) (b
 	return r.roleRepo.HasHOFMapping(patinetId, mappingType)
 }
 
-func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster) error {
+func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, newUserInfo models.SystemUser_, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster, isExistingUser *bool) error {
 	roleName = strings.ToLower(roleName)
 	mappingType := utils.GetMappingTypeByRoleName(roleName, nil)
 	isSelf := roleName == "patient"
@@ -64,7 +65,7 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 	var patientId uint64
 	var relationId uint64
 	if patientUserId == nil {
-		patientId = userId
+		patientId = newUserInfo.UserId
 	} else {
 		patientId = *patientUserId
 	}
@@ -73,45 +74,37 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 	} else {
 		relationId = *patientRelation.RelationId
 	}
+	if roleName == string(constant.Caregiver) {
+		if isExistingUser != nil && *isExistingUser {
+			log.Println("patientId: ", patientId)
+			exist, existingMapping := r.CheckDeletedUserMappingWithPatient(patientId, newUserInfo.Email, mappingType)
+			log.Println("CheckDeletedUserMappingWithPatient ", exist, existingMapping)
+			if exist {
+				log.Printf("[AddSystemUserMapping] Found deleted mapping (id=%d), restoring it...", existingMapping.UserId)
+				existingMapping.IsDeleted = 0
+				existingMapping.RelationId = newUserInfo.RelationId
+				return r.roleRepo.UpdateSystemUserMapping(existingMapping)
+			}
+		}
+	}
 	systemUsermapping := models.SystemUserRoleMapping{
-		UserId:      userId,
+		UserId:      newUserInfo.UserId,
 		RoleId:      roleId,
 		MappingType: mappingType,
 		IsSelf:      isSelf,
 		PatientId:   patientId,
 		RelationId:  relationId,
 	}
-	if roleName == "relative" || roleName == "caregiver" {
-		usermapping := models.SystemUserRoleMapping{
-			UserId:      userId,
-			RoleId:      roleId,
-			MappingType: mappingType,
-			IsSelf:      false,
-			PatientId:   patientId,
-			RelationId:  relationId,
-		}
-		err := r.roleRepo.AddSystemUserMapping(tx, &usermapping)
-		if err != nil {
-			log.Println("error occures while adding AddSystemUserMapping")
-		}
-		log.Println("Inside MappedRelationAccordingRelationship : relationId : ", relationId)
-		relationshipMapping, err := r.roleRepo.GetReverseRelationshipMapping(relationId, patientRelation.SourceGenderId, &userInfo.GenderId)
-		if err != nil {
-			log.Println("GetReverseRelationshipMapping error occures ", err)
-		}
-		log.Println("relationshipMapping : ", relationshipMapping)
-		newmapping := models.SystemUserRoleMapping{
-			UserId:      patientId,
-			RoleId:      roleId,
-			MappingType: mappingType,
-			IsSelf:      false,
-			PatientId:   userId,
-			RelationId:  relationshipMapping.ReverseRelationshipId,
-		}
-		return r.roleRepo.AddSystemUserMapping(tx, &newmapping)
-	} else {
-		return r.roleRepo.AddSystemUserMapping(tx, &systemUsermapping)
+	return r.roleRepo.AddSystemUserMapping(tx, &systemUsermapping)
+}
+
+func (r *RoleServiceImpl) CheckDeletedUserMappingWithPatient(patientId uint64, email, mappingType string) (bool, *models.SystemUserRoleMapping) {
+	log.Println("CheckDeletedUserMappingWithPatient ", email)
+	exist, existingUser, _ := r.userRepo.CheckUserEmailMobileExist(&models.CheckUserMobileEmail{Email: email})
+	if exist {
+		return r.roleRepo.CheckDeletedUserMappingWithPatient(existingUser.UserId, patientId, mappingType)
 	}
+	return false, nil
 }
 
 // func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, userId uint64, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster) error {

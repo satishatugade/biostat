@@ -874,7 +874,7 @@ func GetMappingTypeByRoleName(roleName string, mappingType *string) string {
 
 func IsValidMappingType(value string) bool {
 	switch constant.MappingType(value) {
-	case constant.MappingTypeS, constant.MappingTypeC, constant.MappingTypeR, constant.MappingTypeD, constant.MappingTypeP:
+	case constant.MappingTypeS, constant.MappingTypeC, constant.MappingTypeR, constant.MappingTypeD, constant.MappingTypeP, constant.MappingTypeN, constant.MappingTypeHOF:
 		return true
 	default:
 		return false

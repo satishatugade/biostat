@@ -21,16 +21,16 @@ type UserService interface {
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 	GetAllMappedUserAddress(patientId uint64, limit, offset int, MappingType string) ([]models.UserAddressResponse, int64, error)
 	GetUserIdBySUB(sub string) (uint64, error)
-	GetSystemUserInfo(authUserId string) (models.SystemUser_, error)
+	GetSystemUserInfoByAuthUserId(authUserId string) (models.SystemUser_, error)
+	GetSystemUserInfoByUserID(userId uint64) (models.SystemUser_, error)
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
-	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error)
+	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, *models.SystemUser_, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
 	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	IsUsernameExists(username string) bool
 	GenerateUniqueUsername(firstName, lastName string) string
-	GetSystemUserInfoByUserID(userId uint64) (models.SystemUser_, error)
 }
 
 type UserServiceImpl struct {
@@ -92,7 +92,7 @@ func (s *UserServiceImpl) FetchAddressByPincode(postalcode string) ([]models.Pin
 	return s.userRepo.FetchAddressByPincode(postalcode)
 }
 
-func (ps *UserServiceImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, error) {
+func (ps *UserServiceImpl) CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, *models.SystemUser_, error) {
 	return ps.userRepo.CheckUserEmailMobileExist(input)
 }
 
@@ -120,7 +120,7 @@ func (s *UserServiceImpl) GetUserIdBySUB(sub string) (uint64, error) {
 	return userId, nil
 }
 
-func (s *UserServiceImpl) GetSystemUserInfo(sub string) (models.SystemUser_, error) {
+func (s *UserServiceImpl) GetSystemUserInfoByAuthUserId(sub string) (models.SystemUser_, error) {
 	userId, err := s.userRepo.GetUserIdBySUB(sub)
 	if err != nil {
 		return models.SystemUser_{}, err

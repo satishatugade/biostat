@@ -37,8 +37,7 @@ type PatientRepository interface {
 
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
-	SetCaregiverMappingDeletedStatus(patientId uint64, caregiverId uint64, isDeleted int) error
-	// GetPatientRelative(patientId string) ([]models.PatientRelative, error)
+	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.PatientRelative, error)
 	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
@@ -707,9 +706,9 @@ func (ps *PatientRepositoryImpl) GetSelfMappingWithType(tx *gorm.DB, patientId u
 	return &mapping, nil
 }
 
-func (pr *PatientRepositoryImpl) SetCaregiverMappingDeletedStatus(patientId, caregiverId uint64, isDeleted int) error {
+func (pr *PatientRepositoryImpl) SetPatientUserDeletedMappingStatus(patientId, userId uint64, isDeleted int, mappingType string) error {
 	result := pr.db.Model(&models.SystemUserRoleMapping{}).
-		Where("patient_id = ? AND user_id = ? AND mapping_type IN ?", patientId, caregiverId, []string{string(constant.MappingTypeC)}).
+		Where("patient_id = ? AND user_id = ? AND mapping_type = ?", patientId, userId, mappingType).
 		Update("is_deleted", isDeleted)
 
 	if result.Error != nil {
@@ -717,18 +716,11 @@ func (pr *PatientRepositoryImpl) SetCaregiverMappingDeletedStatus(patientId, car
 	}
 
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("no caregiver mapping found to update")
+		return fmt.Errorf("no user mapping found to update")
 	}
 
 	return nil
 }
-
-//TODO DEL V
-// func (p *PatientRepositoryImpl) GetPatientRelative(patientId string) ([]models.PatientRelative, error) {
-// 	var relatives []models.PatientRelative
-// 	err := p.db.Where("patient_id = ?", patientId).Find(&relatives).Error
-// 	return relatives, err
-// }
 
 func (s *PatientRepositoryImpl) IsPatientExists(patientID uint) (bool, error) {
 	var count int64

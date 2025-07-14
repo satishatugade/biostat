@@ -79,7 +79,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 	if mappingErr != nil {
 		return nil, mappingErr
 	}
-	userInfo, err := s.userService.GetSystemUserInfo(authUserId)
+	userInfo, err := s.userService.GetSystemUserInfoByUserID(userId)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 
 func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) uint64 {
 	normalizedPatientName := strings.TrimSpace(strings.ToLower(patientName))
-
+	log.Println("patient name ", systemPatientName)
 	highestScore := 0
 	bestMatchID := fallbackUserID
 	bestMatchName := systemPatientName

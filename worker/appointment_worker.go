@@ -33,7 +33,7 @@ func StartAppointmentScheduler(service service.AppointmentService) {
 }
 
 func processAppointments(s service.AppointmentService) {
-	log.Println("Scheduler: checking for completed appointments ...")
+	// log.Println("Scheduler: checking for completed appointments ...")
 	err := s.MarkCompletedAppointments()
 	if err != nil {
 		log.Println("Error @ MarkCompletedAppointments", err)

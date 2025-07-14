@@ -765,16 +765,26 @@ func (pc *PatientController) GetAssignedPatientList(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, message, patients, nil, nil)
 }
 
-func (pc *PatientController) SetCaregiverMappingDeletedStatus(c *gin.Context) {
+func (pc *PatientController) SetPatientUserDeletedMappingStatus(c *gin.Context) {
 	_, patientId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 
-	caregiverIDStr := c.Query("caregiver_id")
-	if caregiverIDStr == "" {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing caregiver_id in query parameter", nil, nil)
+	userIdStr := c.Query("user_id")
+	if userIdStr == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing user_id in query parameter", nil, nil)
+		return
+	}
+	mapping_type := c.Query("mapping_type")
+	if mapping_type == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Missing mapping_type in query parameter", nil, nil)
+		return
+	}
+
+	if !utils.IsValidMappingType(mapping_type) {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid mapping_type", nil, nil)
 		return
 	}
 
@@ -784,18 +794,18 @@ func (pc *PatientController) SetCaregiverMappingDeletedStatus(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid is_deleted value. Use 1 or 0.", nil, err)
 		return
 	}
-	caregiverId, err := strconv.ParseUint(caregiverIDStr, 10, 64)
+	userId, err := strconv.ParseUint(userIdStr, 10, 64)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid caregiver_id", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid user id ", nil, err)
 		return
 	}
 
-	err = pc.patientService.SetCaregiverMappingDeletedStatus(patientId, caregiverId, isDeletedInt)
+	err = pc.patientService.SetPatientUserDeletedMappingStatus(patientId, userId, isDeletedInt, mapping_type)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Caregiver not found", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "User not found", nil, err)
 		return
 	}
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "Caregiver removed successfully", nil, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User removed successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) GetCaregiverList(c *gin.Context) {
@@ -1107,7 +1117,7 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Medical record not found", nil, err)
 		return
 	}
-	userInfo, err := pc.userService.GetSystemUserInfo(authUserId)
+	userInfo, err := pc.userService.GetSystemUserInfoByAuthUserId(authUserId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "User info fetch failed", nil, err)
 		return
@@ -2732,7 +2742,7 @@ func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
 		return
 	}
 
-	user, err := pc.patientService.GetUserProfileByUserId(userId)
+	user, err := pc.patientService.GetUserProfileByUserId(relativeData.RelativeID)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to get user", nil, err)
 		return
@@ -2741,9 +2751,9 @@ func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
 	user.MobileNo = relativeData.MobileNo
 	user.FirstName = relativeData.FirstName
 	user.LastName = relativeData.LastName
-	exist, err := pc.userService.CheckUserEmailMobileExist(&models.CheckUserMobileEmail{Email: relativeData.Email})
+	exist, _, _ := pc.userService.CheckUserEmailMobileExist(&models.CheckUserMobileEmail{Email: relativeData.Email})
 	if !exist {
-		log.Println("GOing to Keycloak Update")
+		log.Println("Going to Keycloak Update user id : ", user)
 		userUpdateErr := pc.authService.UpdateUserInKeycloak(*user)
 		if userUpdateErr != nil {
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "failed to update user in keycloak", nil, userUpdateErr)
