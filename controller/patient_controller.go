@@ -2735,8 +2735,7 @@ func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
 		return
 	}
-
-	_, err = pc.patientService.GetPatientRelativeById(relativeData.RelativeID, userId)
+	err = pc.patientService.CheckPatientRelativeMapping(relativeData.RelativeID, userId, relativeData.MappingType)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "failed to update user", nil, err)
 		return

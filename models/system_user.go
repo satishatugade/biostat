@@ -304,6 +304,8 @@ type UpdateRelativeRequest struct {
 	Relationship string     `json:"relationship"`
 	MobileNo     string     `json:"mobile_no"`
 	Email        string     `json:"email"`
+	Speciality   string     `json:"speciality"`
+	ClinicName   string     `json:"clinic_name"`
 }
 
 type TblRelationInference struct {

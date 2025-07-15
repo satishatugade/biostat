@@ -75,6 +75,7 @@ type PatientService interface {
 
 	CanContinue(patientID, userID uint64, permission string) error
 	CanAccessAPI(userID uint64, roles []uint64) bool
+	CheckPatientRelativeMapping(relativeId, patientId uint64, relation string) error
 }
 
 type PatientServiceImpl struct {
@@ -1266,6 +1267,8 @@ func (ps *PatientServiceImpl) UpdateRelativeInfo(userId uint64, patientData *mod
 		DateOfBirth: patientData.DateOfBirth,
 		MobileNo:    patientData.MobileNo,
 		Email:       patientData.Email,
+		ClinicName:  patientData.ClinicName,
+		Speciality:  patientData.Speciality,
 	})
 	if err != nil {
 		return err
@@ -1285,4 +1288,9 @@ func (ps *PatientServiceImpl) UpdateRelativeInfo(userId uint64, patientData *mod
 
 func (ps *PatientServiceImpl) CanAccessAPI(userID uint64, roles []uint64) bool {
 	return ps.patientRepo.UserHasAnyOfRole(userID, roles)
+}
+
+func (ps *PatientServiceImpl) CheckPatientRelativeMapping(relativeId, patientId uint64, relation string) error {
+	_, _, err := ps.patientRepo.CheckPatientRelativeMapping(relativeId, patientId, relation)
+	return err
 }

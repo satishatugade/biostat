@@ -1077,3 +1077,94 @@ func GetBuildVersion() string {
 	buildVersion := os.Getenv("BUILD_VERSION")
 	return buildVersion
 }
+
+func StructToUpdateMap(data interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+		jsonTag := fieldType.Tag.Get("json")
+		jsonKey := strings.Split(jsonTag, ",")[0]
+		if jsonKey == "-" || jsonKey == "" {
+			continue
+		}
+
+		// Skip zero values
+		if isZero(field) {
+			continue
+		}
+
+		result[jsonKey] = field.Interface()
+	}
+
+	return result
+}
+
+func isZero(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.String:
+		return v.String() == ""
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint64, reflect.Uint32:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Ptr, reflect.Interface:
+		return v.IsNil()
+	case reflect.Struct:
+		// Handle time.Time separately
+		if t, ok := v.Interface().(time.Time); ok {
+			return t.IsZero()
+		}
+	}
+	return false
+}
+
+func StructToUpdateMapFiltered(request interface{}, model interface{}) map[string]interface{} {
+	updateMap := StructToUpdateMap(request)
+	allowedFields := getGormColumns(model)
+
+	filtered := make(map[string]interface{})
+	for key, val := range updateMap {
+		if allowedFields[key] {
+			filtered[key] = val
+		}
+	}
+	return filtered
+}
+
+func getGormColumns(model interface{}) map[string]bool {
+	v := reflect.ValueOf(model)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	t := v.Type()
+
+	columns := make(map[string]bool)
+	for i := 0; i < v.NumField(); i++ {
+		fieldType := t.Field(i)
+		tag := fieldType.Tag.Get("gorm")
+
+		// extract `column:<name>` from gorm tag
+		if strings.Contains(tag, "column:") {
+			parts := strings.Split(tag, ";")
+			for _, part := range parts {
+				if strings.HasPrefix(part, "column:") {
+					col := strings.TrimPrefix(part, "column:")
+					columns[col] = true
+				}
+			}
+		}
+	}
+	return columns
+}
+

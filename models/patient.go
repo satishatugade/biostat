@@ -28,6 +28,8 @@ type Patient struct {
 	CountryOfResidence   string        `json:"country_of_residence"`
 	IsIndianOrigin       bool          `json:"is_indian_origin"`
 	Email                string        `json:"email"`
+	Speciality           string        `json:"speciality,omitempty"`
+	ClinicName           string        `json:"clinic_name,omitempty"`
 	CreatedAt            time.Time     `json:"created_at"`
 	UpdatedAt            time.Time     `json:"updated_at"`
 }

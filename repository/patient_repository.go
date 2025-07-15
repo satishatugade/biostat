@@ -360,7 +360,8 @@ func (p *PatientRepositoryImpl) UpdatePatientById(userId uint64, patientData *mo
 	if err != nil {
 		return models.SystemUser_{}, err
 	}
-	err = p.db.Model(&user).Select("*").Updates(patientData).Error
+	updates := utils.StructToUpdateMapFiltered(patientData, models.SystemUser_{})
+	err = p.db.Model(&user).Updates(updates).Error
 	if err != nil {
 		return models.SystemUser_{}, err
 	}
