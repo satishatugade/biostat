@@ -77,7 +77,7 @@ type PatientRepository interface {
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 	GetPinnedComponentCount(patientId uint64) (int64, error)
 	HasRelation(patientId uint64, userId uint64) (bool, error)
-	UserHasAnyOfRole(userId uint64, roles []uint64) bool
+	UserHasAnyOfRole(userId uint64, roles []string) bool
 }
 
 type PatientRepositoryImpl struct {
@@ -1094,8 +1094,10 @@ func (p *PatientRepositoryImpl) GetUserProfileByUserId(user_id uint64) (*models.
 	if err != nil {
 		log.Printf("Gender not found for ID %v: %v", user.GenderId, err)
 	}
+	roles := p.GetUserRoles(user_id)
 	user.Gender = gender.GenderCode
 	user.GenderId = gender.GenderId
+	user.UserRoles = roles
 	return &user, nil
 }
 
@@ -2073,13 +2075,24 @@ func (r *PatientRepositoryImpl) UpdateSystemUserRoleMapping(userId uint64, patie
 	return nil
 }
 
-func (p *PatientRepositoryImpl) UserHasAnyOfRole(userId uint64, roles []uint64) bool {
+func (p *PatientRepositoryImpl) UserHasAnyOfRole(userId uint64, roles []string) bool {
 	var count int64
 	err := p.db.Table("tbl_system_user_role_mapping").
-		Where("user_id = ? AND role_id in ?", userId, roles).
+		Where("user_id = ? AND mapping_type in ?", userId, roles).
 		Count(&count).Error
 	if err != nil {
 		return false
 	}
 	return count > 0
+}
+
+func (p *PatientRepositoryImpl) GetUserRoles(userId uint64) []string {
+	var roles []string
+	err := p.db.Table("tbl_system_user_role_mapping").Select("DISTINCT(mapping_type)").
+		Where("user_id = ?", userId).
+		Scan(&roles).Error
+	if err != nil {
+		return nil
+	}
+	return roles
 }

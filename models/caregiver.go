@@ -21,6 +21,7 @@ type Caregiver struct {
 	CreatedAt    time.Time          `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt    time.Time          `json:"updated_at" gorm:"autoUpdateTime"`
 	Permissions  []PermissionResult `json:"permissions" gorm:"-"`
+	Roles        []string           `json:"user_roles"`
 	HealthScore  int                `json:"health_score" gorm:"-"`
 }
 

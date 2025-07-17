@@ -80,7 +80,7 @@ func (c *GmailSyncController) FetchEmailsHandlerApp(ctx *gin.Context) {
 	}
 	go func() {
 		if err := c.gmailSyncService.SyncGmailApp(req.UserID, gmailService); err != nil {
-			log.Panicln("FetchEmailsHandlerApp:", err)
+			log.Println("FetchEmailsHandlerApp:", err)
 		}
 	}()
 

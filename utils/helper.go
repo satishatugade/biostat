@@ -394,6 +394,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 				Latitude:     user.AddressMapping.Address.Latitude,
 				Longitude:    user.AddressMapping.Address.Longitude,
 			},
+			Roles:     user.UserRoles,
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 		}
@@ -455,6 +456,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			YearsOfExperience: derefInt(user.YearsOfExperience),
 			ConsultationFee:   derefFloat(user.ConsultationFee),
 			WorkingHours:      user.WorkingHours,
+			Roles:             user.UserRoles,
 			CreatedAt:         user.CreatedAt,
 			UpdatedAt:         user.UpdatedAt,
 		}
@@ -500,6 +502,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			CountryOfResidence: user.CountryOfResidence,
 			IsIndianOrigin:     user.IsIndianOrigin,
 			Email:              user.Email,
+			Roles:              user.UserRoles,
 			CreatedAt:          user.CreatedAt,
 			UpdatedAt:          user.UpdatedAt,
 		}
@@ -728,7 +731,7 @@ func MakeRESTRequest(method, url string, body interface{}, headers map[string]st
 func CallDocumentTypeAPI(file io.Reader, filename string) (string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	log.Println("File Name : ", filename)
+	// log.Println("File Name : ", filename)
 
 	buf := make([]byte, 512)
 	n, err := file.Read(buf)
@@ -736,7 +739,7 @@ func CallDocumentTypeAPI(file io.Reader, filename string) (string, error) {
 		return "", fmt.Errorf("failed to read file for MIME detection: %w", err)
 	}
 	mimeType := http.DetectContentType(buf[:n])
-	log.Printf("Detected MIME type: %s", mimeType)
+	// log.Printf("Detected MIME type: %s", mimeType)
 
 	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
 
@@ -757,7 +760,7 @@ func CallDocumentTypeAPI(file io.Reader, filename string) (string, error) {
 		return "", fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "http://bio.alrn.in/api/document_type", body)
+	req, err := http.NewRequest("POST", os.Getenv("DOCUMENT_TYPE_API"), body)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1167,4 +1170,3 @@ func getGormColumns(model interface{}) map[string]bool {
 	}
 	return columns
 }
-

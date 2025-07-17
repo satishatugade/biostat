@@ -30,6 +30,7 @@ type Patient struct {
 	Email                string        `json:"email"`
 	Speciality           string        `json:"speciality,omitempty"`
 	ClinicName           string        `json:"clinic_name,omitempty"`
+	Roles                []string      `json:"user_roles"`
 	CreatedAt            time.Time     `json:"created_at"`
 	UpdatedAt            time.Time     `json:"updated_at"`
 }

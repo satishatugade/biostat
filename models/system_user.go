@@ -33,6 +33,7 @@ type SystemUserRoleMapping struct {
 	PatientId               uint64    `gorm:"column:patient_id;not null" json:"patient_id"`
 	RoleId                  uint64    `gorm:"column:role_id;not null" json:"role_id"`
 	RelationId              uint64    `gorm:"column:relation_id;not null" json:"relation_id"`
+	FamilyId                *uint64   `gorm:"column:family_id" json:"family_id"`
 	IsSelf                  bool      `gorm:"column:is_self;default:false" json:"is_self"`
 	MappingType             string    `gorm:"column:mapping_type;type:varchar(50)" json:"mapping_type,omitempty"`
 	GenderId                uint64    `gorm:"-" json:"gender_id,omitempty"`
@@ -128,9 +129,10 @@ type SystemUser_ struct {
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 
 	// Transient Fields (Not Stored in DB)
-	RoleId     uint64 `gorm:"-" json:"role_id"`
-	RoleName   string `gorm:"-" json:"role_name"`
-	RelationId uint64 `gorm:"-" json:"relation_id"`
+	RoleId     uint64   `gorm:"-" json:"role_id"`
+	RoleName   string   `gorm:"-" json:"role_name"`
+	RelationId uint64   `gorm:"-" json:"relation_id"`
+	UserRoles  []string `gorm:"-" json:"user_roles"`
 
 	AddressMapping SystemUserAddressMapping `gorm:"foreignKey:UserId;references:UserId" json:"address_mappings"`
 }

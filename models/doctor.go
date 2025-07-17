@@ -18,6 +18,7 @@ type Doctor struct {
 	YearsOfExperience int           `json:"years_of_experience"`
 	ConsultationFee   float64       `json:"consultation_fee"`
 	WorkingHours      string        `json:"working_hours"`
+	Roles             []string      `json:"user_roles"`
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
 }
