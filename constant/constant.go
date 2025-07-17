@@ -179,6 +179,9 @@ const (
 	ViewAllRefRange   = "/view-all-range"
 	ViewAuditRefRange = "/view-audit-range"
 
+	SubscriptionEnabledStatus = "/api/subscription/status"
+	UpdateSubscriptionStatus  = "/subscription/update-status"
+
 	SyncDigiLocker      = "/sync-digilocker"
 	GetMedicalResource  = "/get-medical-resource"
 	MedicalRecord       = "/medical-record-info"
@@ -216,22 +219,20 @@ const (
 	Address                 = "/mapped-user/address"
 	SOS                     = "/sos"
 	ShareList               = "/share-list"
+	FamilySubscription      = "/family-subscription"
+	GetSubscriptionPlan     = "/get-subscription-plan"
+	BIOCHATBOT              = "/ask-bio"
 )
 
 const (
-	Success = "success"
-	Failure = "failure"
-)
-
-const (
-	Active   = "Active"
-	InActive = "Inactive"
-)
-
-const (
-	CREATE = "Create"
-	UPDATE = "Update"
-	DELETE = "Delete"
+	Success             = "success"
+	Failure             = "failure"
+	Active              = "Active"
+	InActive            = "Inactive"
+	CREATE              = "Create"
+	UPDATE              = "Update"
+	DELETE              = "Delete"
+	SUBSCRIPTIONENABLED = "subscription_enabled"
 )
 
 const (

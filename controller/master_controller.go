@@ -26,12 +26,14 @@ type MasterController struct {
 	supportGroupService service.SupportGroupService
 	hospitalService     service.HospitalService
 	userService         service.UserService
+	subscriptionService service.SubscriptionService
 }
 
 func NewMasterController(allergyService service.AllergyService, diseaseService service.DiseaseService,
 	causeService service.CauseService, symptomService service.SymptomService, medicationService service.MedicationService,
 	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService,
-	roleService service.RoleService, supportGroupService service.SupportGroupService, hospitalService service.HospitalService, userService service.UserService) *MasterController {
+	roleService service.RoleService, supportGroupService service.SupportGroupService, hospitalService service.HospitalService,
+	userService service.UserService, subscriptionService service.SubscriptionService) *MasterController {
 	return &MasterController{allergyService: allergyService,
 		diseaseService:      diseaseService,
 		causeService:        causeService,
@@ -44,6 +46,7 @@ func NewMasterController(allergyService service.AllergyService, diseaseService s
 		supportGroupService: supportGroupService,
 		hospitalService:     hospitalService,
 		userService:         userService,
+		subscriptionService: subscriptionService,
 	}
 }
 
@@ -2446,4 +2449,61 @@ func (mc *MasterController) GetTestReferenceRangeAuditRecord(c *gin.Context) {
 		constant.AuditErrorMessage,
 	)
 	models.SuccessResponse(c, constant.Success, statusCode, message, auditRecord, nil, nil)
+}
+
+func (mc *MasterController) UpdateSubscriptionStatus(c *gin.Context) {
+	authUserId, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
+		return
+	}
+	type SubscriptionToggleRequest struct {
+		SubscriptionEnabled bool `json:"subscription_enabled" binding:"required"`
+	}
+	var req SubscriptionToggleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	err := mc.subscriptionService.UpdateSubscriptionStatus(req.SubscriptionEnabled, authUserId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to update subscription setting", nil, err)
+		return
+	}
+	message := "Subscription disabled successfully."
+	if req.SubscriptionEnabled {
+		message = "Subscription enabled successfully."
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, message, nil, nil, nil)
+}
+
+func (mc *MasterController) GetSubscriptionShowStatus(c *gin.Context) {
+	_, _, _, err1 := utils.GetUserIDFromContext(c, mc.userService.GetUserIdBySUB)
+	if err1 != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
+		return
+	}
+	status, err := mc.subscriptionService.GetSubscriptionShowStatus()
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to fetch subscription status", nil, err)
+		return
+	}
+	response := map[string]bool{
+		"subscription_enabled": status,
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Subscription status fetch", response, nil, nil)
+}
+
+func (mc *MasterController) GetSubscriptionPlanService(ctx *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(ctx, mc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	result, err := mc.subscriptionService.FetchSubscriptionPlanService()
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Plan not found", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Plan fetched successfully", result, nil, nil)
 }

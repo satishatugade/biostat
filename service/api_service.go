@@ -12,6 +12,8 @@ import (
 	"net/textproto"
 	"os"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type ApiService interface {
@@ -21,6 +23,7 @@ type ApiService interface {
 	AnalyzePrescriptionWithAI(data models.PatientPrescription) (string, error)
 	AnalyzePharmacokineticsInfo(data models.PharmacokineticsInput) (string, error)
 	SummarizeMedicalHistory(data models.PharmacokineticsInput) (string, error)
+	AskAI(message string, userId uint64, patientName string) (*models.AskAPIResponse, error)
 }
 
 type ApiServiceImpl struct {
@@ -375,4 +378,27 @@ func (api *ApiServiceImpl) SummarizeMedicalHistory(input models.Pharmacokinetics
 	}
 
 	return response.Summary, nil
+}
+
+func (s *ApiServiceImpl) AskAI(message string, userId uint64, patientName string) (*models.AskAPIResponse, error) {
+	apiURL := os.Getenv("ASK_API")
+	if apiURL == "" {
+		apiURL = "http://bio.alrn.in/api/ask"
+	}
+
+	reqBody := map[string]string{"message": message, "name": patientName, "user_id": fmt.Sprintf("%d", userId), "session_id": uuid.New().String()}
+	jsonData, _ := json.Marshal(reqBody)
+
+	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to call AI API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var apiResp models.AskAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	}
+	log.Println("AskAPIResponse : ", apiResp)
+	return &apiResp, nil
 }

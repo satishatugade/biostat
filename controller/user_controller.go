@@ -8,6 +8,7 @@ import (
 	"biostat/service"
 	"biostat/utils"
 	"context"
+	"errors"
 	"log"
 	"runtime/debug"
 	"strings"
@@ -20,19 +21,20 @@ import (
 )
 
 type UserController struct {
-	patientService    service.PatientService
-	roleService       service.RoleService
-	userService       service.UserService
-	emailService      service.EmailService
-	authService       auth.AuthService
-	permissionService service.PermissionService
+	patientService      service.PatientService
+	roleService         service.RoleService
+	userService         service.UserService
+	emailService        service.EmailService
+	authService         auth.AuthService
+	permissionService   service.PermissionService
+	subscriptionService service.SubscriptionService
 }
 
 func NewUserController(patientService service.PatientService, roleService service.RoleService,
 	userService service.UserService, emailService service.EmailService, authService auth.AuthService,
-	permissionService service.PermissionService) *UserController {
+	permissionService service.PermissionService, subscriptionService service.SubscriptionService) *UserController {
 	return &UserController{patientService: patientService, roleService: roleService,
-		userService: userService, emailService: emailService, authService: authService, permissionService: permissionService}
+		userService: userService, emailService: emailService, authService: authService, permissionService: permissionService, subscriptionService: subscriptionService}
 }
 
 func (uc *UserController) RegisterUser(c *gin.Context) {
@@ -111,6 +113,10 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		log.Println("Error sending email:", err)
 	}
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
+	subscribeErr := uc.subscriptionService.SubscribeDefaultPlan(systemUser.UserId, roleMaster.RoleName, user.LastName)
+	if subscribeErr != nil {
+		log.Println("Default subscribe pkan failed ", subscribeErr)
+	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
 	return
 }
@@ -284,12 +290,22 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 				return
 			}
 		}
+	} else {
+		canAccess := uc.patientService.CanAccessAPI(patientUserId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
+		if !canAccess {
+			models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Please get subscription inorder to perform this action", nil, errors.New("You need subscription for adding labs"))
+			return
+		}
 	}
+
 	if req.RoleName != string(constant.Relative) && req.RoleName != string(constant.Caregiver) && req.RoleName != string(constant.Doctor) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid role. Only relative or caregiver can be registered.", nil, nil)
 		return
 	}
-
+	if err := uc.subscriptionService.ValidateFamilyMemberLimit(patientUserId, req.RoleName); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusOK, err.Error(), nil, err)
+		return
+	}
 	patient, err := uc.patientService.GetUserProfileByUserId(patientUserId)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "Patient not found", nil, err)
@@ -390,7 +406,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		log.Println("GiveAllPermissionToHOF ERROR : ", permErr)
 	}
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
-	models.SuccessResponse(c, constant.Success, http.StatusOK, "User registered successfully", response, nil, nil)
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "User added successfully", response, nil, nil)
 	return
 }
 
@@ -565,6 +581,12 @@ func (uc *UserController) AddRelationHandler(ctx *gin.Context) {
 				models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "you do not have permission to perform this action", nil, err)
 				return
 			}
+		}
+	} else {
+		canAccess := uc.patientService.CanAccessAPI(patientId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
+		if !canAccess {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Please get subscription inorder to perform this action", nil, errors.New("You need subscription for updating information"))
+			return
 		}
 	}
 	tx := database.DB.Begin()

@@ -74,8 +74,9 @@ type PatientService interface {
 	SendSOS(patientID uint64, ip, userAgent string) error
 
 	CanContinue(patientID, userID uint64, permission string) error
-	CanAccessAPI(userID uint64, roles []uint64) bool
+	CanAccessAPI(userID uint64, roles []string) bool
 	CheckPatientRelativeMapping(relativeId, patientId uint64, relation string) error
+	StartConversation(message string, userInfo models.SystemUser_) (*models.AskAPIResponse, error)
 }
 
 type PatientServiceImpl struct {
@@ -1286,11 +1287,15 @@ func (ps *PatientServiceImpl) UpdateRelativeInfo(userId uint64, patientData *mod
 	return nil
 }
 
-func (ps *PatientServiceImpl) CanAccessAPI(userID uint64, roles []uint64) bool {
+func (ps *PatientServiceImpl) CanAccessAPI(userID uint64, roles []string) bool {
 	return ps.patientRepo.UserHasAnyOfRole(userID, roles)
 }
 
 func (ps *PatientServiceImpl) CheckPatientRelativeMapping(relativeId, patientId uint64, relation string) error {
 	_, _, err := ps.patientRepo.CheckPatientRelativeMapping(relativeId, patientId, relation)
 	return err
+}
+
+func (s *PatientServiceImpl) StartConversation(message string, userInfo models.SystemUser_) (*models.AskAPIResponse, error) {
+	return s.apiService.AskAI(message, userInfo.UserId, userInfo.FirstName+" "+userInfo.LastName)
 }

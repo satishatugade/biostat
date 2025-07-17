@@ -58,7 +58,9 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo)
 
-	var roleService = service.NewRoleService(roleRepo, patientService, userRepo)
+	var subscriptionRepo = repository.NewSubscriptionRepository(db)
+	var subscriptionService = service.NewSubscriptionService(subscriptionRepo, roleRepo)
+	var roleService = service.NewRoleService(roleRepo, patientService, userRepo, subscriptionRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
@@ -79,13 +81,16 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var orderService = service.NewOrderService(orderRepo)
 	var authService = auth.NewAuthService(userRepo, userService, emailService)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService, medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService, orderService, notificationService, authService, roleService, permissionService)
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
+		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,
+		orderService, notificationService, authService, roleService, permissionService, subscriptionService)
 
-	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService, medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService)
+	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
+		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService, permissionService)
+	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService, permissionService, subscriptionService)
 	UserRoutes(apiGroup, userController)
 
 	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo)
@@ -239,6 +244,9 @@ func getMasterRoutes(masterController *controller.MasterController, patientContr
 		Route{"Test Reference Range", http.MethodPost, constant.ViewRefRange, masterController.ViewTestReferenceRange},
 		Route{"Test Reference Range", http.MethodPost, constant.ViewAllRefRange, masterController.GetAllTestReferenceRange},
 		Route{"Test Reference Range", http.MethodPost, constant.ViewAuditRefRange, masterController.GetTestReferenceRangeAuditRecord},
+		Route{"Get Subsription status", http.MethodPost, constant.SubscriptionEnabledStatus, masterController.GetSubscriptionShowStatus},
+		Route{"Subsription Enabled status", http.MethodPost, constant.UpdateSubscriptionStatus, masterController.UpdateSubscriptionStatus},
+		Route{"Get-subscription-plan", http.MethodPost, constant.GetSubscriptionPlan, masterController.GetSubscriptionPlanService},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {
@@ -365,7 +373,11 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User permissions", http.MethodPost, constant.ManageFamilyPermission, patientController.ManagePermission},
 		Route{"User SOS", http.MethodPost, constant.SOS, patientController.SendSOSHandler},
 		Route{"User Share list", http.MethodPost, constant.ShareList, patientController.GetUserShareList},
+		Route{"family-subscription", http.MethodPost, constant.FamilySubscription, patientController.SubscribeFamilyPlan},
+		Route{"Get-subscription-plan", http.MethodPost, constant.GetSubscriptionPlan, patientController.GetSubscriptionPlanService},
+		Route{"BIO-Chat-bot ", http.MethodPost, constant.BIOCHATBOT, patientController.AskAIHandler},
 	}
+
 }
 
 func getUserRoutes(userController *controller.UserController) Routes {

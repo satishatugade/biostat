@@ -49,3 +49,13 @@ func ErrorResponse(c *gin.Context, status string, statusCode int, message string
 		Error:      errorMessage,
 	})
 }
+
+type AskRequest struct {
+	Message string `json:"message" binding:"required"`
+}
+
+type AskAPIResponse struct {
+	Status   string `json:"status"`
+	Response string `json:"response"`
+	Error    string `json:"error,omitempty"`
+}

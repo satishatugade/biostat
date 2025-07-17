@@ -1,6 +1,7 @@
 package database
 
 import (
+	"biostat/models"
 	"database/sql"
 	"fmt"
 	"log"
@@ -49,13 +50,7 @@ func InitDB() *gorm.DB {
 	}
 
 	log.Println("db.26 Database connection established successfully")
-	// database.AutoMigrate(&models.Patient{}, &models.PatientRelative{}, &models.Disease{}, &models.DiseaseAudit{}, &models.DiseaseType{}, &models.DiseaseProfile{}, &models.PatientDiseaseProfile{},
-	// 	&models.Symptom{}, &models.Severity{}, &models.PatientPrescription{}, &models.PrescriptionDetail{}, &models.Medication{}, &models.MedicationType{}, &models.DiseaseMedicationMapping{}, models.Exercise{},
-	// 	&models.ExerciseArtifact{}, &models.DiseaseExerciseMapping{}, models.Allergy{}, &models.AllergyType{}, &models.Caregiver{}, &models.Cause{},
-	// 	&models.DiagnosticTest{}, &models.DiagnosticTestComponent{}, &models.DiagnosticTestComponentMapping{}, &models.DiseaseDiagnosticTestMapping{},
-	// 	&models.PatientDietPlan{}, &models.DietCreator{}, &models.DietPlanTemplate{}, &models.Meal{}, &models.Nutrient{}, &models.TblMedicalRecord{}, &models.TblMedicalRecordUserMapping{}, &models.TblUserGtoken{})
-	database.AutoMigrate()
-
+	database.AutoMigrate(&models.SubscriptionMasterAudit{})
 	DB = database
 	return DB
 }

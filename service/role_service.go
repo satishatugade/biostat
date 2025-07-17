@@ -6,6 +6,7 @@ import (
 	"biostat/repository"
 	"biostat/utils"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -24,13 +25,14 @@ type RoleService interface {
 }
 
 type RoleServiceImpl struct {
-	roleRepo       repository.RoleRepository
-	patientService PatientService
-	userRepo       repository.UserRepository
+	roleRepo         repository.RoleRepository
+	patientService   PatientService
+	userRepo         repository.UserRepository
+	subscriptionRepo repository.SubscriptionRepository
 }
 
-func NewRoleService(repo repository.RoleRepository, patientService PatientService, userRepo repository.UserRepository) RoleService {
-	return &RoleServiceImpl{roleRepo: repo, patientService: patientService, userRepo: userRepo}
+func NewRoleService(repo repository.RoleRepository, patientService PatientService, userRepo repository.UserRepository, subscriptionRepo repository.SubscriptionRepository) RoleService {
+	return &RoleServiceImpl{roleRepo: repo, patientService: patientService, userRepo: userRepo, subscriptionRepo: subscriptionRepo}
 }
 
 // GetRoleById implements RoleService.
@@ -179,6 +181,22 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 	log.Println("@AddUserRelativeMappings")
 	log.Println("User id:", relativeId, " to be added as ", relation.RelationShip, "for userId:", userId)
 	// ADD MAPPING WITH NEW USER FOR User Adding Relative
+	var family *models.PatientFamilyGroup
+	enabled, enabledStatusErr := rs.subscriptionRepo.GetSubscriptionShowStatus()
+	if enabledStatusErr != nil {
+		log.Println("Not able to fetch subscription_enabled status : ")
+	}
+	if enabled {
+		var familyGrpErr error
+		family, familyGrpErr = rs.subscriptionRepo.GetFamilyGroupByMemberID(userId)
+		if familyGrpErr != nil {
+			return fmt.Errorf("cannot fetch family for member: %w", familyGrpErr)
+		}
+	}
+	var familyIdPtr *uint64
+	if family != nil {
+		familyIdPtr = &family.FamilyId
+	}
 	err := rs.roleRepo.AddSystemUserMapping(tx, &models.SystemUserRoleMapping{
 		UserId:      relativeId,
 		PatientId:   userId,
@@ -186,6 +204,7 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 		IsSelf:      false,
 		MappingType: string(constant.MappingTypeR),
 		RelationId:  *relation.RelationId,
+		FamilyId:    familyIdPtr,
 	})
 	if err != nil {
 		log.Println("@AddUserRelativeMappings->AddSystemUserMapping1:", err)
@@ -200,6 +219,7 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 		RoleId:      roleId,
 		MappingType: string(constant.MappingTypeR),
 		RelationId:  uint64(*reverseRel),
+		FamilyId:    familyIdPtr,
 	})
 
 	realtives, err := rs.patientService.GetRelativeList(&userId)
@@ -224,6 +244,7 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 			RoleId:      roleId,
 			MappingType: string(constant.MappingTypeR),
 			RelationId:  inferredNew,
+			FamilyId:    familyIdPtr,
 		})
 		// Add New User With Existing Relative
 		err = rs.roleRepo.AddSystemUserMapping(tx, &models.SystemUserRoleMapping{
@@ -233,6 +254,7 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 			RoleId:      roleId,
 			MappingType: string(constant.MappingTypeR),
 			RelationId:  inferredExisting,
+			FamilyId:    familyIdPtr,
 		})
 	}
 	return nil

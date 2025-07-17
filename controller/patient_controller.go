@@ -52,6 +52,7 @@ type PatientController struct {
 	authService          auth.AuthService
 	roleService          service.RoleService
 	permissionService    service.PermissionService
+	subscriptionService  service.SubscriptionService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
@@ -60,7 +61,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 	diagnosticService service.DiagnosticService, userService service.UserService,
 	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService,
 	emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService,
-	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService) *PatientController {
+	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService, subscriptionService service.SubscriptionService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -75,6 +76,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		authService:         authService,
 		roleService:         roleService,
 		permissionService:   permissionService,
+		subscriptionService: subscriptionService,
 	}
 }
 
@@ -426,7 +428,7 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid patient prescription input data", nil, err)
 		return
 	}
-	canAccess := pc.patientService.CanAccessAPI(userId, []uint64{3, 5})
+	canAccess := pc.patientService.CanAccessAPI(userId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
 	if !canAccess {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, errors.New("You need subscription for uploading own records"))
 		return
@@ -1028,7 +1030,7 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 			return
 		}
 	} else {
-		canAccess := pc.patientService.CanAccessAPI(userId, []uint64{3, 5})
+		canAccess := pc.patientService.CanAccessAPI(userId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
 		if !canAccess {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, errors.New("You need subscription for uploading own records"))
 			return
@@ -1225,7 +1227,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 	var req UserRequest
 	roles, rolesExists := ctx.Get("userRoles")
 	if !rolesExists {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("Error while getting profile"))
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "User not found", nil, errors.New("error while getting profile"))
 		return
 	}
 
@@ -1234,7 +1236,7 @@ func (pc *PatientController) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 	if !utils.StringInSlice(req.User, roles.([]string)) {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, nil)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid role", nil, nil)
 		return
 	}
 	if isDelegate {
@@ -1719,6 +1721,11 @@ func (mc *PatientController) AddLab(c *gin.Context) {
 	lab.CreatedBy = authUserId
 	if err := c.ShouldBindJSON(&lab); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+	canAccess := mc.patientService.CanAccessAPI(userId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
+	if !canAccess {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Please get subscription inorder to perform this action", nil, errors.New("You need subscription for adding labs"))
 		return
 	}
 	labInfo, err := mc.diagnosticService.CreateLab(&lab)
@@ -2454,7 +2461,7 @@ func (pc *PatientController) GetUserReminders(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	notifications, err := pc.notificationService.GetUserReminders(user_id)
+	notifications, _ := pc.notificationService.GetUserReminders(user_id)
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "reminders loaded", notifications, nil, nil)
 	return
 }
@@ -2465,11 +2472,11 @@ func (pc *PatientController) AssignPermissionHandler(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	hasHOF, err := pc.roleService.HasHOFMapping(user_id, string(constant.MappingTypeHOF))
-	if !hasHOF {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Only the Head of Family can manage all permission", nil, err)
-		return
-	}
+	// hasHOF, err := pc.roleService.HasHOFMapping(user_id, string(constant.MappingTypeHOF))
+	// if !hasHOF {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Only the Head of Family can manage all permission", nil, err)
+	// 	return
+	// }
 	type PermissionEntry struct {
 		Code  string `json:"code"`
 		Value bool   `json:"value"`
@@ -2735,6 +2742,11 @@ func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input data", nil, err)
 		return
 	}
+	canAccess := pc.patientService.CanAccessAPI(userId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
+	if !canAccess {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Please get subscription inorder to perform this action", nil, errors.New("You need subscription for updating information"))
+		return
+	}
 	err = pc.patientService.CheckPatientRelativeMapping(relativeData.RelativeID, userId, relativeData.MappingType)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusForbidden, "failed to update user", nil, err)
@@ -2767,4 +2779,65 @@ func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Patient info updated successfully", nil, nil, nil)
 	return
+}
+
+func (pc *PatientController) SubscribeFamilyPlan(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	var req models.SubscribeFamilyRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
+		return
+	}
+
+	resp, err := pc.subscriptionService.SubscribePlan(req, userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Subscription updated successfully", resp, nil, nil)
+}
+
+func (pc *PatientController) GetSubscriptionPlanService(ctx *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	result, err := pc.subscriptionService.FetchSubscriptionPlanService()
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Plan not found", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Plan fetched successfully", result, nil, nil)
+}
+
+func (pc *PatientController) AskAIHandler(c *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	userInfo, err := pc.userService.GetSystemUserInfoByUserID(userId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "User not found", nil, err)
+		return
+	}
+	var req models.AskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+
+	response, err := pc.patientService.StartConversation(req.Message, userInfo)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to get AI response", nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "AI response fetched", response.Response, nil, nil)
 }

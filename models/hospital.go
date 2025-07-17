@@ -65,10 +65,10 @@ type Service struct {
 	ServiceName string    `gorm:"column:service_name" json:"service_name"`
 	IsDeleted   int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
 	BulkUpload  int       `gorm:"column:bulk_upload;default:0" json:"bulk_upload"`
-	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-	CreatedBy   string    `gorm:"column:created_by" json:"created_by"`
-	UpdatedBy   string    `gorm:"column:updated_by" json:"updated_by"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"-"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"-"`
+	CreatedBy   string    `gorm:"column:created_by" json:"-"`
+	UpdatedBy   string    `gorm:"column:updated_by" json:"-"`
 }
 
 func (Service) TableName() string {

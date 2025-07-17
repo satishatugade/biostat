@@ -25,6 +25,8 @@ type RoleRepository interface {
 	GetMappingTypeByPatientId(patientUserId *uint64) (string, error)
 	GetInferredRelations(myRelationID, newRelationID, comparingRelationID uint64) (inferredNew uint64, inferredExisting uint64, err error)
 	CheckDeletedUserMappingWithPatient(userId uint64, patientId uint64, mappingType string) (bool, *models.SystemUserRoleMapping)
+	GetCountFamilyMember(userId uint64, FamilyId uint64) (int64, error)
+	UpdateFamilyIdSystemRoleMapping(familyId, userId uint64) error
 }
 
 type RoleRepositoryImpl struct {
@@ -346,4 +348,20 @@ func (r *RoleRepositoryImpl) CheckDeletedUserMappingWithPatient(userId uint64, p
 	}
 
 	return true, &mapping
+}
+
+func (r *RoleRepositoryImpl) GetCountFamilyMember(userId uint64, familyID uint64) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.SystemUserRoleMapping{}).
+		Where("patient_id = ? AND family_id = ? AND mapping_type = ? AND is_deleted = 0", userId, familyID, string(constant.MappingTypeR)).
+		Count(&count).Error
+	return count, err
+}
+func (r *RoleRepositoryImpl) UpdateFamilyIdSystemRoleMapping(familyId, userId uint64) error {
+	return r.db.Table("tbl_system_user_role_mapping").
+		Where("user_id = ? AND patient_id = ? AND mapping_type = ? AND is_deleted = 0", userId, userId, string(constant.MappingTypeHOF)).
+		Updates(map[string]interface{}{
+			"family_id":  familyId,
+			"updated_at": time.Now(),
+		}).Error
 }
