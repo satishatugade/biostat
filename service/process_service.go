@@ -12,6 +12,7 @@ import (
 type ProcessStatusService interface {
 	StartProcess(userID uint64, processType, entityID, entityType string, step string) uuid.UUID
 	UpdateProcess(processID uuid.UUID, status string, entityID *string, message *string, step *string, completed bool)
+	GetUserRecentProcesses(userID uint64) ([]models.ProcessStatus, error)
 }
 
 type ProcessStatusServiceImpl struct {
@@ -73,4 +74,8 @@ func (s *ProcessStatusServiceImpl) suppressError() {
 	if r := recover(); r != nil {
 		log.Printf("@suppressError [ProcessStatus] panic recovered: %v", r)
 	}
+}
+
+func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64) ([]models.ProcessStatus, error) {
+	return s.repo.GetRecentUserProcesses(userID, 60)
 }

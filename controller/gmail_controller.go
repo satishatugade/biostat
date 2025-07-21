@@ -73,7 +73,7 @@ func (c *GmailSyncController) FetchEmailsHandlerApp(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
 		return
 	}
-	gmailService, err := c.gmailSyncService.GmailServiceApp(req.UserID, req.AccessToken)
+	gmailService, err := c.gmailSyncService.CreateGmailServiceForApp(req.UserID, req.AccessToken)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Gmail couldn't be synced", nil, err)
 		return

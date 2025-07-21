@@ -222,6 +222,7 @@ const (
 	FamilySubscription      = "/family-subscription"
 	GetSubscriptionPlan     = "/get-subscription-plan"
 	BIOCHATBOT              = "/ask-bio"
+	RunningProcessStatus    = "/process-status"
 )
 
 const (
@@ -233,6 +234,7 @@ const (
 	UPDATE              = "Update"
 	DELETE              = "Delete"
 	SUBSCRIPTIONENABLED = "subscription_enabled"
+	Running             = "running"
 )
 
 const (

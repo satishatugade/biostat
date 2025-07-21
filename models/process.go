@@ -16,7 +16,7 @@ type ProcessStatus struct {
 	StatusMessage   string     `gorm:"column:status_message" json:"status_message"`
 	Step            string     `gorm:"column:step" json:"step"`
 	StartedAt       time.Time  `gorm:"column:started_at;autoCreateTime" json:"started_at"`
-	UpdatedAt       time.Time  `gorm:"column:started_at;autoCreateTime" json:"updated_at"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at;autoCreateTime" json:"updated_at"`
 	CompletedAt     *time.Time `gorm:"column:completed_at" json:"completed_at"`
 }
 

@@ -11,6 +11,7 @@ import (
 type ProcessStatusRepository interface {
 	CreateProcess(process *models.ProcessStatus) error
 	UpdateProcess(processID uuid.UUID, updates map[string]interface{}) error
+	GetRecentUserProcesses(userID uint64, recentMinutes int) ([]models.ProcessStatus, error)
 }
 
 type ProcessStatusRepositoryImpl struct {
@@ -30,4 +31,16 @@ func (r *ProcessStatusRepositoryImpl) UpdateProcess(processID uuid.UUID, updates
 	return r.db.Model(&models.ProcessStatus{}).
 		Where("process_status_id = ?", processID).
 		Updates(updates).Error
+}
+
+func (r *ProcessStatusRepositoryImpl) GetRecentUserProcesses(userID uint64, recentMinutes int) ([]models.ProcessStatus, error) {
+	var processes []models.ProcessStatus
+	cutoffTime := time.Now().Add(-time.Duration(recentMinutes) * time.Minute)
+
+	err := r.db.Where("user_id = ? AND (status = ? OR status = ? OR (status = ? AND updated_at >= ?))",
+		userID, "running", "failed", "completed", cutoffTime).
+		Order("updated_at desc").
+		Find(&processes).Error
+
+	return processes, err
 }

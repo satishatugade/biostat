@@ -83,7 +83,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
 		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,
-		orderService, notificationService, authService, roleService, permissionService, subscriptionService)
+		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
 		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService)
@@ -366,6 +366,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
 		Route{"User Notifications", http.MethodGet, constant.Reminders, patientController.GetUserReminders},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
+		Route{"User Notifications", http.MethodPost, constant.RunningProcessStatus, patientController.GetRecentUserProcesses},
 
 		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
