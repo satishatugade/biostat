@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"biostat/constant"
 	"biostat/models"
 	"time"
 
@@ -38,7 +39,7 @@ func (r *ProcessStatusRepositoryImpl) GetRecentUserProcesses(userID uint64, rece
 	cutoffTime := time.Now().Add(-time.Duration(recentMinutes) * time.Minute)
 
 	err := r.db.Where("user_id = ? AND (status = ? OR status = ? OR (status = ? AND updated_at >= ?))",
-		userID, "running", "failed", "completed", cutoffTime).
+		userID, constant.Running, constant.Failure, constant.Success, cutoffTime).
 		Order("updated_at desc").
 		Find(&processes).Error
 
