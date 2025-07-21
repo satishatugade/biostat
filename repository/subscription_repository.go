@@ -3,6 +3,7 @@ package repository
 import (
 	"biostat/constant"
 	"biostat/models"
+	"biostat/utils"
 	"errors"
 	"fmt"
 	"time"
@@ -20,6 +21,7 @@ type SubscriptionRepository interface {
 	GetSubscriptionShowStatus() (bool, error)
 	GetSubscriptionWithServices() ([]models.SubscriptionMaster, error)
 	GetFamilyGroupByMemberID(memberID uint64) (*models.PatientFamilyGroup, error)
+	CheckActiveSubscriptionPlanByMemberId(memberId uint64) (*models.SubscriptionMaster, bool, error)
 }
 
 type SubscriptionRepositoryImpl struct {
@@ -115,4 +117,47 @@ func (r *SubscriptionRepositoryImpl) GetFamilyGroupByMemberID(memberID uint64) (
 	}
 
 	return &family, nil
+}
+
+func (r *SubscriptionRepositoryImpl) CheckActiveSubscriptionPlanByMemberId(memberID uint64) (*models.SubscriptionMaster, bool, error) {
+	var familyGroup models.PatientFamilyGroup
+
+	err := r.db.Where("member_id = ? AND is_active = true", memberID).First(&familyGroup).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+
+	now := time.Now()
+	if familyGroup.SubscriptionStartDate != nil && familyGroup.SubscriptionEndDate != nil {
+		if now.Before(*familyGroup.SubscriptionStartDate) {
+			return nil, false, nil
+		}
+		if now.After(*familyGroup.SubscriptionEndDate) {
+			return nil, false, nil
+		}
+	}
+
+	if familyGroup.CurrentSubscriptionId == nil {
+		return nil, false, nil
+	}
+
+	var plan models.SubscriptionMaster
+	err = r.db.First(&plan, *familyGroup.CurrentSubscriptionId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	subscriptionStartDate := utils.FormatDateTime(familyGroup.SubscriptionStartDate)
+	subscriptionEndDate := utils.FormatDateTime(familyGroup.SubscriptionEndDate)
+	plan.SubscriptionStartDate = &subscriptionStartDate
+	plan.SubscriptionEndDate = &subscriptionEndDate
+	plan.FamilyId = familyGroup.FamilyId
+	plan.FamilyName = familyGroup.FamilyName
+	plan.MemberId = familyGroup.MemberId
+	return &plan, true, nil
 }

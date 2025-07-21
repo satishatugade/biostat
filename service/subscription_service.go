@@ -4,12 +4,14 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
+	"biostat/utils"
 	"fmt"
+	"log"
 	"time"
 )
 
 type SubscriptionService interface {
-	SubscribePlan(req models.SubscribeFamilyRequest, userId uint64) (map[string]interface{}, error)
+	SubscribePlan(req models.SubscribeFamilyRequest, userId uint64, userInfo models.SystemUser_) (map[string]interface{}, bool, error)
 	SubscribeDefaultPlan(userId uint64, roleName string, lastName string) error
 	UpdateSubscriptionStatus(enabled bool, updatedBy string) error
 	GetSubscriptionShowStatus() (bool, error)
@@ -31,25 +33,43 @@ func NewSubscriptionService(subscriptionRepo repository.SubscriptionRepository, 
 	return &SubscriptionServiceImpl{subscriptionRepo: subscriptionRepo, roleRepo: roleRepo}
 }
 
-func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyRequest, userId uint64) (map[string]interface{}, error) {
+func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyRequest, userId uint64, userInfo models.SystemUser_) (map[string]interface{}, bool, error) {
+	existingPlan, planExist, existErr := s.subscriptionRepo.CheckActiveSubscriptionPlanByMemberId(userId)
+	log.Println("CheckActiveSubscriptionPlanByMemberId : ", planExist, existingPlan)
+	if existErr != nil {
+		return nil, false, fmt.Errorf("error while Fetching plan details")
+	}
+	if planExist {
+		return map[string]interface{}{
+			"family_id":               existingPlan.FamilyId,
+			"plan_name":               existingPlan.PlanName,
+			"subscription_start_date": existingPlan.SubscriptionStartDate,
+			"subscription_end_date":   existingPlan.SubscriptionEndDate,
+			"is_auto_renew":           existingPlan.IsAutoRenew,
+			"duration":                existingPlan.Duration,
+			"price":                   existingPlan.Price,
+			// "updated_by":              existingPlan.MemberId,
+		}, true, nil
+	}
+
 	plan, err := s.subscriptionRepo.GetSubsciptionMasterPlanBySubscriptionId(req.SubscriptionId)
 	if err != nil {
-		return nil, fmt.Errorf("subscription plan not found")
+		return nil, false, fmt.Errorf("subscription plan not found")
 	}
 	family, err := s.subscriptionRepo.GetFamilyById(req.FamilyId)
 	if err != nil {
-		family, err = s.GetOrCreateFamilyByMemberID(userId, "Family")
+		family, err = s.GetOrCreateFamilyByMemberID(userId, userInfo.LastName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get or create family: %w", err)
+			return nil, false, fmt.Errorf("failed to get or create family: %w", err)
 		}
 	}
 	memberCount, err := s.roleRepo.GetCountFamilyMember(userId, family.FamilyId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count family members")
+		return nil, false, fmt.Errorf("failed to count family members")
 	}
 
 	if memberCount >= plan.MaxMember {
-		return nil, fmt.Errorf("cannot add more members, please upgrade your plan")
+		return nil, false, fmt.Errorf("cannot add more members, please upgrade your plan")
 	}
 
 	now := time.Now()
@@ -62,21 +82,22 @@ func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyReques
 	family.LastRenewedAt = &now
 	family.LastRenewalType = req.RenewalType
 	family.LastRenewedBy = userId
+	family.IsActive = true
 
 	if _, err := s.subscriptionRepo.UpdateFamilySubscription(family); err != nil {
-		return nil, fmt.Errorf("failed to update subscription")
+		return nil, false, fmt.Errorf("failed to update subscription")
 	}
 
 	return map[string]interface{}{
-		"family_id":     family.FamilyId,
-		"plan_name":     plan.PlanName,
-		"start_date":    family.SubscriptionStartDate,
-		"end_date":      family.SubscriptionEndDate,
-		"auto_renew":    family.IsAutoRenew,
-		"plan_duration": plan.Duration,
-		"plan_price":    plan.Price,
-		"updated_by":    userId,
-	}, nil
+		"family_id":               family.FamilyId,
+		"plan_name":               plan.PlanName,
+		"subscription_start_date": utils.FormatDateTime(family.SubscriptionStartDate),
+		"subscription_end_date":   utils.FormatDateTime(family.SubscriptionEndDate),
+		"is_auto_renew":           family.IsAutoRenew,
+		"duration":                plan.Duration,
+		"price":                   plan.Price,
+		// "updated_by":              userId,
+	}, false, nil
 }
 
 func (s *SubscriptionServiceImpl) SubscribeDefaultPlan(userId uint64, roleName, lastName string) error {

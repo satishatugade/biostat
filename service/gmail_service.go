@@ -260,7 +260,7 @@ func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 		return err
 	}
 	for _, record := range emailMedRecord {
-		log.Println("Starting to Digitize saved record : %s", record.RecordId)
+		log.Println("Starting to Digitize saved record : %d", record.RecordId)
 		resp, err := http.Get(record.RecordUrl)
 		if err != nil {
 			log.Println("Error @SyncGmailWeb->Read File From URL:%v", err)

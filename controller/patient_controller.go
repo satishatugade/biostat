@@ -53,6 +53,7 @@ type PatientController struct {
 	roleService          service.RoleService
 	permissionService    service.PermissionService
 	subscriptionService  service.SubscriptionService
+	processStatusService service.ProcessStatusService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
@@ -61,22 +62,24 @@ func NewPatientController(patientService service.PatientService, dietService ser
 	diagnosticService service.DiagnosticService, userService service.UserService,
 	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService,
 	emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService,
-	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService, subscriptionService service.SubscriptionService) *PatientController {
+	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService,
+	subscriptionService service.SubscriptionService, processStatusService service.ProcessStatusService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
-		diagnosticService:   diagnosticService,
-		userService:         userService,
-		apiService:          apiService,
-		diseaseService:      diseaseService,
-		smsService:          smsService,
-		emailService:        emailService,
-		orderService:        orderService,
-		notificationService: notificationService,
-		authService:         authService,
-		roleService:         roleService,
-		permissionService:   permissionService,
-		subscriptionService: subscriptionService,
+		diagnosticService:    diagnosticService,
+		userService:          userService,
+		apiService:           apiService,
+		diseaseService:       diseaseService,
+		smsService:           smsService,
+		emailService:         emailService,
+		orderService:         orderService,
+		notificationService:  notificationService,
+		authService:          authService,
+		roleService:          roleService,
+		permissionService:    permissionService,
+		subscriptionService:  subscriptionService,
+		processStatusService: processStatusService,
 	}
 }
 
@@ -2793,13 +2796,21 @@ func (pc *PatientController) SubscribeFamilyPlan(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
 		return
 	}
-
-	resp, err := pc.subscriptionService.SubscribePlan(req, userId)
+	userInfo, err := pc.userService.GetSystemUserInfoByUserID(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User not found", nil, err)
+		return
+	}
+	message := "Subscription updated successfully"
+	resp, exist, err := pc.subscriptionService.SubscribePlan(req, userId, userInfo)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Subscription updated successfully", resp, nil, nil)
+	if exist {
+		message = "You already have active plan, Do you want to upgrade the plan"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, resp, nil, nil)
 }
 
 func (pc *PatientController) GetSubscriptionPlanService(ctx *gin.Context) {
@@ -2840,4 +2851,19 @@ func (pc *PatientController) AskAIHandler(c *gin.Context) {
 	}
 
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "AI response fetched", response.Response, nil, nil)
+}
+
+func (pc *PatientController) GetRecentUserProcesses(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	processes, err := pc.processStatusService.GetUserRecentProcesses(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInsufficientStorage, err.Error(), nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "process status loaded", processes, nil, nil)
+	return
 }

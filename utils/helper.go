@@ -1170,3 +1170,10 @@ func getGormColumns(model interface{}) map[string]bool {
 	}
 	return columns
 }
+
+func FormatDateTime(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("02 Jan 2006 15:04:05")
+}

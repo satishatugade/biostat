@@ -5,18 +5,31 @@ import (
 )
 
 type SubscriptionMaster struct {
-	SubscriptionId  uint64                       `gorm:"primaryKey;column:subscription_id" json:"subscription_id"`
-	PlanName        string                       `gorm:"column:plan_name" json:"plan_name"`
-	PlanType        string                       `gorm:"column:plan_type;type:varchar(50)" json:"plan_type"`
-	Price           float64                      `gorm:"column:price" json:"price"`
-	MaxMember       int64                        `gorm:"column:max_member" json:"max_member"`
-	Duration        int                          `gorm:"column:duration" json:"duration"`
-	IsActive        bool                         `gorm:"column:is_active;default:true" json:"is_active"`
-	VisibleToUser   bool                         `gorm:"column:visible_to_user;default:true" json:"visible_to_user"`
-	CreatedAt       time.Time                    `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt       time.Time                    `gorm:"column:updated_at" json:"updated_at"`
-	CreatedBy       string                       `gorm:"column:created_by" json:"-"`
-	UpdatedBy       string                       `gorm:"column:updated_by" json:"-"`
+	SubscriptionId uint64    `gorm:"primaryKey;column:subscription_id" json:"subscription_id"`
+	PlanName       string    `gorm:"column:plan_name" json:"plan_name"`
+	PlanType       string    `gorm:"column:plan_type;type:varchar(50)" json:"plan_type"`
+	Price          float64   `gorm:"column:price" json:"price"`
+	MaxMember      int64     `gorm:"column:max_member" json:"max_member"`
+	Duration       int       `gorm:"column:duration" json:"duration"`
+	VisibleToUser  bool      `gorm:"column:visible_to_user;default:true" json:"visible_to_user"`
+	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy      string    `gorm:"column:created_by" json:"-"`
+	UpdatedBy      string    `gorm:"column:updated_by" json:"-"`
+
+	// PatientFamilyGroup fields
+	FamilyId              uint64     `gorm:"-" json:"family_id,omitempty"`
+	FamilyName            string     `gorm:"-" json:"family_name,omitempty"`
+	MemberId              uint64     `gorm:"-" json:"member_id,omitempty"`
+	CurrentSubscriptionId *uint64    `gorm:"-" json:"current_subscription_id,omitempty"`
+	SubscriptionStartDate *string    `gorm:"-" json:"subscription_start_date,omitempty"`
+	SubscriptionEndDate   *string    `gorm:"-" json:"subscription_end_date,omitempty"`
+	IsActive              bool       `gorm:"-" json:"is_active,omitempty"`
+	IsAutoRenew           bool       `gorm:"-" json:"is_auto_renew,omitempty"`
+	LastRenewedAt         *time.Time `gorm:"-" json:"last_renewed_at,omitempty"`
+	LastRenewedBy         uint64     `gorm:"-" json:"last_renewed_by,omitempty"`
+	LastRenewalType       string     `gorm:"-" json:"last_renewal_type,omitempty"`
+
 	ServiceMappings []SubscriptionServiceMapping `gorm:"foreignKey:SubscriptionId;references:SubscriptionId" json:"services"`
 }
 
@@ -52,11 +65,11 @@ type PatientFamilyGroup struct {
 	CurrentSubscriptionId *uint64    `gorm:"column:current_subscription_id" json:"current_subscription_id,omitempty"`
 	SubscriptionStartDate *time.Time `gorm:"column:subscription_start_date" json:"subscription_start_date,omitempty"`
 	SubscriptionEndDate   *time.Time `gorm:"column:subscription_end_date" json:"subscription_end_date,omitempty"`
-
-	IsAutoRenew     bool       `gorm:"column:is_auto_renew" json:"is_auto_renew"`
-	LastRenewedAt   *time.Time `gorm:"column:last_renewed_at" json:"last_renewed_at,omitempty"`
-	LastRenewedBy   uint64     `gorm:"column:last_renewed_by" json:"last_renewed_by,omitempty"`
-	LastRenewalType string     `gorm:"column:last_renewal_type" json:"last_renewal_type,omitempty"`
+	IsActive              bool       `gorm:"column:is_active" json:"is_active"`
+	IsAutoRenew           bool       `gorm:"column:is_auto_renew" json:"is_auto_renew"`
+	LastRenewedAt         *time.Time `gorm:"column:last_renewed_at" json:"last_renewed_at,omitempty"`
+	LastRenewedBy         uint64     `gorm:"column:last_renewed_by" json:"last_renewed_by,omitempty"`
+	LastRenewalType       string     `gorm:"column:last_renewal_type" json:"last_renewal_type,omitempty"`
 
 	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
