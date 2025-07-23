@@ -26,6 +26,20 @@ func (DiagnosticLab) TableName() string {
 	return "tbl_diagnostic_lab"
 }
 
+type AddLabRequest struct {
+	LabNo            string   `json:"lab_no"`
+	LabName          string   `json:"lab_name"`
+	LabAddress       string   `json:"lab_address"`
+	City             string   `json:"city"`
+	State            string   `json:"state"`
+	PostalCode       string   `json:"postal_code"`
+	LabContactNumber string   `json:"lab_contact_number"`
+	LabEmail         string   `json:"lab_email"`
+	RelativeIds      []uint64 `json:"relatvies_ids"`
+	IsSystemLab      bool     `json:"is_system_lab"`
+	LabID            uint64   `json:"lab_id"`
+}
+
 type DiagnosticLabAudit struct {
 	DiagnosticLabAuditId uint64    `gorm:"column:diagnostic_lab_audit_id;primaryKey;autoIncrement" json:"diagnostic_lab_audit_id"`
 	DiagnosticLabId      uint64    `gorm:"column:diagnostic_lab_id" json:"diagnostic_lab_id"`
@@ -422,6 +436,7 @@ type DiagnosticLabResponse struct {
 	LabContactNumber string    `json:"lab_contact_number"`
 	LabEmail         string    `json:"lab_email"`
 	IsDeleted        int       `json:"is_deleted"`
+	IsSystemLab      bool      `json:"is_system_lab"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 	CreatedBy        string    `json:"created_by"`

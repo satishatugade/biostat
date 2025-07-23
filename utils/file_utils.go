@@ -6,6 +6,10 @@ import (
 	"encoding/base64"
 	"io"
 	"mime/multipart"
+	"net/url"
+	"os"
+	"regexp"
+	"strings"
 
 	"biostat/models"
 
@@ -52,4 +56,23 @@ func GenerateHMAC(fileData []byte, clientSecret string) string {
 	mac := hmac.New(sha256.New, []byte(clientSecret))
 	mac.Write(fileData)
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func SanitizeFileName(name string) string {
+	decodedName, err := url.QueryUnescape(name)
+	if err != nil {
+		decodedName = name
+	}
+	decodedName = strings.ReplaceAll(decodedName, " ", "_")
+	re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+	return re.ReplaceAllString(decodedName, "_")
+}
+
+func SaveFile(header *multipart.FileHeader, path string) error {
+	return os.WriteFile(path, func() []byte {
+		file, _ := header.Open()
+		defer file.Close()
+		data, _ := io.ReadAll(file)
+		return data
+	}(), 0644)
 }

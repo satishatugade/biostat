@@ -1,20 +1,26 @@
 package service
 
 import (
+	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
+	"biostat/utils"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"github.com/xrash/smetrics"
@@ -23,7 +29,7 @@ import (
 type TblMedicalRecordService interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]map[string]interface{}, int64, error)
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
-	CreateTblMedicalRecord(data *models.TblMedicalRecord, createdBy uint64, authUserId string, file *bytes.Buffer, filename string) (*models.TblMedicalRecord, error)
+	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, authUserId string, file *bytes.Buffer, filename string) error
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
@@ -44,12 +50,13 @@ type tblMedicalRecordServiceImpl struct {
 	userService          UserService
 	taskQueue            *asynq.Client
 	redisClient          *redis.Client
+	processStatusService ProcessStatusService
 }
 
 func NewTblMedicalRecordService(repo repository.TblMedicalRecordRepository, apiService ApiService, diagnosticService DiagnosticService, patientService PatientService, userService UserService, taskQueue *asynq.Client,
-	redisClient *redis.Client) TblMedicalRecordService {
+	redisClient *redis.Client, processStatusService ProcessStatusService) TblMedicalRecordService {
 	return &tblMedicalRecordServiceImpl{tblMedicalRecordRepo: repo, apiService: apiService, diagnosticService: diagnosticService, patientService: patientService, userService: userService, taskQueue: taskQueue,
-		redisClient: redisClient}
+		redisClient: redisClient, processStatusService: processStatusService}
 }
 
 func (s *tblMedicalRecordServiceImpl) GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error) {
@@ -65,9 +72,51 @@ func (s *tblMedicalRecordServiceImpl) GetAllMedicalRecord(patientId uint64, limi
 	return processed, totalRecords, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord, userId uint64, authUserId string, fileBuf *bytes.Buffer, filename string) (*models.TblMedicalRecord, error) {
-	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(data)
+func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error) {
+	processID := uuid.New()
+	key, err := s.processStatusService.StartProcessRedis(processID, userId, "record_upload", fmt.Sprintf("UserID %s",strconv.FormatUint(userId, 10)), "tbl_medical_record", "record_saving")
+	uploadingPerson, err := s.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
+		return nil, err
+	}
+
+	fileName := utils.SanitizeFileName(header.Filename)
+	uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
+	ext := filepath.Ext(fileName)
+	originalName := strings.TrimSuffix(fileName, ext)
+	safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, ext)
+	destinationPath := filepath.Join("uploads", safeFileName)
+	if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
+		return nil, err
+	}
+	if err := utils.SaveFile(header, destinationPath); err != nil {
+		return nil, err
+	}
+
+	var fileBuf bytes.Buffer
+	tee := io.TeeReader(file, &fileBuf)
+	if _, err := io.ReadAll(tee); err != nil {
+		return nil, err
+	}
+
+	newRecord := models.TblMedicalRecord{
+		RecordName:        header.Filename,
+		RecordSize:        int64(header.Size),
+		FileType:          header.Header.Get("Content-Type"),
+		RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
+		UploadDestination: "LocalServer",
+		UploadSource:      uploadSource,
+		Description:       description,
+		RecordCategory:    recordCategory,
+		FetchedAt:         time.Now(),
+		UploadedBy:        uploadingPerson,
+		SourceAccount:     fmt.Sprint(uploadSource),
+		Status:            constant.StatusQueued,
+	}
+
+	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(&newRecord)
+	if err != nil {
+		s.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, "Failed to save record", "record_saving", true)
 		return nil, err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
@@ -75,6 +124,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 		UserID:   userId,
 		RecordID: record.RecordId,
 	})
+	s.processStatusService.UpdateProcessRedis(key, constant.Running, nil, "Record saved to database", "record_saving", false)
 	mappingErr := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
 	if mappingErr != nil {
 		return nil, mappingErr
@@ -83,9 +133,11 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(data *models.TblMed
 	if err != nil {
 		return nil, err
 	}
-	if err := s.CreateDigitizationTask(record, userInfo, userId, authUserId, fileBuf, filename); err != nil {
+	if err := s.CreateDigitizationTask(record, userInfo, userId, authUserId, &fileBuf, fileName); err != nil {
+		s.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, "Record saved, but digitization failed", "digitization", true)
 		log.Printf("Digitization task failed: %v", err)
 	}
+	s.processStatusService.UpdateProcessRedis(key, constant.Success, nil, "Record saved, digitization is in progress", "digitization", true)
 	return record, nil
 }
 

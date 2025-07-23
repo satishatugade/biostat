@@ -19,10 +19,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -30,7 +28,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -1044,58 +1041,62 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
 		return
 	}
-	user_id, err := pc.userService.GetUserIdBySUB(authUserId)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
-		return
-	}
+	// user_id, err := pc.userService.GetUserIdBySUB(authUserId)
+	// if err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
+	// 	return
+	// }
 
-	decodedName, err := url.QueryUnescape(header.Filename)
-	if err != nil {
-		decodedName = header.Filename
-	}
-	decodedName = strings.ReplaceAll(decodedName, " ", "_")
-	re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
-	cleanName := re.ReplaceAllString(decodedName, "_")
-	originalName := strings.TrimSuffix(cleanName, filepath.Ext(cleanName))
-	extension := filepath.Ext(cleanName)
-	uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
-	safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
-	destinationPath := filepath.Join("uploads", safeFileName)
+	// decodedName, err := url.QueryUnescape(header.Filename)
+	// if err != nil {
+	// 	decodedName = header.Filename
+	// }
+	// decodedName = strings.ReplaceAll(decodedName, " ", "_")
+	// re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+	// cleanName := re.ReplaceAllString(decodedName, "_")
+	// originalName := strings.TrimSuffix(cleanName, filepath.Ext(cleanName))
+	// extension := filepath.Ext(cleanName)
+	// uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
+	// safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
+	// destinationPath := filepath.Join("uploads", safeFileName)
 
-	if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create uploads directory", nil, err)
-		return
-	}
+	// if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create uploads directory", nil, err)
+	// 	return
+	// }
 
-	if err := ctx.SaveUploadedFile(header, destinationPath); err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to save file", nil, err)
-		return
-	}
-	newRecord := &models.TblMedicalRecord{
-		RecordName:        safeFileName,
-		RecordSize:        int64(header.Size),
-		FileType:          header.Header.Get("Content-Type"),
-		RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
-		UploadDestination: "LocalServer",
-		FetchedAt:         time.Now(),
-	}
-	var fileBuf bytes.Buffer
-	tee := io.TeeReader(file, &fileBuf)
+	// if err := ctx.SaveUploadedFile(header, destinationPath); err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to save file", nil, err)
+	// 	return
+	// }
+	// newRecord := &models.TblMedicalRecord{
+	// 	RecordName:        safeFileName,
+	// 	RecordSize:        int64(header.Size),
+	// 	FileType:          header.Header.Get("Content-Type"),
+	// 	RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
+	// 	UploadDestination: "LocalServer",
+	// 	FetchedAt:         time.Now(),
+	// }
+	// var fileBuf bytes.Buffer
+	// tee := io.TeeReader(file, &fileBuf)
 
-	_, err = io.ReadAll(tee)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to read file", nil, err)
-		return
-	}
-	newRecord.UploadSource = ctx.PostForm("upload_source")
-	newRecord.Description = ctx.PostForm("description")
-	newRecord.RecordCategory = ctx.PostForm("record_category")
-	newRecord.SourceAccount = fmt.Sprint(user_id)
-	newRecord.UploadedBy = user_id
-	newRecord.Status = constant.StatusQueued
+	// _, err = io.ReadAll(tee)
+	// if err != nil {
+	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to read file", nil, err)
+	// 	return
+	// }
+	// newRecord.UploadSource = ctx.PostForm("upload_source")
+	// newRecord.Description = ctx.PostForm("description")
+	// newRecord.RecordCategory = ctx.PostForm("record_category")
+	// newRecord.SourceAccount = fmt.Sprint(user_id)
+	// newRecord.UploadedBy = user_id
+	// newRecord.Status = constant.StatusQueued
 
-	data, err := pc.medicalRecordService.CreateTblMedicalRecord(newRecord, userId, authUserId, &fileBuf, header.Filename)
+	uploadSource := ctx.PostForm("upload_source")
+	description := ctx.PostForm("description")
+	recordCategory := ctx.PostForm("record_category")
+
+	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
@@ -1720,8 +1721,7 @@ func (mc *PatientController) AddLab(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	var lab models.DiagnosticLab
-	lab.CreatedBy = authUserId
+	var lab models.AddLabRequest
 	if err := c.ShouldBindJSON(&lab); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
 		return
@@ -1731,17 +1731,17 @@ func (mc *PatientController) AddLab(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Please get subscription inorder to perform this action", nil, errors.New("You need subscription for adding labs"))
 		return
 	}
-	labInfo, err := mc.diagnosticService.CreateLab(&lab)
+	labInfo, err := mc.diagnosticService.CreateLab(userId, authUserId, lab)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create lab", nil, err)
 		return
 	}
-	err1 := mc.diagnosticService.AddMapping(userId, labInfo)
-	if err1 != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err1)
-		return
-	}
-	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", nil, nil, nil)
+	// err1 := mc.diagnosticService.AddMapping(userId, labInfo)
+	// if err1 != nil {
+	// 	models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add mapping", nil, err1)
+	// 	return
+	// }
+	models.SuccessResponse(c, constant.Success, http.StatusCreated, "Lab created successfully", labInfo, nil, nil)
 }
 
 func (pc *PatientController) GetPatientDiagnosticLabs(c *gin.Context) {
@@ -2650,8 +2650,9 @@ func (pc *PatientController) GetMappedUserAddress(c *gin.Context) {
 		return
 	}
 	page, limit, offset := utils.GetPaginationParams(c)
+	mappingTypeCR := []string{string(constant.MappingTypeR), string(constant.MappingTypeC)}
 
-	data, totalRecords, err := pc.userService.GetAllMappedUserAddress(userId, limit, offset, mappingType)
+	data, totalRecords, err := pc.userService.GetAllMappedUserAddress(userId, limit, offset, mappingTypeCR)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to retrieve mapped user addresses", nil, err)
 		return
@@ -2801,7 +2802,7 @@ func (pc *PatientController) SubscribeFamilyPlan(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User not found", nil, err)
 		return
 	}
-	message := "Subscription updated successfully"
+	message := "Subscription upgraded successfully"
 	resp, exist, err := pc.subscriptionService.SubscribePlan(req, userId, userInfo)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
@@ -2825,6 +2826,25 @@ func (pc *PatientController) GetSubscriptionPlanService(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Plan fetched successfully", result, nil, nil)
+}
+
+func (pc *PatientController) GetActiveSubscription(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	message := "No active subscription found"
+	resp, exist, err := pc.subscriptionService.GetActiveSubscriptionPlanByMemberId(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+	if exist {
+		message = "Subscription plan fetch successfully"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, resp, nil, nil)
 }
 
 func (pc *PatientController) AskAIHandler(c *gin.Context) {

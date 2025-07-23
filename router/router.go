@@ -51,7 +51,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var roleRepo = repository.NewRoleRepository(db)
 
 	var processStatusRepo = repository.NewProcessStatusRepository(db)
-	var processStatusService = service.NewProcessStatusService(processStatusRepo)
+	var processStatusService = service.NewProcessStatusService(processStatusRepo, config.RedisClient)
 
 	var permissionRepo = repository.NewPermissionRepository(db)
 	var permissionService = service.NewPermissionService(permissionRepo, roleRepo)
@@ -64,7 +64,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
-	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService, config.AsynqClient, config.RedisClient)
+	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService, config.AsynqClient, config.RedisClient, processStatusService)
 
 	var smsService = service.NewSmsService()
 
@@ -264,7 +264,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPost, constant.UserProfile, patientController.GetUserProfile},
 		Route{"patient", http.MethodPost, constant.UserOnboardingStatus, patientController.GetUserOnBoardingStatus},
 
-		// Route{"D-LAB", http.MethodPost, constant.GetAllLab, patientController.GetAllLabs},
+		Route{"D-LAB", http.MethodPost, constant.GetAllLab, patientController.GetAllLabs},
 		Route{"D-LAB", http.MethodPost, constant.AddLab, patientController.AddLab},
 		Route{"D-LAB", http.MethodPost, constant.GetPatientLabs, patientController.GetPatientDiagnosticLabs},
 		Route{"D-LAB", http.MethodPut, constant.UpdateLabInfo, patientController.UpdateLab},
@@ -375,6 +375,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User SOS", http.MethodPost, constant.SOS, patientController.SendSOSHandler},
 		Route{"User Share list", http.MethodPost, constant.ShareList, patientController.GetUserShareList},
 		Route{"family-subscription", http.MethodPost, constant.FamilySubscription, patientController.SubscribeFamilyPlan},
+		Route{"Active-subscription", http.MethodPost, constant.ActiveSubscriptionPlan, patientController.GetActiveSubscription},
 		Route{"Get-subscription-plan", http.MethodPost, constant.GetSubscriptionPlan, patientController.GetSubscriptionPlanService},
 		Route{"BIO-Chat-bot ", http.MethodPost, constant.BIOCHATBOT, patientController.AskAIHandler},
 	}

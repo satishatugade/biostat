@@ -1681,13 +1681,12 @@ func (mc *MasterController) CreateLab(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	var lab models.DiagnosticLab
-	lab.CreatedBy = authUserId
+	var lab models.AddLabRequest
 	if err := c.ShouldBindJSON(&lab); err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid input", nil, err)
 		return
 	}
-	labInfo, err := mc.diagnosticService.CreateLab(&lab)
+	labInfo, err := mc.diagnosticService.CreateLab(0, authUserId, lab)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to create lab", nil, err)
 		return
