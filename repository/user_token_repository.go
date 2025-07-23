@@ -19,7 +19,7 @@ type UserRepository interface {
 	CreateSystemUserAddress(tx *gorm.DB, systemUserAddress models.AddressMaster) (models.AddressMaster, error)
 	CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
-	FetchMappedUserAddress(patientId uint64, mappingType string, limit, offset int) ([]models.UserAddressResponse, int64, error)
+	FetchMappedUserAddress(patientId uint64, mappingType []string, limit, offset int) ([]models.UserAddressResponse, int64, error)
 	CheckUserEmailMobileExist(input *models.CheckUserMobileEmail) (bool, *models.SystemUser_, error)
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
 	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
@@ -114,7 +114,7 @@ func (ds *UserRepositoryImpl) FetchAddressByPincode(postalcode string) ([]models
 	return addresses, nil
 }
 
-func (r *UserRepositoryImpl) FetchMappedUserAddress(patientID uint64, mappingType string, limit, offset int) ([]models.UserAddressResponse, int64, error) {
+func (r *UserRepositoryImpl) FetchMappedUserAddress(patientID uint64, mappingType []string, limit, offset int) ([]models.UserAddressResponse, int64, error) {
 	var data []models.UserAddressResponse
 	var total int64
 
@@ -125,7 +125,7 @@ func (r *UserRepositoryImpl) FetchMappedUserAddress(patientID uint64, mappingTyp
 		Joins("JOIN tbl_system_user_ AS su ON urm.user_id = su.user_id").
 		Joins("JOIN tbl_system_user_address_mapping AS suad ON suad.user_id = su.user_id").
 		Joins("JOIN tbl_address_master AS am ON am.address_id = suad.address_id").
-		Where(`urm.patient_id = ? AND urm.mapping_type = ?
+		Where(`urm.patient_id = ? AND urm.mapping_type IN ?
 		AND COALESCE(am.address_line1, '') <> '' AND COALESCE(am.city, '') <> ''
 		AND COALESCE(am.state, '') <> '' AND COALESCE(am.postal_code, '') <> ''`, patientID, mappingType)
 

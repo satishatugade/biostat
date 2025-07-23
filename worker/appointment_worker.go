@@ -106,7 +106,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	}
 	if !CheckServiceHealth(w.redisClient, os.Getenv("SERVICE_HEALTH_CHECK")) {
 		log.Println("AI service is down, retrying later.")
-		_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusQueued, 0, &constant.ServiceError, p.AuthUserID, retryCount)
+		_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusQueued, 0, &constant.ServiceError, retryCount)
 		newTask := asynq.NewTask("digitize:record", t.Payload())
 		_, err := w.taskQueue.Enqueue(newTask, asynq.ProcessIn(2*time.Minute))
 		if err != nil {
@@ -118,7 +118,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	}
 	log.Printf("Digitization started: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, status)
 
-	_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, status, 0, nil, p.AuthUserID, retryCount)
+	_ = w.logAndUpdateStatus(ctx, p.RecordID, queueName, status, 0, nil, retryCount)
 
 	fileBytes, err := os.ReadFile(p.FilePath)
 	if err != nil {
@@ -138,17 +138,17 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 		}
 	}
 
-	if err := w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusSuccess, 1, nil, p.AuthUserID, retryCount); err != nil {
+	if err := w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusSuccess, 1, nil, retryCount); err != nil {
 		return err
 	}
 
-	log.Printf("Digitization success: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, status)
+	log.Printf("Digitization success: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, constant.StatusSuccess)
 	_ = os.Remove(p.FilePath)
 	return nil
 }
 
 func (w *DigitizationWorker) logAndUpdateStatus(ctx context.Context, recordID uint64, queue string,
-	status constant.JobStatus, flag int, errMsg *string, authUserID string, retryCount int) error {
+	status constant.JobStatus, flag int, errMsg *string, retryCount int) error {
 	now := time.Now()
 	update := &models.TblMedicalRecord{
 		RecordId:     recordID,
@@ -171,6 +171,8 @@ func (w *DigitizationWorker) logAndUpdateStatus(ctx context.Context, recordID ui
 
 	if errMsg != nil {
 		update.ErrorMessage = *errMsg
+	} else {
+		update.ErrorMessage = ""
 	}
 
 	if _, err := w.recordRepo.UpdateTblMedicalRecord(update); err != nil {
@@ -189,7 +191,7 @@ func ptrTime(t time.Time) *time.Time {
 
 func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, recordID uint64, msg, authUserID string, retryCount int) error {
 	log.Printf("Digitization failed: recordId=%d queue Name := %s : retrying count := %d : record status := %s : error=%s", recordID, queueName, retryCount, constant.StatusFailed, msg)
-	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, authUserID, retryCount)
+	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, retryCount)
 	return fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
 }
 

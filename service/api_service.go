@@ -385,7 +385,7 @@ func (s *ApiServiceImpl) AskAI(message string, userId uint64, patientName string
 	if apiURL == "" {
 		apiURL = "http://bio.alrn.in/api/ask"
 	}
-
+	log.Println("AskAI message body : ", message)
 	reqBody := map[string]string{"message": message, "name": patientName, "user_id": fmt.Sprintf("%d", userId), "session_id": uuid.New().String()}
 	jsonData, _ := json.Marshal(reqBody)
 

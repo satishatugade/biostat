@@ -19,7 +19,7 @@ type UserService interface {
 	GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error)
 	DeleteTblUserToken(id uint64, updatedBy string) error
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
-	GetAllMappedUserAddress(patientId uint64, limit, offset int, MappingType string) ([]models.UserAddressResponse, int64, error)
+	GetAllMappedUserAddress(patientId uint64, limit, offset int, MappingType []string) ([]models.UserAddressResponse, int64, error)
 	GetUserIdBySUB(sub string) (uint64, error)
 	GetSystemUserInfoByAuthUserId(authUserId string) (models.SystemUser_, error)
 	GetSystemUserInfoByUserID(userId uint64) (models.SystemUser_, error)
@@ -58,7 +58,7 @@ func (s *UserServiceImpl) GetSingleTblUserToken(id uint64, provider string) (*mo
 	return s.userRepo.GetSingleTblUserToken(id, provider)
 }
 
-func (s *UserServiceImpl) GetAllMappedUserAddress(patientID uint64, limit, offset int, MappingType string) ([]models.UserAddressResponse, int64, error) {
+func (s *UserServiceImpl) GetAllMappedUserAddress(patientID uint64, limit, offset int, MappingType []string) ([]models.UserAddressResponse, int64, error) {
 	return s.userRepo.FetchMappedUserAddress(patientID, MappingType, limit, offset)
 }
 

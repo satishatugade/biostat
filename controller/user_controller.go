@@ -96,7 +96,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user", nil, err)
 		return
 	}
-	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser, &systemUser, roleMaster.RoleId, roleMaster.RoleName, nil, nil)
+	mappingError := uc.roleService.AddSystemUserMapping(tx, nil, systemUser, &systemUser, roleMaster.RoleId, roleMaster.RoleName, nil, nil, nil)
 	if mappingError != nil {
 		log.Println("Error while adding user mapping", mappingError)
 		tx.Rollback()
@@ -381,7 +381,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		}
 	} else {
 		systemUser.RelationId = req.RelationId
-		err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser, patient, roleMaster.RoleId, roleMaster.RoleName, &relation, &isExistingUser)
+		err = uc.roleService.AddSystemUserMapping(tx, &patientUserId, systemUser, patient, roleMaster.RoleId, roleMaster.RoleName, &relation, &isExistingUser, req.RelativeIds)
 		if err != nil {
 			tx.Rollback()
 			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to map user caregiver to patient", nil, err)

@@ -220,6 +220,7 @@ const (
 	SOS                     = "/sos"
 	ShareList               = "/share-list"
 	FamilySubscription      = "/family-subscription"
+	ActiveSubscriptionPlan  = "/active-subscription-plan"
 	GetSubscriptionPlan     = "/get-subscription-plan"
 	BIOCHATBOT              = "/ask-bio"
 	RunningProcessStatus    = "/process-status"

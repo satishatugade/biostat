@@ -18,7 +18,7 @@ type RoleService interface {
 	HasHOFMapping(patientId uint64, mappingType string) (bool, error)
 	GetRoleIdByRoleName(roleName string) (models.RoleMaster, error)
 	GetRoleByUserId(UserId uint64, mappingType *string) (models.RoleMaster, error)
-	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, newUserInfo models.SystemUser_, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster, isExistingUser *bool) error
+	AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, newUserInfo models.SystemUser_, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster, isExistingUser *bool, RelativeIds []uint64) error
 	CreateReverseMappingsForRelative(patientUserId, userId uint64, genderId uint64) error
 	AddUserRelativeMappings(tx *gorm.DB, userId uint64, relativeId uint64, relation models.RelationMaster, roleId uint64, registeringUser *models.SystemUser_, newUser *models.SystemUser_) error
 	GetMappingTypeByPatientId(patientUserId *uint64) (string, error)
@@ -57,7 +57,7 @@ func (r *RoleServiceImpl) HasHOFMapping(patinetId uint64, mappingType string) (b
 	return r.roleRepo.HasHOFMapping(patinetId, mappingType)
 }
 
-func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, newUserInfo models.SystemUser_, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster, isExistingUser *bool) error {
+func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint64, newUserInfo models.SystemUser_, userInfo *models.SystemUser_, roleId uint64, roleName string, patientRelation *models.RelationMaster, isExistingUser *bool, RelativeIds []uint64) error {
 	roleName = strings.ToLower(roleName)
 	mappingType := utils.GetMappingTypeByRoleName(roleName, nil)
 	isSelf := roleName == "patient"
@@ -88,6 +88,38 @@ func (r *RoleServiceImpl) AddSystemUserMapping(tx *gorm.DB, patientUserId *uint6
 				return r.roleRepo.UpdateSystemUserMapping(existingMapping)
 			}
 		}
+	} else if roleName == string(constant.Doctor) {
+		systemUsermapping := models.SystemUserRoleMapping{
+			UserId:      newUserInfo.UserId,
+			RoleId:      roleId,
+			MappingType: mappingType,
+			IsSelf:      isSelf,
+			PatientId:   patientId,
+			RelationId:  relationId,
+		}
+		// realtives, err := r.patientService.GetRelativeList(&patientId)
+		// if err != nil {
+		// 	return err
+		// }
+		// log.Println("List of ALL Relatives for User to add family doctor mapping :", patientId)
+		if len(RelativeIds) > 0 {
+			for _, relativeId := range RelativeIds {
+				err := r.roleRepo.AddSystemUserMapping(tx, &models.SystemUserRoleMapping{
+					UserId:      newUserInfo.UserId,
+					PatientId:   relativeId,
+					IsSelf:      false,
+					RoleId:      2,
+					MappingType: string(constant.MappingTypeD),
+					RelationId:  21,
+					FamilyId:    nil,
+				})
+				if err != nil {
+					log.Printf("failed to add system user mapping: %v", err)
+				}
+			}
+		}
+		return r.roleRepo.AddSystemUserMapping(tx, &systemUsermapping)
+
 	}
 	systemUsermapping := models.SystemUserRoleMapping{
 		UserId:      newUserInfo.UserId,

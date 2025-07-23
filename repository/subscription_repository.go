@@ -6,6 +6,7 @@ import (
 	"biostat/utils"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -14,7 +15,7 @@ import (
 
 type SubscriptionRepository interface {
 	GetSubsciptionMasterPlanBySubscriptionId(subscriptionID uint64) (*models.SubscriptionMaster, error)
-	GetFamilyById(familyID uint64) (*models.PatientFamilyGroup, error)
+	GetPatientFamilyGroupSubscriptionInfoByFamilyId(familyID uint64) (*models.PatientFamilyGroup, error)
 	UpdateFamilySubscription(family *models.PatientFamilyGroup) (uint64, error)
 	CreateFamily(family *models.PatientFamilyGroup) error
 	UpdateSubscriptionStatus(enabled bool, updatedBy string) error
@@ -43,7 +44,7 @@ func (r *SubscriptionRepositoryImpl) GetSubsciptionMasterPlanBySubscriptionId(su
 	return &plan, nil
 }
 
-func (r *SubscriptionRepositoryImpl) GetFamilyById(familyID uint64) (*models.PatientFamilyGroup, error) {
+func (r *SubscriptionRepositoryImpl) GetPatientFamilyGroupSubscriptionInfoByFamilyId(familyID uint64) (*models.PatientFamilyGroup, error) {
 	var family models.PatientFamilyGroup
 	if err := r.db.First(&family, familyID).Error; err != nil {
 		return nil, err
@@ -91,11 +92,7 @@ func (r *SubscriptionRepositoryImpl) UpdateSubscriptionStatus(enabled bool, upda
 
 func (r *SubscriptionRepositoryImpl) GetSubscriptionWithServices() ([]models.SubscriptionMaster, error) {
 	var plans []models.SubscriptionMaster
-
-	err := r.db.
-		Preload("ServiceMappings.Service").
-		Find(&plans).Error
-
+	err := r.db.Preload("ServiceMappings.Service").Order("subscription_id ASC").Find(&plans).Error
 	if err != nil {
 		return nil, err
 	}
@@ -125,10 +122,17 @@ func (r *SubscriptionRepositoryImpl) CheckActiveSubscriptionPlanByMemberId(membe
 	err := r.db.Where("member_id = ? AND is_active = true", memberID).First(&familyGroup).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("[Subscription] No active plan found for member_id=%d", memberID)
 			return nil, false, nil
 		}
+		log.Printf("[Subscription] Error while checking active plan for member_id=%d: %v", memberID, err)
 		return nil, false, err
 	}
+	log.Printf("[Subscription] Active plan found for member_id=%d (FamilyID=%d, CurrentSubscriptionId=%v)",
+		memberID,
+		familyGroup.FamilyId,
+		familyGroup.CurrentSubscriptionId,
+	)
 
 	now := time.Now()
 	if familyGroup.SubscriptionStartDate != nil && familyGroup.SubscriptionEndDate != nil {

@@ -6,6 +6,7 @@ import (
 	"biostat/repository"
 	"biostat/utils"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -259,7 +260,7 @@ func (s *PatientServiceImpl) SummarizeHistorybyAIModel(patientId uint64) (string
 			PatientName:  userInfo.FirstName + " " + userInfo.LastName,
 			Age:          time.Now().Year() - userInfo.DateOfBirth.Year(),
 			Gender:       userInfo.Gender,
-			PrescribedOn: "2025-05-28",
+			PrescribedOn: utils.FormatDateTime(data[0].PrescriptionDate),
 			Prescription: []models.PrescribedDrug{},
 		},
 		History: models.HistoryData{
@@ -1297,5 +1298,44 @@ func (ps *PatientServiceImpl) CheckPatientRelativeMapping(relativeId, patientId 
 }
 
 func (s *PatientServiceImpl) StartConversation(message string, userInfo models.SystemUser_) (*models.AskAPIResponse, error) {
+	switch message {
+	case "Lab_report":
+		reportID, _ := s.patientRepo.GetDiagnosticReportId(userInfo.UserId)
+		if reportID == nil {
+			return &models.AskAPIResponse{
+				Response: "No lab reports are available at the moment.",
+			}, nil
+		}
+		results, err2 := s.FetchPatientDiagnosticReports(userInfo.UserId, models.DiagnosticReportFilter{ReportID: reportID})
+		if err2 != nil {
+			return &models.AskAPIResponse{}, err2
+		}
+		if len(results) == 0 {
+			return &models.AskAPIResponse{
+				Response: "No lab reports are available at the moment.",
+			}, nil
+		}
+		jsonBytes, err := json.Marshal(results)
+		if err != nil {
+			return &models.AskAPIResponse{}, fmt.Errorf("failed to marshal report data: %w", err)
+		}
+		message = string(jsonBytes)
+
+	case "Prescription":
+		data, _, err := s.patientRepo.GetPrescriptionByPatientId(userInfo.UserId, 1, 0)
+		if err != nil {
+			return &models.AskAPIResponse{}, err
+		}
+		if len(data) == 0 {
+			return &models.AskAPIResponse{
+				Response: "Prescription not found.",
+			}, nil
+		}
+		jsonBytes, err := json.Marshal(data)
+		if err != nil {
+			return &models.AskAPIResponse{}, fmt.Errorf("failed to marshal prescription data: %w", err)
+		}
+		message = string(jsonBytes)
+	}
 	return s.apiService.AskAI(message, userInfo.UserId, userInfo.FirstName+" "+userInfo.LastName)
 }

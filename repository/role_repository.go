@@ -352,11 +352,13 @@ func (r *RoleRepositoryImpl) CheckDeletedUserMappingWithPatient(userId uint64, p
 
 func (r *RoleRepositoryImpl) GetCountFamilyMember(userId uint64, familyID uint64) (int64, error) {
 	var count int64
+	allowedTypes := []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF)}
 	err := r.db.Model(&models.SystemUserRoleMapping{}).
-		Where("patient_id = ? AND family_id = ? AND mapping_type = ? AND is_deleted = 0", userId, familyID, string(constant.MappingTypeR)).
+		Where("patient_id = ? AND family_id = ? AND mapping_type IN ? AND is_deleted = 0", userId, familyID, allowedTypes).
 		Count(&count).Error
 	return count, err
 }
+
 func (r *RoleRepositoryImpl) UpdateFamilyIdSystemRoleMapping(familyId, userId uint64) error {
 	return r.db.Table("tbl_system_user_role_mapping").
 		Where("user_id = ? AND patient_id = ? AND mapping_type = ? AND is_deleted = 0", userId, userId, string(constant.MappingTypeHOF)).

@@ -12,6 +12,7 @@ import (
 
 type SubscriptionService interface {
 	SubscribePlan(req models.SubscribeFamilyRequest, userId uint64, userInfo models.SystemUser_) (map[string]interface{}, bool, error)
+	GetActiveSubscriptionPlanByMemberId(userId uint64) (*models.SubscriptionMaster, bool, error)
 	SubscribeDefaultPlan(userId uint64, roleName string, lastName string) error
 	UpdateSubscriptionStatus(enabled bool, updatedBy string) error
 	GetSubscriptionShowStatus() (bool, error)
@@ -33,15 +34,20 @@ func NewSubscriptionService(subscriptionRepo repository.SubscriptionRepository, 
 	return &SubscriptionServiceImpl{subscriptionRepo: subscriptionRepo, roleRepo: roleRepo}
 }
 
+func (s *SubscriptionServiceImpl) GetActiveSubscriptionPlanByMemberId(memberId uint64) (*models.SubscriptionMaster, bool, error) {
+	return s.subscriptionRepo.CheckActiveSubscriptionPlanByMemberId(memberId)
+}
+
 func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyRequest, userId uint64, userInfo models.SystemUser_) (map[string]interface{}, bool, error) {
 	existingPlan, planExist, existErr := s.subscriptionRepo.CheckActiveSubscriptionPlanByMemberId(userId)
 	log.Println("CheckActiveSubscriptionPlanByMemberId : ", planExist, existingPlan)
 	if existErr != nil {
 		return nil, false, fmt.Errorf("error while Fetching plan details")
 	}
-	if planExist {
+	if planExist && req.RenewalType != "UPGRADE" {
 		return map[string]interface{}{
 			"family_id":               existingPlan.FamilyId,
+			"member_id":               existingPlan.MemberId,
 			"plan_name":               existingPlan.PlanName,
 			"subscription_start_date": existingPlan.SubscriptionStartDate,
 			"subscription_end_date":   existingPlan.SubscriptionEndDate,
@@ -56,25 +62,18 @@ func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyReques
 	if err != nil {
 		return nil, false, fmt.Errorf("subscription plan not found")
 	}
-	family, err := s.subscriptionRepo.GetFamilyById(req.FamilyId)
+	family, err := s.subscriptionRepo.GetPatientFamilyGroupSubscriptionInfoByFamilyId(req.FamilyId)
 	if err != nil {
 		family, err = s.GetOrCreateFamilyByMemberID(userId, userInfo.LastName)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to get or create family: %w", err)
 		}
 	}
-	memberCount, err := s.roleRepo.GetCountFamilyMember(userId, family.FamilyId)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to count family members")
-	}
-
-	if memberCount >= plan.MaxMember {
-		return nil, false, fmt.Errorf("cannot add more members, please upgrade your plan")
-	}
 
 	now := time.Now()
 	endDate := now.AddDate(0, 0, plan.Duration)
 
+	family.MemberId = userId
 	family.CurrentSubscriptionId = &plan.SubscriptionId
 	family.SubscriptionStartDate = &now
 	family.SubscriptionEndDate = &endDate
@@ -87,9 +86,13 @@ func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyReques
 	if _, err := s.subscriptionRepo.UpdateFamilySubscription(family); err != nil {
 		return nil, false, fmt.Errorf("failed to update subscription")
 	}
+	if err := s.roleRepo.UpdateFamilyIdSystemRoleMapping(family.FamilyId, userId); err != nil {
+		return nil, false, fmt.Errorf("failed to  UpdateFamilyIdSystemRoleMapping: %w", err)
+	}
 
 	return map[string]interface{}{
 		"family_id":               family.FamilyId,
+		"member_id":               family.MemberId,
 		"plan_name":               plan.PlanName,
 		"subscription_start_date": utils.FormatDateTime(family.SubscriptionStartDate),
 		"subscription_end_date":   utils.FormatDateTime(family.SubscriptionEndDate),
@@ -131,6 +134,7 @@ func (s *SubscriptionServiceImpl) SubscribeDefaultPlan(userId uint64, roleName, 
 	now := time.Now()
 	endDate := now.AddDate(0, 0, plan.Duration)
 
+	family.MemberId = userId
 	family.CurrentSubscriptionId = &plan.SubscriptionId
 	family.SubscriptionStartDate = &now
 	family.SubscriptionEndDate = &endDate
@@ -138,6 +142,7 @@ func (s *SubscriptionServiceImpl) SubscribeDefaultPlan(userId uint64, roleName, 
 	family.LastRenewedAt = &now
 	family.LastRenewalType = "DEFAULT"
 	family.LastRenewedBy = userId
+	family.IsActive = true
 
 	familyId, err := s.subscriptionRepo.UpdateFamilySubscription(family)
 	if err != nil {

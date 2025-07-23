@@ -13,11 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type DiagnosticService interface {
-	CreateLab(lab *models.DiagnosticLab) (*models.DiagnosticLab, error)
-	GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error)
+	CreateLab(userId uint64, authUserId string, lab models.AddLabRequest) (*models.DiagnosticLab, error)
+	GetAllLabs(limit, offset int) ([]models.DiagnosticLabResponse, int64, error)
 	GetPatientDiagnosticLabs(patientid uint64, limit int, offset int) ([]models.DiagnosticLabResponse, int64, error)
 	GetSinglePatientDiagnosticLab(patientId uint64, labId *uint64) (*models.DiagnosticLabResponse, error)
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
@@ -58,7 +60,6 @@ type DiagnosticService interface {
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 	GetSources(patientId uint64, limit, offset int) ([]models.HealthVitalSourceType, int64, error)
-	GetSourceById(sourceId int) (models.HealthVitalSource, error)
 	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
 }
 
@@ -97,16 +98,26 @@ func AddSourceName(data []models.HealthVitalSourceType, labs []models.Diagnostic
 	return data, totalRecord, nil
 }
 
-func (s *DiagnosticServiceImpl) GetSourceById(sourceId int) (models.HealthVitalSource, error) {
-	return s.diagnosticRepo.GetSourceById(sourceId)
-}
-
 func (s *DiagnosticServiceImpl) GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error) {
 	return s.diagnosticRepo.GetAllDiagnosticTests(limit, offset)
 }
 
 func (s *DiagnosticServiceImpl) AddMapping(patientId uint64, labInfo *models.DiagnosticLab) error {
-	return s.diagnosticRepo.AddMapping(patientId, labInfo)
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("failed to start transaction: %w", tx.Error)
+	}
+
+	if err := s.diagnosticRepo.AddMapping(tx, patientId, labInfo); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error while mapping diagnostic lab: %w", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit AddMapping transaction: %w", err)
+	}
+
+	return nil
 }
 
 func (ds *DiagnosticServiceImpl) ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error {
@@ -212,22 +223,65 @@ func (s *DiagnosticServiceImpl) DeleteDiagnosticTestComponentMapping(diagnosticT
 	return s.diagnosticRepo.DeleteDiagnosticTestComponentMapping(diagnosticTestId, diagnosticComponentId)
 }
 
-func (s *DiagnosticServiceImpl) CreateLab(lab *models.DiagnosticLab) (*models.DiagnosticLab, error) {
+func (s *DiagnosticServiceImpl) CreateLab(userId uint64, authUserId string, req models.AddLabRequest) (*models.DiagnosticLab, error) {
 	tx := database.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-	createdLab, err := s.diagnosticRepo.CreateLab(tx, lab)
+	if req.IsSystemLab {
+		existingLab, err := s.diagnosticRepo.GetLabById(req.LabID)
+		if err != nil || existingLab == nil {
+			tx.Rollback()
+			return nil, errors.New("Invalid Lab ID")
+		}
+		if err := s.diagnosticRepo.AddMapping(tx, userId, existingLab); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+
+		tx.Commit()
+		return existingLab, nil
+	}
+	lab := models.DiagnosticLab{
+		LabName:          req.LabName,
+		LabNo:            req.LabNo,
+		LabAddress:       req.LabAddress,
+		City:             req.City,
+		State:            req.State,
+		PostalCode:       req.PostalCode,
+		LabContactNumber: req.LabContactNumber,
+		LabEmail:         req.LabEmail,
+		CreatedBy:        authUserId,
+	}
+	createdLab, err := s.diagnosticRepo.CreateLab(tx, &lab)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
-	if err := tx.Commit().Error; err != nil {
+	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
+	err = s.diagnosticRepo.AddMapping(tx, userId, createdLab)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	for _, relative_id := range req.RelativeIds {
+		err = s.diagnosticRepo.AddMapping(tx, relative_id, createdLab)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 	return createdLab, nil
 }
 
@@ -250,8 +304,35 @@ func (s *DiagnosticServiceImpl) GetDiagnosticLabAuditRecord(labId, labAuditId ui
 	return s.diagnosticRepo.GetDiagnosticLabAuditRecord(labId, labAuditId)
 }
 
-func (s *DiagnosticServiceImpl) GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error) {
-	return s.diagnosticRepo.GetAllLabs(limit, offset)
+func (s *DiagnosticServiceImpl) GetAllLabs(limit, offset int) ([]models.DiagnosticLabResponse, int64, error) {
+	var res []models.DiagnosticLabResponse
+	labs, totalRecords, err := s.diagnosticRepo.GetAllLabs(limit, offset)
+	if err != nil {
+		return res, totalRecords, err
+	}
+	for _, lab := range labs {
+		res = append(res, toDiagnosticLabResponse(lab))
+	}
+	return res, totalRecords, nil
+}
+
+func toDiagnosticLabResponse(lab models.DiagnosticLab) models.DiagnosticLabResponse {
+	return models.DiagnosticLabResponse{
+		DiagnosticLabId:  lab.DiagnosticLabId,
+		LabNo:            lab.LabNo,
+		LabName:          lab.LabName,
+		LabAddress:       lab.LabAddress,
+		City:             lab.City,
+		State:            lab.State,
+		PostalCode:       lab.PostalCode,
+		LabContactNumber: lab.LabContactNumber,
+		LabEmail:         lab.LabEmail,
+		IsDeleted:        lab.IsDeleted,
+		CreatedAt:        lab.CreatedAt,
+		UpdatedAt:        lab.UpdatedAt,
+		CreatedBy:        lab.CreatedBy,
+		UpdatedBy:        lab.UpdatedBy,
+	}
 }
 
 func (s *DiagnosticServiceImpl) GetPatientDiagnosticLabs(patientId uint64, limit, offset int) ([]models.DiagnosticLabResponse, int64, error) {
@@ -293,7 +374,7 @@ func (s *DiagnosticServiceImpl) GetTestReferenceRangeAuditRecord(testReferenceRa
 func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error) {
 	testNameCache, componentNameCache := s.diagnosticRepo.LoadDiagnosticTestMasterData()
 	if testNameCache == nil || componentNameCache == nil {
-		log.Println("Failed to load master data")
+		log.Println("Failed to load diagnostic test master data")
 		return "", errors.New("test and component master data not available")
 	}
 
@@ -314,10 +395,10 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 
 	var diagnosticLabId uint64
 	labName := reportData.ReportDetails.LabName
-	// if labName == "" {
-	// 	log.Println("Lab name is empty, skipping lab creation/mapping.")
-	// 	return "", fmt.Errorf("lab name is required to proceed")
-	// }
+	if labName == "" {
+		log.Println("Lab name is empty, lab creating unknown lab name.")
+		labName = fmt.Sprintf("Unknown Lab %d", time.Now().Unix())
+	}
 	if val, exists := diagnosticLabs[strings.ToLower(labName)]; exists {
 		diagnosticLabId = val
 	} else {
@@ -333,6 +414,9 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 			log.Println("ERROR saving DiagnosticLab info:", err)
 			tx.Rollback()
 			return "", fmt.Errorf("error while saving diagnostic lab info: %w", err)
+		}
+		if err := s.diagnosticRepo.AddMapping(tx, patientId, labInfo); err != nil {
+			log.Println("ERROR while AddMapping for diagnostic lab:", err)
 		}
 		diagnosticLabId = labInfo.DiagnosticLabId
 	}
@@ -386,7 +470,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		if id, exists := testNameCache[strings.ToLower(strings.TrimSpace(testName))]; exists {
 			diagnosticTestId = id
 		} else {
-			log.Println("DiagnosticTest not available in database creating new test")
 			newTest := models.DiagnosticTest{TestName: testName}
 			testInfo, err := s.diagnosticRepo.CreateDiagnosticTest(tx, &newTest, "System")
 			if err != nil {
@@ -422,20 +505,9 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 			}
 			if id, exists := componentNameCache[strings.ToLower(strings.TrimSpace(component.TestComponentName))]; exists {
 				diagnosticComponentId = id
-				result := models.PatientDiagnosticTestResultValue{
-					DiagnosticTestId:          diagnosticTestId,
-					DiagnosticTestComponentId: diagnosticComponentId,
-					ResultStatus:              resultStatus,
-					ResultValue:               parsedResultValue,
-					ResultDate:                reportDate,
-					PatientId:                 patientId,
-					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
-				}
-				_, err := s.diagnosticRepo.SavePatientReportResultValue(tx, &result)
-				if err != nil {
-					log.Println("ERROR saving test result:", err)
+				if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId); err != nil {
 					tx.Rollback()
-					return "", fmt.Errorf("error while saving test result: %w", err)
+					return "", err
 				}
 			} else {
 				newComponent := models.DiagnosticTestComponent{
@@ -448,7 +520,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					log.Println("Error while creating Diagnostic Component:", err)
 					tx.Rollback()
 					return "", fmt.Errorf("error while creating diagnostic test component: %w", err)
-
 				}
 				diagnosticComponentId = componentInfo.DiagnosticTestComponentId
 				componentNameCache[strings.ToLower(strings.TrimSpace(componentInfo.TestComponentName))] = diagnosticComponentId
@@ -462,34 +533,60 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 					tx.Rollback()
 					return "", fmt.Errorf("error while creating diagnostic test component mapping: %w", err) // Wrap error
 				}
-				referenceRange := models.DiagnosticTestReferenceRange{
-					DiagnosticTestId:               diagnosticTestId,
-					DiagnosticTestComponentId:      diagnosticComponentId,
-					NormalMin:                      func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Min, 64); return v }(),
-					NormalMax:                      func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Max, 64); return v }(),
-					BiologicalReferenceDescription: component.BiologicalReferenceDescription,
-					Units:                          component.Units,
+				normalMin := func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Min, 64); return v }()
+				normalMax := func() float64 { v, _ := strconv.ParseFloat(component.ReferenceRange.Max, 64); return v }()
+				referenceMap, err := s.diagnosticRepo.GetAllDiagnosticReferenceRange()
+				if err != nil {
+					log.Println("Error while GetAllDiagnosticReferenceRange :", err)
 				}
-				refRangeErr := s.diagnosticRepo.AddTestReferenceRange(&referenceRange)
-				if refRangeErr != nil {
-					log.Println("ERROR saving test Ref. range:", refRangeErr)
-					tx.Rollback()
-					return "", fmt.Errorf("error while saving test reference range: %w", refRangeErr)
-				}
-				result := models.PatientDiagnosticTestResultValue{
-					DiagnosticTestId:          diagnosticTestId,
-					DiagnosticTestComponentId: diagnosticComponentId,
-					ResultStatus:              resultStatus,
-					ResultValue:               parsedResultValue,
-					ResultDate:                reportDate,
-					PatientId:                 patientId,
-					PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
-				}
-				_, resultValueErr := s.diagnosticRepo.SavePatientReportResultValue(tx, &result)
-				if resultValueErr != nil {
-					log.Println("ERROR saving test result:", resultValueErr)
-					tx.Rollback()
-					return "", fmt.Errorf("error while saving test result: %w", resultValueErr)
+				lookupKey := fmt.Sprintf("%d-%d", diagnosticTestId, diagnosticComponentId)
+				existingRef, exists := referenceMap[lookupKey]
+				if !exists {
+					log.Println("No existing range → inserting new value : ")
+					referenceRange := models.DiagnosticTestReferenceRange{
+						DiagnosticTestId:               diagnosticTestId,
+						DiagnosticTestComponentId:      diagnosticComponentId,
+						NormalMin:                      normalMin,
+						NormalMax:                      normalMax,
+						BiologicalReferenceDescription: component.BiologicalReferenceDescription,
+						Units:                          component.Units,
+					}
+					refRangeErr := s.diagnosticRepo.AddTestReferenceRange(&referenceRange)
+					if refRangeErr != nil {
+						log.Println("ERROR saving test Ref. range:", refRangeErr)
+						tx.Rollback()
+						return "", fmt.Errorf("error while saving test reference range: %w", refRangeErr)
+					}
+					if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId); err != nil {
+						tx.Rollback()
+						return "", err
+					}
+				} else {
+					log.Println("Before Mismatch detected →")
+					if existingRef.NormalMin != normalMin || existingRef.NormalMax != normalMax {
+						log.Println("Mismatch detected → inserting updated value against patient Id")
+						patientRefRange := models.PatientTestReferenceRange{
+							PatientId:                 patientId,
+							DiagnosticTestID:          diagnosticTestId,
+							DiagnosticTestComponentId: diagnosticComponentId,
+							NormalMin:                 normalMin,
+							NormalMax:                 normalMax,
+							BiologicalReferenceDesc:   *component.BiologicalReferenceDescription,
+							Units:                     component.Units,
+						}
+
+						if err := s.diagnosticRepo.AddPatientTestReferenceRange(&patientRefRange); err != nil {
+							log.Println("ERROR saving Patient-specific Ref. range:", err)
+							tx.Rollback()
+							return "", fmt.Errorf("error while saving patient-specific reference range: %w", err)
+						}
+						if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId); err != nil {
+							tx.Rollback()
+							return "", err
+						}
+					} else {
+						log.Println("Master reference matches → no patient-specific range needed")
+					}
 				}
 			}
 		}
@@ -499,6 +596,33 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		return "", err
 	}
 	return "Diagnostic report created!", nil
+}
+
+func (s *DiagnosticServiceImpl) SaveDiagnosticResultValue(
+	tx *gorm.DB,
+	diagnosticTestId, diagnosticComponentId uint64,
+	resultStatus string,
+	parsedResultValue float64,
+	reportDate time.Time,
+	patientId uint64,
+	reportId uint64,
+) error {
+	result := models.PatientDiagnosticTestResultValue{
+		DiagnosticTestId:          diagnosticTestId,
+		DiagnosticTestComponentId: diagnosticComponentId,
+		ResultStatus:              resultStatus,
+		ResultValue:               parsedResultValue,
+		ResultDate:                reportDate,
+		PatientId:                 patientId,
+		PatientDiagnosticReportId: reportId,
+	}
+
+	_, err := s.diagnosticRepo.SavePatientReportResultValue(tx, &result)
+	if err != nil {
+		log.Println("ERROR saving test result:", err)
+		return fmt.Errorf("error while saving test result: %w", err)
+	}
+	return nil
 }
 
 func GetResultStatus(resultVal, minStr, maxStr, status string) string {

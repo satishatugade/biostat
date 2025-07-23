@@ -1928,7 +1928,7 @@ func (p *PatientRepositoryImpl) RestructureDiagnosticReports(flatData []models.D
 func (r *PatientRepositoryImpl) GetDiagnosticReportId(patientId uint64) (*string, error) {
 	var reportId string
 	err := r.db.Table("tbl_patient_diagnostic_report").
-		Where("patient_id = ?", patientId).
+		Where("patient_id = ? AND is_deleted = ? ", patientId, 0).
 		Select("MAX(patient_diagnostic_report_id)").
 		Scan(&reportId).Error
 

@@ -129,10 +129,11 @@ type SystemUser_ struct {
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 
 	// Transient Fields (Not Stored in DB)
-	RoleId     uint64   `gorm:"-" json:"role_id"`
-	RoleName   string   `gorm:"-" json:"role_name"`
-	RelationId uint64   `gorm:"-" json:"relation_id"`
-	UserRoles  []string `gorm:"-" json:"user_roles"`
+	RoleId      uint64   `gorm:"-" json:"role_id"`
+	RelativeIds []uint64 `gorm:"-" json:"relative_ids,omitempty"`
+	RoleName    string   `gorm:"-" json:"role_name"`
+	RelationId  uint64   `gorm:"-" json:"relation_id"`
+	UserRoles   []string `gorm:"-" json:"user_roles"`
 
 	AddressMapping SystemUserAddressMapping `gorm:"foreignKey:UserId;references:UserId" json:"address_mappings"`
 }

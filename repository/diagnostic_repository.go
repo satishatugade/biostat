@@ -4,6 +4,7 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -21,7 +22,7 @@ type DiagnosticRepository interface {
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
-	AddMapping(userId uint64, LabInfo *models.DiagnosticLab) error
+	AddMapping(tx *gorm.DB, userId uint64, LabInfo *models.DiagnosticLab) error
 	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
 
@@ -47,10 +48,12 @@ type DiagnosticRepository interface {
 	AddDiseaseDiagnosticTestMapping(mapping *models.DiseaseDiagnosticTestMapping) error
 
 	AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error
+	AddPatientTestReferenceRange(ref *models.PatientTestReferenceRange) error
 	UpdateTestReferenceRange(input *models.DiagnosticTestReferenceRange, updatedBy string) error
 	DeleteTestReferenceRange(testReferenceRangeId uint64, deletedBy string) error
 	GetAllTestRefRangeView(limit int, offset int, isDeleted uint64) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
+	GetAllDiagnosticReferenceRange() (map[string]models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64)
 	LoadDiagnosticLabData() map[string]uint64
@@ -62,7 +65,6 @@ type DiagnosticRepository interface {
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	FetchSources(limit, offset int) ([]models.HealthVitalSourceType, int64, error)
-	GetSourceById(sourceId int) (models.HealthVitalSource, error)
 	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
 	GetPatientLabNameAndEmail(userId uint64) ([]models.DiagnosticLabResponse, error)
 }
@@ -76,11 +78,6 @@ func NewDiagnosticRepository(db *gorm.DB) DiagnosticRepository {
 		panic("database instance is null")
 	}
 	return &DiagnosticRepositoryImpl{db: db}
-}
-
-// GetSourceById implements DiagnosticRepository.
-func (r *DiagnosticRepositoryImpl) GetSourceById(sourceId int) (models.HealthVitalSource, error) {
-	panic("unimplemented")
 }
 
 func (r *DiagnosticRepositoryImpl) LoadDiagnosticLabData() map[string]uint64 {
@@ -397,7 +394,7 @@ func (r *DiagnosticRepositoryImpl) CreateLab(tx *gorm.DB, lab *models.Diagnostic
 func (r *DiagnosticRepositoryImpl) GetAllLabs(limit, offset int) ([]models.DiagnosticLab, int64, error) {
 	var labs []models.DiagnosticLab
 	var total int64
-	query := r.db.Model(&models.DiagnosticLab{})
+	query := r.db.Model(&models.DiagnosticLab{}).Where("is_system_lab = ?", true)
 
 	err := query.Count(&total).Error
 	if err != nil {
@@ -441,7 +438,7 @@ func (dr *DiagnosticRepositoryImpl) GetPatientDiagnosticLabs(patientId uint64, l
 
 	err := dr.db.Table("tbl_patient_diagnostic_lab_mapping AS mapping").
 		Select(`labs.diagnostic_lab_id, labs.lab_no, labs.lab_name, labs.lab_address, labs.city, labs.state,
-			labs.postal_code, labs.lab_contact_number, labs.lab_email, labs.is_deleted,
+			labs.postal_code, labs.lab_contact_number, labs.lab_email, labs.is_deleted,labs.is_system_lab,
 			labs.created_at, labs.updated_at, labs.created_by, labs.updated_by`).
 		Joins("JOIN tbl_diagnostic_lab AS labs ON labs.diagnostic_lab_id = mapping.diagnostic_lab_id").
 		Where("mapping.patient_id = ? AND mapping.is_deleted = 0", patientId).
@@ -535,7 +532,7 @@ func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 	})
 }
 
-func (repo *DiagnosticRepositoryImpl) AddMapping(patientId uint64, labInfo *models.DiagnosticLab) error {
+func (repo *DiagnosticRepositoryImpl) AddMapping(tx *gorm.DB, patientId uint64, labInfo *models.DiagnosticLab) error {
 	newLabMapping := models.PatientDiagnosticLabMapping{
 		PatientId:       patientId,
 		DiagnosticLabId: labInfo.DiagnosticLabId,
@@ -545,7 +542,7 @@ func (repo *DiagnosticRepositoryImpl) AddMapping(patientId uint64, labInfo *mode
 		UpdatedAt:       time.Now(),
 		IsDeleted:       0,
 	}
-	if err := repo.db.Create(&newLabMapping).Error; err != nil {
+	if err := tx.Create(&newLabMapping).Error; err != nil {
 		return err
 	}
 	return nil
@@ -580,6 +577,10 @@ func (r *DiagnosticRepositoryImpl) AddDiseaseDiagnosticTestMapping(mapping *mode
 }
 
 func (r *DiagnosticRepositoryImpl) AddTestReferenceRange(input *models.DiagnosticTestReferenceRange) error {
+	return r.db.Create(&input).Error
+}
+
+func (r *DiagnosticRepositoryImpl) AddPatientTestReferenceRange(input *models.PatientTestReferenceRange) error {
 	return r.db.Create(&input).Error
 }
 
@@ -880,4 +881,24 @@ func (r *DiagnosticRepositoryImpl) GetDiagnosticLabReportName(patientId uint64) 
 		return []models.DiagnosticReport{}, nil
 	}
 	return reportNameInfo, nil
+}
+
+func (r *DiagnosticRepositoryImpl) GetAllDiagnosticReferenceRange() (map[string]models.DiagnosticTestReferenceRange, error) {
+	var ranges []models.DiagnosticTestReferenceRange
+
+	// Fetch all rows from the table
+	if err := r.db.Table("tbl_diagnostic_test_reference_range").
+		Select("diagnostic_test_id,diagnostic_test_component_id, normal_min, normal_max, biological_reference_description").
+		Where("is_deleted = 0").
+		Find(&ranges).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch diagnostic reference ranges: %w", err)
+	}
+
+	referenceMap := make(map[string]models.DiagnosticTestReferenceRange)
+	for _, ref := range ranges {
+		key := fmt.Sprintf("%d-%d", ref.DiagnosticTestId, ref.DiagnosticTestComponentId)
+		referenceMap[key] = ref
+	}
+
+	return referenceMap, nil
 }
