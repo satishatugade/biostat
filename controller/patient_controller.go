@@ -985,7 +985,11 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 		}
 	}
 	page, limit, offset := utils.GetPaginationParams(ctx)
-	data, total, err := c.medicalRecordService.GetMedicalRecords(patientId, limit, offset)
+	isDeleted, queryParamErr := strconv.Atoi(ctx.DefaultQuery("is_deleted", "0"))
+	if queryParamErr != nil {
+		isDeleted = 0
+	}
+	data, total, err := c.medicalRecordService.GetMedicalRecords(patientId, limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return
@@ -2791,6 +2795,11 @@ func (pc *PatientController) SubscribeFamilyPlan(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
+	hasHOF, err := pc.roleService.HasHOFMapping(userId, string(constant.MappingTypeHOF))
+	if !hasHOF {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Only the Head of Family can buy subscription for family.", nil, err)
+		return
+	}
 
 	var req models.SubscribeFamilyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -2834,15 +2843,13 @@ func (pc *PatientController) GetActiveSubscription(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-
-	message := "No active subscription found"
-	resp, exist, err := pc.subscriptionService.GetActiveSubscriptionPlanByMemberId(userId)
+	resp, exist, status, message, err := pc.subscriptionService.GetActiveSubscriptionPlanByMemberId(userId)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, message, nil, err)
 		return
 	}
-	if exist {
-		message = "Subscription plan fetch successfully"
+	if exist && status == constant.SUBSCRIPTIONACTIVE {
+		message = "Subscription plan fetched successfully."
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, resp, nil, nil)
 }

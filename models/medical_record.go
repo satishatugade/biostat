@@ -107,6 +107,7 @@ type UploadedDiagnosticRes struct {
 	DiagnosticLabID       uint64              `json:"diagnostic_lab_id"`
 	LabName               string              `json:"lab_name"`
 	Comments              string              `json:"comments"`
+	IsDeleted             int                 `json:"is_deleted"`
 	PatientDiagnosticTest []DiagnosticTestRes `json:"patient_diagnostic_test"`
 }
 
@@ -123,6 +124,7 @@ type MedicalRecordResponseRes struct {
 	SourceAccount             string                 `json:"source_account"`
 	Status                    string                 `json:"status"`
 	UploadSource              string                 `json:"upload_source"`
+	IsDeleted                 int                    `json:"is_deleted"`
 	UploadedDiagnostic        *UploadedDiagnosticRes `json:"uploaded_diagnostic"`
 }
 

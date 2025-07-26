@@ -52,19 +52,21 @@ type PatientHealthProfileRequest struct {
 
 type PharmacokineticsInput struct {
 	Prescription PrescriptionData `json:"prescription"`
-	History      HistoryData      `json:"history"`
+	History      HistoryData      `json:"history,omitempty"`
 }
 
 type PrescriptionData struct {
-	PatientName  string           `json:"patient_name"`
-	Age          int              `json:"age"`
-	Gender       string           `json:"gender"`
-	BloodGroup   string           `json:"blood_group"`
-	BMI          string           `json:"bmi"`
-	HeightCM     string           `json:"height"`
-	WeightKG     string           `json:"weight"`
-	PrescribedOn string           `json:"prescribed_on"`
-	Prescription []PrescribedDrug `json:"prescription"`
+	PatientName           string           `json:"patient_name"`
+	Age                   int              `json:"age"`
+	Gender                string           `json:"gender"`
+	BloodGroup            string           `json:"blood_group"`
+	BMI                   string           `json:"bmi"`
+	HeightCM              string           `json:"height"`
+	WeightKG              string           `json:"weight"`
+	PrescribedOn          string           `json:"prescribed_on"`
+	PrescriptionStartDate *string          `json:"prescribed_start_date"`
+	PrescriptionEndDate   *string          `json:"prescribed_end_date"`
+	Prescription          []PrescribedDrug `json:"prescription"`
 }
 
 type PrescribedDrug struct {

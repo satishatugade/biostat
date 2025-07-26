@@ -63,7 +63,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var roleService = service.NewRoleService(roleRepo, patientService, userRepo, subscriptionRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
-	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService)
+	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService, medicalRecordsRepo)
 	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService, config.AsynqClient, config.RedisClient, processStatusService)
 
 	var smsService = service.NewSmsService()

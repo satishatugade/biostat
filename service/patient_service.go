@@ -181,7 +181,7 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 			BMI:          fmt.Sprintf("%.2f %s", healthDetails.BMI, healthDetails.BmiCategory),
 			HeightCM:     fmt.Sprintf("%.2f", healthDetails.HeightCM),
 			WeightKG:     fmt.Sprintf("%.2f", healthDetails.WeightKG),
-			PrescribedOn: data.PrescriptionDate.Format("2006-01-02"),
+			PrescribedOn: utils.FormatDateTime(data.PrescriptionDate),
 			Prescription: []models.PrescribedDrug{},
 		},
 		History: models.HistoryData{
@@ -1042,7 +1042,7 @@ func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) err
 		return err
 	}
 	now := time.Now()
-	dateTime := now.Format("02-01-06 15:04:05")
+	dateTime := utils.FormatDateTime(&now)
 	type EmailResult struct {
 		Success bool
 		Name    string
@@ -1298,6 +1298,7 @@ func (ps *PatientServiceImpl) CheckPatientRelativeMapping(relativeId, patientId 
 }
 
 func (s *PatientServiceImpl) StartConversation(message string, userInfo models.SystemUser_) (*models.AskAPIResponse, error) {
+	query_type := "chat"
 	switch message {
 	case "Lab_report":
 		reportID, _ := s.patientRepo.GetDiagnosticReportId(userInfo.UserId)
@@ -1320,6 +1321,7 @@ func (s *PatientServiceImpl) StartConversation(message string, userInfo models.S
 			return &models.AskAPIResponse{}, fmt.Errorf("failed to marshal report data: %w", err)
 		}
 		message = string(jsonBytes)
+		query_type = "report"
 
 	case "Prescription":
 		data, _, err := s.patientRepo.GetPrescriptionByPatientId(userInfo.UserId, 1, 0)
@@ -1331,11 +1333,40 @@ func (s *PatientServiceImpl) StartConversation(message string, userInfo models.S
 				Response: "Prescription not found.",
 			}, nil
 		}
-		jsonBytes, err := json.Marshal(data)
+		startdate := utils.FormatDateTime(data[0].StartDate)
+		enddate := utils.FormatDateTime(data[0].EndDate)
+		prescriptionData := models.PrescriptionData{
+			PatientName:           userInfo.FirstName + " " + userInfo.LastName,
+			Age:                   time.Now().Year() - userInfo.DateOfBirth.Year(),
+			Gender:                userInfo.Gender,
+			PrescribedOn:          utils.FormatDateTime(data[0].PrescriptionDate),
+			PrescriptionStartDate: &startdate,
+			PrescriptionEndDate:   &enddate,
+			Prescription:          []models.PrescribedDrug{},
+		}
+		for _, p := range data {
+			for _, d := range p.PrescriptionDetails {
+				frequency := ""
+				if len(d.DosageInfo) > 0 {
+					frequency = fmt.Sprintf("%d times/day", int(d.DosageInfo[0].DoseQuantity))
+				}
+
+				prescriptionData.Prescription = append(prescriptionData.Prescription, models.PrescribedDrug{
+					Drug:      d.MedicineName,
+					Dosage:    fmt.Sprintf("%.0f%s", d.UnitValue, d.UnitType),
+					Frequency: frequency,
+					Duration:  fmt.Sprintf("%d days", d.Duration),
+				})
+			}
+		}
+		jsonBytes, err := json.Marshal(prescriptionData)
 		if err != nil {
 			return &models.AskAPIResponse{}, fmt.Errorf("failed to marshal prescription data: %w", err)
 		}
+
 		message = string(jsonBytes)
+		query_type = "prescription"
+
 	}
-	return s.apiService.AskAI(message, userInfo.UserId, userInfo.FirstName+" "+userInfo.LastName)
+	return s.apiService.AskAI(message, userInfo.UserId, userInfo.FirstName+" "+userInfo.LastName, query_type)
 }

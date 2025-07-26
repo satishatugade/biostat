@@ -116,20 +116,6 @@ func GenerateRandomPassword() string {
 	return string(password)
 }
 
-// func GetUserDataContext(c *gin.Context) (string, bool) {
-// 	sub, exists := c.Get("sub")
-// 	if !exists {
-// 		return "Could not retrieve user id", false
-// 	}
-
-// 	subStr, ok := sub.(string)
-// 	if !ok {
-// 		return "user id not a valid string", false
-// 	}
-
-// 	return subStr, true
-// }
-
 func ParseExcelFromReader[T any](reader io.Reader) ([]T, error) {
 	var results []T
 
@@ -884,13 +870,6 @@ func IsValidMappingType(value string) bool {
 	}
 }
 
-func GetConcurrentTaskCount() int {
-	if n, err := strconv.Atoi(os.Getenv("CONCURRENT_TASK_COUNT_RUN")); err == nil && n > 0 {
-		return n
-	}
-	return 50
-}
-
 func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
 	var parts []string
 	for _, lab := range labs {
@@ -1039,6 +1018,30 @@ func GetReverseRelation(relationId int, myGenderId int) *int {
 	case 24: // Nurse
 		r := 24
 		return &r
+	case 25:
+		if myGenderId == 1 {
+			r := 30 // Son-In-Law
+			return &r
+		} else {
+			r := 27 // Daughter-In-Law
+			return &r
+		}
+	case 26:
+		if myGenderId == 1 {
+			r := 30 // Son-In-Law
+			return &r
+		} else {
+			r := 27 // Daughter-In-Law
+			return &r
+		}
+	case 27:
+		if myGenderId == 1 {
+			r := 30 // Son-In-Law
+			return &r
+		} else {
+			r := 27 // Daughter-In-Law
+			return &r
+		}
 	}
 	return nil
 }
@@ -1068,7 +1071,7 @@ func ParseDate(input string) (time.Time, error) {
 	}
 	for _, layout := range layouts {
 		if parsedDate, err := time.ParseInLocation(layout, input, location); err == nil {
-			return parsedDate.UTC(), nil
+			return parsedDate, nil
 		}
 	}
 

@@ -256,6 +256,29 @@ const (
 	StatusFailed     JobStatus = "failed"
 )
 
+type RecordCategory string
+
+const (
+	TESTREPORT       RecordCategory = "test_reports"
+	DUPLICATE        RecordCategory = "DUPLICATE"
+	INSURANCE        RecordCategory = "INSURANCE"
+	MEDICATION       RecordCategory = "MEDICATION"
+	VACCINATION      RecordCategory = "VACCINATION"
+	DISCHARGESUMMARY RecordCategory = "DISCHARGESUMMARY"
+	OTHER            RecordCategory = "OTHER"
+)
+
+type SubscriptionStatus string
+
+const (
+	SUBSCRIPTIONACTIVE SubscriptionStatus = "ACTIVE"
+	EXPIRED            SubscriptionStatus = "EXPIRED"
+	NOTSTARTED         SubscriptionStatus = "NOTSTARTED"
+	NOACTIVEPLAN       SubscriptionStatus = "NOACTIVEPLAN"
+	PLANNOTFOUND       SubscriptionStatus = "PLANNOTFOUND"
+	EXPIRINGSOON       SubscriptionStatus = "EXPIRINGSOON"
+)
+
 type MappingType string
 
 const (

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"biostat/config"
 	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
@@ -36,7 +37,7 @@ type TblMedicalRecordService interface {
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error)
-	GetMedicalRecords(userID uint64, limit, offset int) ([]models.MedicalRecordResponseRes, int64, error)
+	GetMedicalRecords(userID uint64, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, error)
 
 	ReadMedicalRecord(ResourceId uint64, userId, reqUserId uint64) (interface{}, error)
 	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
@@ -74,7 +75,7 @@ func (s *tblMedicalRecordServiceImpl) GetAllMedicalRecord(patientId uint64, limi
 
 func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error) {
 	processID := uuid.New()
-	key, err := s.processStatusService.StartProcessRedis(processID, userId, "record_upload", fmt.Sprintf("UserID %s",strconv.FormatUint(userId, 10)), "tbl_medical_record", "record_saving")
+	key, _ := s.processStatusService.StartProcessRedis(processID, userId, "record_upload", fmt.Sprintf("UserID %s", strconv.FormatUint(userId, 10)), "tbl_medical_record", "record_saving")
 	uploadingPerson, err := s.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		return nil, err
@@ -169,12 +170,12 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 		}
 
 		task := asynq.NewTask("digitize:record", payloadBytes)
-		if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(1), asynq.Retention(24*time.Hour), asynq.ProcessIn(5*time.Minute)); err != nil {
+		if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(config.PropConfig.Retry.MaxAttempts), asynq.Retention(time.Duration(config.PropConfig.TaskQueue.Retention)), asynq.ProcessIn(time.Duration(config.PropConfig.TaskQueue.Delay))); err != nil {
 			log.Printf("Failed to enqueue digitization task for record %d: %v", record.RecordId, err)
 			return err
 		}
 		log.Printf("record Id : %d : status : %s", record.RecordId, "queued")
-		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", 0)
+		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", time.Duration(config.PropConfig.TaskQueue.Expiration))
 	}
 	return nil
 }
@@ -253,7 +254,7 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	for _, record := range uniqueRecords {
-		log.Println("Creating mapping for %s", record.RecordId)
+		log.Println("Creating mapping for %d", record.RecordId)
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
 			UserID:   userId,
 			RecordID: record.RecordId,
@@ -339,7 +340,8 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userI
 		ContentType string `json:"content-type"`
 		HMAC        string `json:"hmac,omitempty"`
 	}
-	if record.UploadDestination == "DigiLocker" {
+	switch record.UploadDestination {
+	case "DigiLocker":
 		digiFile, err := s.ReadUserDigiLockerFile(reqUserId, record.RecordUrl)
 		if err != nil {
 			return nil, err
@@ -347,7 +349,7 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userI
 		response.ContentType = digiFile.ContentType
 		response.Data = digiFile.Data
 		response.HMAC = digiFile.HMAC
-	} else if record.UploadDestination == "LocalServer" {
+	case "LocalServer":
 		localFile, err := s.ReadUserLocalServerFile(record.RecordUrl)
 		if err != nil {
 			return nil, err
@@ -359,8 +361,8 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userI
 	return response, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, offset int) ([]models.MedicalRecordResponseRes, int64, error) {
-	records, total, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, limit, offset)
+func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, error) {
+	records, total, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, limit, offset, isDeleted)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -375,9 +377,9 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 		return nil, 0, err
 	}
 
-	reportMap := make(map[uint64]int64)
+	reportMap := make(map[uint64]uint64)
 	for _, a := range attachments {
-		reportMap[a.RecordId] = int64(a.PatientDiagnosticReportId) //a.PatientDiagnosticReportID
+		reportMap[a.RecordId] = uint64(a.PatientDiagnosticReportId) //a.PatientDiagnosticReportID
 	}
 
 	var responses []models.MedicalRecordResponseRes
@@ -388,6 +390,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 			PatientID:                 userID,
 			RecordCategory:            rec.RecordCategory,
 			RecordID:                  rec.RecordId,
+			IsDeleted:                 rec.IsDeleted,
 			RecordName:                rec.RecordName,
 			RecordSize:                rec.RecordSize,
 			RecordURL:                 rec.RecordUrl,
@@ -399,7 +402,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 
 		if reportID, ok := reportMap[rec.RecordId]; ok {
 			resp.PatientDiagnosticReportID = fmt.Sprintf("%d", reportID)
-			report, err := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID)
+			report, err := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID, isDeleted)
 			if err != nil {
 				log.Println("@GetMedicalRecords->GetDiagnosticReport:", err)
 				continue
@@ -407,12 +410,13 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 
 			diagnostic := &models.UploadedDiagnosticRes{
 				CollectedAt:     report.CollectedAt,
-				CollectedDate:   report.CollectedDate.Format("02 Jan 2006 15:04:05"),
+				CollectedDate:   utils.FormatDateTime(&report.CollectedDate),
 				Comments:        report.Comments,
 				DiagnosticLabID: report.DiagnosticLabId,
 				LabName:         "", // can fetch if needed
-				ReportDate:      report.ReportDate.Format("02 Jan 2006 15:04:05"),
+				ReportDate:      utils.FormatDateTime(&report.ReportDate),
 				ReportName:      report.ReportName,
+				IsDeleted:       report.IsDeleted,
 				ReportStatus:    report.ReportStatus,
 			}
 
@@ -452,7 +456,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 						ResultValue:   fmt.Sprintf("%.2f", result.ResultValue),
 						Qualifier:     "",
 						ResultComment: result.ResultComment,
-						ResultDate:    result.ResultDate.Format("02 Jan 2006 15:04:05"),
+						ResultDate:    utils.FormatDateTime(&result.ResultDate),
 						ResultStatus:  result.ResultStatus,
 					})
 

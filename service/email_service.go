@@ -197,7 +197,7 @@ func (e *EmailServiceImpl) SendAppointmentMail(appointment models.AppointmentRes
 		"channels":          []string{"email", "whatsapp"},
 		"data": map[string]interface{}{
 			"userName":            userProfile.FirstName + " " + userProfile.LastName,
-			"appointmentDate":     appointment.AppointmentDate.Format("02-01-2006"),
+			"appointmentDate":     utils.FormatDateTime(&appointment.AppointmentDate),
 			"appointmentTime":     appointment.AppointmentTime,
 			"appointmentLocation": location,
 			"calendarLink":        calendarLink,
@@ -222,7 +222,7 @@ func (e *EmailServiceImpl) SendAppointmentMail(appointment models.AppointmentRes
 		"data": map[string]interface{}{
 			"userName":        userProfile.FirstName + " " + userProfile.LastName,
 			"doctorName":      appointmentWith,
-			"appointmentDate": appointment.AppointmentDate.Format("02-01-2006"),
+			"appointmentDate": utils.FormatDateTime(&appointment.AppointmentDate),
 			"appointmentTime": appointment.AppointmentTime,
 			"meetingLink":     appointment.MeetingUrl,
 		},

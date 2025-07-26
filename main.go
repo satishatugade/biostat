@@ -4,7 +4,6 @@ import (
 	"biostat/config"
 	"biostat/database"
 	"biostat/router"
-	"biostat/utils"
 	"log"
 	"os"
 	"os/signal"
@@ -50,7 +49,8 @@ func main() {
 	log.SetOutput(file)
 	log.Println("ENV profile active ", envFile)
 	log.Println("Biostack Application Started.....")
-	utils.InitKeycloak()
+	config.PropConfig = config.LoadConfigFromEnv()
+	config.InitKeycloak()
 	database.InitDB()
 	config.InitRedisAndAsynq()
 	router.Routing(env)

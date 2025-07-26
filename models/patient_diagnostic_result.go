@@ -37,7 +37,7 @@ type AddLabRequest struct {
 	LabEmail         string   `json:"lab_email"`
 	RelativeIds      []uint64 `json:"relatvies_ids"`
 	IsSystemLab      bool     `json:"is_system_lab"`
-	LabID            uint64   `json:"lab_id"`
+	LabID            []uint64 `json:"lab_id"`
 }
 
 type DiagnosticLabAudit struct {
@@ -253,6 +253,7 @@ type LabReport struct {
 		LabEmail         string  `json:"lab_email"`
 		LabId            string  `json:"lab_id"`
 		IsDigital        bool    `json:"is_digital"`
+		IsDeleted        int     `json:"is_deleted"`
 		LabLocation      string  `json:"lab_location"`
 		LabContactNumber string  `json:"lab_contact_number"`
 	} `json:"report_details"`
@@ -592,4 +593,10 @@ type HealthVitalSourceType struct {
 
 func (HealthVitalSourceType) TableName() string {
 	return "tbl_health_vital_source_type"
+}
+
+type SampleComponentInfo struct {
+	ReportID          uint64    `gorm:"column:patient_diagnostic_report_id"`
+	CollectedDate     time.Time `gorm:"column:collected_date"`
+	TestComponentName string    `gorm:"column:test_component_name"`
 }

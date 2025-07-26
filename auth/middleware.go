@@ -1,11 +1,11 @@
 package auth
 
 import (
+	"biostat/config"
 	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
 	"biostat/service"
-	"biostat/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -91,9 +91,9 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 			return
 		}
 		tokenStr := authHeader[len("Bearer "):]
-		client := utils.Client
+		client := config.Client
 		ctx := context.Background()
-		introspection, err := client.RetrospectToken(ctx, tokenStr, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
+		introspection, err := client.RetrospectToken(ctx, tokenStr, config.KeycloakClientID, config.KeycloakClientSecret, config.KeycloakRealm)
 		if err != nil {
 			log.Println("Error introspecting token:", err)
 			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token", nil, err)
@@ -101,13 +101,12 @@ func AuthToken(requiredRoles ...string) gin.HandlerFunc {
 			return
 		}
 		if !*introspection.Active {
-			log.Println("introspection.Active ", introspection)
 			models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Token is expired!", nil, err)
 			c.Abort()
 			return
 		}
 
-		_, claims, err := client.DecodeAccessToken(ctx, tokenStr, utils.KeycloakRealm)
+		_, claims, err := client.DecodeAccessToken(ctx, tokenStr, config.KeycloakRealm)
 		if err != nil {
 			log.Println("Error decoding access token:", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
@@ -230,12 +229,12 @@ func ExchangeToken(subjectToken string) (*TokenExchangeResponse, error) {
 
 func ResetPasswordInKeycloak(username, newPassword string) error {
 	ctx := context.Background()
-	token, err := utils.Client.LoginAdmin(ctx, utils.KeycloakAdminUser, utils.KeycloakAdminPassword, "master")
+	token, err := config.Client.LoginAdmin(ctx, config.KeycloakAdminUser, config.KeycloakAdminPassword, "master")
 	if err != nil {
 		log.Println("ResetPasswordInKeycloak Failed to login to admin ", err)
 		return fmt.Errorf("admin login failed: %w", err)
 	}
-	users, err := utils.Client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
+	users, err := config.Client.GetUsers(ctx, token.AccessToken, config.KeycloakRealm, gocloak.GetUsersParams{
 		Username: gocloak.StringP(username),
 	})
 	if err != nil {
@@ -245,7 +244,7 @@ func ResetPasswordInKeycloak(username, newPassword string) error {
 		return fmt.Errorf("user '%s' not found in Keycloak", username)
 	}
 	userID := *users[0].ID
-	err = utils.Client.SetPassword(ctx, token.AccessToken, userID, utils.KeycloakRealm, newPassword, false)
+	err = config.Client.SetPassword(ctx, token.AccessToken, userID, config.KeycloakRealm, newPassword, false)
 	if err != nil {
 		return fmt.Errorf("failed to reset password: %w", err)
 	}
@@ -444,9 +443,9 @@ func impersonateUser(userID, adminToken string) (map[string]interface{}, error) 
 }
 
 func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string, bool, error) {
-	client := utils.Client
+	client := config.Client
 	ctx := context.Background()
-	token, err := client.LoginClient(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
+	token, err := client.LoginClient(ctx, config.KeycloakClientID, config.KeycloakClientSecret, config.KeycloakRealm)
 	if err != nil {
 		log.Printf("[ERROR] Failed to login to Keycloak: %v", err)
 		return "", false, err
@@ -471,13 +470,13 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 		RealmRoles: &[]string{(user.RoleName)},
 	}
 
-	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, utils.KeycloakRealm, user.RoleName)
+	role, roleErr := client.GetRealmRole(ctx, token.AccessToken, config.KeycloakRealm, user.RoleName)
 	if roleErr != nil {
 		log.Printf("[ERROR] Role not found in Keycloak: %v", err)
 		return "User role not found at keycloak server", false, roleErr
 	}
 
-	userID, err := client.CreateUser(ctx, token.AccessToken, utils.KeycloakRealm, newuser)
+	userID, err := client.CreateUser(ctx, token.AccessToken, config.KeycloakRealm, newuser)
 	if err != nil {
 		var loginInfo *models.UserLoginInfo
 		loginInfo, err = a.userService.GetUserInfoByIdentifier(user.Email)
@@ -488,7 +487,7 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 				return "", false, fmt.Errorf("user not found")
 			}
 		}
-		existingUsers, fetchErr := client.GetUsers(ctx, token.AccessToken, utils.KeycloakRealm, gocloak.GetUsersParams{
+		existingUsers, fetchErr := client.GetUsers(ctx, token.AccessToken, config.KeycloakRealm, gocloak.GetUsersParams{
 			Username: gocloak.StringP(loginInfo.Username),
 			Email:    gocloak.StringP(user.Email),
 			Max:      gocloak.IntP(1),
@@ -501,7 +500,7 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 			userID = *existingUsers[0].ID
 			log.Printf("[INFO] User already exists with ID: %s. Proceeding to assign role in keycloak...", userID)
 
-			roleErr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
+			roleErr := client.AddRealmRoleToUser(ctx, token.AccessToken, config.KeycloakRealm, userID, []gocloak.Role{*role})
 			if roleErr != nil {
 				log.Printf("[ERROR] Failed to assign role %s to existing user ID %s: %v", *role.Name, userID, roleErr)
 				return "", true, fmt.Errorf("unable to assign role to existing user: %v", roleErr)
@@ -512,7 +511,7 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 		return "", false, fmt.Errorf("user creation failed: %v", err)
 	}
 
-	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, utils.KeycloakRealm, userID, []gocloak.Role{*role})
+	adderr := client.AddRealmRoleToUser(ctx, token.AccessToken, config.KeycloakRealm, userID, []gocloak.Role{*role})
 	if adderr != nil {
 		return "Unable to add role to user", false, adderr
 	}
@@ -520,7 +519,7 @@ func (a *AuthServiceImpl) CreateUserInKeycloak(user models.SystemUser_) (string,
 }
 
 func (a *AuthServiceImpl) UpdateUserInKeycloak(user models.SystemUser_) error {
-	client := utils.Client
+	client := config.Client
 	ctx := context.Background()
 	username := os.Getenv("KEYCLOAK_ADMIN_USER")
 	password := os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
@@ -539,5 +538,5 @@ func (a *AuthServiceImpl) UpdateUserInKeycloak(user models.SystemUser_) error {
 		},
 	}
 
-	return client.UpdateUser(ctx, token.AccessToken, utils.KeycloakRealm, updatedUser)
+	return client.UpdateUser(ctx, token.AccessToken, config.KeycloakRealm, updatedUser)
 }

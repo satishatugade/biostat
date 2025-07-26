@@ -1,4 +1,4 @@
-package utils
+package config
 
 import (
 	"log"
@@ -6,9 +6,31 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/Nerzal/gocloak/v13"
 )
+
+var (
+	AsynqClient *asynq.Client
+	RedisClient *redis.Client
+)
+
+var (
+	GoogleClientID     = os.Getenv("GOOGLE_CLIENT_ID")
+	GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
+	RedirectURI        = os.Getenv("GOOGLE_REDIRECT_URI")
+)
+
+func InitRedisAndAsynq() {
+	RedisClient = redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_ADDR"),
+	})
+
+	AsynqClient = asynq.NewClient(asynq.RedisClientOpt{
+		Addr: os.Getenv("REDIS_ADDR"),
+	})
+}
 
 var (
 	KeycloakAuthURL       string
@@ -34,13 +56,4 @@ func InitKeycloak() {
 	KeycloakAdminPassword = os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
 
 	Client = gocloak.NewClient(KeycloakAuthURL)
-}
-
-var redisClient *asynq.Client
-
-func init() {
-	_ = godotenv.Load()
-	redisClient = asynq.NewClient(asynq.RedisClientOpt{
-		Addr: os.Getenv("REDIS_ADDR"),
-	})
 }

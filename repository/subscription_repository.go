@@ -22,7 +22,7 @@ type SubscriptionRepository interface {
 	GetSubscriptionShowStatus() (bool, error)
 	GetSubscriptionWithServices() ([]models.SubscriptionMaster, error)
 	GetFamilyGroupByMemberID(memberID uint64) (*models.PatientFamilyGroup, error)
-	CheckActiveSubscriptionPlanByMemberId(memberId uint64) (*models.SubscriptionMaster, bool, error)
+	CheckActiveSubscriptionPlanByMemberId(memberId uint64) (*models.SubscriptionMaster, bool, constant.SubscriptionStatus, string, error)
 }
 
 type SubscriptionRepositoryImpl struct {
@@ -116,45 +116,51 @@ func (r *SubscriptionRepositoryImpl) GetFamilyGroupByMemberID(memberID uint64) (
 	return &family, nil
 }
 
-func (r *SubscriptionRepositoryImpl) CheckActiveSubscriptionPlanByMemberId(memberID uint64) (*models.SubscriptionMaster, bool, error) {
+func (r *SubscriptionRepositoryImpl) CheckActiveSubscriptionPlanByMemberId(memberID uint64) (*models.SubscriptionMaster, bool, constant.SubscriptionStatus, string, error) {
 	var familyGroup models.PatientFamilyGroup
 
 	err := r.db.Where("member_id = ? AND is_active = true", memberID).First(&familyGroup).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Printf("[Subscription] No active plan found for member_id=%d", memberID)
-			return nil, false, nil
+			return nil, false, constant.NOACTIVEPLAN, "No active plan found.", nil
 		}
 		log.Printf("[Subscription] Error while checking active plan for member_id=%d: %v", memberID, err)
-		return nil, false, err
+		return nil, false, constant.PLANNOTFOUND, "Subscription plan not found.", err
 	}
-	log.Printf("[Subscription] Active plan found for member_id=%d (FamilyID=%d, CurrentSubscriptionId=%v)",
-		memberID,
-		familyGroup.FamilyId,
-		familyGroup.CurrentSubscriptionId,
-	)
 
 	now := time.Now()
+	var status constant.SubscriptionStatus = constant.SUBSCRIPTIONACTIVE
+	var message string
 	if familyGroup.SubscriptionStartDate != nil && familyGroup.SubscriptionEndDate != nil {
 		if now.Before(*familyGroup.SubscriptionStartDate) {
-			return nil, false, nil
+			message = "Your subscription hasn't started yet."
+			return nil, false, constant.NOTSTARTED, message, nil
 		}
 		if now.After(*familyGroup.SubscriptionEndDate) {
-			return nil, false, nil
+			expiredDate := utils.FormatDateTime(familyGroup.SubscriptionEndDate)
+			message = fmt.Sprintf("Your subscription has expired on %s.", expiredDate)
+			return nil, false, constant.EXPIRED, message, nil
+		}
+		daysBeforeExpiry := familyGroup.SubscriptionEndDate.Sub(now).Hours() / 24
+		if daysBeforeExpiry <= 3 {
+			expiryDateStr := utils.FormatDateTime(familyGroup.SubscriptionEndDate)
+			message = fmt.Sprintf("Your plan is expiring soon in %.0f days (expires on %s).", daysBeforeExpiry, expiryDateStr)
+			status = constant.EXPIRINGSOON
 		}
 	}
 
 	if familyGroup.CurrentSubscriptionId == nil {
-		return nil, false, nil
+		return nil, false, constant.PLANNOTFOUND, "Subscription plan not found.", nil
 	}
 
 	var plan models.SubscriptionMaster
 	err = r.db.First(&plan, *familyGroup.CurrentSubscriptionId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, nil
+			return nil, false, constant.PLANNOTFOUND, "Subscription plan not found.", nil
 		}
-		return nil, false, err
+		return nil, false, constant.PLANNOTFOUND, "Subscription plan not found.", err
 	}
 	subscriptionStartDate := utils.FormatDateTime(familyGroup.SubscriptionStartDate)
 	subscriptionEndDate := utils.FormatDateTime(familyGroup.SubscriptionEndDate)
@@ -163,5 +169,5 @@ func (r *SubscriptionRepositoryImpl) CheckActiveSubscriptionPlanByMemberId(membe
 	plan.FamilyId = familyGroup.FamilyId
 	plan.FamilyName = familyGroup.FamilyName
 	plan.MemberId = familyGroup.MemberId
-	return &plan, true, nil
+	return &plan, true, status, message, nil
 }

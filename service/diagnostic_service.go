@@ -1,6 +1,8 @@
 package service
 
 import (
+	"biostat/config"
+	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
 	"biostat/repository"
@@ -56,6 +58,7 @@ type DiagnosticService interface {
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error)
+	CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
@@ -64,13 +67,14 @@ type DiagnosticService interface {
 }
 
 type DiagnosticServiceImpl struct {
-	diagnosticRepo repository.DiagnosticRepository
-	emailService   EmailService
-	patientService PatientService
+	diagnosticRepo     repository.DiagnosticRepository
+	emailService       EmailService
+	patientService     PatientService
+	medicalRecordsRepo repository.TblMedicalRecordRepository
 }
 
-func NewDiagnosticService(repo repository.DiagnosticRepository, emailService EmailService, patientService PatientService) DiagnosticService {
-	return &DiagnosticServiceImpl{diagnosticRepo: repo, emailService: emailService, patientService: patientService}
+func NewDiagnosticService(repo repository.DiagnosticRepository, emailService EmailService, patientService PatientService, medicalRecordsRepo repository.TblMedicalRecordRepository) DiagnosticService {
+	return &DiagnosticServiceImpl{diagnosticRepo: repo, emailService: emailService, patientService: patientService, medicalRecordsRepo: medicalRecordsRepo}
 }
 
 func (s *DiagnosticServiceImpl) GetSources(patientId uint64, limit, offset int) ([]models.HealthVitalSourceType, int64, error) {
@@ -231,18 +235,30 @@ func (s *DiagnosticServiceImpl) CreateLab(userId uint64, authUserId string, req 
 		}
 	}()
 	if req.IsSystemLab {
-		existingLab, err := s.diagnosticRepo.GetLabById(req.LabID)
-		if err != nil || existingLab == nil {
-			tx.Rollback()
-			return nil, errors.New("Invalid Lab ID")
-		}
-		if err := s.diagnosticRepo.AddMapping(tx, userId, existingLab); err != nil {
-			tx.Rollback()
-			return nil, err
+		for _, labId := range req.LabID {
+			existingLab, err := s.diagnosticRepo.GetLabById(labId)
+			if err != nil || existingLab == nil {
+				tx.Rollback()
+				return nil, errors.New("Invalid Lab ID")
+			}
+			lab := models.DiagnosticLab{
+				LabName: existingLab.LabName,
+			}
+
+			createdLab, err := s.diagnosticRepo.CreateLab(tx, &lab)
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+
+			if err := s.diagnosticRepo.AddMapping(tx, userId, createdLab); err != nil {
+				tx.Rollback()
+				return nil, err
+			}
 		}
 
 		tx.Commit()
-		return existingLab, nil
+		return nil, nil
 	}
 	lab := models.DiagnosticLab{
 		LabName:          req.LabName,
@@ -256,10 +272,6 @@ func (s *DiagnosticServiceImpl) CreateLab(userId uint64, authUserId string, req 
 		CreatedBy:        authUserId,
 	}
 	createdLab, err := s.diagnosticRepo.CreateLab(tx, &lab)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -438,12 +450,13 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		PatientDiagnosticReportId: reporId,
 		DiagnosticLabId:           diagnosticLabId,
 		PatientId:                 patientId,
-		PaymentStatus:             "Pending",
+		PaymentStatus:             constant.Success,
 		ReportName:                reportData.ReportDetails.ReportName,
 		CollectedDate:             collectionDate,
 		ReportDate:                reportDate,
 		Observation:               "",
 		IsDigital:                 reportData.ReportDetails.IsDigital,
+		IsDeleted:                 reportData.ReportDetails.IsDeleted,
 		CollectedAt:               reportData.ReportDetails.LabLocation,
 	}
 	reportInfo, err := s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)
@@ -542,7 +555,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 				lookupKey := fmt.Sprintf("%d-%d", diagnosticTestId, diagnosticComponentId)
 				existingRef, exists := referenceMap[lookupKey]
 				if !exists {
-					log.Println("No existing range → inserting new value : ")
 					referenceRange := models.DiagnosticTestReferenceRange{
 						DiagnosticTestId:               diagnosticTestId,
 						DiagnosticTestComponentId:      diagnosticComponentId,
@@ -562,7 +574,6 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 						return "", err
 					}
 				} else {
-					log.Println("Before Mismatch detected →")
 					if existingRef.NormalMin != normalMin || existingRef.NormalMax != normalMax {
 						log.Println("Mismatch detected → inserting updated value against patient Id")
 						patientRefRange := models.PatientTestReferenceRange{
@@ -679,4 +690,68 @@ func (s *DiagnosticServiceImpl) AddMappingToMergeTestComponent(mapping []models.
 
 func (s *DiagnosticServiceImpl) GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error) {
 	return s.diagnosticRepo.GetDiagnosticLabReportName(patientId)
+}
+
+func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64) error {
+	log.Println("reportData.ReportDetails.CollectionDate ", reportData.ReportDetails.CollectionDate)
+	CollectionDate, err := utils.ParseDate(reportData.ReportDetails.CollectionDate)
+	if err != nil {
+		log.Println("ReportDate parsing failed:", err)
+		return err
+	}
+	existingMap, err := s.diagnosticRepo.GetSampleCollectionDateTestComponentMap(patientId, CollectionDate)
+	if err != nil {
+		log.Println("Error fetching existing components:", err)
+	}
+	var allComponentNames []string
+	for _, testData := range reportData.Tests {
+		for _, component := range testData.Components {
+			allComponentNames = append(allComponentNames, strings.ToLower(component.TestComponentName))
+		}
+	}
+	log.Printf("Components being checked: %+v", allComponentNames)
+	reportData.ReportDetails.IsDeleted = 0
+	if ShouldSkipReport(CollectionDate, allComponentNames, existingMap) {
+		log.Println("Save report in duplicate bucket and marked is_deleted as True for patient : ", patientId)
+		reportData.ReportDetails.IsDeleted = 1
+		_, updateErr := s.medicalRecordsRepo.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: *recordId, IsDeleted: 1, RecordCategory: string(constant.DUPLICATE)})
+		if updateErr != nil {
+			log.Println("failed to update medicalRecordService.UpdateTblMedicalRecord:", updateErr)
+		}
+	}
+	if _, err := s.DigitizeDiagnosticReport(reportData, patientId, recordId); err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func ShouldSkipReport(collectionDate time.Time, componentNames []string, existingMap map[string]bool) bool {
+	formattedCollectionDate := utils.FormatDateTime(&collectionDate)
+	var matched int
+	var missing []string
+	total := len(componentNames)
+	if total == 0 {
+		log.Println("No components in report — cannot evaluate duplication.")
+		return false
+	}
+	for _, name := range componentNames {
+		key := fmt.Sprintf("%s|%s", formattedCollectionDate, strings.ToLower(name))
+		if existingMap[key] {
+			matched++
+		} else {
+			missing = append(missing, key)
+		}
+	}
+	matchPercentage := (float64(matched) / float64(total)) * 100
+	percentage := float64(config.PropConfig.SystemVaribale.Score)
+	log.Printf("Match percentage to check duplicate report or not : %.2f%% (matched: %d / total: %d)", matchPercentage, matched, total)
+
+	if matchPercentage >= percentage {
+		log.Printf("Match ≥ %.2f%% → Treating report as duplicate. Skipping save.", percentage)
+		return true
+	}
+
+	log.Printf("Match < %.2f%% → Treating report as new. Missing keys: %+v", percentage, missing)
+	return false
 }

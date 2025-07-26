@@ -23,7 +23,7 @@ type ApiService interface {
 	AnalyzePrescriptionWithAI(data models.PatientPrescription) (string, error)
 	AnalyzePharmacokineticsInfo(data models.PharmacokineticsInput) (string, error)
 	SummarizeMedicalHistory(data models.PharmacokineticsInput) (string, error)
-	AskAI(message string, userId uint64, patientName string) (*models.AskAPIResponse, error)
+	AskAI(message string, userId uint64, patientName string, query_type string) (*models.AskAPIResponse, error)
 }
 
 type ApiServiceImpl struct {
@@ -34,6 +34,7 @@ type ApiServiceImpl struct {
 	SummarizeMedicalHistoryAPI string
 	DigitizePrescriptionAPI    string
 	client                     *http.Client
+	sessionCache               map[uint64]string
 }
 
 func NewApiService() ApiService {
@@ -45,6 +46,7 @@ func NewApiService() ApiService {
 		SummarizeMedicalHistoryAPI: os.Getenv("SUMMARIZE_HISTORY_API"),
 		DigitizePrescriptionAPI:    os.Getenv("DIGITIZE_PRESCRIPTION_API"),
 		client:                     &http.Client{},
+		sessionCache:               make(map[uint64]string),
 	}
 }
 
@@ -380,15 +382,47 @@ func (api *ApiServiceImpl) SummarizeMedicalHistory(input models.Pharmacokinetics
 	return response.Summary, nil
 }
 
-func (s *ApiServiceImpl) AskAI(message string, userId uint64, patientName string) (*models.AskAPIResponse, error) {
+func (s *ApiServiceImpl) AskAI(message string, userId uint64, patientName string, query_type string) (*models.AskAPIResponse, error) {
 	apiURL := os.Getenv("ASK_API")
 	if apiURL == "" {
 		apiURL = "http://bio.alrn.in/api/ask"
 	}
-	log.Println("AskAI message body : ", message)
-	reqBody := map[string]string{"message": message, "name": patientName, "user_id": fmt.Sprintf("%d", userId), "session_id": uuid.New().String()}
-	jsonData, _ := json.Marshal(reqBody)
+	// log.Println("AskAI message body : ", message)
+	data := message
+	var reportData interface{}
+	sessionID, exists := s.sessionCache[userId]
+	if !exists {
+		sessionID = uuid.New().String()    // generate new only first time
+		s.sessionCache[userId] = sessionID // store for future requests
+	}
+	if query_type == "report" || query_type == "prescription" {
+		data = message
+		message = ""
+		if err := json.Unmarshal([]byte(data), &reportData); err != nil {
+			reportData = data
+		}
+	}
+	reqBody := map[string]interface{}{
+		"name":       patientName,
+		"user_id":    fmt.Sprintf("%d", userId),
+		"session_id": sessionID,
+		"query_type": query_type,
+	}
+	if query_type == "chat" {
+		reqBody["message"] = message
+	}
 
+	// If report/prescription, include report_data
+	if query_type == "report" {
+		reqBody["report_data"] = reportData
+	}
+	if query_type == "prescription" {
+		reqBody["prescription_data"] = reportData
+	}
+
+	jsonData, _ := json.Marshal(reqBody)
+	prettyJSON, _ := json.MarshalIndent(reqBody, "", "  ")
+	log.Println("AskAI reqBody body:\n", string(prettyJSON))
 	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to call AI API: %w", err)

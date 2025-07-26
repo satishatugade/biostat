@@ -3,6 +3,7 @@ package repository
 import (
 	"biostat/constant"
 	"biostat/models"
+	"biostat/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -67,6 +68,7 @@ type DiagnosticRepository interface {
 	FetchSources(limit, offset int) ([]models.HealthVitalSourceType, int64, error)
 	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
 	GetPatientLabNameAndEmail(userId uint64) ([]models.DiagnosticLabResponse, error)
+	GetSampleCollectionDateTestComponentMap(patientID uint64, CollectionDate time.Time) (map[string]bool, error)
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -738,7 +740,7 @@ func (s *DiagnosticRepositoryImpl) LoadDiagnosticTestMasterData() (map[string]ui
 		}
 		componentNameCache[key] = component.DiagnosticTestComponentId
 	}
-	log.Printf("Duplicate Test Component found: %s", duplicateComponents)
+	// log.Printf("Duplicate Test Component found: %s", duplicateComponents)
 	return testNameCache, componentNameCache
 }
 
@@ -901,4 +903,41 @@ func (r *DiagnosticRepositoryImpl) GetAllDiagnosticReferenceRange() (map[string]
 	}
 
 	return referenceMap, nil
+}
+
+func (r *DiagnosticRepositoryImpl) GetSampleCollectionDateTestComponentMap(patientID uint64, CollectionDate time.Time) (map[string]bool, error) {
+
+	var results []models.SampleComponentInfo
+
+	query := `
+        SELECT 
+            pdr.patient_diagnostic_report_id,
+            pdr.collected_date,
+            dpdtc.test_component_name
+        FROM 
+            tbl_patient_diagnostic_report pdr
+        JOIN 
+            tbl_patient_diagnostic_test_result_value pdtrv 
+            ON pdr.patient_diagnostic_report_id = pdtrv.patient_diagnostic_report_id
+        JOIN 
+            tbl_disease_profile_diagnostic_test_component_master dpdtc 
+            ON pdtrv.diagnostic_test_component_id = dpdtc.diagnostic_test_component_id
+        WHERE 
+            pdr.patient_id = ? AND pdr.is_deleted = ? AND pdr.collected_date = ?
+        ORDER BY 
+            pdr.collected_date DESC
+    `
+	log.Println("collected_date ", CollectionDate)
+	if err := r.db.Raw(query, patientID, 0, CollectionDate).Scan(&results).Error; err != nil {
+		return nil, err
+	}
+
+	// Convert results into a map for fast lookup
+	existingMap := make(map[string]bool)
+	for _, r := range results {
+		key := fmt.Sprintf("%s|%s", utils.FormatDateTime(&r.CollectedDate), strings.ToLower(r.TestComponentName))
+		existingMap[key] = true
+	}
+
+	return existingMap, nil
 }

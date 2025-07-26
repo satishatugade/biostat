@@ -12,7 +12,7 @@ import (
 
 type SubscriptionService interface {
 	SubscribePlan(req models.SubscribeFamilyRequest, userId uint64, userInfo models.SystemUser_) (map[string]interface{}, bool, error)
-	GetActiveSubscriptionPlanByMemberId(userId uint64) (*models.SubscriptionMaster, bool, error)
+	GetActiveSubscriptionPlanByMemberId(userId uint64) (*models.SubscriptionMaster, bool, constant.SubscriptionStatus, string, error)
 	SubscribeDefaultPlan(userId uint64, roleName string, lastName string) error
 	UpdateSubscriptionStatus(enabled bool, updatedBy string) error
 	GetSubscriptionShowStatus() (bool, error)
@@ -34,12 +34,12 @@ func NewSubscriptionService(subscriptionRepo repository.SubscriptionRepository, 
 	return &SubscriptionServiceImpl{subscriptionRepo: subscriptionRepo, roleRepo: roleRepo}
 }
 
-func (s *SubscriptionServiceImpl) GetActiveSubscriptionPlanByMemberId(memberId uint64) (*models.SubscriptionMaster, bool, error) {
+func (s *SubscriptionServiceImpl) GetActiveSubscriptionPlanByMemberId(memberId uint64) (*models.SubscriptionMaster, bool, constant.SubscriptionStatus, string, error) {
 	return s.subscriptionRepo.CheckActiveSubscriptionPlanByMemberId(memberId)
 }
 
 func (s *SubscriptionServiceImpl) SubscribePlan(req models.SubscribeFamilyRequest, userId uint64, userInfo models.SystemUser_) (map[string]interface{}, bool, error) {
-	existingPlan, planExist, existErr := s.subscriptionRepo.CheckActiveSubscriptionPlanByMemberId(userId)
+	existingPlan, planExist, _, _, existErr := s.subscriptionRepo.CheckActiveSubscriptionPlanByMemberId(userId)
 	log.Println("CheckActiveSubscriptionPlanByMemberId : ", planExist, existingPlan)
 	if existErr != nil {
 		return nil, false, fmt.Errorf("error while Fetching plan details")

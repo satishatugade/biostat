@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"biostat/constant"
 	"biostat/models"
 	"errors"
 	"fmt"
@@ -29,11 +30,11 @@ type TblMedicalRecordRepository interface {
 
 	DeleteTblMedicalRecordWithMappings(id int, user_id string) error
 
-	GetMedicalRecordsByUser(userID uint64, limit, offset int) ([]models.TblMedicalRecord, int64, error)
+	GetMedicalRecordsByUser(userID uint64, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, error)
 	GetDiagnosticAttachmentByRecordIDs(recordIDs []uint64) ([]models.PatientReportAttachment, error)
-	GetDiagnosticReport(reportID int64) (*models.PatientDiagnosticReport, error)
-	GetDiagnosticTests(reportID int64) ([]models.PatientDiagnosticTest, error)
-	GetTestComponents(reportID int64, testID uint64) ([]models.PatientDiagnosticTestResultValue, error)
+	GetDiagnosticReport(reportID uint64, isDeleted int) (*models.PatientDiagnosticReport, error)
+	GetDiagnosticTests(reportID uint64) ([]models.PatientDiagnosticTest, error)
+	GetTestComponents(reportID uint64, testID uint64) ([]models.PatientDiagnosticTestResultValue, error)
 	GetComponentDetails(componentID uint64) (*models.DiagnosticTestComponent, error)
 	GetReferenceRanges(componentID uint64) ([]models.DiagnosticTestReferenceRange, error) //separate table
 	GetDiagnosticTestMaster(testID uint64) (*models.DiagnosticTest, error)
@@ -52,14 +53,19 @@ func NewTblMedicalRecordRepository(db *gorm.DB) TblMedicalRecordRepository {
 }
 
 // Get List of ALL MEDICAL RECORDS FOR USER
-func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, limit, offset int) ([]models.TblMedicalRecord, int64, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, error) {
 	var records []models.TblMedicalRecord
 	var total int64
 
 	query := r.db.
-		Table("tbl_medical_record").
-		Joins("JOIN tbl_medical_record_user_mapping ON tbl_medical_record.record_id = tbl_medical_record_user_mapping.record_id").
-		Where("tbl_medical_record_user_mapping.user_id = ? and is_deleted=0", userID)
+		Table("tbl_medical_record AS mr").
+		Joins("JOIN tbl_medical_record_user_mapping AS mrum ON mr.record_id = mrum.record_id").
+		Where("mrum.user_id = ? and mr.is_deleted = ? ", userID, isDeleted)
+
+	if isDeleted == 1 {
+		recordCategory := string(constant.DUPLICATE)
+		query = query.Where("mr.record_category = ?", recordCategory)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -68,7 +74,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, 
 	err := query.
 		Offset(offset).
 		Limit(limit).
-		Order("tbl_medical_record.created_at DESC").
+		Order("mr.created_at DESC").
 		Find(&records).Error
 
 	return records, total, err
@@ -84,10 +90,10 @@ func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticAttachmentByRecordIDs(reco
 }
 
 // GET BASIC DETAILS OF REPORT
-func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticReport(reportID int64) (*models.PatientDiagnosticReport, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticReport(reportID uint64, isDeleted int) (*models.PatientDiagnosticReport, error) {
 	var report models.PatientDiagnosticReport
 	err := r.db.
-		Where("patient_diagnostic_report_id = ? AND is_deleted=0", reportID).
+		Where("patient_diagnostic_report_id = ? AND is_deleted = ? ", reportID, isDeleted).
 		First(&report).Error
 	if err != nil {
 		return nil, err
@@ -96,7 +102,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticReport(reportID int64) (*m
 }
 
 // get list of tests in report
-func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticTests(reportID int64) ([]models.PatientDiagnosticTest, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticTests(reportID uint64) ([]models.PatientDiagnosticTest, error) {
 	var tests []models.PatientDiagnosticTest
 	err := r.db.
 		Where("patient_diagnostic_report_id = ?", reportID).
@@ -105,7 +111,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetDiagnosticTests(reportID int64) ([]m
 }
 
 // GET test_components
-func (r *tblMedicalRecordRepositoryImpl) GetTestComponents(reportID int64, testID uint64) ([]models.PatientDiagnosticTestResultValue, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetTestComponents(reportID uint64, testID uint64) ([]models.PatientDiagnosticTestResultValue, error) {
 	var results []models.PatientDiagnosticTestResultValue
 	err := r.db.
 		Where("patient_diagnostic_report_id = ? AND diagnostic_test_id = ?", reportID, testID).
@@ -419,9 +425,6 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	if data.QueueName != "" {
 		updateFields["queue_name"] = data.QueueName
 	}
-	if data.ErrorMessage != "" {
-		updateFields["error_message"] = data.ErrorMessage
-	}
 	if data.ProcessingStartedAt != nil {
 		updateFields["processing_started_at"] = data.ProcessingStartedAt
 	}
@@ -446,9 +449,12 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 	if len(data.Metadata) != 0 {
 		updateFields["metadata"] = data.Metadata
 	}
+	if data.IsDeleted != 0 {
+		updateFields["is_deleted"] = data.IsDeleted
+	}
 	updateFields["is_verified"] = data.IsVerified
-	updateFields["is_deleted"] = data.IsDeleted
 	updateFields["updated_at"] = time.Now()
+	updateFields["error_message"] = data.ErrorMessage
 
 	err := tx.Model(&models.TblMedicalRecord{}).
 		Where("record_id = ?", data.RecordId).

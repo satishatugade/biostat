@@ -2,6 +2,7 @@ package controller
 
 import (
 	"biostat/auth"
+	"biostat/config"
 	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
@@ -146,15 +147,15 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid user credentials!", nil, nil)
 		return
 	}
-	client := utils.Client
+	client := config.Client
 	ctx := context.Background()
-	token, err := client.Login(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, loginInfo.Username, input.Password)
+	token, err := client.Login(ctx, config.KeycloakClientID, config.KeycloakClientSecret, config.KeycloakRealm, loginInfo.Username, input.Password)
 	if err != nil {
 		log.Println("Error logging in to Keycloak:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid user credentials!", nil, err)
 		return
 	}
-	_, claims, err := client.DecodeAccessToken(ctx, token.AccessToken, utils.KeycloakRealm)
+	_, claims, err := client.DecodeAccessToken(ctx, token.AccessToken, config.KeycloakRealm)
 	if err != nil {
 		log.Println("Error decoding access token:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid token", nil, err)
@@ -221,10 +222,10 @@ func (uc *UserController) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	client := utils.Client
+	client := config.Client
 	ctx := context.Background()
 
-	token, err := client.RefreshToken(ctx, input.RefreshToken, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm)
+	token, err := client.RefreshToken(ctx, input.RefreshToken, config.KeycloakClientID, config.KeycloakClientSecret, config.KeycloakRealm)
 	if err != nil {
 		log.Println("Error refreshing token:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Failed to refresh token", nil, err)
@@ -247,10 +248,10 @@ func (uc *UserController) LogoutUser(c *gin.Context) {
 		return
 	}
 
-	client := utils.Client
+	client := config.Client
 	ctx := context.Background()
 
-	err := client.Logout(ctx, utils.KeycloakClientID, utils.KeycloakClientSecret, utils.KeycloakRealm, input.RefreshToken)
+	err := client.Logout(ctx, config.KeycloakClientID, config.KeycloakClientSecret, config.KeycloakRealm, input.RefreshToken)
 	if err != nil {
 		log.Println("Error logging out from Keycloak:", err)
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Error while user logout", nil, err)

@@ -2,6 +2,7 @@ package service
 
 import (
 	"biostat/models"
+	"biostat/utils"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -68,18 +69,18 @@ func CreateZoomMeeting(accessToken, topic, agenda string, start time.Time, durat
 		Topic:           topic,
 		Agenda:          agenda,
 		Type:            2,
-		StartTime:       start.Format("2006-01-02T15:04:05Z"),
+		StartTime:       utils.FormatDateTime(&start),
 		Duration:        duration,
 		Password:        "123456",
 		DefaultPassword: false,
 		PreSchedule:     true,
 		Settings: models.ZoomMeetingSettings{
-			HostVideo:               true,
-			ParticipantVideo:        false,
-			JoinBeforeHost:          true,
-			WaitingRoom:             false,
-			ApprovalType:            2,
-			Audio:                   "telephony",
+			HostVideo:        true,
+			ParticipantVideo: false,
+			JoinBeforeHost:   true,
+			WaitingRoom:      false,
+			ApprovalType:     2,
+			Audio:            "telephony",
 			// MeetingInvitees:         invitees,
 			// AuthenticationException: authExceptions,
 		},
