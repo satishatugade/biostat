@@ -110,10 +110,10 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachments(service *gmail.Service
 	step := "gmail_search"
 	msg := "Searching for health records"
 	userEmail := profile.EmailAddress
-	query := fmt.Sprintf("(%s) has:attachment", filterString)
-	log.Println("Inbox Search Query:", userId, ":", query)
+	// query := fmt.Sprintf("(%s) has:attachment", filterString)
+	log.Println("Inbox Search Query:", userId, ":", filterString)
 	s.processStatusService.UpdateProcessRedis(key, constant.Running, nil, msg, step, false)
-	results, err := service.Users.Messages.List("me").Q(query).Do()
+	results, err := service.Users.Messages.List("me").Q(filterString).Do()
 	if err != nil {
 		log.Println("@FetchEmailsWithAttachments->service.Users.Messages:", userId, ":", err)
 		return nil, err

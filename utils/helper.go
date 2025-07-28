@@ -871,12 +871,32 @@ func IsValidMappingType(value string) bool {
 }
 
 func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
-	var parts []string
+	var fromParts []string
+	var subjectParts []string
+
 	for _, lab := range labs {
-		parts = append(parts, fmt.Sprintf("\"%s\"", lab.LabName))
-		parts = append(parts, fmt.Sprintf("\"%s\"", lab.LabEmail))
+		if lab.LabEmail != "" {
+			fromParts = append(fromParts, fmt.Sprintf("\"%s\"", lab.LabEmail))
+		}
+		if lab.LabName != "" {
+			subjectParts = append(subjectParts, fmt.Sprintf("\"%s\"", lab.LabName))
+		}
 	}
-	return strings.Join(parts, " OR ")
+
+	var filterClauses []string
+
+	if len(fromParts) > 0 {
+		filterClauses = append(filterClauses, fmt.Sprintf("from:(%s)", strings.Join(fromParts, " OR ")))
+	}
+	if len(subjectParts) > 0 {
+		filterClauses = append(filterClauses, fmt.Sprintf("subject:(%s)", strings.Join(subjectParts, " OR ")))
+	}
+
+	if len(filterClauses) == 0 {
+		return "in:inbox has:attachment"
+	}
+
+	return fmt.Sprintf("in:inbox (%s) has:attachment", strings.Join(filterClauses, " OR "))
 }
 
 func GetReverseRelation(relationId int, myGenderId int) *int {
