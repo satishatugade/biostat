@@ -1476,8 +1476,11 @@ func (p *PatientRepositoryImpl) NoOfMessagesForDashboard(patientID uint64) (int6
 
 func (p *PatientRepositoryImpl) NoOfLabReusltsForDashboard(patientID uint64) (int64, error) {
 	var count int64
-	err := p.db.Table("tbl_patient_diagnostic_report").
-		Where("patient_id = ?", patientID).
+	err := p.db.Table("tbl_medical_record").
+		Where("record_id IN (?)", p.db.Table("tbl_medical_record_user_mapping").
+			Select("record_id").
+			Where("user_id = ?", patientID),
+		).
 		Count(&count).Error
 
 	if err != nil {
@@ -1623,7 +1626,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		SELECT 
 			pdr.patient_diagnostic_report_id,
 			pdr.patient_id,
-			mruc.record_id,
+			mr.record_id,
 			format_datetime(pdr.collected_date) AS collected_date,
 			format_datetime(pdr.report_date) AS report_date,
 			pdr.report_status,
@@ -1666,13 +1669,16 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		LEFT JOIN tbl_patient_test_component_display_config dc 
 			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
 			AND pdtrv.patient_id = dc.patient_id
-		LEFT JOIN tbl_medical_record_user_mapping mruc 
-			ON pdtrv.patient_id = mruc.user_id
+		LEFT JOIN tbl_patient_report_attachment pra 
+				ON pdtrv.patient_diagnostic_report_id = pra.patient_diagnostic_report_id
+		LEFT JOIN tbl_medical_record mr 
+				ON mr.record_id = pra.record_id
+				AND mr.is_deleted = 0
 		LEFT JOIN tbl_diagnostic_lab dl 
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
 		WHERE pdtrv.patient_diagnostic_report_id IN (
 			SELECT patient_diagnostic_report_id FROM paginated_reports
-		)
+		) AND pdr.is_deleted = 0
 	`
 
 	if filter.TestName != nil {

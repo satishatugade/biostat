@@ -49,7 +49,7 @@ func (s *ProcessStatusServiceImpl) StartProcess(processID uuid.UUID, userID uint
 		}
 
 		if err := s.repo.CreateProcess(status); err != nil {
-			log.Println("@StartProcess->CreateProcess failed to create: %v", err)
+			log.Printf("@StartProcess->CreateProcess failed to create: %v", err)
 		}
 	}()
 	return processID

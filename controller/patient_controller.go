@@ -662,11 +662,11 @@ func (pc *PatientController) AssignPrimaryCaregiver(c *gin.Context) {
 			return
 		}
 	}
-	hasHOF, err := pc.roleService.HasHOFMapping(patientId, string(constant.MappingTypeHOF))
-	if !hasHOF {
-		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, " Only the Head of Family can assign or unassign a new Head of Family", nil, err)
-		return
-	}
+	// hasHOF, err := pc.roleService.HasHOFMapping(patientId, string(constant.MappingTypeHOF))
+	// if !hasHOF {
+	// 	models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, " Only the Head of Family can assign or unassign a new Head of Family", nil, err)
+	// 	return
+	// }
 	relativeIdStr := c.Query("relative_id")
 	mappingType := c.Query("mapping_type")
 	relativeId, err := strconv.ParseUint(relativeIdStr, 10, 64)
@@ -2124,8 +2124,10 @@ func (pc *PatientController) GetPatientHealthProfileInfo(ctx *gin.Context) {
 	healthDetails, err := pc.patientService.GetPatientHealthDetail(patientId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "Health detail not found", nil, err)
+		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Health Detail fetch successfully", healthDetails, nil, nil)
+	return
 }
 
 func (pc *PatientController) UpdatePatientHealthDetail(ctx *gin.Context) {
