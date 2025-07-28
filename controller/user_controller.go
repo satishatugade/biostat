@@ -109,7 +109,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
 		return
 	}
-	err = uc.emailService.SendLoginCredentials(systemUser, rawPassword, nil, "")
+	err = uc.emailService.SendLoginCredentials(systemUser, nil, nil, "")
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
@@ -396,7 +396,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			log.Println("Error sending connection email:", err)
 		}
 	} else {
-		err := uc.emailService.SendLoginCredentials(systemUser, password, registrant, relation.RelationShip)
+		err := uc.emailService.SendLoginCredentials(systemUser, &password, registrant, relation.RelationShip)
 		if err != nil {
 			log.Println("Error sending email:", err)
 		}

@@ -12,7 +12,7 @@ import (
 )
 
 type EmailService interface {
-	SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error
+	SendLoginCredentials(systemUser models.SystemUser_, password *string, patient *models.Patient, relationship string) error
 	SendConnectionMail(systemUser models.SystemUser_, patient *models.Patient, relationship string) error
 	SendAppointmentMail(appointment models.AppointmentResponse, userProfile models.Patient, providerInfo interface{}) error
 	SendReportResultsEmail(patientInfo *models.SystemUser_, alerts []models.TestResultAlert) error
@@ -28,7 +28,7 @@ func NewEmailService(notificationRepo repository.UserNotificationRepository) *Em
 	return &EmailServiceImpl{notificationRepo: notificationRepo}
 }
 
-func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, password string, patient *models.Patient, relationship string) error {
+func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, password *string, patient *models.Patient, relationship string) error {
 	APPURL := os.Getenv("APP_URL")
 	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
 	roleName := systemUser.RoleName
@@ -39,6 +39,12 @@ func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, p
 	if patient != nil {
 		patientFullName = patient.FirstName + " " + patient.LastName
 	}
+	username := systemUser.Username
+	if systemUser.Email != "" {
+		username = systemUser.Email
+	} else if systemUser.MobileNo != "" {
+		username = systemUser.MobileNo
+	}
 	sendBody := map[string]interface{}{
 		"user_id":           systemUser.UserId,
 		"recipient_mail_id": systemUser.Email,
@@ -48,7 +54,7 @@ func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, p
 			"fullName":        systemUser.FirstName + " " + systemUser.LastName,
 			"patientFullName": patientFullName,
 			"roleName":        roleName,
-			"username":        systemUser.Username,
+			"username":        username,
 			"password":        password,
 			"loginURL":        APPURL,
 			"resetURL":        RESETURL,
