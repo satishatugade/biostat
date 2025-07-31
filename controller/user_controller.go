@@ -174,16 +174,58 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 		c.Abort()
 		return
 	}
+	realmAccessRaw, ok := (*claims)["realm_access"]
+	if !ok {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Missing realm access", nil, err)
+		c.Abort()
+		return
+	}
+	realmAccess, ok := realmAccessRaw.(map[string]interface{})
+	if !ok {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid realm access format", nil, err)
+		c.Abort()
+		return
+	}
+
+	rolesRaw, ok := realmAccess["roles"]
+	if !ok {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Missing roles", nil, err)
+		c.Abort()
+		return
+	}
+	rolesSlice, ok := rolesRaw.([]interface{})
+	if !ok {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, "Invalid roles format", nil, err)
+		c.Abort()
+		return
+	}
+	var matchedRole constant.UserRole
+	for _, role := range rolesSlice {
+		for _, validRole := range constant.ValidUserRoles {
+			if role == string(validRole) {
+				matchedRole = validRole
+				break
+			}
+		}
+		if matchedRole != "" {
+			break
+		}
+	}
+
+	if matchedRole == "" {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User role not found", nil, err)
+		return
+	}
 	err1 := database.DB.Where("auth_user_id = ?", sub).First(&user).Error
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User not found", nil, err)
 		return
 	}
-	role, err := uc.roleService.GetRoleByUserId(user.UserId, input.LoginAs)
-	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User role not found", nil, err)
-		return
-	}
+	// role, err := uc.roleService.GetRoleByUserId(user.UserId, input.LoginAs)
+	// if err != nil {
+	// 	models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "User role not found", nil, err)
+	// 	return
+	// }
 	logindata := map[string]interface{}{
 		"last_login":       time.Now(),
 		"first_login_flag": true,
@@ -205,7 +247,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 			LastName:   user.LastName,
 			Email:      user.Email,
 			Username:   user.Username,
-			Role:       role.RoleName,
+			Role:       string(matchedRole),
 			AuthUserId: user.AuthUserId,
 		},
 	}

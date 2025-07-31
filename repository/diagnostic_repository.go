@@ -23,6 +23,7 @@ type DiagnosticRepository interface {
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
+	DeleteLabByUser(lab_id, user_id uint64, deletedBy string) error
 	AddMapping(tx *gorm.DB, userId uint64, LabInfo *models.DiagnosticLab) error
 	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
@@ -443,7 +444,7 @@ func (dr *DiagnosticRepositoryImpl) GetPatientDiagnosticLabs(patientId uint64, l
 			labs.postal_code, labs.lab_contact_number, labs.lab_email, labs.is_deleted,labs.is_system_lab,
 			labs.created_at, labs.updated_at, labs.created_by, labs.updated_by`).
 		Joins("JOIN tbl_diagnostic_lab AS labs ON labs.diagnostic_lab_id = mapping.diagnostic_lab_id").
-		Where("mapping.patient_id = ? AND mapping.is_deleted = 0", patientId).
+		Where("mapping.patient_id = ? AND mapping.is_deleted = 0 AND labs.is_deleted=0", patientId).
 		Order("labs.diagnostic_lab_id DESC").
 		Limit(limit).
 		Offset(offset).
@@ -482,14 +483,14 @@ func (r *DiagnosticRepositoryImpl) GetLabById(diagnosticlLabId uint64) (*models.
 	return &lab, err
 }
 
-func (r *DiagnosticRepositoryImpl) UpdateLab(lab *models.DiagnosticLab, deletedBy string) error {
+func (r *DiagnosticRepositoryImpl) UpdateLab(lab *models.DiagnosticLab, updatedBy string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var existing models.DiagnosticLab
 		if err := tx.First(&existing, lab.DiagnosticLabId).Error; err != nil {
 			return err
 		}
 
-		if err := SaveDiagnosticLabAudit(tx, &existing, constant.UPDATE, deletedBy); err != nil {
+		if err := SaveDiagnosticLabAudit(tx, &existing, constant.UPDATE, updatedBy); err != nil {
 			return err
 		}
 
@@ -504,7 +505,7 @@ func (r *DiagnosticRepositoryImpl) UpdateLab(lab *models.DiagnosticLab, deletedB
 				"lab_contact_number": lab.LabContactNumber,
 				"lab_email":          lab.LabEmail,
 				"updated_at":         lab.UpdatedAt,
-				"updated_by":         lab.UpdatedBy,
+				"updated_by":         updatedBy,
 			}).Error
 	})
 }
@@ -524,13 +525,48 @@ func (r *DiagnosticRepositoryImpl) DeleteLab(id uint64, deletedBy string) error 
 		lab.UpdatedBy = deletedBy
 		lab.UpdatedAt = time.Now()
 
-		return tx.Model(&models.DiagnosticLab{}).
+		err := tx.Model(&models.DiagnosticLab{}).
 			Where("diagnostic_lab_id = ?", id).
 			Updates(map[string]interface{}{
 				"is_deleted": lab.IsDeleted,
 				"updated_by": lab.UpdatedBy,
 				"updated_at": lab.UpdatedAt,
 			}).Error
+		if err != nil {
+			err.Error()
+		}
+		return nil
+
+	})
+}
+
+func (r *DiagnosticRepositoryImpl) DeleteLabByUser(lab_id, user_id uint64, deletedBy string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var lab models.DiagnosticLab
+		if err := tx.First(&lab, lab_id).Error; err != nil {
+			return err
+		}
+
+		if err := SaveDiagnosticLabAudit(tx, &lab, constant.DELETE, deletedBy); err != nil {
+			return err
+		}
+
+		lab.IsDeleted = 1
+		lab.UpdatedBy = deletedBy
+		lab.UpdatedAt = time.Now()
+
+		err := tx.Model(&models.PatientDiagnosticLabMapping{}).
+			Where("diagnostic_lab_id = ? AND patient_id = ?", lab_id, user_id).
+			Updates(map[string]interface{}{
+				"is_deleted": lab.IsDeleted,
+				"updated_by": lab.UpdatedBy,
+				"updated_at": lab.UpdatedAt,
+			}).Error
+		if err != nil {
+			err.Error()
+		}
+		return nil
+
 	})
 }
 

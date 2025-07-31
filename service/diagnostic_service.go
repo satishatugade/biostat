@@ -27,6 +27,7 @@ type DiagnosticService interface {
 	GetLabById(diagnosticlLabId uint64) (*models.DiagnosticLab, error)
 	UpdateLab(diagnosticlLab *models.DiagnosticLab, authUserId string) error
 	DeleteLab(diagnosticlLabId uint64, authUserId string) error
+	DeleteLabByUser(lab_id, user_id uint64, deletedBy string) error
 	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
 	AddMapping(userId uint64, LabInfo *models.DiagnosticLab) error
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
@@ -242,7 +243,8 @@ func (s *DiagnosticServiceImpl) CreateLab(userId uint64, authUserId string, req 
 				return nil, errors.New("Invalid Lab ID")
 			}
 			lab := models.DiagnosticLab{
-				LabName: existingLab.LabName,
+				LabName:   existingLab.LabName,
+				CreatedBy: authUserId,
 			}
 
 			createdLab, err := s.diagnosticRepo.CreateLab(tx, &lab)
@@ -254,6 +256,14 @@ func (s *DiagnosticServiceImpl) CreateLab(userId uint64, authUserId string, req 
 			if err := s.diagnosticRepo.AddMapping(tx, userId, createdLab); err != nil {
 				tx.Rollback()
 				return nil, err
+			}
+
+			for _, relative_id := range req.RelativeIds {
+				err = s.diagnosticRepo.AddMapping(tx, relative_id, createdLab)
+				if err != nil {
+					tx.Rollback()
+					return nil, err
+				}
 			}
 		}
 
@@ -307,6 +317,10 @@ func (s *DiagnosticServiceImpl) UpdateLab(diagnosticlLabId *models.DiagnosticLab
 
 func (s *DiagnosticServiceImpl) DeleteLab(diagnosticlLabId uint64, authUserId string) error {
 	return s.diagnosticRepo.DeleteLab(diagnosticlLabId, authUserId)
+}
+
+func (s *DiagnosticServiceImpl) DeleteLabByUser(lab_id, user_id uint64, deletedBy string) error {
+	return s.diagnosticRepo.DeleteLabByUser(lab_id, user_id, deletedBy)
 }
 func (s *DiagnosticServiceImpl) GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error) {
 	return s.diagnosticRepo.GetAllDiagnosticLabAuditRecords(limit, offset)
@@ -713,8 +727,8 @@ func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(repo
 	reportData.ReportDetails.IsDeleted = 0
 	if ShouldSkipReport(CollectionDate, allComponentNames, existingMap) {
 		log.Println("Save report in duplicate bucket and marked is_deleted as True for patient : ", patientId)
-		reportData.ReportDetails.IsDeleted = 1
-		_, updateErr := s.medicalRecordsRepo.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: *recordId, IsDeleted: 1, RecordCategory: string(constant.DUPLICATE)})
+		reportData.ReportDetails.IsDeleted = 0
+		_, updateErr := s.medicalRecordsRepo.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: *recordId, IsDeleted: 0, RecordCategory: string(constant.DUPLICATE)})
 		if updateErr != nil {
 			log.Println("failed to update medicalRecordService.UpdateTblMedicalRecord:", updateErr)
 		}

@@ -268,6 +268,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"D-LAB", http.MethodPost, constant.AddLab, patientController.AddLab},
 		Route{"D-LAB", http.MethodPost, constant.GetPatientLabs, patientController.GetPatientDiagnosticLabs},
 		Route{"D-LAB", http.MethodPut, constant.UpdateLabInfo, patientController.UpdateLab},
+		Route{"D-LAB", http.MethodPost, constant.DeleteLab, patientController.DeleteLab},
 
 		// patient relatives
 		// Route{"patient", http.MethodPost, constant.GetRelative, patientController.GetPatientRelative},//TODO DEL V
@@ -366,7 +367,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
 		Route{"User Notifications", http.MethodGet, constant.Reminders, patientController.GetUserReminders},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
-		Route{"User Notifications", http.MethodPost, constant.RunningProcessStatus, patientController.GetRecentUserProcesses},
+		Route{"User Notifications", http.MethodPost, constant.RunningProcessStatus, patientController.GetUserActivityLog},
 
 		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},
