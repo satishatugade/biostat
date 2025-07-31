@@ -1200,3 +1200,10 @@ func FormatDateTime(t *time.Time) string {
 	}
 	return t.Format("02 Jan 2006 15:04:05")
 }
+
+func SafeDeref(str *string) string {
+	if str != nil {
+		return *str
+	}
+	return ""
+}

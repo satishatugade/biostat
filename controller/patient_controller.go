@@ -1792,6 +1792,24 @@ func (pc *PatientController) GetAllLabs(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, statusCode, message, data, pagination, nil)
 }
 
+func (pc *PatientController) DeleteLab(c *gin.Context) {
+	authUserId, user_id, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	diagnosticlLabId, err := strconv.ParseUint(c.Param("lab_id"), 10, 64)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "Invalid lab ID", nil, err)
+		return
+	}
+	if err := pc.diagnosticService.DeleteLabByUser(diagnosticlLabId, user_id, authUserId); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to delete lab", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Lab deleted successfully", nil, nil, nil)
+}
+
 func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 	type UserRequest struct {
 		Code        string `json:"code"`
@@ -1915,7 +1933,7 @@ func (pc *PatientController) ReadUserUploadedMedicalFile(ctx *gin.Context) {
 	}
 	response, err := pc.medicalRecordService.ReadMedicalRecord(req.ResourceId, user_id, reqUserId)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "this record is not accessible at this time", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, string(constant.PermissionViewMedicalRecord), nil, err)
 		return
 	}
 
@@ -2895,4 +2913,25 @@ func (pc *PatientController) GetRecentUserProcesses(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "process status loaded", processes, nil, nil)
 	return
+}
+
+func (pc *PatientController) GetUserActivityLog(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	page, limit, offset := utils.GetPaginationParams(ctx)
+	logs, totalRecords, err := pc.processStatusService.GetUserActivityLog(userId, limit, offset)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
+		return
+	}
+
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	message := "No user activity logs found"
+	if len(logs) > 0 {
+		message = "User activity logs fetched"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, logs, pagination, nil)
 }

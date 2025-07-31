@@ -60,6 +60,14 @@ type PropertyConfig struct {
 	SystemVaribale struct {
 		Score int
 	}
+	Database struct {
+		Host     string
+		Port     string
+		DBName   string
+		UserName string
+		Password string
+		SSLMode  string
+	}
 	ApiURL struct {
 		RedisURL                    string
 		NotifyServerURL             string
@@ -81,9 +89,14 @@ var PropConfig *PropertyConfig = LoadConfigFromEnv()
 
 func LoadConfigFromEnv() *PropertyConfig {
 	cfg := &PropertyConfig{}
-
-	//
 	cfg.SystemVaribale.Score = getEnvAsInt("SYSTEM_DUPLICATE_REPORT_SCORE", 60)
+
+	cfg.Database.Host = getEnv("DB_HOST")
+	cfg.Database.Port = getEnv("DB_PORT")
+	cfg.Database.DBName = getEnv("DB_NAME")
+	cfg.Database.UserName = getEnv("DB_USER")
+	cfg.Database.Password = getEnv("DB_PASSWORD")
+	cfg.Database.SSLMode = getEnv("DB_SSLMODE")
 
 	// HealthCheck Config
 	cfg.HealthCheck.Enabled = getEnvAsBool("HEALTHCHECK_ENABLED", true)

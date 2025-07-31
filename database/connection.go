@@ -1,6 +1,7 @@
 package database
 
 import (
+	"biostat/config"
 	"biostat/models"
 	"database/sql"
 	"fmt"
@@ -20,18 +21,19 @@ var sqlDB *sql.DB
 
 func GetDBConn() *gorm.DB {
 	if DB == nil {
-		InitDB() // Ensure it's initialized
+		InitDB()
 	}
 	return DB
 }
 
 func InitDB() *gorm.DB {
-	dbHost := os.Getenv("DB_HOST")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-	dbPort := os.Getenv("DB_PORT")
-	dbSSLMode := os.Getenv("DB_SSLMODE")
+	dbHost := config.PropConfig.Database.Host
+	dbPort := config.PropConfig.Database.Port
+	dbName := config.PropConfig.Database.DBName
+	dbUser := config.PropConfig.Database.UserName
+	dbPassword := config.PropConfig.Database.Password
+	dbSSLMode := config.PropConfig.Database.SSLMode
+
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		dbHost, dbUser, dbPassword, dbName, dbPort, dbSSLMode)
 

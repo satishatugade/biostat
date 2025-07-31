@@ -4,6 +4,7 @@ import (
 	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
+	"biostat/utils"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,9 +16,12 @@ import (
 )
 
 type ProcessStatusService interface {
-	StartProcess(processID uuid.UUID, userID uint64, processType, entityID, entityType string, step string) uuid.UUID
+	StartProcess(processID uuid.UUID, userID uint64, processType, entityID, entityType string, step string) (uuid.UUID, uuid.UUID)
+	CreateProcessStepLog(processID uuid.UUID, status string, message, step *string, totalRecordFound *int) uuid.UUID
 	UpdateProcess(processID uuid.UUID, status string, entityID *string, message *string, step *string, completed bool)
+	UpdateProcessStepLog(processStepID uuid.UUID, status string, message, step *string)
 	GetUserRecentProcesses(userID uint64) ([]models.ProcessStatus, error)
+	GetUserActivityLog(userID uint64, limit, offset int) ([]models.ProcessStatusResponse, int64, error)
 
 	StartProcessRedis(processID uuid.UUID, userID uint64, processType, entityID, entityType string, step string) (string, error)
 	UpdateProcessRedis(key, status string, entityID *string, message string, step string, completed bool) error
@@ -32,8 +36,8 @@ func NewProcessStatusService(repo repository.ProcessStatusRepository, redisClien
 	return &ProcessStatusServiceImpl{repo: repo, redisClient: redisClient}
 }
 
-func (s *ProcessStatusServiceImpl) StartProcess(processID uuid.UUID, userID uint64, processType, entityID, entityType string, step string) uuid.UUID {
-	// processID := uuid.New()
+func (s *ProcessStatusServiceImpl) StartProcess(processID uuid.UUID, userID uint64, processType, entityID, entityType string, step string) (uuid.UUID, uuid.UUID) {
+	processStepId := uuid.New()
 	go func() {
 		defer s.suppressError()
 		status := &models.ProcessStatus{
@@ -42,17 +46,73 @@ func (s *ProcessStatusServiceImpl) StartProcess(processID uuid.UUID, userID uint
 			ProcessType:     processType,
 			EntityID:        entityID,
 			EntityType:      entityType,
-			Status:          "running",
+			Status:          constant.Running,
 			Step:            step,
 			StartedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
 		}
 
 		if err := s.repo.CreateProcess(status); err != nil {
 			log.Printf("@StartProcess->CreateProcess failed to create: %v", err)
 		}
+		stepLog := &models.ProcessStepLog{
+			ProcessStepLogId: processStepId,
+			ProcessStatusID:  processID,
+			Step:             step,
+			Status:           constant.Running,
+			Message:          string(constant.ProcessStarted),
+			StepStartedAt:    time.Now(),
+		}
+
+		if err := s.repo.CreateProcessStepLog(stepLog); err != nil {
+			log.Printf("@StartProcess->CreateProcessStepLog failed: %v", err)
+		}
 	}()
-	return processID
+	return processID, processStepId
+}
+
+func (s *ProcessStatusServiceImpl) CreateProcessStepLog(processID uuid.UUID, status string, message, step *string, totalRecordFound *int) uuid.UUID {
+	processStepId := uuid.New()
+	go func() {
+		defer s.suppressError()
+
+		logEntry := &models.ProcessStepLog{
+			ProcessStepLogId: processStepId,
+			ProcessStatusID:  processID,
+			TotalRecords:     totalRecordFound,
+			Step:             utils.SafeDeref(step),
+			Status:           status,
+			Message:          utils.SafeDeref(message),
+			StepStartedAt:    time.Now(),
+		}
+
+		if err := s.repo.CreateProcessStepLog(logEntry); err != nil {
+			log.Printf("@CreateProcessStepLog -> failed to create: %v", err)
+		}
+	}()
+	return processStepId
+}
+
+func (s *ProcessStatusServiceImpl) UpdateProcessStepLog(processStepID uuid.UUID, status string, message, step *string) {
+	go func() {
+		defer s.suppressError()
+
+		updates := map[string]interface{}{
+			"status": status,
+		}
+
+		if message != nil {
+			updates["message"] = *message
+		}
+		if step != nil {
+			updates["step"] = *step
+		}
+		updates["step_updated_at"] = time.Now()
+
+		err := s.repo.UpdateLatestProcessStepLog(processStepID, updates)
+		if err != nil {
+			log.Printf("@UpdateProcessStepLog -> failed to update: %v", err)
+		}
+	}()
 }
 
 func (s *ProcessStatusServiceImpl) UpdateProcess(processID uuid.UUID, status string, entityID *string, message *string, step *string, completed bool) {
@@ -186,4 +246,8 @@ func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64) ([]mode
 	}
 
 	return processList, nil
+}
+
+func (s *ProcessStatusServiceImpl) GetUserActivityLog(userID uint64, limit, offset int) ([]models.ProcessStatusResponse, int64, error) {
+	return s.repo.FetchActivityLogsByUserID(userID, limit, offset)
 }

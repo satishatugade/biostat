@@ -224,6 +224,7 @@ const (
 	GetSubscriptionPlan     = "/get-subscription-plan"
 	BIOCHATBOT              = "/ask-bio"
 	RunningProcessStatus    = "/process-status"
+	ActivityLog             = "/activity-log"
 )
 
 const (
@@ -305,6 +306,50 @@ var FallbackMappingTypes = []MappingType{
 	MappingTypeP,
 }
 
+type ProcessStep string
+
+const (
+	ProcessTokenExchange     ProcessStep = "token_exchange"
+	ProcessFetchLabs         ProcessStep = "fetch_labs"
+	ProcessFetchEmails       ProcessStep = "fetch_emails"
+	ProcessSaveRecords       ProcessStep = "save_records"
+	ProcessDigitization      ProcessStep = "digitization"
+	ProcessGmailClient       ProcessStep = "gmail_client"
+	ProcessGmailSearch       ProcessStep = "gmail_search"
+	ProcessVerifyCredentials ProcessStep = "verify_credentials"
+)
+
+type ProcessStepStatusMessage string
+
+const (
+	ProcessStarted        ProcessStepStatusMessage = "Process started"
+	FetchUserLab          ProcessStepStatusMessage = "Fetching user diagnostic labs from his lab list"
+	UserLabFetched        ProcessStepStatusMessage = "User diagnostic labs fetch successfully"
+	FetchEmailAttachment  ProcessStepStatusMessage = "Fetching email attachments"
+	EmailAttachmentFetch  ProcessStepStatusMessage = "Email attachments fetch successfully"
+	FailedFetchAttachment ProcessStepStatusMessage = "Failed to fetch email attachments"
+	InvalidCredentials    ProcessStepStatusMessage = "Invalid credentials"
+
+	SaveRecord            ProcessStepStatusMessage = "Storing extracted medical records in the database"
+	FailedSaveRecords     ProcessStepStatusMessage = "Failed to save medical record"
+	DigitizationTaskQueue ProcessStepStatusMessage = "Creating digitization task queue in redis server to digitize medical records"
+	UserProfileNotFound   ProcessStepStatusMessage = "Failed to load user profile to create digitization task"
+	// ProcessGmailSearch   ProcessStepStatusMessage = "gmail_search"
+)
+
+type ProcessType string
+
+const (
+	GmailSync ProcessType = "gmail_sync"
+	// ProcessFetchLabs ProcessType = "fetch_labs"
+)
+
+type EntityType string
+
+const (
+	MedicalRecordEntity EntityType = "tbl_medical_record"
+)
+
 type UserRole string
 
 const (
@@ -316,6 +361,16 @@ const (
 	Patient    UserRole = "patient"
 	Pharmacist UserRole = "pharmacist"
 )
+
+var ValidUserRoles = []UserRole{
+	Admin,
+	Doctor,
+	Nurse,
+	Caregiver,
+	Relative,
+	Patient,
+	Pharmacist,
+}
 
 const (
 	PermissionViewHealth           = "view_health"

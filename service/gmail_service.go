@@ -107,7 +107,7 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachments(service *gmail.Service
 		log.Println("@FetchEmailsWithAttachments->service.Users.GetProfile:", userId, ":", err)
 		return nil, err
 	}
-	step := "gmail_search"
+	step := string(constant.ProcessGmailSearch)
 	msg := "Searching for health records"
 	userEmail := profile.EmailAddress
 	// query := fmt.Sprintf("(%s) has:attachment", filterString)
@@ -142,7 +142,7 @@ func ExtractAttachments(service *gmail.Service, message *gmail.Message, userEmai
 		if part.Filename != "" {
 			attachmentData, err := DownloadAttachment(service, message.Id, part.Body.AttachmentId)
 			if err != nil {
-				log.Println("@ExtractAttachments->DownloadAttachment %s: %v", part.Filename, err)
+				log.Printf("@ExtractAttachments->DownloadAttachment %s: %v", part.Filename, err)
 				continue
 			}
 			decodedName, err := url.QueryUnescape(part.Filename)
@@ -214,104 +214,118 @@ func getHeader(headers []*gmail.MessagePartHeader, name string) string {
 }
 
 func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID, key string, gmailService *gmail.Service) error {
-	msg := "getting user labs"
-	step := "fetch_labs"
+	msg := string(constant.FetchUserLab)
+	step := string(constant.ProcessFetchLabs)
 	// gs.processStatusService.UpdateProcess(processID, "running", nil, &msg, &step, false)
+	fetchLabPsId := gs.processStatusService.CreateProcessStepLog(processID, constant.Running, &msg, &step, nil)
 	gs.processStatusService.UpdateProcessRedis(key, constant.Running, nil, msg, step, false)
 	labs, err := gs.diagnosticRepo.GetPatientLabNameAndEmail(userId)
 	if err != nil {
-		msg = "query generation failed"
-		gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		msg = "failed to fetch user labs or lab not found"
+		// gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		gs.processStatusService.CreateProcessStepLog(processID, constant.Failure, &msg, &step, nil)
 		gs.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		log.Println("@GmailSyncCore->GetPatientLabNameAndEmail:", userId, " err:", err)
 		return err
 	}
-
+	msg = string(constant.UserLabFetched)
+	gs.processStatusService.UpdateProcessStepLog(fetchLabPsId, constant.Success, &msg, &step)
 	filterString := utils.FormatLabsForGmailFilter(labs)
 	profile, err := gmailService.Users.GetProfile("me").Do()
 	if err != nil {
-		msg = "Invalid credentials"
-		step = "verify_credentials"
-		gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		msg = string(constant.InvalidCredentials)
+		step = string(constant.ProcessVerifyCredentials)
+		// gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		gs.processStatusService.CreateProcessStepLog(processID, constant.Failure, &msg, &step, nil)
 		gs.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		log.Println("@GmailSyncCore->gmailService.Users.GetProfile:", userId, " err:", err)
 		return err
 	}
-	step = "fetch_emails"
-	msg = "fetching email attachments"
+	step1 := string(constant.ProcessFetchEmails)
+	msg1 := string(constant.FetchEmailAttachment)
 	// gs.processStatusService.UpdateProcess(processID, constant.Running, &profile.EmailAddress, &msg, &step, false)
+	fetchEmailPsId := gs.processStatusService.CreateProcessStepLog(processID, constant.Running, &msg1, &step1, nil)
 	gs.processStatusService.UpdateProcessRedis(key, constant.Running, &profile.EmailAddress, msg, step, false)
 
 	emailMedRecord, err := gs.FetchEmailsWithAttachments(gmailService, userId, filterString, key)
 	if err != nil {
-		msg = "Failed to fetch emails"
-		gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, nil, true)
+		msg = string(constant.FailedFetchAttachment)
+		// gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, nil, true)
+		gs.processStatusService.CreateProcessStepLog(processID, constant.Failure, &msg, &step, nil)
 		gs.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userId, " err:", err)
 		return err
 	}
-	step = "save_records"
-	msg = "Saving medical records to the database"
+	msg1 = string(constant.EmailAttachmentFetch)
+	gs.processStatusService.UpdateProcessStepLog(fetchEmailPsId, constant.Success, &msg1, &step1)
+	step = string(constant.ProcessSaveRecords)
+	msg = string(constant.SaveRecord)
+	totalRecord := len(emailMedRecord)
 	// gs.processStatusService.UpdateProcess(processID, constant.Running, nil, &msg, &step, false)
+	saveRecordPsId := gs.processStatusService.CreateProcessStepLog(processID, constant.Running, &msg, &step, &totalRecord)
 	gs.processStatusService.UpdateProcessRedis(key, constant.Running, nil, msg, step, false)
 
 	err = gs.medRecordService.SaveMedicalRecords(emailMedRecord, userId)
 	if err != nil {
-		msg = "Failed to save medical records"
+		msg = string(constant.FailedSaveRecords)
 		log.Println("@GmailSyncCore->SaveMedicalRecords:", userId, " : ", err)
-		gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, nil, true)
+		// gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, nil, true)
+		gs.processStatusService.CreateProcessStepLog(processID, constant.Failure, &msg, &step, nil)
 		gs.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		return err
 	}
-	step = "digitization"
-	msg = "Creating digitization tasks for saved records"
+	gs.processStatusService.UpdateProcessStepLog(saveRecordPsId, constant.Success, &msg, &step)
+	step = string(constant.ProcessDigitization)
+	msg = string(constant.DigitizationTaskQueue)
 	// gs.processStatusService.UpdateProcess(processID, constant.Running, nil, &msg, &step, false)
+	digitizationPsId := gs.processStatusService.CreateProcessStepLog(processID, constant.Running, &msg, &step, nil)
 	gs.processStatusService.UpdateProcessRedis(key, constant.Running, nil, msg, step, false)
 	log.Println("Email sync completed for user:", userId, " : ", profile.EmailAddress)
 
 	userInfo, err := gs.userService.GetSystemUserInfoByUserID(userId)
 	if err != nil {
-		msg = "failed to load profile for digitization"
-		gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, nil, true)
+		msg = string(constant.UserProfileNotFound)
+		// gs.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, nil, true)
+		gs.processStatusService.CreateProcessStepLog(processID, constant.Failure, &msg, &step, nil)
 		gs.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		log.Println("@GmailSyncCore->GetSystemUserInfoByUserID:", userId, " : ", err)
 		return err
 	}
-
 	for idx, record := range emailMedRecord {
 		gs.processStatusService.UpdateProcessRedis(key, constant.Running, nil, fmt.Sprintf("Starting to Digitize saved record: %d / %d", idx+1, len(emailMedRecord)), step, false)
 		log.Println("Starting to Digitize saved record :", record.RecordId)
 		resp, err := http.Get(record.RecordUrl)
 		if err != nil {
-			log.Println("Error @GmailSyncCore->Read File From URL:%v", err)
+			log.Printf("Error @GmailSyncCore->Read File From URL:%v", err)
 			continue
 		}
 		defer resp.Body.Close()
 
 		fileBuf := new(bytes.Buffer)
-		_, err = io.Copy(fileBuf, resp.Body)
+		_, _ = io.Copy(fileBuf, resp.Body)
 		filename := filepath.Base(record.RecordUrl)
-		err = gs.medRecordService.CreateDigitizationTask(record, userInfo, userId, userInfo.AuthUserId, fileBuf, filename)
-		if err != nil {
-			log.Println("Error @GmailSyncCore->CreateDigitizationTask: ", err)
+		taskErr := gs.medRecordService.CreateDigitizationTask(record, userInfo, userId, userInfo.AuthUserId, fileBuf, filename)
+		if taskErr != nil {
+			log.Println("Error @GmailSyncCore->CreateDigitizationTask: ", taskErr)
 		}
 	}
-	msg = fmt.Sprintf("Sync completed for %d records,they're in digitization process", len(emailMedRecord))
+	msg = fmt.Sprintf("Gmail Sync completed for %d records,they're in digitization process", len(emailMedRecord))
 	gs.processStatusService.UpdateProcess(processID, constant.Success, nil, &msg, nil, true)
+	gs.processStatusService.UpdateProcessStepLog(digitizationPsId, constant.Success, &msg, &step)
 	gs.processStatusService.UpdateProcessRedis(key, constant.Success, nil, msg, step, true)
 	return nil
 }
 
 func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 	processID := uuid.New()
-	_ = s.processStatusService.StartProcess(processID, userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
-	key, err := s.processStatusService.StartProcessRedis(processID, userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
+	_, processStepId := s.processStatusService.StartProcess(processID, userID, string(constant.GmailSync), strconv.FormatUint(userID, 10), string(constant.MedicalRecordEntity), string(constant.ProcessTokenExchange))
+	key, err := s.processStatusService.StartProcessRedis(processID, userID, string(constant.GmailSync), strconv.FormatUint(userID, 10), string(constant.MedicalRecordEntity), string(constant.ProcessTokenExchange))
 	if err != nil {
 		log.Println("@SyncGmailWeb->StartProcessRedis:", err)
 		return err
 	}
-	msg := ""
-	step := "token_exchange"
+	msg := "Token exchange success"
+	step := string(constant.ProcessTokenExchange)
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
@@ -326,18 +340,20 @@ func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		msg = "Token exchange failed"
-		s.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		// s.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		s.processStatusService.UpdateProcessStepLog(processStepId, constant.Failure, &msg, &step)
 		s.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		return err
 	}
-
+	s.processStatusService.UpdateProcessStepLog(processStepId, constant.Success, &msg, &step)
 	s.userService.CreateTblUserToken(&models.TblUserToken{UserId: userID, AuthToken: token.AccessToken, Provider: "Gmail"})
 
 	gmailService, err := s.CreateGmailServiceClient(token.AccessToken, googleOauthConfig)
 	if err != nil {
 		msg = "Failed to create Gmail client"
-		step = "gmail_client"
-		s.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		step = string(constant.ProcessGmailClient)
+		// s.processStatusService.UpdateProcess(processID, constant.Failure, nil, &msg, &step, true)
+		s.processStatusService.CreateProcessStepLog(processID, constant.Failure, &msg, &step, nil)
 		s.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, msg, step, true)
 		return err
 	}
@@ -346,8 +362,8 @@ func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 
 func (s *GmailSyncServiceImpl) SyncGmailApp(userID uint64, gmailService *gmail.Service) error {
 	processID := uuid.New()
-	_ = s.processStatusService.StartProcess(processID, userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
-	key, err := s.processStatusService.StartProcessRedis(processID, userID, "gmail_sync", strconv.FormatUint(userID, 10), "tbl_medical_record", "token_exchange")
+	_, _ = s.processStatusService.StartProcess(processID, userID, string(constant.GmailSync), strconv.FormatUint(userID, 10), string(constant.MedicalRecordEntity), string(constant.ProcessTokenExchange))
+	key, err := s.processStatusService.StartProcessRedis(processID, userID, string(constant.GmailSync), strconv.FormatUint(userID, 10), string(constant.MedicalRecordEntity), string(constant.ProcessTokenExchange))
 	if err != nil {
 		log.Println("@SyncGmailApp->StartProcessRedis:", err)
 		return err

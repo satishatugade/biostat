@@ -10,16 +10,13 @@ import (
 	"syscall"
 
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
+	_ = godotenv.Load()
 	env := os.Getenv("APP_ENV")
 	var envFile string
-
 	switch env {
 	case "dev":
 		envFile = ".env.dev"
@@ -28,28 +25,17 @@ func main() {
 	case "prod":
 		envFile = ".env.prod"
 	default:
-		log.Println("No environment set or environment is not supported, using default .env.dev")
 		envFile = ".env.dev"
 	}
-	if err := godotenv.Load(envFile); err != nil {
+	err := godotenv.Overload(envFile)
+	if err != nil {
 		log.Fatalf("Error loading %s file: %v", envFile, err)
 	}
-	logDir := os.Getenv("LOG_DIRECTORY")
-	logFile := os.Getenv("LOG_FILE")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		log.Fatalf("Error creating logs directory: %v", err)
-	}
-	logPath := logDir + logFile
-	file, LogFileError := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if LogFileError != nil {
-		log.Fatal("Error opening log file: ", LogFileError)
-	}
-	defer file.Close()
-	log.SetFlags(log.Ldate | log.Ltime)
-	log.SetOutput(file)
-	log.Println("ENV profile active ", envFile)
-	log.Println("Biostack Application Started.....")
 	config.PropConfig = config.LoadConfigFromEnv()
+	config.SetupLogger()
+	defer config.Log.Sync()
+	config.Log.Info("Biostack Application Started.....")
+	config.Log.Info("ENV profile active", zap.String("env", env))
 	config.InitKeycloak()
 	database.InitDB()
 	config.InitRedisAndAsynq()

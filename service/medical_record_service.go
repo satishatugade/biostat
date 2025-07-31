@@ -254,7 +254,7 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	for _, record := range uniqueRecords {
-		log.Println("Creating mapping for %d", record.RecordId)
+		log.Printf("Creating mapping for %d", record.RecordId)
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
 			UserID:   userId,
 			RecordID: record.RecordId,
@@ -328,7 +328,7 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userI
 		return nil, err
 	}
 	if !isAccessible {
-		return nil, errors.New("you do not have access to this resource")
+		return nil, errors.New("you do not have access to view report")
 	}
 
 	record, err := s.GetMedicalRecordByRecordId(ResourceId)
