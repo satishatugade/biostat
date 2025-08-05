@@ -82,6 +82,7 @@ type PatientDiagnosticReport struct {
 	SharedWith                string    `gorm:"column:shared_with" json:"shared_with"`
 	IsDeleted                 int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
 	IsDigital                 bool      `gorm:"column:is_digital;default:false" json:"is_digital"`
+	IsLabReport               bool      `gorm:"column:is_lab_report;default:false" json:"is_lab_report"`
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
@@ -246,6 +247,7 @@ type LabReport struct {
 		ReportName       string  `json:"report_name"`
 		PatientName      string  `json:"patient_name"`
 		ReportDate       string  `json:"report_date"`
+		ReportTime       string  `json:"report_time"`
 		CollectionDate   string  `json:"collection_date"`
 		DiagnosticLabId  *uint64 `json:"diagnostic_lab_id"`
 		SourceId         *uint64 `json:"source_id"`
@@ -253,6 +255,8 @@ type LabReport struct {
 		LabEmail         string  `json:"lab_email"`
 		LabId            string  `json:"lab_id"`
 		IsDigital        bool    `json:"is_digital"`
+		IsLabReport      bool    `json:"is_lab_report"`
+		IsUnknownRecord  bool    `json:"is_unknown_record"`
 		IsDeleted        int     `json:"is_deleted"`
 		LabLocation      string  `json:"lab_location"`
 		LabContactNumber string  `json:"lab_contact_number"`
@@ -265,6 +269,7 @@ type LabReport struct {
 			ResultValue                    string  `json:"result_value"`
 			Status                         string  `json:"status"`
 			Units                          string  `json:"units"`
+			Qualifier                      *string `json:"qualifier,omitempty"`
 			BiologicalReferenceDescription *string `json:"biological_reference_description"`
 			ReferenceRange                 struct {
 				Min string `json:"min"`

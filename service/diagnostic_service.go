@@ -420,31 +420,37 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 	}()
 
 	var diagnosticLabId uint64
-	labName := reportData.ReportDetails.LabName
-	if labName == "" {
-		log.Println("Lab name is empty, lab creating unknown lab name.")
-		labName = fmt.Sprintf("Unknown Lab %d", time.Now().Unix())
-	}
-	if val, exists := diagnosticLabs[strings.ToLower(labName)]; exists {
-		diagnosticLabId = val
+	if reportData.ReportDetails.SourceId != nil {
+		diagnosticLabId = *reportData.ReportDetails.SourceId
 	} else {
-		newLab := models.DiagnosticLab{
-			LabNo:            reportData.ReportDetails.LabId,
-			LabName:          labName,
-			LabAddress:       reportData.ReportDetails.LabLocation,
-			LabContactNumber: reportData.ReportDetails.LabContactNumber,
-			LabEmail:         reportData.ReportDetails.LabEmail,
+		labName := reportData.ReportDetails.LabName
+		if labName == "" {
+			log.Println("Lab name is empty, lab creating unknown lab name.")
+			labName = fmt.Sprintf("Unknown Lab %s", utils.FormatDateTime(&time.Time{}))
 		}
-		labInfo, err := s.diagnosticRepo.CreateLab(tx, &newLab)
-		if err != nil {
-			log.Println("ERROR saving DiagnosticLab info:", err)
-			tx.Rollback()
-			return "", fmt.Errorf("error while saving diagnostic lab info: %w", err)
+		if val, exists := diagnosticLabs[strings.ToLower(labName)]; exists {
+			diagnosticLabId = val
+			reportData.ReportDetails.IsLabReport = true
+		} else {
+			newLab := models.DiagnosticLab{
+				LabNo:            reportData.ReportDetails.LabId,
+				LabName:          labName,
+				LabAddress:       reportData.ReportDetails.LabLocation,
+				LabContactNumber: reportData.ReportDetails.LabContactNumber,
+				LabEmail:         reportData.ReportDetails.LabEmail,
+			}
+			labInfo, err := s.diagnosticRepo.CreateLab(tx, &newLab)
+			if err != nil {
+				log.Println("ERROR saving DiagnosticLab info:", err)
+				tx.Rollback()
+				return "", fmt.Errorf("error while saving diagnostic lab info: %w", err)
+			}
+			if err := s.diagnosticRepo.AddMapping(tx, patientId, labInfo); err != nil {
+				log.Println("ERROR while AddMapping for diagnostic lab:", err)
+			}
+			diagnosticLabId = labInfo.DiagnosticLabId
+			reportData.ReportDetails.IsLabReport = true
 		}
-		if err := s.diagnosticRepo.AddMapping(tx, patientId, labInfo); err != nil {
-			log.Println("ERROR while AddMapping for diagnostic lab:", err)
-		}
-		diagnosticLabId = labInfo.DiagnosticLabId
 	}
 	reportDate, err := utils.ParseDate(reportData.ReportDetails.ReportDate)
 	if err != nil {
@@ -452,12 +458,14 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		tx.Rollback()
 		return "", err
 	}
-	collectionDate, err := utils.ParseDate(reportData.ReportDetails.CollectionDate)
-	if err != nil {
-		log.Println("collectionDate parsing failed set report date as colection date :", err)
-		collectionDate = reportDate
+	collectionDate := reportDate
+	if reportData.ReportDetails.CollectionDate != "" {
+		collectionDate, err = utils.ParseDate(reportData.ReportDetails.CollectionDate)
+		if err != nil {
+			log.Println("collectionDate parsing failed set report date as colection date :", err)
+			collectionDate = reportDate
+		}
 	}
-
 	reporId := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
 	log.Println("PatientDiagnosticReport Id 19 digit : ", reporId)
 	patientReport := models.PatientDiagnosticReport{
@@ -471,6 +479,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		Observation:               "",
 		IsDigital:                 reportData.ReportDetails.IsDigital,
 		IsDeleted:                 reportData.ReportDetails.IsDeleted,
+		IsLabReport:               reportData.ReportDetails.IsLabReport,
 		CollectedAt:               reportData.ReportDetails.LabLocation,
 	}
 	reportInfo, err := s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)
@@ -527,12 +536,16 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 			var diagnosticComponentId uint64
 			parsedResultValue, _ := strconv.ParseFloat(component.ResultValue, 64)
 			resultStatus := component.Status
+			var Qualifier string
+			if component.Qualifier != nil {
+				Qualifier = *component.Qualifier
+			}
 			if parsedResultValue == 0 {
 				resultStatus = component.ResultValue
 			}
 			if id, exists := componentNameCache[strings.ToLower(strings.TrimSpace(component.TestComponentName))]; exists {
 				diagnosticComponentId = id
-				if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId); err != nil {
+				if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId, Qualifier); err != nil {
 					tx.Rollback()
 					return "", err
 				}
@@ -583,7 +596,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 						tx.Rollback()
 						return "", fmt.Errorf("error while saving test reference range: %w", refRangeErr)
 					}
-					if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId); err != nil {
+					if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId, Qualifier); err != nil {
 						tx.Rollback()
 						return "", err
 					}
@@ -605,7 +618,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 							tx.Rollback()
 							return "", fmt.Errorf("error while saving patient-specific reference range: %w", err)
 						}
-						if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId); err != nil {
+						if err := s.SaveDiagnosticResultValue(tx, diagnosticTestId, diagnosticComponentId, resultStatus, parsedResultValue, reportDate, patientId, reportInfo.PatientDiagnosticReportId, Qualifier); err != nil {
 							tx.Rollback()
 							return "", err
 						}
@@ -631,6 +644,7 @@ func (s *DiagnosticServiceImpl) SaveDiagnosticResultValue(
 	reportDate time.Time,
 	patientId uint64,
 	reportId uint64,
+	Qualifier string,
 ) error {
 	result := models.PatientDiagnosticTestResultValue{
 		DiagnosticTestId:          diagnosticTestId,
@@ -639,6 +653,7 @@ func (s *DiagnosticServiceImpl) SaveDiagnosticResultValue(
 		ResultValue:               parsedResultValue,
 		ResultDate:                reportDate,
 		PatientId:                 patientId,
+		UDF1:                      Qualifier,
 		PatientDiagnosticReportId: reportId,
 	}
 

@@ -66,7 +66,9 @@ func (r *ProcessStatusRepositoryImpl) FetchActivityLogsByUserID(userID uint64, l
 	}
 
 	// Fetch logs with steps
-	err := r.db.Preload("ActivityLog").
+	err := r.db.Preload("ActivityLog", func(db *gorm.DB) *gorm.DB {
+		return db.Order("step_started_at ASC")
+	}).
 		Where("user_id = ?", userID).
 		Order("started_at DESC").
 		Limit(limit).Offset(offset).
@@ -85,6 +87,8 @@ func (r *ProcessStatusRepositoryImpl) FetchActivityLogsByUserID(userID uint64, l
 				StepStatus:       step.Status,
 				RecordIndex:      step.RecordIndex,
 				TotalRecords:     step.TotalRecords,
+				SuccessCount:     step.SuccessCount,
+				FailedCount:      step.FailedCount,
 				Message:          step.Message,
 				Error:            step.Error,
 				StartedAt:        utils.FormatDateTime(&step.StepStartedAt),

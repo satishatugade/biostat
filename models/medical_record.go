@@ -48,6 +48,7 @@ type TblMedicalRecordUserMapping struct {
 	MedicalRecordUserMappingId uint64 `gorm:"primaryKey;autoIncrement" json:"medical_record_user_mapping_id"`
 	UserID                     uint64 `gorm:"column:user_id;not null" json:"user_id"`
 	RecordID                   uint64 `gorm:"column:record_id;not null" json:"record_id"`
+	IsUnknownRecord            bool   `gorm:"column:is_unknown_record" json:"is_unknown_record"`
 }
 
 func (TblMedicalRecordUserMapping) TableName() string {
@@ -124,6 +125,7 @@ type MedicalRecordResponseRes struct {
 	SourceAccount             string                 `json:"source_account"`
 	Status                    string                 `json:"status"`
 	UploadSource              string                 `json:"upload_source"`
+	ErrorMessage              string                 `json:"error_message"`
 	IsDeleted                 int                    `json:"is_deleted"`
 	UploadedDiagnostic        *UploadedDiagnosticRes `json:"uploaded_diagnostic"`
 }

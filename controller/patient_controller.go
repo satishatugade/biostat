@@ -1978,19 +1978,21 @@ func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	var reportData models.AudioNoteParsedData
+	var reportData models.LabReport
 	if err := ctx.ShouldBindJSON(&reportData); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid health stats report", nil, err)
 		return
 	}
-	response, err := pc.diagnosticService.GetSinglePatientDiagnosticLab(userId, reportData.Data.ParsedJSON.ReportDetails.DiagnosticLabId)
+	recordedAt := utils.CombineDateTimeString(reportData.ReportDetails.ReportDate, reportData.ReportDetails.ReportTime)
+	response, err := pc.diagnosticService.GetSinglePatientDiagnosticLab(userId, reportData.ReportDetails.DiagnosticLabId)
 	if err != nil {
 		log.Printf("Lab not found  %d: %v", userId, err)
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Lab not found", nil, err)
-		return
+		// models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Lab not found", nil, err)
+		// return
 	}
-	reportData.Data.ParsedJSON.ReportDetails.LabName = response.LabName
-	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData.Data.ParsedJSON, userId, func() *uint64 { v := uint64(0); return &v }())
+	reportData.ReportDetails.LabName = response.LabName
+	reportData.ReportDetails.ReportDate = recordedAt
+	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, func() *uint64 { v := uint64(0); return &v }())
 	if err1 != nil {
 		log.Printf("Health stats update error : %d: %v", userId, err1)
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err1.Error(), nil, err1)
@@ -2906,7 +2908,8 @@ func (pc *PatientController) GetRecentUserProcesses(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	processes, err := pc.processStatusService.GetUserRecentProcesses(userId)
+	processKey := ctx.DefaultQuery("process_key", "")
+	processes, err := pc.processStatusService.GetUserRecentProcesses(userId, processKey)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInsufficientStorage, err.Error(), nil, err)
 		return

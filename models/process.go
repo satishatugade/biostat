@@ -33,9 +33,11 @@ type ProcessStepLog struct {
 	Message          string    `gorm:"column:message" json:"message"`
 	RecordIndex      *int64    `gorm:"column:record_index" json:"record_index,omitempty"`
 	TotalRecords     *int      `gorm:"column:total_records" json:"total_records,omitempty"`
+	SuccessCount     *int      `gorm:"column:success_count" json:"success_count"`
+	FailedCount      *int      `gorm:"column:failed_count" json:"failed_count"`
 	Error            *string   `gorm:"column:error" json:"error,omitempty"`
 	StepStartedAt    time.Time `gorm:"column:step_started_at;autoCreateTime" json:"step_started_at"`
-	StepUpdatedAt    time.Time `gorm:"column:step_updated_at" json:"step_updated_at"`
+	StepUpdatedAt    time.Time `gorm:"column:step_updated_at;autoCreateTime" json:"step_updated_at"`
 }
 
 func (ProcessStepLog) TableName() string {
@@ -64,5 +66,7 @@ type ProcessStepLogResponse struct {
 	Message          string  `json:"message"`
 	RecordIndex      *int64  `json:"record_index"`
 	TotalRecords     *int    `json:"total_records"`
+	SuccessCount     *int    `json:"success_count"`
+	FailedCount      *int    `json:"failed_count"`
 	Error            *string `json:"error"`
 }

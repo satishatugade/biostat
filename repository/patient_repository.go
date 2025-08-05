@@ -1228,9 +1228,13 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 		pdtrv.result_status,
 		format_datetime(pdtrv.result_date) AS result_date,
 		pdtrv.result_comment,
+		pdtrv.udf1 AS qualifier,
 		dc.is_pinned,
 		dl.diagnostic_lab_id,
-        dl.lab_name`
+        CASE 
+			WHEN pdr.is_lab_report = TRUE THEN dl.lab_name
+			ELSE hvs.source_name
+		END AS lab_name`
 
 	query := fmt.Sprintf(`
 		SELECT %s
@@ -1248,7 +1252,9 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 			ON pdtrv.diagnostic_test_component_id = dc.diagnostic_test_component_id 
 			AND pdtrv.patient_id = dc.patient_id
 		LEFT JOIN tbl_diagnostic_lab dl 
-            ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id`, selectFields)
+            ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
+		LEFT JOIN tbl_health_vital_source hvs
+			ON pdr.diagnostic_lab_id = hvs.source_id`, selectFields)
 
 	query += ` WHERE pdr.patient_id = ?  AND pdr.is_deleted = 0 `
 	args := []interface{}{input.PatientId}
@@ -1347,6 +1353,7 @@ func (p *PatientRepositoryImpl) ParseDiagnosticTrendData(rawData []map[string]in
 			"report_status":                row["report_status"],
 			"result_status":                row["result_status"],
 			"result_value":                 row["result_value"],
+			"qualifier":                    row["qualifier"],
 			"result_comment":               row["result_comment"],
 			"test_note":                    row["test_note"],
 			"lab_name":                     row["lab_name"],
@@ -1647,7 +1654,10 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			format_datetime(pdtrv.result_date) AS result_date,
 			pdtrv.result_comment,
 			dl.diagnostic_lab_id,
-			dl.lab_name,
+			CASE 
+				WHEN pdr.is_lab_report = TRUE THEN dl.lab_name
+				ELSE hvs.source_name
+			END AS lab_name,
 			dc.is_pinned,
 			pdtrv.udf1 AS qualifier
 		FROM tbl_patient_diagnostic_test_result_value pdtrv
@@ -1676,6 +1686,8 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			AND mr.is_deleted = 0 AND mr.record_category !='DUPLICATE'
 		LEFT JOIN tbl_diagnostic_lab dl 
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
+		LEFT JOIN tbl_health_vital_source hvs
+			ON pdr.diagnostic_lab_id = hvs.source_id
 		WHERE pdtrv.patient_diagnostic_report_id IN (
 			SELECT patient_diagnostic_report_id FROM paginated_reports
 		) AND pdr.is_deleted = 0

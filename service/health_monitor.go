@@ -35,7 +35,6 @@ func (h *HealthMonitorService) Start() {
 		for {
 			status := h.checkHealth()
 			ctx := context.Background()
-
 			if err := h.redisClient.Set(ctx, h.cacheKey, status, time.Duration(config.PropConfig.HealthCheck.Expiration)*time.Second).Err(); err != nil {
 				config.Log.Warn("[HealthMonitor] Failed to set Redis key", zap.Error(err))
 			} else {

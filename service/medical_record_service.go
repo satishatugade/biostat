@@ -24,7 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
-	"github.com/xrash/smetrics"
+	"go.uber.org/zap"
 )
 
 type TblMedicalRecordService interface {
@@ -180,56 +180,71 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 	return nil
 }
 
-func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) uint64 {
+func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) (uint64, bool) {
 	normalizedPatientName := strings.TrimSpace(strings.ToLower(patientName))
-	log.Println("patient name ", systemPatientName)
-	highestScore := 0
-	bestMatchID := fallbackUserID
-	bestMatchName := systemPatientName
+	config.Log.Info("Patient name on report returned from AI service", zap.String("Patient name", patientName))
 
-	normalizedSystemName := strings.TrimSpace(strings.ToLower(systemPatientName))
-	soundexPatient := smetrics.Soundex(normalizedPatientName)
-	soundexSystem := smetrics.Soundex(normalizedSystemName)
-	sysLevDist := smetrics.WagnerFischer(normalizedPatientName, normalizedSystemName, 1, 1, 2)
-	sysMaxLen := max(len(normalizedPatientName), len(normalizedSystemName))
-	sysSimilarity := 100 - (sysLevDist * 100 / sysMaxLen)
+	highestScore := -1
+	var bestMatchID uint64
+	var bestMatchName string
+	isUnknownReport := false
 
-	sysScore := sysSimilarity
-	if soundexPatient == soundexSystem {
-		sysScore += 20
+	// Match against system patient name
+	systemNameParts := strings.Fields(strings.TrimSpace(systemPatientName))
+	systemPermutations := utils.GeneratePermutations(systemNameParts)
+
+	for _, perm := range systemPermutations {
+		full := strings.ToLower(strings.Join(perm, " "))
+		score := utils.CalculateNameScore(normalizedPatientName, full)
+		log.Printf("Matching with system patient name permutation '%s' | Score: %d", full, score)
+
+		if score > highestScore && score >= 60 {
+			highestScore = score
+			bestMatchID = fallbackUserID
+			bestMatchName = full
+			isUnknownReport = true
+		}
 	}
 
-	log.Printf("Matching with system patient name '%s' | Similarity: %d%% | Score: %d", normalizedSystemName, sysSimilarity, sysScore)
+	// Match against relatives
+	for _, relative := range relatives {
+		nameParts := []string{}
+		if relative.FirstName != "" {
+			nameParts = append(nameParts, relative.FirstName)
+		}
+		if relative.MiddleName != "" {
+			nameParts = append(nameParts, relative.MiddleName)
+		}
+		if relative.LastName != "" {
+			nameParts = append(nameParts, relative.LastName)
+		}
 
-	if sysScore > highestScore {
-		highestScore = sysScore
+		relativePermutations := utils.GeneratePermutations(nameParts)
+
+		for _, perm := range relativePermutations {
+			full := strings.ToLower(strings.Join(perm, " "))
+			score := utils.CalculateNameScore(normalizedPatientName, full)
+			log.Printf("Matching with relative permutation '%s' | Score: %d", full, score)
+
+			if score > highestScore && score >= 60 {
+				highestScore = score
+				bestMatchID = relative.RelativeId
+				bestMatchName = full
+				isUnknownReport = true
+			}
+		}
+	}
+	if !isUnknownReport {
 		bestMatchID = fallbackUserID
 		bestMatchName = systemPatientName
+		log.Printf("No good match found. Falling back to system patient name '%s' (User ID: %d)", bestMatchName, bestMatchID)
+		isUnknownReport = true
+	} else {
+		isUnknownReport = false
 	}
 
-	for _, relative := range relatives {
-		fullName := strings.TrimSpace(strings.ToLower(relative.FirstName + " " + relative.MiddleName + " " + relative.LastName))
-		soundexRelative := smetrics.Soundex(fullName)
-		levDist := smetrics.WagnerFischer(normalizedPatientName, fullName, 1, 1, 2)
-		maxLen := max(len(normalizedPatientName), len(fullName))
-		similarity := 100 - (levDist * 100 / maxLen)
-
-		score := similarity
-		if soundexPatient == soundexRelative {
-			score += 20
-		}
-
-		log.Printf("Matching with relative '%s' | Similarity: %d%% | Score: %d", fullName, similarity, score)
-
-		if score > highestScore && score >= 40 {
-			highestScore = score
-			bestMatchID = relative.RelativeId
-			bestMatchName = relative.FirstName + " " + relative.MiddleName + " " + relative.LastName
-		}
-	}
-
-	log.Printf("Best report name match with : '%s' | User ID: %d | Score: %d", bestMatchName, bestMatchID, highestScore)
-	return bestMatchID
+	log.Printf("Best report name match with: '%s' | User ID: %d | Score: %d | isUnknownReport: %v", bestMatchName, bestMatchID, highestScore, isUnknownReport)
+	return bestMatchID, isUnknownReport
 }
 
 func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64) error {
@@ -397,6 +412,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 			SourceAccount:             rec.SourceAccount,
 			Status:                    string(rec.Status),
 			UploadSource:              rec.UploadSource,
+			ErrorMessage:              rec.ErrorMessage,
 			PatientDiagnosticReportID: "0",
 		}
 

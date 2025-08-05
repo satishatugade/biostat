@@ -5,6 +5,7 @@ import (
 	"biostat/models"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -492,7 +493,7 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateMedicalRecordMappingByRecordId(tx
 	if recordId == nil || len(updates) == 0 {
 		return errors.New("invalid record ID or empty update data")
 	}
-
+	log.Println("UpdateMedicalRecordMappingByRecordId ", updates)
 	result := tx.Model(&models.TblMedicalRecordUserMapping{}).
 		Where("record_id = ?", recordId).
 		Updates(updates)

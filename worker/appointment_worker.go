@@ -16,6 +16,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -208,11 +209,13 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 
 	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
+	var isUnknownReport bool
 	if reportData.ReportDetails.PatientName != "" {
-		matchedUserID = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
-		if matchedUserID != p.UserID {
+		matchedUserID, isUnknownReport = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
+		config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
+		if matchedUserID != p.UserID || isUnknownReport {
 			tx := w.db.Begin()
-			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID})
+			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
 			if err != nil {
 				return err
 			}
@@ -222,14 +225,25 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 		}
 	}
 	reportData.ReportDetails.IsDigital = true
+	reportData.ReportDetails.IsUnknownRecord = isUnknownReport
 	if jsonBytes, err := json.Marshal(reportData); err == nil {
-		_, _ = w.recordRepo.UpdateTblMedicalRecord(&models.TblMedicalRecord{
+		updateRecord := &models.TblMedicalRecord{
 			RecordId: p.RecordID,
 			Metadata: datatypes.JSON(jsonBytes),
-		})
+		}
+		if isUnknownReport {
+			updateRecord.RecordCategory = string(constant.OTHER)
+		}
+		_, _ = w.recordRepo.UpdateTblMedicalRecord(updateRecord)
 	}
-	if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID); err != nil {
-		return err
+	if isUnknownReport {
+		if _, err := w.diagnosticService.DigitizeDiagnosticReport(reportData, matchedUserID, &p.RecordID); err != nil {
+			return err
+		}
+	} else {
+		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID); err != nil {
+			return err
+		}
 	}
 
 	return w.diagnosticService.NotifyAbnormalResult(matchedUserID)

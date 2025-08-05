@@ -225,6 +225,7 @@ const (
 	BIOCHATBOT              = "/ask-bio"
 	RunningProcessStatus    = "/process-status"
 	ActivityLog             = "/activity-log"
+	RecipientDetails        = "/recipient-details"
 )
 
 const (
@@ -266,7 +267,7 @@ const (
 	MEDICATION       RecordCategory = "MEDICATION"
 	VACCINATION      RecordCategory = "VACCINATION"
 	DISCHARGESUMMARY RecordCategory = "DISCHARGESUMMARY"
-	OTHER            RecordCategory = "OTHER"
+	OTHER            RecordCategory = "Other"
 )
 
 type SubscriptionStatus string
@@ -309,32 +310,46 @@ var FallbackMappingTypes = []MappingType{
 type ProcessStep string
 
 const (
-	ProcessTokenExchange     ProcessStep = "token_exchange"
-	ProcessFetchLabs         ProcessStep = "fetch_labs"
-	ProcessFetchEmails       ProcessStep = "fetch_emails"
-	ProcessSaveRecords       ProcessStep = "save_records"
-	ProcessDigitization      ProcessStep = "digitization"
-	ProcessGmailClient       ProcessStep = "gmail_client"
-	ProcessGmailSearch       ProcessStep = "gmail_search"
-	ProcessVerifyCredentials ProcessStep = "verify_credentials"
+	ProcessTokenExchange       ProcessStep = "token_exchange"
+	ProcessFetchLabs           ProcessStep = "fetch_labs"
+	ProcessFetchEmails         ProcessStep = "fetch_emails"
+	ProcessSaveRecords         ProcessStep = "save_records"
+	ProcessDigitization        ProcessStep = "digitization"
+	ProcessGmailClient         ProcessStep = "gmail_client"
+	ProcessGmailSearch         ProcessStep = "gmail_search"
+	DownloadAttachment         ProcessStep = "downloading_attachment"
+	FindingEmailWithAttachment ProcessStep = "finding_email_attachment"
+	ProcessVerifyCredentials   ProcessStep = "verify_credentials"
+	CheckDocType               ProcessStep = "check_doc_type"
 )
 
 type ProcessStepStatusMessage string
 
 const (
-	ProcessStarted        ProcessStepStatusMessage = "Process started"
-	FetchUserLab          ProcessStepStatusMessage = "Fetching user diagnostic labs from his lab list"
-	UserLabFetched        ProcessStepStatusMessage = "User diagnostic labs fetch successfully"
-	FetchEmailAttachment  ProcessStepStatusMessage = "Fetching email attachments"
-	EmailAttachmentFetch  ProcessStepStatusMessage = "Email attachments fetch successfully"
-	FailedFetchAttachment ProcessStepStatusMessage = "Failed to fetch email attachments"
-	InvalidCredentials    ProcessStepStatusMessage = "Invalid credentials"
+	ProcessStarted          ProcessStepStatusMessage = "Process started"
+	TokenExchangeSuccess    ProcessStepStatusMessage = "Token exchange success"
+	TokenExchangeFailed     ProcessStepStatusMessage = "Token exchange failed"
+	GmailClientCreateFailed ProcessStepStatusMessage = "Failed to create Gmail client"
+	GmailClientCreated      ProcessStepStatusMessage = "Gmail client created"
+	FetchUserLab            ProcessStepStatusMessage = "Fetching user diagnostic labs from his lab list"
+	UserLabNotFound         ProcessStepStatusMessage = "Failed to fetch user labs or lab not found"
+	UserLabFetched          ProcessStepStatusMessage = "User diagnostic labs fetch successfully"
+	FetchEmailAttachment    ProcessStepStatusMessage = "Fetching email attachments"
+	EmailAttachmentFetch    ProcessStepStatusMessage = "Email attachments fetch successfully"
+	FailedFetchAttachment   ProcessStepStatusMessage = "Failed to fetch email attachments"
+	InvalidCredentials      ProcessStepStatusMessage = "Invalid credentials"
 
-	SaveRecord            ProcessStepStatusMessage = "Storing extracted medical records in the database"
-	FailedSaveRecords     ProcessStepStatusMessage = "Failed to save medical record"
-	DigitizationTaskQueue ProcessStepStatusMessage = "Creating digitization task queue in redis server to digitize medical records"
-	UserProfileNotFound   ProcessStepStatusMessage = "Failed to load user profile to create digitization task"
-	// ProcessGmailSearch   ProcessStepStatusMessage = "gmail_search"
+	SaveRecord                 ProcessStepStatusMessage = "Storing extracted medical records in the database"
+	FailedSaveRecords          ProcessStepStatusMessage = "Failed to save medical record"
+	DigitizationTaskQueue      ProcessStepStatusMessage = "Creating digitization task queue in redis server to digitize medical records"
+	UserProfileNotFound        ProcessStepStatusMessage = "Failed to load user profile to create digitization task"
+	GmailSearchMessage         ProcessStepStatusMessage = "Searching for health records"
+	DownloadAttachmentMessage  ProcessStepStatusMessage = "Downloading all attachment that are found in email."
+	DownloadAttachmentComplete ProcessStepStatusMessage = "All attachment downloaded successfully "
+	CheckDocTypeMessage        ProcessStepStatusMessage = "Checking document type"
+	CheckDocTypeFailedMessage  ProcessStepStatusMessage = "Document type checking failed"
+	CheckDocTypeCompleted      ProcessStepStatusMessage = "Document type checking completed"
+	FailedCheckDocType         ProcessStepStatusMessage = "Failed to check document type"
 )
 
 type ProcessType string

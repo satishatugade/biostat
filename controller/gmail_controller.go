@@ -19,13 +19,16 @@ type GmailSyncController struct {
 	gmailSyncService service.GmailSyncService
 	service          service.TblMedicalRecordService
 	gTokenService    service.UserService
+	healthMonitor    *service.HealthMonitorService
 }
 
-func NewGmailSyncController(gmailSyncService service.GmailSyncService, service service.TblMedicalRecordService, gTokenService service.UserService) *GmailSyncController {
+func NewGmailSyncController(gmailSyncService service.GmailSyncService, service service.TblMedicalRecordService,
+	gTokenService service.UserService, healthMonitor *service.HealthMonitorService) *GmailSyncController {
 	return &GmailSyncController{
 		gmailSyncService: gmailSyncService,
 		service:          service,
 		gTokenService:    gTokenService,
+		healthMonitor:    healthMonitor,
 	}
 }
 
@@ -57,7 +60,13 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while authenticating", nil, errors.New("Invalid user id"))
 	}
-
+	if !c.healthMonitor.IsServiceUp() {
+		log.Printf("[GmailCallback] AI service is down. Request: %s\n", ctx.Request.URL.String())
+		redirectURL := fmt.Sprintf("%s/dashboard/medical-reports?status=ai_down", os.Getenv("APP_URL"))
+		ctx.Redirect(http.StatusFound, redirectURL)
+		return
+	}
+	log.Printf("[GmailCallback] AI service is UP. Request: %s%s\n", ctx.Request.Host, ctx.Request.URL.String())
 	ctx.Redirect(http.StatusFound, fmt.Sprintf(os.Getenv("APP_URL")+"/dashboard/medical-reports?status=processing"))
 
 	go func() {
