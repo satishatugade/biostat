@@ -1055,7 +1055,7 @@ func (s *PatientServiceImpl) SendSOS(patientID uint64, ip, userAgent string) err
 		wg.Add(1)
 		go func(rel models.PatientRelative) {
 			defer wg.Done()
-			err := s.notificationService.SendSOS(rel.Email, rel.FirstName, patient.FirstName, "", dateTime, userAgent)
+			err := s.notificationService.SendSOS(rel.NotifyId, rel.FirstName, patient.FirstName, "", dateTime, userAgent)
 			results <- EmailResult{
 				Success: err == nil,
 				Name:    rel.FirstName,

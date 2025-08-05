@@ -73,6 +73,7 @@ type PatientRelative struct {
 	LatestDiganotisic *string            `json:"latest_diganotisic,omitempty"`
 	Permissions       []PermissionResult `json:"permissions" gorm:"-"`
 	HealthScore       int                `json:"health_score" gorm:"-"`
+	NotifyId          string             `json:"notify_id" gorm:"-"`
 	CreatedAt         time.Time          `json:"created_at"`
 	UpdatedAt         time.Time          `json:"updated_at"`
 }

@@ -27,13 +27,14 @@ type MasterController struct {
 	hospitalService     service.HospitalService
 	userService         service.UserService
 	subscriptionService service.SubscriptionService
+	notificationService service.NotificationService
 }
 
 func NewMasterController(allergyService service.AllergyService, diseaseService service.DiseaseService,
 	causeService service.CauseService, symptomService service.SymptomService, medicationService service.MedicationService,
 	dietService service.DietService, exerciseService service.ExerciseService, diagnosticService service.DiagnosticService,
 	roleService service.RoleService, supportGroupService service.SupportGroupService, hospitalService service.HospitalService,
-	userService service.UserService, subscriptionService service.SubscriptionService) *MasterController {
+	userService service.UserService, subscriptionService service.SubscriptionService, notificationService service.NotificationService) *MasterController {
 	return &MasterController{allergyService: allergyService,
 		diseaseService:      diseaseService,
 		causeService:        causeService,
@@ -47,6 +48,7 @@ func NewMasterController(allergyService service.AllergyService, diseaseService s
 		hospitalService:     hospitalService,
 		userService:         userService,
 		subscriptionService: subscriptionService,
+		notificationService: notificationService,
 	}
 }
 
@@ -2505,4 +2507,18 @@ func (mc *MasterController) GetSubscriptionPlanService(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Plan fetched successfully", result, nil, nil)
+}
+
+func (mc *MasterController) CreateUsersOnNotify(ctx *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(ctx, mc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	err = mc.notificationService.AddUsersToNotify()
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "error while creating users on notify", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "success", nil, nil, nil)
 }

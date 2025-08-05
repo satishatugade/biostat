@@ -860,7 +860,7 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 
 	err := p.db.
 		Table("tbl_system_user_ as su").
-		Select(`su.user_id AS relative_id, su.first_name, su.middle_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.created_at, su.updated_at,
+		Select(`su.user_id AS relative_id, su.first_name, su.middle_name, su.last_name, su.gender_id,gm.gender_code AS gender, su.date_of_birth, su.mobile_no AS mobile_no, su.email, su.notify_id, su.created_at, su.updated_at,
 				(
 					SELECT MAX(format_datetime(report_date))
 					FROM tbl_patient_diagnostic_report AS dr

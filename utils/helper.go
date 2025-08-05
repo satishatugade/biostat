@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/xrash/smetrics"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -815,6 +816,22 @@ func ExtractNotificationID(body map[string]interface{}) (uuid.UUID, error) {
 	return notifUUID, nil
 }
 
+func ExtractRecipientID(body map[string]interface{}) (uuid.UUID, error) {
+	content, ok := body["content"].(map[string]interface{})
+	if !ok {
+		return uuid.Nil, errors.New("invalid or missing 'content' field")
+	}
+	notifIDStr, ok := content["recipient_id"].(string)
+	if !ok {
+		return uuid.Nil, errors.New("'recipient_id' not found or not a string")
+	}
+	notifUUID, err := uuid.Parse(notifIDStr)
+	if err != nil {
+		return uuid.Nil, errors.New("invalid UUID format: " + err.Error())
+	}
+	return notifUUID, nil
+}
+
 func GetRefRangeAndColorCode(resultValue, normalMin, normalMax string) (string, string) {
 	result, err1 := strconv.ParseFloat(resultValue, 64)
 	min, err2 := strconv.ParseFloat(normalMin, 64)
@@ -886,17 +903,17 @@ func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
 	var filterClauses []string
 
 	if len(fromParts) > 0 {
-		filterClauses = append(filterClauses, fmt.Sprintf("from:(%s)", strings.Join(fromParts, " OR ")))
+		filterClauses = append(filterClauses, fmt.Sprintf("(%s)", strings.Join(fromParts, " OR ")))
 	}
 	if len(subjectParts) > 0 {
-		filterClauses = append(filterClauses, fmt.Sprintf("subject:(%s)", strings.Join(subjectParts, " OR ")))
+		filterClauses = append(filterClauses, fmt.Sprintf("(%s)", strings.Join(subjectParts, " OR ")))
 	}
 
 	if len(filterClauses) == 0 {
 		return "in:inbox has:attachment"
 	}
 
-	return fmt.Sprintf("in:inbox (%s) has:attachment", strings.Join(filterClauses, " OR "))
+	return fmt.Sprintf("(%s) has:attachment", strings.Join(filterClauses, " OR "))
 }
 
 func GetReverseRelation(relationId int, myGenderId int) *int {
@@ -1088,6 +1105,7 @@ func ParseDate(input string) (time.Time, error) {
 		"02-Jan-06",
 		"02/01/2006",
 		"02/01/06",
+		"02-01-2006",
 	}
 	for _, layout := range layouts {
 		if parsedDate, err := time.ParseInLocation(layout, input, location); err == nil {
@@ -1206,4 +1224,53 @@ func SafeDeref(str *string) string {
 		return *str
 	}
 	return ""
+}
+
+func GeneratePermutations(elements []string) [][]string {
+	var result [][]string
+	var permute func([]string, int)
+	permute = func(arr []string, n int) {
+		if n == 1 {
+			tmp := make([]string, len(arr))
+			copy(tmp, arr)
+			result = append(result, tmp)
+			return
+		}
+		for i := 0; i < n; i++ {
+			permute(arr, n-1)
+			if n%2 == 1 {
+				arr[0], arr[n-1] = arr[n-1], arr[0]
+			} else {
+				arr[i], arr[n-1] = arr[n-1], arr[i]
+			}
+		}
+	}
+	permute(elements, len(elements))
+	return result
+}
+
+func CalculateNameScore(a, b string) int {
+	soundexA := smetrics.Soundex(a)
+	soundexB := smetrics.Soundex(b)
+
+	levDist := smetrics.WagnerFischer(a, b, 1, 1, 2)
+	maxLen := max(len(a), len(b))
+	similarity := 100 - (levDist * 100 / maxLen)
+
+	score := similarity
+	if soundexA == soundexB {
+		score += 20
+	}
+	return score
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func CombineDateTimeString(dateStr, timeStr string) string {
+	return fmt.Sprintf("%s %s", dateStr, timeStr)
 }

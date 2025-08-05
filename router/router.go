@@ -9,12 +9,16 @@ import (
 	"biostat/service"
 	"biostat/worker"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
+	var userRepo = repository.NewTblUserTokenRepository(db)
+	var userService = service.NewTblUserTokenService(userRepo)
+
 	var allergyRepo = repository.NewAllergyRepository(db)
 	var allergyService = service.NewAllergyService(allergyRepo)
 
@@ -37,13 +41,10 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var exerciseService = service.NewExerciseService(exerciseRepo)
 
 	var notificiationRepo = repository.NewUserNotificationRepository(db)
-	var notificationService = service.NewNotificationService(notificiationRepo)
+	var notificationService = service.NewNotificationService(notificiationRepo, userRepo)
 
 	var emailService = service.NewEmailService(notificiationRepo)
 	var apiService = service.NewApiService()
-
-	var userRepo = repository.NewTblUserTokenRepository(db)
-	var userService = service.NewTblUserTokenService(userRepo)
 
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
 	var patientRepo = repository.NewPatientRepository(db)
@@ -86,15 +87,21 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
-		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService)
+		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController(patientService, roleService, userService, emailService, authService, permissionService, subscriptionService)
+	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService)
 	UserRoutes(apiGroup, userController)
+	var healthService = service.NewHealthMonitorService(
+		config.RedisClient,
+		config.PropConfig.HealthCheck.URL,
+		time.Duration(config.PropConfig.HealthCheck.IntervalSeconds)*time.Second,
+		time.Duration(config.PropConfig.HealthCheck.TimeoutSeconds)*time.Second,
+	)
 
 	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo)
-	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService)
+	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService, healthService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
@@ -247,6 +254,8 @@ func getMasterRoutes(masterController *controller.MasterController, patientContr
 		Route{"Get Subsription status", http.MethodPost, constant.SubscriptionEnabledStatus, masterController.GetSubscriptionShowStatus},
 		Route{"Subsription Enabled status", http.MethodPost, constant.UpdateSubscriptionStatus, masterController.UpdateSubscriptionStatus},
 		Route{"Get-subscription-plan", http.MethodPost, constant.GetSubscriptionPlan, masterController.GetSubscriptionPlanService},
+
+		Route{"Create Users on notify", http.MethodPost, constant.RecipientDetails, masterController.CreateUsersOnNotify},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {
@@ -367,7 +376,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
 		Route{"User Notifications", http.MethodGet, constant.Reminders, patientController.GetUserReminders},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
-		Route{"User Notifications", http.MethodPost, constant.RunningProcessStatus, patientController.GetUserActivityLog},
+		Route{"User Notifications", http.MethodPost, constant.RunningProcessStatus, patientController.GetRecentUserProcesses},
 
 		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},

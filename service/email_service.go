@@ -46,10 +46,10 @@ func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, p
 		username = systemUser.MobileNo
 	}
 	sendBody := map[string]interface{}{
-		"user_id":           systemUser.UserId,
-		"recipient_mail_id": systemUser.Email,
-		"template_code":     5,
-		"channels":          []string{"email", "whatsapp"},
+		"target_type":   "recipient_id",
+		"target_value":  systemUser.NotifyId,
+		"template_code": 5,
+		"channels":      []string{"email"},
 		"data": map[string]interface{}{
 			"fullName":        systemUser.FirstName + " " + systemUser.LastName,
 			"patientFullName": patientFullName,
@@ -97,10 +97,12 @@ func (e *EmailServiceImpl) SendConnectionMail(systemUser models.SystemUser_, pat
 		patientFullName = patient.FirstName + " " + patient.LastName
 	}
 	sendBody := map[string]interface{}{
-		"user_id":           systemUser.UserId,
-		"recipient_mail_id": systemUser.Email,
-		"template_code":     11,
-		"channels":          []string{"email", "whatsapp"},
+		// "user_id":           systemUser.UserId,
+		// "recipient_mail_id": systemUser.Email,
+		"target_type":   "recipient_id",
+		"target_value":  systemUser.NotifyId,
+		"template_code": 11,
+		"channels":      []string{"email"},
 		"data": map[string]interface{}{
 			"fullName":        systemUser.FirstName + " " + systemUser.LastName,
 			"patientFullName": patientFullName,
@@ -288,8 +290,10 @@ func (e *EmailServiceImpl) SendReportResultsEmail(patientInfo *models.SystemUser
 	sendBody := map[string]interface{}{
 		"user_id":           patientInfo.UserId,
 		"recipient_mail_id": patientInfo.Email,
+		"target_type":       "recipient_id",
+		"target_value":      patientInfo.NotifyId,
 		"template_code":     7,
-		"channels":          []string{"email", "whatsapp"},
+		"channels":          []string{"email"},
 		"data": map[string]interface{}{
 			"fullName": patientInfo.FirstName + " " + patientInfo.LastName,
 			"alerts":   alertData,
@@ -328,10 +332,12 @@ func (e *EmailServiceImpl) ShareReportEmail(recipientEmail []string, userDetails
 	}
 	for _, email := range recipientEmail {
 		sendBody := map[string]interface{}{
-			"user_id":           userDetails.UserId,
-			"recipient_mail_id": email,
+			// "user_id":           userDetails.UserId,
+			// "recipient_mail_id": email,
+			"target_type":       "recipient_id",
+			"target_value":      userDetails.NotifyId,
 			"template_code":     8,
-			"channels":          []string{"email", "whatsapp"},
+			"channels":          []string{"email"},
 			"data": map[string]interface{}{
 				"fullName":   userDetails.FirstName + " " + userDetails.LastName,
 				"reportLink": shortURL,
@@ -355,10 +361,12 @@ func (e *EmailServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_,
 		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
 	}
 	sendBody := map[string]interface{}{
-		"user_id":           systemUser.UserId,
-		"recipient_mail_id": systemUser.Email,
+		// "user_id":           systemUser.UserId,
+		// "recipient_mail_id": systemUser.Email,
+		"target_type":       "recipient_id",
+		"target_value":      systemUser.NotifyId,
 		"template_code":     9,
-		"channels":          []string{"email", "whatsapp"},
+		"channels":          []string{"email"},
 		"data": map[string]interface{}{
 			"fullName": systemUser.FirstName + " " + systemUser.LastName,
 			"resetURL": resetURL,

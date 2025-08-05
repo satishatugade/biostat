@@ -2475,7 +2475,7 @@ func (pc *PatientController) SetUserReminder(ctx *gin.Context) {
 		return
 	}
 
-	err = pc.notificationService.ScheduleReminders(user.Email, user.FirstName, user_id, reminderReq)
+	err = pc.notificationService.ScheduleReminders(user.NotifyId, user.FirstName, user_id, reminderReq)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "reminder could not be added", nil, err)
 		return

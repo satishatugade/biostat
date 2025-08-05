@@ -25,17 +25,17 @@ type UserController struct {
 	patientService      service.PatientService
 	roleService         service.RoleService
 	userService         service.UserService
-	emailService        service.EmailService
+	notificationService service.NotificationService
 	authService         auth.AuthService
 	permissionService   service.PermissionService
 	subscriptionService service.SubscriptionService
 }
 
 func NewUserController(patientService service.PatientService, roleService service.RoleService,
-	userService service.UserService, emailService service.EmailService, authService auth.AuthService,
+	userService service.UserService, notificationService service.NotificationService, authService auth.AuthService,
 	permissionService service.PermissionService, subscriptionService service.SubscriptionService) *UserController {
 	return &UserController{patientService: patientService, roleService: roleService,
-		userService: userService, emailService: emailService, authService: authService, permissionService: permissionService, subscriptionService: subscriptionService}
+		userService: userService, notificationService: notificationService, authService: authService, permissionService: permissionService, subscriptionService: subscriptionService}
 }
 
 func (uc *UserController) RegisterUser(c *gin.Context) {
@@ -71,6 +71,12 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	user.RoleId = roleMaster.RoleId
 	user.Email = strings.ToLower(user.Email)
 	user.Username = uc.userService.GenerateUniqueUsername(user.FirstName, user.LastName)
+	notifyId, err := uc.notificationService.RegisterUserInNotify(nil, &user.MobileNo, user.Email)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register", nil, err)
+		return
+	}
+	user.NotifyId = notifyId.String()
 
 	keyCloakUser := user
 	keyCloakUser.Password = rawPassword
@@ -109,7 +115,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to commit transaction", nil, err)
 		return
 	}
-	err = uc.emailService.SendLoginCredentials(systemUser, nil, nil, "")
+	err = uc.notificationService.SendLoginCredentials(systemUser, nil, nil, "")
 	if err != nil {
 		log.Println("Error sending email:", err)
 	}
@@ -400,6 +406,12 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	var systemUser models.SystemUser_
 	var systemUserErr error
 	if !isExistingUser {
+		notifyId, err := uc.notificationService.RegisterUserInNotify(nil, &req.MobileNo, req.Email)
+		if err != nil {
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register", nil, err)
+			return
+		}
+		req.NotifyId = notifyId.String()
 		systemUser, systemUserErr = uc.userService.CreateSystemUser(tx, req)
 		if systemUserErr != nil {
 			tx.Rollback()
@@ -433,12 +445,12 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	}
 
 	if isExistingUser {
-		err := uc.emailService.SendConnectionMail(systemUser, registrant, relation.RelationShip)
+		err := uc.notificationService.SendConnectionMail(systemUser, registrant, relation.RelationShip)
 		if err != nil {
 			log.Println("Error sending connection email:", err)
 		}
 	} else {
-		err := uc.emailService.SendLoginCredentials(systemUser, &password, registrant, relation.RelationShip)
+		err := uc.notificationService.SendLoginCredentials(systemUser, &password, registrant, relation.RelationShip)
 		if err != nil {
 			log.Println("Error sending email:", err)
 		}
