@@ -193,6 +193,10 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 				log.Printf("@ExtractAttachments->Failed to save attachment locally %s: %v", part.Filename, err)
 				continue
 			}
+			status := constant.StatusQueued
+			if docTypeResp == string(constant.OTHER) {
+				status = constant.StatusSuccess
+			}
 			subBody := fmt.Sprintf("Subject and body of email sub : %s : Body :%+v ", getHeader(message.Payload.Headers, "Subject"), body)
 			newRecord := &models.TblMedicalRecord{
 				RecordName:        safeFileName,
@@ -204,7 +208,7 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 				UploadSource:      "Gmail",
 				RecordCategory:    docTypeResp,
 				SourceAccount:     userEmail,
-				Status:            constant.StatusQueued,
+				Status:            status,
 				UploadedBy:        userId,
 				FetchedAt:         time.Now(),
 			}
