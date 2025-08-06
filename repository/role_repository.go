@@ -326,6 +326,10 @@ func (r *RoleRepositoryImpl) GetInferredRelations(myRelationID, newRelationID, c
 		Where("my_relation_id = ? AND new_relation_id = ? AND comparing_relation_id = ?", myRelationID, newRelationID, comparingRelationID).
 		First(&res).Error
 
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, 0, nil
+	}
+
 	if err != nil {
 		return 0, 0, err
 	}
