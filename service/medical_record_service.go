@@ -82,7 +82,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		string(constant.MedicalRecordEntity),
 		step,
 	)
-	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil)
+	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil, nil)
 	uploadingPerson, err := s.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		log.Println("GetUserIdBySUB uploadingPerson : ", err)
@@ -128,7 +128,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 	if err != nil {
 		msg = "Failed to save record"
 		log.Println("CreateTblMedicalRecord ERROR : ", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error())
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil)
 		return nil, err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
@@ -148,9 +148,9 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 	}
 	if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID); err != nil {
 		log.Printf("Digitization task failed: %v", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error())
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil)
 	}
-	s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil)
+	s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil, nil)
 	return record, nil
 }
 

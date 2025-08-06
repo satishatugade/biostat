@@ -22,8 +22,8 @@ type ProcessStatusService interface {
 	UpdateProcessStatusInRedis(processID uuid.UUID, status string, statusMsg string, step string, completed bool) error
 	StartProcessInRedis(userID uint64, processType, entityID, entityType string, step string) (uuid.UUID, uuid.UUID)
 	AddOrUpdateStepLogInRedis(processID uuid.UUID, newLog models.ProcessStepLog) error
-	LogStep(processID uuid.UUID, step, status, message, errorMsg string, recordId *uint64, totalrecord *int, successCount *int, failedCount *int)
-	LogStepAndFail(processID uuid.UUID, step, status, message, errorMsg string)
+	LogStep(processID uuid.UUID, step, status, message, errorMsg string, recordId *uint64, recordIndexCount *int, totalrecord *int, successCount *int, failedCount *int)
+	LogStepAndFail(processID uuid.UUID, step, status, message, errorMsg string, recordIndexCount *int, recordId *uint64)
 }
 
 type ProcessStatusServiceImpl struct {
@@ -105,36 +105,40 @@ func (s *ProcessStatusServiceImpl) AddOrUpdateStepLogInRedis(ProcessID uuid.UUID
 	foundStep := false
 	foundRecord := false
 
+	hasValidRecord := (input.RecordId != nil && *input.RecordId != 0) || (input.RecordIndex != nil && *input.RecordIndex != 0)
+
 	for i, stepLog := range processStatus.ActivityLog {
 		if stepLog.Step == input.Step {
 			foundStep = true
 
 			// Search for matching record_id
-			for j, recordLog := range stepLog.RecordLogs {
-				if recordLog.RecordID == input.RecordIndex {
-					// Update existing record log
-					processStatus.ActivityLog[i].RecordLogs[j].Status = input.Status
-					processStatus.ActivityLog[i].RecordLogs[j].Message = input.Message
-					processStatus.ActivityLog[i].RecordLogs[j].Error = input.Error
-					processStatus.ActivityLog[i].RecordLogs[j].CompletedAt = &now
-					foundRecord = true
-					break
+			if hasValidRecord {
+				for j, recordLog := range stepLog.RecordLogs {
+					if recordLog.RecordID == input.RecordId || recordLog.RecordIndex == input.RecordIndex {
+						// Update existing record log
+						// processStatus.ActivityLog[i].RecordLogs[j].Status = input.Status
+						processStatus.ActivityLog[i].RecordLogs[j].Message = input.Message
+						processStatus.ActivityLog[i].RecordLogs[j].Error = input.Error
+						processStatus.ActivityLog[i].RecordLogs[j].CompletedAt = &now
+						foundRecord = true
+						break
+					}
 				}
-			}
 
-			if !foundRecord {
-				// Append new record log
-				recordLog := models.ProcessStepRecordLog{
-					ProcessStepRecordLogId: uuid.New(),
-					ProcessStepLogID:       stepLog.ProcessStepLogId,
-					RecordID:               input.RecordIndex,
-					RecordIndex:            input.RecordIndex,
-					Status:                 input.Status,
-					Message:                input.Message,
-					Error:                  input.Error,
-					StartedAt:              now,
+				if !foundRecord {
+					// Append new record log
+					recordLog := models.ProcessStepRecordLog{
+						ProcessStepRecordLogId: uuid.New(),
+						ProcessStepLogID:       stepLog.ProcessStepLogId,
+						RecordID:               input.RecordId,
+						RecordIndex:            input.RecordIndex,
+						Status:                 input.Status,
+						Message:                input.Message,
+						Error:                  input.Error,
+						StartedAt:              &now,
+					}
+					processStatus.ActivityLog[i].RecordLogs = append(processStatus.ActivityLog[i].RecordLogs, recordLog)
 				}
-				processStatus.ActivityLog[i].RecordLogs = append(processStatus.ActivityLog[i].RecordLogs, recordLog)
 			}
 
 			// Update step level metadata
@@ -156,18 +160,19 @@ func (s *ProcessStatusServiceImpl) AddOrUpdateStepLogInRedis(ProcessID uuid.UUID
 			Message:          input.Message,
 			StepStartedAt:    now,
 			StepUpdatedAt:    now,
-			RecordLogs: []models.ProcessStepRecordLog{
-				{
-					ProcessStepRecordLogId: uuid.New(),
-					ProcessStepLogID:       newStepLogID,
-					RecordID:               input.RecordIndex,
-					RecordIndex:            input.RecordIndex,
-					Status:                 input.Status,
-					Message:                input.Message,
-					Error:                  input.Error,
-					StartedAt:              now,
-				},
-			},
+		}
+		if hasValidRecord {
+			recordLog := models.ProcessStepRecordLog{
+				ProcessStepRecordLogId: uuid.New(),
+				ProcessStepLogID:       newStepLogID,
+				RecordID:               input.RecordId,
+				RecordIndex:            input.RecordIndex,
+				// Status:                 input.Status,
+				Message:   input.Message,
+				Error:     input.Error,
+				StartedAt: &now,
+			}
+			newStepLog.RecordLogs = []models.ProcessStepRecordLog{recordLog}
 		}
 		processStatus.ActivityLog = append(processStatus.ActivityLog, newStepLog)
 	}
@@ -336,7 +341,7 @@ func (s *ProcessStatusServiceImpl) StartProcessInRedis(userID uint64, processTyp
 func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64, processKey string) ([]models.ProcessStatusResponse, error) {
 	ctx := context.Background()
 	var processList []models.ProcessStatus
-	log.Println("GetUserRecentProcesses process key : ", processKey)
+	// log.Println("GetUserRecentProcesses process key : ", processKey)
 	pattern := "process_status:*"
 	if processKey != "" {
 		pattern = fmt.Sprintf("process_status:*%s*", processKey)
@@ -350,7 +355,7 @@ func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64, process
 		}
 
 		for _, key := range keys {
-			log.Printf("Scanning key: %s", key)
+			// log.Printf("Scanning key: %s", key)
 
 			val, err := s.redisClient.Get(ctx, key).Result()
 			if err != nil {
@@ -377,10 +382,24 @@ func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64, process
 	for _, log := range processList {
 		var steps []models.ProcessStepLogResponse
 		for _, step := range log.ActivityLog {
+			var recordLogs []models.ProcessStepRecordLogResponse
+			for _, record := range step.RecordLogs {
+				recordLogs = append(recordLogs, models.ProcessStepRecordLogResponse{
+					ProcessStepRecordLogId: record.ProcessStepRecordLogId.String(),
+					RecordID:               record.RecordID,
+					RecordIndex:            record.RecordIndex,
+					Status:                 record.Status,
+					Message:                record.Message,
+					Error:                  record.Error,
+					StartedAt:              utils.FormatDateTime(record.StartedAt),
+					CompletedAt:            utils.FormatDateTime(record.CompletedAt),
+				})
+			}
 			steps = append(steps, models.ProcessStepLogResponse{
 				ProcessStepLogId: step.ProcessStepLogId.String(),
 				StepName:         step.Step,
 				StepStatus:       step.Status,
+				RecordId:         step.RecordId,
 				RecordIndex:      step.RecordIndex,
 				TotalRecords:     step.TotalRecords,
 				SuccessCount:     step.SuccessCount,
@@ -389,6 +408,7 @@ func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64, process
 				Error:            step.Error,
 				StartedAt:        utils.FormatDateTime(&step.StepStartedAt),
 				CompletedAt:      utils.FormatDateTime(&step.StepUpdatedAt),
+				RecordLogs:       recordLogs,
 			})
 		}
 
@@ -404,7 +424,7 @@ func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64, process
 			ActivityLog:     steps,
 		})
 	}
-	log.Println("GetUserRecentProcesses ProcessList response: ", response)
+	// log.Println("GetUserRecentProcesses ProcessList response: ", response)
 	return response, nil
 }
 
@@ -490,7 +510,7 @@ func (s *ProcessStatusServiceImpl) UpdateProcessStatusInRedis(
 	return s.redisClient.Set(ctx, key, updated, 0).Err()
 }
 
-func (s *ProcessStatusServiceImpl) LogStep(processID uuid.UUID, step, status, message, errorMsg string, recordId *uint64, totalRecord *int, successCount *int, failedCount *int) {
+func (s *ProcessStatusServiceImpl) LogStep(processID uuid.UUID, step, status, message, errorMsg string, recordId *uint64, recordIndexCount *int, totalRecord *int, successCount *int, failedCount *int) {
 	var errPtr *string
 	if errorMsg != "" {
 		errPtr = &errorMsg
@@ -501,7 +521,8 @@ func (s *ProcessStatusServiceImpl) LogStep(processID uuid.UUID, step, status, me
 		Step:             step,
 		Status:           status,
 		Message:          message,
-		RecordIndex:      recordId,
+		RecordId:         recordId,
+		RecordIndex:      recordIndexCount,
 		TotalRecords:     totalRecord,
 		SuccessCount:     successCount,
 		FailedCount:      failedCount,
@@ -517,8 +538,8 @@ func (s *ProcessStatusServiceImpl) LogStep(processID uuid.UUID, step, status, me
 	}
 }
 
-func (s *ProcessStatusServiceImpl) LogStepAndFail(processID uuid.UUID, step, status, message, errorMsg string) {
-	s.LogStep(processID, step, status, message, errorMsg, nil, nil, nil, nil)
+func (s *ProcessStatusServiceImpl) LogStepAndFail(processID uuid.UUID, step, status, message, errorMsg string, recordIndexCount *int, recordId *uint64) {
+	s.LogStep(processID, step, status, message, errorMsg, recordId, recordIndexCount, nil, nil, nil)
 	if err := s.UpdateProcessStatusInRedis(processID, constant.Failure, message, step, true); err != nil {
 		log.Printf("[Error] failed to mark process failure in Redis: %v", err)
 	}

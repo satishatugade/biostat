@@ -1118,7 +1118,7 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		record.RecordCategory = string(constant.TESTREPORT)
 	}
 	processID := uuid.New()
-	pc.processStatusService.LogStep(processID, string(constant.RetryStep), constant.Running, "Trying again to digitize", "", nil, nil, nil, nil)
+	pc.processStatusService.LogStep(processID, string(constant.RetryStep), constant.Running, "Trying again to digitize", "", nil, nil, nil, nil, nil)
 	err = pc.medicalRecordService.CreateDigitizationTask(record, userInfo, patientId, fileBuf, filename, processID)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to queue digitization", nil, err)
@@ -2747,6 +2747,10 @@ func (pc *PatientController) UpdateRelativeInfoById(c *gin.Context) {
 	user.LastName = relativeData.LastName
 	exist, _, _ := pc.userService.CheckUserEmailMobileExist(&models.CheckUserMobileEmail{Email: relativeData.Email})
 	if !exist {
+		err := pc.notificationService.UpadateUserInNotify(user.NotifyId, nil, &user.Email, &user.MobileNo)
+		if err != nil {
+			log.Println("Error while updating user on notify:", err)
+		}
 		log.Println("Going to Keycloak Update user id : ", user)
 		userUpdateErr := pc.authService.UpdateUserInKeycloak(*user)
 		if userUpdateErr != nil {

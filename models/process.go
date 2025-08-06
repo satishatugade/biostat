@@ -31,7 +31,8 @@ type ProcessStepLog struct {
 	Step             string                 `gorm:"column:step" json:"step"`
 	Status           string                 `gorm:"column:status" json:"status"`
 	Message          string                 `gorm:"column:message" json:"message"`
-	RecordIndex      *uint64                `gorm:"column:record_index" json:"record_index,omitempty"`
+	RecordId         *uint64                `gorm:"column:record_id" json:"record_id,omitempty"`
+	RecordIndex      *int                   `gorm:"column:record_index" json:"record_index,omitempty"`
 	TotalRecords     *int                   `gorm:"column:total_records" json:"total_records,omitempty"`
 	SuccessCount     *int                   `gorm:"column:success_count" json:"success_count"`
 	FailedCount      *int                   `gorm:"column:failed_count" json:"failed_count"`
@@ -51,11 +52,11 @@ type ProcessStepRecordLog struct {
 	// ProcessID              uuid.UUID `gorm:"-" json:"process_id"`
 	Step        string     `gorm:"column:step" json:"step"`
 	RecordID    *uint64    `gorm:"column:record_id" json:"record_id"`
-	RecordIndex *uint64    `gorm:"column:record_index" json:"record_index"`
+	RecordIndex *int       `gorm:"column:record_index" json:"record_index"`
 	Status      string     `gorm:"column:status" json:"status"` // success / failure / running
 	Message     string     `gorm:"column:message" json:"message"`
 	Error       *string    `gorm:"column:error" json:"error,omitempty"`
-	StartedAt   time.Time  `gorm:"column:started_at;autoCreateTime" json:"started_at"`
+	StartedAt   *time.Time `gorm:"column:started_at;autoCreateTime" json:"started_at"`
 	CompletedAt *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
 }
 
@@ -77,15 +78,28 @@ type ProcessStatusResponse struct {
 }
 
 type ProcessStepLogResponse struct {
-	ProcessStepLogId string  `json:"process_step_log_id"`
-	StepName         string  `json:"step_name"`
-	StartedAt        string  `json:"step_started_at"`
-	CompletedAt      string  `json:"completed_at"`
-	StepStatus       string  `json:"step_status"`
-	Message          string  `json:"message"`
-	RecordIndex      *uint64 `json:"record_index"`
-	TotalRecords     *int    `json:"total_records"`
-	SuccessCount     *int    `json:"success_count"`
-	FailedCount      *int    `json:"failed_count"`
-	Error            *string `json:"error"`
+	ProcessStepLogId string                         `json:"process_step_log_id"`
+	StepName         string                         `json:"step_name"`
+	StartedAt        string                         `json:"step_started_at"`
+	CompletedAt      string                         `json:"completed_at"`
+	StepStatus       string                         `json:"step_status"`
+	Message          string                         `json:"message"`
+	RecordId         *uint64                        `json:"record_id"`
+	RecordIndex      *int                           `json:"record_index"`
+	TotalRecords     *int                           `json:"total_records"`
+	SuccessCount     *int                           `json:"success_count"`
+	FailedCount      *int                           `json:"failed_count"`
+	Error            *string                        `json:"error"`
+	RecordLogs       []ProcessStepRecordLogResponse `json:"record_logs,omitempty"`
+}
+
+type ProcessStepRecordLogResponse struct {
+	ProcessStepRecordLogId string  `json:"process_step_record_log_id"`
+	RecordID               *uint64 `json:"record_id"`
+	RecordIndex            *int    `json:"record_index"`
+	Status                 string  `json:"status"`
+	Message                string  `json:"message"`
+	Error                  *string `json:"error,omitempty"`
+	StartedAt              string  `json:"started_at"`
+	CompletedAt            string  `json:"completed_at,omitempty"`
 }

@@ -29,7 +29,7 @@ type NotificationService interface {
 	GetUserReminders(userId uint64) ([]models.UserReminder, error)
 
 	RegisterUserInNotify(fcmToken, phone *string, email string) (uuid.UUID, error)
-	UpadateUserInNotify(fcmToken, email, phone *string) error
+	UpadateUserInNotify(recipientId string, fcmToken, email, phone *string) error
 	AddUsersToNotify() error
 }
 
@@ -212,11 +212,14 @@ func (s *NotificationServiceImpl) RegisterUserInNotify(fcmToken, phone *string, 
 	return recipient_id, nil
 }
 
-func (s *NotificationServiceImpl) UpadateUserInNotify(fcmToken, email, phone *string) error {
+func (s *NotificationServiceImpl) UpadateUserInNotify(recipientId string, fcmToken, email, phone *string) error {
 	header := map[string]string{
 		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
 	}
 	requestBody := map[string]interface{}{}
+	if strings.TrimSpace(recipientId) != "" {
+		requestBody["recipient_id"] = recipientId
+	}
 	if fcmToken != nil && strings.TrimSpace(*fcmToken) != "" {
 		requestBody["fcm_token"] = *fcmToken
 	}

@@ -106,7 +106,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	step := string(constant.DocsDigitization)
 	msg := string(constant.DocsDigitizationMsg)
 	errorMsg := ""
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
 	queueName := "report_digitization"
 	if p.Category == string(constant.PRESCRIPTION) {
 		queueName = "prescription_digitization"
@@ -153,7 +153,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 		return err
 	}
 
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
 	log.Printf("Digitization success: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, constant.StatusSuccess)
 	_ = os.Remove(p.FilePath)
 	return nil
@@ -207,20 +207,20 @@ func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, pro
 	log.Printf("Digitization failed: recordId=%d queue Name := %s : retrying count := %d : record status := %s : error=%s", recordID, queueName, retryCount, constant.StatusFailed, msg)
 	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, retryCount)
 	err := fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
-	w.processStatusService.LogStepAndFail(processID, string(constant.DocsDigitization), constant.Failure, string(constant.DigitizationFailed), err.Error())
+	w.processStatusService.LogStepAndFail(processID, string(constant.DocsDigitization), constant.Failure, string(constant.DigitizationFailed), err.Error(), nil, &recordID)
 	return err
 }
 
 func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
 	step := string(constant.CallAIService)
 	errorMsg := ""
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil)
 	reportData, err := w.apiService.CallGeminiService(fileBuf, p.FileName)
 	if err != nil {
-		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, string(constant.CallingAIFailed), err.Error())
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, string(constant.CallingAIFailed), err.Error(), nil, &p.RecordID)
 		return err
 	}
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, string(constant.CallingAIServiceSuccess), errorMsg, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, string(constant.CallingAIServiceSuccess), errorMsg, &p.RecordID, nil, nil, nil, nil)
 	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
 	var isUnknownReport bool
@@ -228,13 +228,13 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	if reportData.ReportDetails.PatientName != "" {
 		step := string(constant.MatchingReport)
 		msg := string(constant.MatchingNameMsg)
-		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil)
+		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
 		matchedUserID, matchName, isUnknownReport = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
 		config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
 		msg = fmt.Sprintf("%s Best Name match found: %s", msg, matchName)
 		if matchedUserID != p.UserID || isUnknownReport {
 			msg = fmt.Sprintf("%s No matching patient or relative found. Report will be shifted to other bucket list.", msg)
-			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
 			tx := w.db.Begin()
 			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
 			if err != nil {
@@ -244,7 +244,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				return err
 			}
 		}
-		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil)
+		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
 	}
 	reportData.ReportDetails.IsDigital = true
 	reportData.ReportDetails.IsUnknownRecord = isUnknownReport
