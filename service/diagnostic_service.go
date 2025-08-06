@@ -430,7 +430,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		labName := reportData.ReportDetails.LabName
 		if labName == "" {
 			log.Println("Lab name is empty, lab creating unknown lab name.")
-			labName = fmt.Sprintf("Unknown Lab %s", utils.FormatDateTime(&time.Time{}))
+			labName = "UnknownLab"
 		}
 		if val, exists := diagnosticLabs[strings.ToLower(labName)]; exists {
 			diagnosticLabId = val
