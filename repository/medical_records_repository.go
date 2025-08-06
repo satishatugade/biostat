@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"biostat/config"
 	"biostat/constant"
 	"biostat/models"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -58,10 +60,13 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, 
 	var records []models.TblMedicalRecord
 	var total int64
 
+	status := config.PropConfig.SystemVaribale.Status
+	statuses := strings.Split(status, ",")
+
 	query := r.db.
 		Table("tbl_medical_record AS mr").
 		Joins("JOIN tbl_medical_record_user_mapping AS mrum ON mr.record_id = mrum.record_id").
-		Where("mrum.user_id = ? and mr.is_deleted = ? ", userID, isDeleted)
+		Where("mrum.user_id = ? AND mr.is_deleted = ? AND mr.status IN (?) ", userID, isDeleted, statuses)
 
 	if isDeleted == 1 {
 		recordCategory := string(constant.DUPLICATE)

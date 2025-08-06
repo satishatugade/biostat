@@ -123,11 +123,13 @@ type MedicalRecordResponseRes struct {
 	RecordName                string                 `json:"record_name"`
 	RecordSize                int64                  `json:"record_size"`
 	RecordURL                 string                 `json:"record_url"`
+	RecordDescription         string                 `json:"record_description"`
 	IsVerified                bool                   `json:"is_verified"`
 	SourceAccount             string                 `json:"source_account"`
 	Status                    string                 `json:"status"`
 	UploadSource              string                 `json:"upload_source"`
 	ErrorMessage              string                 `json:"error_message"`
+	CreatedAt                 string                 `json:"created_at"`
 	IsDeleted                 int                    `json:"is_deleted"`
 	UploadedDiagnostic        *UploadedDiagnosticRes `json:"uploaded_diagnostic"`
 }

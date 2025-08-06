@@ -238,7 +238,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 			score := utils.CalculateNameScore(normalizedPatientName, full)
 			log.Printf("Matching with relative permutation '%s' | Score: %d", full, score)
 
-			if score > highestScore && score >= 60 {
+			if score > highestScore && score >= 30 {
 				highestScore = score
 				bestMatchID = relative.RelativeId
 				bestMatchName = full
@@ -422,10 +422,12 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 			RecordSize:                rec.RecordSize,
 			RecordURL:                 rec.RecordUrl,
 			IsVerified:                rec.IsVerified,
+			RecordDescription:         rec.Description,
 			SourceAccount:             rec.SourceAccount,
 			Status:                    string(rec.Status),
 			UploadSource:              rec.UploadSource,
 			ErrorMessage:              rec.ErrorMessage,
+			CreatedAt:                 utils.FormatDateTime(&rec.CreatedAt),
 			PatientDiagnosticReportID: "0",
 		}
 

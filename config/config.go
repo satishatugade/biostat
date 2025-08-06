@@ -58,7 +58,8 @@ type PropertyConfig struct {
 		Retention         int
 	}
 	SystemVaribale struct {
-		Score int
+		Score  int
+		Status string
 	}
 	Database struct {
 		Host     string
@@ -90,6 +91,8 @@ var PropConfig *PropertyConfig = LoadConfigFromEnv()
 func LoadConfigFromEnv() *PropertyConfig {
 	cfg := &PropertyConfig{}
 	cfg.SystemVaribale.Score = getEnvAsInt("SYSTEM_DUPLICATE_REPORT_SCORE", 60)
+
+	cfg.SystemVaribale.Status = getEnv("SYSTEM_REPORT_STATUS")
 
 	cfg.Database.Host = getEnv("DB_HOST")
 	cfg.Database.Port = getEnv("DB_PORT")
