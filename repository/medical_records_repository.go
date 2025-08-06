@@ -465,11 +465,17 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 		tx.Rollback()
 		return nil, err
 	}
+	var updatedRecord models.TblMedicalRecord
+	if err := tx.Where("record_id = ?", data.RecordId).First(&updatedRecord).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
 	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 
-	return data, nil
+	return &updatedRecord, nil
 }
 
 func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error) {

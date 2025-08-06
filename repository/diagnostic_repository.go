@@ -415,7 +415,7 @@ func (dr *DiagnosticRepositoryImpl) GetPatientLabNameAndEmail(userId uint64) ([]
 		Table("tbl_diagnostic_lab AS dl").
 		Select("dl.lab_name, dl.lab_email").
 		Joins("JOIN tbl_patient_diagnostic_lab_mapping AS dlm ON dl.diagnostic_lab_id = dlm.diagnostic_lab_id").
-		Where("dlm.patient_id = ?", userId).
+		Where("dlm.patient_id = ? and dlm.is_deleted = 0", userId).
 		Scan(&labs).Error
 
 	if err != nil {
