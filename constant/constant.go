@@ -261,13 +261,15 @@ const (
 type RecordCategory string
 
 const (
-	TESTREPORT       RecordCategory = "test_reports"
-	DUPLICATE        RecordCategory = "DUPLICATE"
-	INSURANCE        RecordCategory = "INSURANCE"
-	MEDICATION       RecordCategory = "MEDICATION"
-	VACCINATION      RecordCategory = "VACCINATION"
-	DISCHARGESUMMARY RecordCategory = "DISCHARGESUMMARY"
-	OTHER            RecordCategory = "Other"
+	TESTREPORT       RecordCategory = "test_report"
+	PRESCRIPTION     RecordCategory = "Prescriptions"
+	DUPLICATE        RecordCategory = "duplicate"
+	INSURANCE        RecordCategory = "insurance"
+	MEDICATION       RecordCategory = "medications"
+	VACCINATION      RecordCategory = "vaccinations"
+	DISCHARGESUMMARY RecordCategory = "discharge_summary"
+	OTHER            RecordCategory = "other"
+	INVOICE          RecordCategory = "invoice"
 )
 
 type SubscriptionStatus string
@@ -314,6 +316,7 @@ const (
 	ProcessFetchLabs           ProcessStep = "fetch_labs"
 	ProcessFetchEmails         ProcessStep = "fetch_emails"
 	ProcessSaveRecords         ProcessStep = "save_records"
+	SingleRecordDigitization   ProcessStep = "single_record_digitization"
 	ProcessDigitization        ProcessStep = "digitization"
 	ProcessGmailClient         ProcessStep = "gmail_client"
 	ProcessGmailSearch         ProcessStep = "gmail_search"
@@ -321,6 +324,10 @@ const (
 	FindingEmailWithAttachment ProcessStep = "finding_email_attachment"
 	ProcessVerifyCredentials   ProcessStep = "verify_credentials"
 	CheckDocType               ProcessStep = "check_doc_type"
+	RetryStep                  ProcessStep = "retrying"
+	CallAIService              ProcessStep = "call_ai_service"
+	MatchingReport             ProcessStep = "matching_report_name_with_self_or_relative_name"
+	CheckReportDuplication     ProcessStep = "checking_report_duplication_by_collection_date_and_test_component"
 )
 
 type ProcessStepStatusMessage string
@@ -339,24 +346,33 @@ const (
 	FailedFetchAttachment   ProcessStepStatusMessage = "Failed to fetch email attachments"
 	InvalidCredentials      ProcessStepStatusMessage = "Invalid credentials"
 
-	SaveRecord                 ProcessStepStatusMessage = "Storing extracted medical records in the database"
-	FailedSaveRecords          ProcessStepStatusMessage = "Failed to save medical record"
-	DigitizationTaskQueue      ProcessStepStatusMessage = "Creating digitization task queue in redis server to digitize medical records"
-	UserProfileNotFound        ProcessStepStatusMessage = "Failed to load user profile to create digitization task"
-	GmailSearchMessage         ProcessStepStatusMessage = "Searching for health records"
-	DownloadAttachmentMessage  ProcessStepStatusMessage = "Downloading all attachment that are found in email."
-	DownloadAttachmentComplete ProcessStepStatusMessage = "All attachment downloaded successfully "
-	CheckDocTypeMessage        ProcessStepStatusMessage = "Checking document type"
-	CheckDocTypeFailedMessage  ProcessStepStatusMessage = "Document type checking failed"
-	CheckDocTypeCompleted      ProcessStepStatusMessage = "Document type checking completed"
-	FailedCheckDocType         ProcessStepStatusMessage = "Failed to check document type"
+	SaveRecord                        ProcessStepStatusMessage = "Storing medical records in the database"
+	FailedSaveRecords                 ProcessStepStatusMessage = "Failed to save medical record"
+	DigitizationTaskQueue             ProcessStepStatusMessage = "Creating digitization task queue in redis server to digitize medical records"
+	UserProfileNotFound               ProcessStepStatusMessage = "Failed to load user profile to create digitization task"
+	GmailSearchMessage                ProcessStepStatusMessage = "Searching for health records"
+	DownloadAttachmentMessage         ProcessStepStatusMessage = "Downloading all attachment that are found in email."
+	DownloadAttachmentComplete        ProcessStepStatusMessage = "All attachment downloaded successfully "
+	CheckDocTypeMessage               ProcessStepStatusMessage = "Checking document type"
+	CheckDocTypeFailedMessage         ProcessStepStatusMessage = "Document type checking failed"
+	CheckDocTypeCompleted             ProcessStepStatusMessage = "Document type checking completed"
+	FailedCheckDocType                ProcessStepStatusMessage = "Failed to check document type"
+	DocsDigitizationMsg               ProcessStepStatusMessage = "Processing each record and digitizing"
+	DigitizationFailed                ProcessStepStatusMessage = "Digitization failed"
+	CallingAIServiceMsg               ProcessStepStatusMessage = "Calling Ai service to fetch report response in json format."
+	CallingAIServiceSuccess           ProcessStepStatusMessage = "AI response success"
+	CallingAIFailed                   ProcessStepStatusMessage = "AI service request failed"
+	MatchingNameMsg                   ProcessStepStatusMessage = "Matching Report name with self and relative names"
+	CheckReportDuplicationMsg         ProcessStepStatusMessage = "Checking for report duplication based on collection date and test component name to determine if it already exists in a previous report"
+	ManualRecordUploadDigitizationMsg ProcessStepStatusMessage = "Manual record upload  and digitization process start"
 )
 
 type ProcessType string
 
 const (
-	GmailSync ProcessType = "gmail_sync"
-	// ProcessFetchLabs ProcessType = "fetch_labs"
+	GmailSync          ProcessType = "gmail_sync"
+	DocsDigitization   ProcessType = "docs_digitization"
+	ManualRecordUpload ProcessType = "manual_record_upload"
 )
 
 type EntityType string

@@ -4,6 +4,7 @@ import (
 	"biostat/constant"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
@@ -122,6 +123,7 @@ type MedicalRecordResponseRes struct {
 	RecordName                string                 `json:"record_name"`
 	RecordSize                int64                  `json:"record_size"`
 	RecordURL                 string                 `json:"record_url"`
+	IsVerified                bool                   `json:"is_verified"`
 	SourceAccount             string                 `json:"source_account"`
 	Status                    string                 `json:"status"`
 	UploadSource              string                 `json:"upload_source"`
@@ -131,11 +133,12 @@ type MedicalRecordResponseRes struct {
 }
 
 type DigitizationPayload struct {
-	RecordID    uint64 `json:"record_id"`
-	UserID      uint64 `json:"user_id"`
-	PatientName string `json:"patient_name"`
-	FilePath    string `json:"file_path"`
-	Category    string `json:"category"`
-	FileName    string `json:"file_name"`
-	AuthUserID  string `json:"auth_user_id"`
+	RecordID    uint64    `json:"record_id"`
+	UserID      uint64    `json:"user_id"`
+	PatientName string    `json:"patient_name"`
+	FilePath    string    `json:"file_path"`
+	Category    string    `json:"category"`
+	FileName    string    `json:"file_name"`
+	AuthUserID  string    `json:"auth_user_id"`
+	ProcessID   uuid.UUID `json:"process_id"`
 }

@@ -6,15 +6,10 @@ import (
 	"biostat/utils"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ProcessStatusRepository interface {
-	CreateProcess(process *models.ProcessStatus) error
-	CreateProcessStepLog(stepLog *models.ProcessStepLog) error
-	UpdateProcess(processID uuid.UUID, updates map[string]interface{}) error
-	UpdateLatestProcessStepLog(processStepID uuid.UUID, updates map[string]interface{}) error
 	GetRecentUserProcesses(userID uint64, recentMinutes int) ([]models.ProcessStatus, error)
 	FetchActivityLogsByUserID(userID uint64, limit, offset int) ([]models.ProcessStatusResponse, int64, error)
 }
@@ -25,21 +20,6 @@ type ProcessStatusRepositoryImpl struct {
 
 func NewProcessStatusRepository(db *gorm.DB) ProcessStatusRepository {
 	return &ProcessStatusRepositoryImpl{db}
-}
-
-func (r *ProcessStatusRepositoryImpl) CreateProcess(process *models.ProcessStatus) error {
-	return r.db.Create(process).Error
-}
-
-func (r *ProcessStatusRepositoryImpl) CreateProcessStepLog(stepLog *models.ProcessStepLog) error {
-	return r.db.Create(stepLog).Error
-}
-
-func (r *ProcessStatusRepositoryImpl) UpdateProcess(processID uuid.UUID, updates map[string]interface{}) error {
-	updates["updated_at"] = time.Now()
-	return r.db.Model(&models.ProcessStatus{}).
-		Where("process_status_id = ?", processID).
-		Updates(updates).Error
 }
 
 func (r *ProcessStatusRepositoryImpl) GetRecentUserProcesses(userID uint64, recentMinutes int) ([]models.ProcessStatus, error) {
@@ -109,10 +89,4 @@ func (r *ProcessStatusRepositoryImpl) FetchActivityLogsByUserID(userID uint64, l
 		})
 	}
 	return response, total, nil
-}
-
-func (r *ProcessStatusRepositoryImpl) UpdateLatestProcessStepLog(processStepID uuid.UUID, updates map[string]interface{}) error {
-	return r.db.Model(&models.ProcessStepLog{}).
-		Where("process_step_log_id = ?", processStepID).
-		Updates(updates).Error
 }

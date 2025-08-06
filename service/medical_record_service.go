@@ -31,7 +31,7 @@ type TblMedicalRecordService interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]map[string]interface{}, int64, error)
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error)
-	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, authUserId string, file *bytes.Buffer, filename string) error
+	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID) error
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
@@ -74,10 +74,18 @@ func (s *tblMedicalRecordServiceImpl) GetAllMedicalRecord(patientId uint64, limi
 }
 
 func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error) {
-	processID := uuid.New()
-	key, _ := s.processStatusService.StartProcessRedis(processID, userId, "record_upload", fmt.Sprintf("UserID %s", strconv.FormatUint(userId, 10)), "tbl_medical_record", "record_saving")
+	processType := string(constant.ManualRecordUpload)
+	step := string(constant.ProcessSaveRecords)
+	msg := string(constant.SaveRecord)
+	errorMsg := ""
+	processID, _ := s.processStatusService.StartProcessInRedis(userId, processType, strconv.FormatUint(userId, 10),
+		string(constant.MedicalRecordEntity),
+		step,
+	)
+	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil)
 	uploadingPerson, err := s.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
+		log.Println("GetUserIdBySUB uploadingPerson : ", err)
 		return nil, err
 	}
 
@@ -91,6 +99,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		return nil, err
 	}
 	if err := utils.SaveFile(header, destinationPath); err != nil {
+		log.Println("save file error : ", err)
 		return nil, err
 	}
 
@@ -117,7 +126,9 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 
 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(&newRecord)
 	if err != nil {
-		s.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, "Failed to save record", "record_saving", true)
+		msg = "Failed to save record"
+		log.Println("CreateTblMedicalRecord ERROR : ", err)
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error())
 		return nil, err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
@@ -125,26 +136,27 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		UserID:   userId,
 		RecordID: record.RecordId,
 	})
-	s.processStatusService.UpdateProcessRedis(key, constant.Running, nil, "Record saved to database", "record_saving", false)
 	mappingErr := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
 	if mappingErr != nil {
+		log.Println("CreateMedicalRecordMappings Mapping  ERROR : ", err)
 		return nil, mappingErr
 	}
 	userInfo, err := s.userService.GetSystemUserInfoByUserID(userId)
 	if err != nil {
+		log.Println("GetSystemUserInfoByUserID ERROR : ", err)
 		return nil, err
 	}
-	if err := s.CreateDigitizationTask(record, userInfo, userId, authUserId, &fileBuf, fileName); err != nil {
-		s.processStatusService.UpdateProcessRedis(key, constant.Failure, nil, "Record saved, but digitization failed", "digitization", true)
+	if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID); err != nil {
 		log.Printf("Digitization task failed: %v", err)
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error())
 	}
-	s.processStatusService.UpdateProcessRedis(key, constant.Success, nil, "Record saved, digitization is in progress", "digitization", true)
+	s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil)
 	return record, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
-	userId uint64, authUserId string, fileBuf *bytes.Buffer, filename string) error {
-	if record.RecordCategory == "Test Reports" || record.RecordCategory == "Prescriptions" || record.RecordCategory == "test_report" {
+	userId uint64, fileBuf *bytes.Buffer, filename string, processID uuid.UUID) error {
+	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.PRESCRIPTION) {
 		log.Println("Queue worker starts............")
 		tempDir := os.TempDir()
 		tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))
@@ -160,7 +172,7 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 			FilePath:    tempPath,
 			Category:    record.RecordCategory,
 			FileName:    filename,
-			AuthUserID:  authUserId,
+			ProcessID:   processID,
 		}
 
 		payloadBytes, err := json.Marshal(payload)
@@ -180,7 +192,7 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 	return nil
 }
 
-func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) (uint64, bool) {
+func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) (uint64, string, bool) {
 	normalizedPatientName := strings.TrimSpace(strings.ToLower(patientName))
 	config.Log.Info("Patient name on report returned from AI service", zap.String("Patient name", patientName))
 
@@ -198,7 +210,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 		score := utils.CalculateNameScore(normalizedPatientName, full)
 		log.Printf("Matching with system patient name permutation '%s' | Score: %d", full, score)
 
-		if score > highestScore && score >= 60 {
+		if score > highestScore && score >= 30 {
 			highestScore = score
 			bestMatchID = fallbackUserID
 			bestMatchName = full
@@ -244,7 +256,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 	}
 
 	log.Printf("Best report name match with: '%s' | User ID: %d | Score: %d | isUnknownReport: %v", bestMatchName, bestMatchID, highestScore, isUnknownReport)
-	return bestMatchID, isUnknownReport
+	return bestMatchID, bestMatchName, isUnknownReport
 }
 
 func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64) error {
@@ -409,6 +421,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 			RecordName:                rec.RecordName,
 			RecordSize:                rec.RecordSize,
 			RecordURL:                 rec.RecordUrl,
+			IsVerified:                rec.IsVerified,
 			SourceAccount:             rec.SourceAccount,
 			Status:                    string(rec.Status),
 			UploadSource:              rec.UploadSource,

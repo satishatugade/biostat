@@ -14,6 +14,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -41,14 +42,15 @@ func processAppointments(s service.AppointmentService) {
 }
 
 type DigitizationWorker struct {
-	redisClient       *redis.Client
-	taskQueue         *asynq.Client
-	apiService        service.ApiService
-	patientService    service.PatientService
-	diagnosticService service.DiagnosticService
-	recordRepo        repository.TblMedicalRecordRepository
-	db                *gorm.DB
-	healthMonitor     *service.HealthMonitorService
+	redisClient          *redis.Client
+	taskQueue            *asynq.Client
+	apiService           service.ApiService
+	patientService       service.PatientService
+	diagnosticService    service.DiagnosticService
+	recordRepo           repository.TblMedicalRecordRepository
+	db                   *gorm.DB
+	healthMonitor        *service.HealthMonitorService
+	processStatusService service.ProcessStatusService
 }
 
 func NewDigitizationWorker(db *gorm.DB) *DigitizationWorker {
@@ -64,19 +66,21 @@ func InitAsynqWorker(
 	diagnosticService service.DiagnosticService,
 	recordRepo repository.TblMedicalRecordRepository,
 	db *gorm.DB,
+	processStatusService service.ProcessStatusService,
 ) {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: config.PropConfig.ApiURL.RedisURL})
 	healthMonitor := service.NewHealthMonitorService(config.RedisClient, config.PropConfig.HealthCheck.URL, time.Duration(config.PropConfig.HealthCheck.IntervalSeconds)*time.Second, time.Duration(config.PropConfig.HealthCheck.TimeoutSeconds)*time.Second)
 	healthMonitor.Start()
 	worker := &DigitizationWorker{
-		redisClient:       config.RedisClient,
-		taskQueue:         client,
-		apiService:        apiService,
-		patientService:    patientService,
-		diagnosticService: diagnosticService,
-		recordRepo:        recordRepo,
-		db:                db,
-		healthMonitor:     healthMonitor,
+		redisClient:          config.RedisClient,
+		taskQueue:            client,
+		apiService:           apiService,
+		patientService:       patientService,
+		diagnosticService:    diagnosticService,
+		recordRepo:           recordRepo,
+		db:                   db,
+		healthMonitor:        healthMonitor,
+		processStatusService: processStatusService,
 	}
 
 	srv := asynq.NewServer(
@@ -99,8 +103,12 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return err
 	}
+	step := string(constant.DocsDigitization)
+	msg := string(constant.DocsDigitizationMsg)
+	errorMsg := ""
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil)
 	queueName := "report_digitization"
-	if p.Category == "Prescriptions" {
+	if p.Category == string(constant.PRESCRIPTION) {
 		queueName = "prescription_digitization"
 	}
 	retryCount, _ := asynq.GetRetryCount(ctx)
@@ -126,19 +134,18 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 
 	fileBytes, err := os.ReadFile(p.FilePath)
 	if err != nil {
-		return w.failTask(ctx, queueName, p.RecordID, "Failed to read file", retryCount)
+		return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, "Failed to read file", retryCount)
 	}
 
 	fileBuf := bytes.NewBuffer(fileBytes)
-
 	switch p.Category {
-	case "Test Reports", "test_report":
+	case string(constant.TESTREPORT):
 		if err := w.handleTestReport(fileBuf, p); err != nil {
-			return w.failTask(ctx, queueName, p.RecordID, err.Error(), retryCount)
+			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
 		}
-	case "Prescriptions":
+	case string(constant.PRESCRIPTION):
 		if err := w.handlePrescription(fileBuf, p); err != nil {
-			return w.failTask(ctx, queueName, p.RecordID, err.Error(), retryCount)
+			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
 		}
 	}
 
@@ -146,6 +153,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 		return err
 	}
 
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil)
 	log.Printf("Digitization success: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, constant.StatusSuccess)
 	_ = os.Remove(p.FilePath)
 	return nil
@@ -195,25 +203,38 @@ func ptrTime(t time.Time) *time.Time {
 	return &t
 }
 
-func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, recordID uint64, msg string, retryCount int) error {
+func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, processID uuid.UUID, recordID uint64, msg string, retryCount int) error {
 	log.Printf("Digitization failed: recordId=%d queue Name := %s : retrying count := %d : record status := %s : error=%s", recordID, queueName, retryCount, constant.StatusFailed, msg)
 	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, retryCount)
-	return fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
+	err := fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
+	w.processStatusService.LogStepAndFail(processID, string(constant.DocsDigitization), constant.Failure, string(constant.DigitizationFailed), err.Error())
+	return err
 }
 
 func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
+	step := string(constant.CallAIService)
+	errorMsg := ""
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, nil, nil, nil, nil)
 	reportData, err := w.apiService.CallGeminiService(fileBuf, p.FileName)
 	if err != nil {
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, string(constant.CallingAIFailed), err.Error())
 		return err
 	}
-
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, string(constant.CallingAIServiceSuccess), errorMsg, nil, nil, nil, nil)
 	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
 	var isUnknownReport bool
+	var matchName string
 	if reportData.ReportDetails.PatientName != "" {
-		matchedUserID, isUnknownReport = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
+		step := string(constant.MatchingReport)
+		msg := string(constant.MatchingNameMsg)
+		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil)
+		matchedUserID, matchName, isUnknownReport = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
 		config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
+		msg = fmt.Sprintf("%s Best Name match found: %s", msg, matchName)
 		if matchedUserID != p.UserID || isUnknownReport {
+			msg = fmt.Sprintf("%s No matching patient or relative found. Report will be shifted to other bucket list.", msg)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil)
 			tx := w.db.Begin()
 			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
 			if err != nil {
@@ -223,6 +244,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				return err
 			}
 		}
+		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil)
 	}
 	reportData.ReportDetails.IsDigital = true
 	reportData.ReportDetails.IsUnknownRecord = isUnknownReport
@@ -241,7 +263,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 			return err
 		}
 	} else {
-		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID); err != nil {
+		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID, p.ProcessID); err != nil {
 			return err
 		}
 	}

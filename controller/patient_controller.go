@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -51,6 +52,7 @@ type PatientController struct {
 	permissionService    service.PermissionService
 	subscriptionService  service.SubscriptionService
 	processStatusService service.ProcessStatusService
+	gmailSyncService     service.GmailSyncService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
@@ -60,7 +62,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService,
 	emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService,
 	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService,
-	subscriptionService service.SubscriptionService, processStatusService service.ProcessStatusService) *PatientController {
+	subscriptionService service.SubscriptionService, processStatusService service.ProcessStatusService, gmailSyncService service.GmailSyncService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -77,6 +79,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		permissionService:    permissionService,
 		subscriptionService:  subscriptionService,
 		processStatusService: processStatusService,
+		gmailSyncService:     gmailSyncService,
 	}
 }
 
@@ -1045,61 +1048,10 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
 		return
 	}
-	// user_id, err := pc.userService.GetUserIdBySUB(authUserId)
-	// if err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User can not be authorised", nil, err)
-	// 	return
-	// }
-
-	// decodedName, err := url.QueryUnescape(header.Filename)
-	// if err != nil {
-	// 	decodedName = header.Filename
-	// }
-	// decodedName = strings.ReplaceAll(decodedName, " ", "_")
-	// re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
-	// cleanName := re.ReplaceAllString(decodedName, "_")
-	// originalName := strings.TrimSuffix(cleanName, filepath.Ext(cleanName))
-	// extension := filepath.Ext(cleanName)
-	// uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
-	// safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
-	// destinationPath := filepath.Join("uploads", safeFileName)
-
-	// if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create uploads directory", nil, err)
-	// 	return
-	// }
-
-	// if err := ctx.SaveUploadedFile(header, destinationPath); err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to save file", nil, err)
-	// 	return
-	// }
-	// newRecord := &models.TblMedicalRecord{
-	// 	RecordName:        safeFileName,
-	// 	RecordSize:        int64(header.Size),
-	// 	FileType:          header.Header.Get("Content-Type"),
-	// 	RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
-	// 	UploadDestination: "LocalServer",
-	// 	FetchedAt:         time.Now(),
-	// }
-	// var fileBuf bytes.Buffer
-	// tee := io.TeeReader(file, &fileBuf)
-
-	// _, err = io.ReadAll(tee)
-	// if err != nil {
-	// 	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Failed to read file", nil, err)
-	// 	return
-	// }
-	// newRecord.UploadSource = ctx.PostForm("upload_source")
-	// newRecord.Description = ctx.PostForm("description")
-	// newRecord.RecordCategory = ctx.PostForm("record_category")
-	// newRecord.SourceAccount = fmt.Sprint(user_id)
-	// newRecord.UploadedBy = user_id
-	// newRecord.Status = constant.StatusQueued
-
 	uploadSource := ctx.PostForm("upload_source")
 	description := ctx.PostForm("description")
 	recordCategory := ctx.PostForm("record_category")
-
+	log.Println("record category : ", recordCategory)
 	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
@@ -1161,16 +1113,17 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		return
 	}
 	filename := filepath.Base(record.RecordUrl)
-	record.RecordCategory = "Test Reports"
+	record.RecordCategory = string(constant.TESTREPORT)
 	if record.RecordCategory == "report" {
-		record.RecordCategory = "Test Reports"
+		record.RecordCategory = string(constant.TESTREPORT)
 	}
-	err = pc.medicalRecordService.CreateDigitizationTask(record, userInfo, patientId, authUserId, fileBuf, filename)
+	processID := uuid.New()
+	pc.processStatusService.LogStep(processID, string(constant.RetryStep), constant.Running, "Trying again to digitize", "", nil, nil, nil, nil)
+	err = pc.medicalRecordService.CreateDigitizationTask(record, userInfo, patientId, fileBuf, filename, processID)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to queue digitization", nil, err)
 		return
 	}
-
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Digitization queued successfully", nil, nil, nil)
 }
 

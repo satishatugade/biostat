@@ -26,22 +26,41 @@ func (ProcessStatus) TableName() string {
 }
 
 type ProcessStepLog struct {
-	ProcessStepLogId uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey;column:process_step_log_id" json:"process_step_log_id"`
-	ProcessStatusID  uuid.UUID `gorm:"type:uuid;column:process_status_id" json:"process_status_id"`
-	Step             string    `gorm:"column:step" json:"step"`
-	Status           string    `gorm:"column:status" json:"status"`
-	Message          string    `gorm:"column:message" json:"message"`
-	RecordIndex      *int64    `gorm:"column:record_index" json:"record_index,omitempty"`
-	TotalRecords     *int      `gorm:"column:total_records" json:"total_records,omitempty"`
-	SuccessCount     *int      `gorm:"column:success_count" json:"success_count"`
-	FailedCount      *int      `gorm:"column:failed_count" json:"failed_count"`
-	Error            *string   `gorm:"column:error" json:"error,omitempty"`
-	StepStartedAt    time.Time `gorm:"column:step_started_at;autoCreateTime" json:"step_started_at"`
-	StepUpdatedAt    time.Time `gorm:"column:step_updated_at;autoCreateTime" json:"step_updated_at"`
+	ProcessStepLogId uuid.UUID              `gorm:"type:uuid;default:gen_random_uuid();primaryKey;column:process_step_log_id" json:"process_step_log_id"`
+	ProcessStatusID  uuid.UUID              `gorm:"type:uuid;column:process_status_id" json:"process_status_id"`
+	Step             string                 `gorm:"column:step" json:"step"`
+	Status           string                 `gorm:"column:status" json:"status"`
+	Message          string                 `gorm:"column:message" json:"message"`
+	RecordIndex      *uint64                `gorm:"column:record_index" json:"record_index,omitempty"`
+	TotalRecords     *int                   `gorm:"column:total_records" json:"total_records,omitempty"`
+	SuccessCount     *int                   `gorm:"column:success_count" json:"success_count"`
+	FailedCount      *int                   `gorm:"column:failed_count" json:"failed_count"`
+	Error            *string                `gorm:"column:error" json:"error,omitempty"`
+	StepStartedAt    time.Time              `gorm:"column:step_started_at;autoCreateTime" json:"step_started_at"`
+	StepUpdatedAt    time.Time              `gorm:"column:step_updated_at;autoCreateTime" json:"step_updated_at"`
+	RecordLogs       []ProcessStepRecordLog `gorm:"foreignKey:ProcessStepLogID" json:"record_logs,omitempty"`
 }
 
 func (ProcessStepLog) TableName() string {
 	return "tbl_process_step_log"
+}
+
+type ProcessStepRecordLog struct {
+	ProcessStepRecordLogId uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey;column:process_step_record_log_id" json:"process_step_record_log_id"`
+	ProcessStepLogID       uuid.UUID `gorm:"type:uuid;column:process_step_log_id" json:"process_step_log_id"` // FK
+	// ProcessID              uuid.UUID `gorm:"-" json:"process_id"`
+	Step        string     `gorm:"column:step" json:"step"`
+	RecordID    *uint64    `gorm:"column:record_id" json:"record_id"`
+	RecordIndex *uint64    `gorm:"column:record_index" json:"record_index"`
+	Status      string     `gorm:"column:status" json:"status"` // success / failure / running
+	Message     string     `gorm:"column:message" json:"message"`
+	Error       *string    `gorm:"column:error" json:"error,omitempty"`
+	StartedAt   time.Time  `gorm:"column:started_at;autoCreateTime" json:"started_at"`
+	CompletedAt *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
+}
+
+func (ProcessStepRecordLog) TableName() string {
+	return "tbl_process_step_record_log"
 }
 
 type ProcessStatusResponse struct {
@@ -64,7 +83,7 @@ type ProcessStepLogResponse struct {
 	CompletedAt      string  `json:"completed_at"`
 	StepStatus       string  `json:"step_status"`
 	Message          string  `json:"message"`
-	RecordIndex      *int64  `json:"record_index"`
+	RecordIndex      *uint64 `json:"record_index"`
 	TotalRecords     *int    `json:"total_records"`
 	SuccessCount     *int    `json:"success_count"`
 	FailedCount      *int    `json:"failed_count"`

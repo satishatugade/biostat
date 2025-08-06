@@ -64,7 +64,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var roleService = service.NewRoleService(roleRepo, patientService, userRepo, subscriptionRepo)
 
 	var diagnosticRepo = repository.NewDiagnosticRepository(db)
-	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService, medicalRecordsRepo)
+	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService, medicalRecordsRepo, processStatusService)
 	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService, config.AsynqClient, config.RedisClient, processStatusService)
 
 	var smsService = service.NewSmsService()
@@ -82,17 +82,6 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var orderService = service.NewOrderService(orderRepo)
 	var authService = auth.NewAuthService(userRepo, userService, emailService)
 
-	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
-		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,
-		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService)
-
-	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
-		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
-	MasterRoutes(apiGroup, masterController, patientController)
-	PatientRoutes(apiGroup, patientController)
-
-	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService)
-	UserRoutes(apiGroup, userController)
 	var healthService = service.NewHealthMonitorService(
 		config.RedisClient,
 		config.PropConfig.HealthCheck.URL,
@@ -105,10 +94,22 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
+	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
+		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,
+		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService, gmailSyncService)
+
+	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
+		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
+	MasterRoutes(apiGroup, masterController, patientController)
+	PatientRoutes(apiGroup, patientController)
+
+	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService)
+	UserRoutes(apiGroup, userController)
+
 	// Workers
 	worker.NewDigitizationWorker(db)
 	worker.StartAppointmentScheduler(appointmentService)
-	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo, db)
+	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo, db, processStatusService)
 
 }
 

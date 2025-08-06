@@ -52,7 +52,7 @@ func InitDB() *gorm.DB {
 	}
 
 	log.Println("db.26 Database connection established successfully")
-	database.AutoMigrate(&models.SubscriptionMasterAudit{})
+	database.AutoMigrate(&models.ProcessStepRecordLog{})
 	DB = database
 	return DB
 }
