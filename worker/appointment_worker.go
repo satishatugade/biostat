@@ -248,7 +248,10 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	}
 	reportData.ReportDetails.IsDigital = true
 	reportData.ReportDetails.IsUnknownRecord = isUnknownReport
-	if jsonBytes, err := json.Marshal(reportData); err == nil {
+	aiMetadata := map[string]interface{}{
+		"ai": reportData,
+	}
+	if jsonBytes, err := json.Marshal(aiMetadata); err == nil {
 		updateRecord := &models.TblMedicalRecord{
 			RecordId: p.RecordID,
 			Metadata: datatypes.JSON(jsonBytes),
@@ -256,7 +259,10 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 		if isUnknownReport {
 			updateRecord.RecordCategory = string(constant.OTHER)
 		}
-		_, _ = w.recordRepo.UpdateTblMedicalRecord(updateRecord)
+		_, err := w.recordRepo.UpdateTblMedicalRecord(updateRecord)
+		if err != nil {
+			log.Println("Error Worker updaing Record @UpdateTblMedicalRecord ", err)
+		}
 	}
 	if isUnknownReport {
 		if _, err := w.diagnosticService.DigitizeDiagnosticReport(reportData, matchedUserID, &p.RecordID); err != nil {

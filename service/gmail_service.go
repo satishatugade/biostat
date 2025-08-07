@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -197,6 +198,11 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 			if docTypeResp == string(constant.OTHER) {
 				status = constant.StatusSuccess
 			}
+			initialMetadata := map[string]interface{}{
+				"attachment_id": part.Body.AttachmentId,
+			}
+			metadataJSON, _ := json.Marshal(initialMetadata)
+
 			subBody := fmt.Sprintf("Subject and body of email sub : %s : Body :%+v ", getHeader(message.Payload.Headers, "Subject"), body)
 			newRecord := &models.TblMedicalRecord{
 				RecordName:        safeFileName,
@@ -209,6 +215,7 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 				RecordCategory:    docTypeResp,
 				SourceAccount:     userEmail,
 				Status:            status,
+				Metadata:          metadataJSON,
 				UploadedBy:        userId,
 				FetchedAt:         time.Now(),
 			}

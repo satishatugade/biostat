@@ -4,6 +4,7 @@ import (
 	"biostat/config"
 	"biostat/constant"
 	"biostat/models"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -453,7 +455,37 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 		updateFields["retry_count"] = data.RetryCount
 	}
 	if len(data.Metadata) != 0 {
-		updateFields["metadata"] = data.Metadata
+		log.Println("Updating metadata")
+		var existing models.TblMedicalRecord
+		if err := tx.Where("record_id = ?", data.RecordId).First(&existing).Error; err != nil {
+			log.Println("@UpdateTblMedicalRecord -> Metadata Rollback", err)
+			tx.Rollback()
+			return nil, err
+		}
+		log.Println("data.Metadata:", data.Metadata)
+		var existingMap map[string]interface{}
+		if err := json.Unmarshal(existing.Metadata, &existingMap); err != nil {
+			log.Println("Error Unmarshal existing.metadata", err)
+			existingMap = map[string]interface{}{}
+		}
+		log.Println("existingMap:", existingMap)
+		var newMap map[string]interface{}
+		if err := json.Unmarshal(data.Metadata, &newMap); err != nil {
+			log.Println("Error Unmarshal data.metadata", err)
+			newMap = map[string]interface{}{}
+		}
+		log.Println("New map created:", newMap)
+		for k, v := range newMap {
+			existingMap[k] = v
+		}
+		mergedMetadata, err := json.Marshal(existingMap)
+		if err != nil {
+			log.Println("Error Marshal:", err)
+			tx.Rollback()
+			return nil, err
+		}
+		log.Println("mergedMetadata:", mergedMetadata)
+		updateFields["metadata"] = datatypes.JSON(mergedMetadata)
 	}
 	if data.IsDeleted != 0 {
 		updateFields["is_deleted"] = data.IsDeleted
