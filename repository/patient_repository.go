@@ -1683,7 +1683,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 				ON pdtrv.patient_diagnostic_report_id = pra.patient_diagnostic_report_id
 		LEFT JOIN tbl_medical_record mr 
 				ON mr.record_id = pra.record_id
-			AND mr.is_deleted = 0 AND mr.record_category !='DUPLICATE'
+			AND mr.is_deleted = 0 AND mr.record_category NOT IN ('duplicate', 'other')
 		LEFT JOIN tbl_diagnostic_lab dl 
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
 		LEFT JOIN tbl_health_vital_source hvs

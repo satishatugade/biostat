@@ -31,7 +31,7 @@ type TblMedicalRecordService interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]map[string]interface{}, int64, error)
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error)
-	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID) error
+	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
@@ -82,7 +82,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		string(constant.MedicalRecordEntity),
 		step,
 	)
-	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil, nil)
+	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil, nil, nil)
 	uploadingPerson, err := s.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
 		log.Println("GetUserIdBySUB uploadingPerson : ", err)
@@ -128,7 +128,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 	if err != nil {
 		msg = "Failed to save record"
 		log.Println("CreateTblMedicalRecord ERROR : ", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil)
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
 		return nil, err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
@@ -146,16 +146,16 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		log.Println("GetSystemUserInfoByUserID ERROR : ", err)
 		return nil, err
 	}
-	if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID); err != nil {
+	if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID, nil); err != nil {
 		log.Printf("Digitization task failed: %v", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil)
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
 	}
-	s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil, nil)
+	s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil, nil, nil)
 	return record, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
-	userId uint64, fileBuf *bytes.Buffer, filename string, processID uuid.UUID) error {
+	userId uint64, fileBuf *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error {
 	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.PRESCRIPTION) {
 		log.Println("Queue worker starts............")
 		tempDir := os.TempDir()
@@ -166,13 +166,14 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 			return err
 		}
 		payload := models.DigitizationPayload{
-			RecordID:    record.RecordId,
-			UserID:      userId,
-			PatientName: userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
-			FilePath:    tempPath,
-			Category:    record.RecordCategory,
-			FileName:    filename,
-			ProcessID:   processID,
+			RecordID:     record.RecordId,
+			UserID:       userId,
+			PatientName:  userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
+			FilePath:     tempPath,
+			Category:     record.RecordCategory,
+			FileName:     filename,
+			ProcessID:    processID,
+			AttachmentId: attachmentId,
 		}
 
 		payloadBytes, err := json.Marshal(payload)

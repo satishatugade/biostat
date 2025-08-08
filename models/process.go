@@ -50,14 +50,15 @@ type ProcessStepRecordLog struct {
 	ProcessStepRecordLogId uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey;column:process_step_record_log_id" json:"process_step_record_log_id"`
 	ProcessStepLogID       uuid.UUID `gorm:"type:uuid;column:process_step_log_id" json:"process_step_log_id"` // FK
 	// ProcessID              uuid.UUID `gorm:"-" json:"process_id"`
-	Step        string     `gorm:"column:step" json:"step"`
-	RecordID    *uint64    `gorm:"column:record_id" json:"record_id"`
-	RecordIndex *int       `gorm:"column:record_index" json:"record_index"`
-	Status      string     `gorm:"column:status" json:"status"` // success / failure / running
-	Message     string     `gorm:"column:message" json:"message"`
-	Error       *string    `gorm:"column:error" json:"error,omitempty"`
-	StartedAt   *time.Time `gorm:"column:started_at;autoCreateTime" json:"started_at"`
-	CompletedAt *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
+	Step         string     `gorm:"column:step" json:"step"`
+	RecordID     *uint64    `gorm:"column:record_id" json:"record_id"`
+	RecordIndex  *int       `gorm:"column:record_index" json:"record_index"`
+	Status       string     `gorm:"column:status" json:"status"` // success / failure / running
+	Message      string     `gorm:"column:message" json:"message"`
+	Error        *string    `gorm:"column:error" json:"error,omitempty"`
+	AttachmentId *string    `gorm:"column:attachment_id" json:"attachment_id,omitempty"`
+	StartedAt    *time.Time `gorm:"column:started_at;autoCreateTime" json:"started_at"`
+	CompletedAt  *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
 }
 
 func (ProcessStepRecordLog) TableName() string {
@@ -95,11 +96,12 @@ type ProcessStepLogResponse struct {
 
 type ProcessStepRecordLogResponse struct {
 	ProcessStepRecordLogId string  `json:"process_step_record_log_id"`
+	AttachmentId           *string `json:"attachment_id"`
 	RecordID               *uint64 `json:"record_id"`
 	RecordIndex            *int    `json:"record_index"`
 	Status                 string  `json:"status"`
 	Message                string  `json:"message"`
-	Error                  *string `json:"error,omitempty"`
+	Error                  *string `json:"error"`
 	StartedAt              string  `json:"started_at"`
-	CompletedAt            string  `json:"completed_at,omitempty"`
+	CompletedAt            string  `json:"completed_at"`
 }

@@ -1118,8 +1118,8 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		record.RecordCategory = string(constant.TESTREPORT)
 	}
 	processID := uuid.New()
-	pc.processStatusService.LogStep(processID, string(constant.RetryStep), constant.Running, "Trying again to digitize", "", nil, nil, nil, nil, nil)
-	err = pc.medicalRecordService.CreateDigitizationTask(record, userInfo, patientId, fileBuf, filename, processID)
+	pc.processStatusService.LogStep(processID, string(constant.RetryStep), constant.Running, "Trying again to digitize", "", nil, nil, nil, nil, nil, nil)
+	err = pc.medicalRecordService.CreateDigitizationTask(record, userInfo, patientId, fileBuf, filename, processID, nil)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to queue digitization", nil, err)
 		return

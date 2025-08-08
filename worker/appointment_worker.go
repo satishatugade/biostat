@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,7 +107,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	step := string(constant.DocsDigitization)
 	msg := string(constant.DocsDigitizationMsg)
 	errorMsg := ""
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, nil)
 	queueName := "report_digitization"
 	if p.Category == string(constant.PRESCRIPTION) {
 		queueName = "prescription_digitization"
@@ -153,7 +154,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 		return err
 	}
 
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, nil)
 	log.Printf("Digitization success: recordId=%d queue Name := %s : retrying count := %d : record status := %s", p.RecordID, queueName, retryCount, constant.StatusSuccess)
 	_ = os.Remove(p.FilePath)
 	return nil
@@ -207,20 +208,20 @@ func (w *DigitizationWorker) failTask(ctx context.Context, queueName string, pro
 	log.Printf("Digitization failed: recordId=%d queue Name := %s : retrying count := %d : record status := %s : error=%s", recordID, queueName, retryCount, constant.StatusFailed, msg)
 	_ = w.logAndUpdateStatus(ctx, recordID, queueName, constant.StatusFailed, 0, &msg, retryCount)
 	err := fmt.Errorf("digitization failed: %s queue Name := %s", msg, queueName)
-	w.processStatusService.LogStepAndFail(processID, string(constant.DocsDigitization), constant.Failure, string(constant.DigitizationFailed), err.Error(), nil, &recordID)
+	w.processStatusService.LogStepAndFail(processID, string(constant.DocsDigitization), constant.Failure, string(constant.DigitizationFailed), err.Error(), nil, &recordID, nil)
 	return err
 }
 
 func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
 	step := string(constant.CallAIService)
 	errorMsg := ""
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	reportData, err := w.apiService.CallGeminiService(fileBuf, p.FileName)
 	if err != nil {
-		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, string(constant.CallingAIFailed), err.Error(), nil, &p.RecordID)
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, string(constant.CallingAIFailed), err.Error(), nil, &p.RecordID, p.AttachmentId)
 		return err
 	}
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, string(constant.CallingAIServiceSuccess), errorMsg, &p.RecordID, nil, nil, nil, nil)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, string(constant.CallingAIServiceSuccess), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
 	var isUnknownReport bool
@@ -228,13 +229,13 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	if reportData.ReportDetails.PatientName != "" {
 		step := string(constant.MatchingReport)
 		msg := string(constant.MatchingNameMsg)
-		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
+		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 		matchedUserID, matchName, isUnknownReport = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
 		config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
-		msg = fmt.Sprintf("%s Best Name match found: %s", msg, matchName)
+		msg1 := fmt.Sprintf("Match Name found: %s", matchName)
 		if matchedUserID != p.UserID || isUnknownReport {
-			msg = fmt.Sprintf("%s No matching patient or relative found. Report will be shifted to other bucket list.", msg)
-			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
+			msg = fmt.Sprintf("%s : No matching patient or relative found. Report will be shifted to other bucket list.", msg1)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg1, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 			tx := w.db.Begin()
 			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
 			if err != nil {
@@ -244,7 +245,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				return err
 			}
 		}
-		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil)
+		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	}
 	reportData.ReportDetails.IsDigital = true
 	reportData.ReportDetails.IsUnknownRecord = isUnknownReport
@@ -269,7 +270,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 			return err
 		}
 	} else {
-		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID, p.ProcessID); err != nil {
+		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID, p.ProcessID, p.AttachmentId); err != nil {
 			return err
 		}
 	}
@@ -286,6 +287,6 @@ func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.
 	data.PatientId = p.UserID
 	data.RecordId = p.RecordID
 	data.IsDigital = true
-
-	return w.patientService.AddPatientPrescription(p.AuthUserID, &data)
+	userId := strconv.FormatUint(p.UserID, 10)
+	return w.patientService.AddPatientPrescription(userId, &data)
 }

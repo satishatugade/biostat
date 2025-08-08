@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/xrash/smetrics"
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/net/html"
 )
 
 func GetPaginationParams(c *gin.Context) (int, int, int) {
@@ -1273,4 +1274,41 @@ func max(a, b int) int {
 
 func CombineDateTimeString(dateStr, timeStr string) string {
 	return fmt.Sprintf("%s %s", dateStr, timeStr)
+}
+
+func GetAttachmentIDFromRecord(record *models.TblMedicalRecord) (string, error) {
+	if record == nil {
+		return "", fmt.Errorf("record is nil")
+	}
+
+	var meta struct {
+		AttachmentID string `json:"attachment_id"`
+	}
+
+	if err := json.Unmarshal([]byte(record.Metadata), &meta); err != nil {
+		return "", fmt.Errorf("error parsing metadata for record ID %d: %w", record.RecordId, err)
+	}
+
+	return meta.AttachmentID, nil
+}
+
+func StripHTML(input string) string {
+	doc, err := html.Parse(strings.NewReader(input))
+	if err != nil {
+		return input
+	}
+
+	var b strings.Builder
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.TextNode {
+			b.WriteString(n.Data)
+			b.WriteRune(' ')
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+	f(doc)
+	return strings.Join(strings.Fields(b.String()), " ")
 }

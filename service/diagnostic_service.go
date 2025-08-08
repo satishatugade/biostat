@@ -60,7 +60,7 @@ type DiagnosticService interface {
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error)
-	CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processId uuid.UUID) error
+	CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processId uuid.UUID, attachmentId *string) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
@@ -725,22 +725,22 @@ func (s *DiagnosticServiceImpl) GetDiagnosticLabReportName(patientId uint64) ([]
 	return s.diagnosticRepo.GetDiagnosticLabReportName(patientId)
 }
 
-func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processID uuid.UUID) error {
+func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processID uuid.UUID, attachmentId *string) error {
 	log.Println("reportData.ReportDetails.CollectionDate ", reportData.ReportDetails.CollectionDate)
 	step := string(constant.CheckReportDuplication)
 	msg := string(constant.CheckReportDuplicationMsg)
 	errorMsg := ""
-	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil, nil)
+	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil, nil, attachmentId)
 	CollectionDate, err := utils.ParseDate(reportData.ReportDetails.CollectionDate)
 	if err != nil {
 		log.Println("Collection date parsing failed:", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, "Collection date parsing failed", err.Error(), nil, nil)
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, fmt.Sprintf("Collection date parsing failed : %s", reportData.ReportDetails.CollectionDate), err.Error(), nil, nil, attachmentId)
 		return err
 	}
 	existingMap, err := s.diagnosticRepo.GetSampleCollectionDateTestComponentMap(patientId, CollectionDate)
 	if err != nil {
 		log.Println("Error fetching existing components:", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, "Error while fetching existing componed based on collection date", err.Error(), nil, nil)
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, "Error while fetching existing componed based on collection date", err.Error(), nil, nil, attachmentId)
 	}
 	var allComponentNames []string
 	for _, testData := range reportData.Tests {
@@ -753,7 +753,7 @@ func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(repo
 	if ShouldSkipReport(CollectionDate, allComponentNames, existingMap) {
 		log.Println("Save report in duplicate bucket and marked is_deleted as True for patient : ", patientId)
 		msg = fmt.Sprintf("Report saved in duplicate bucket and marked deleted for logged in UserID :%d  ", patientId)
-		s.processStatusService.LogStep(processID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil)
+		s.processStatusService.LogStep(processID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, attachmentId)
 		reportData.ReportDetails.IsDeleted = 0
 		_, updateErr := s.medicalRecordsRepo.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: *recordId, IsDeleted: 0, RecordCategory: string(constant.DUPLICATE)})
 		if updateErr != nil {
@@ -763,6 +763,7 @@ func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(repo
 	if _, err := s.DigitizeDiagnosticReport(reportData, patientId, recordId); err != nil {
 		return err
 	}
+	s.processStatusService.LogStep(processID, step, constant.Success, string(constant.ReportDuplicationSuccess), errorMsg, nil, nil, nil, nil, nil, nil)
 	return nil
 }
 

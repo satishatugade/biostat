@@ -347,6 +347,7 @@ const (
 	InvalidCredentials      ProcessStepStatusMessage = "Invalid credentials"
 
 	SaveRecord                        ProcessStepStatusMessage = "Storing medical records in the database"
+	RecordSaveSuccess                 ProcessStepStatusMessage = "Medical records docs saved successfully"
 	FailedSaveRecords                 ProcessStepStatusMessage = "Failed to save medical record"
 	DigitizationTaskQueue             ProcessStepStatusMessage = "Creating digitization task queue in redis server to digitize medical records"
 	UserProfileNotFound               ProcessStepStatusMessage = "Failed to load user profile to create digitization task"
@@ -364,6 +365,7 @@ const (
 	CallingAIFailed                   ProcessStepStatusMessage = "AI service request failed"
 	MatchingNameMsg                   ProcessStepStatusMessage = "Matching Report name with self and relative names"
 	CheckReportDuplicationMsg         ProcessStepStatusMessage = "Checking for report duplication based on collection date and test component name to determine if it already exists in a previous report"
+	ReportDuplicationSuccess          ProcessStepStatusMessage = "Report duplication check success"
 	ManualRecordUploadDigitizationMsg ProcessStepStatusMessage = "Manual record upload  and digitization process start"
 )
 
