@@ -160,8 +160,21 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 		log.Println("Queue worker starts............")
 		tempDir := os.TempDir()
 		tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))
+		// var fileBytes []byte
+		fileBytes := fileBuf.Bytes()
+		if record.IsPasswordProtected {
+			log.Println("PDF is password protected, decrypting before saving...")
+			decryptedBytes, err := DecryptPDFIfProtected(fileBytes, record.PDFPassword)
+			if err != nil {
+				log.Printf("Failed to decrypt PDF for record %d: %v", record.RecordId, err)
+				return err
+			}
+			fileBytes = decryptedBytes
+			log.Println("Decryption successful, proceeding with saving decrypted file.")
+		}
 
-		if err := os.WriteFile(tempPath, fileBuf.Bytes(), 0644); err != nil {
+		// if err := os.WriteFile(tempPath, fileBuf.Bytes(), 0644); err != nil {
+		if err := os.WriteFile(tempPath, fileBytes, 0644); err != nil {
 			log.Printf("Failed to write temp file for record %d: %v", record.RecordId, err)
 			return err
 		}

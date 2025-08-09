@@ -59,3 +59,8 @@ type AskAPIResponse struct {
 	Response string `json:"response"`
 	Error    string `json:"error,omitempty"`
 }
+
+type PDFProtectionResult struct {
+	IsProtected bool
+	Password    string
+}

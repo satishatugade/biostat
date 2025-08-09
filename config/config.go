@@ -83,6 +83,8 @@ type PropertyConfig struct {
 		DigilockerRedirectURL       string
 		GoogleRedirectURL           string
 		ReportDigitizationURL       string
+		CheckPDFProtectionAPI       string
+		PDFPasswordAPI              string
 	}
 }
 
@@ -138,6 +140,8 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.PharmacokineticsURL = getEnv("PHARMACOKINETICS_API")
 	cfg.ApiURL.DigilockerRedirectURL = getEnv("DIGILOCKER_REDIRECT_URI")
 	cfg.ApiURL.GoogleRedirectURL = getEnv("GOOGLE_REDIRECT_URI")
+	cfg.ApiURL.CheckPDFProtectionAPI = getEnv("CHECK_IS_PDF_PROTECTED_API")
+	cfg.ApiURL.PDFPasswordAPI = getEnv("PDF_PASSWORD_API")
 
 	return cfg
 }

@@ -39,6 +39,9 @@ type TblMedicalRecord struct {
 
 	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
+
+	IsPasswordProtected bool   `gorm:"-" json:"is_password_protected"`
+	PDFPassword         string `gorm:"-" json:"pdf_password,omitempty"`
 }
 
 func (TblMedicalRecord) TableName() string {
@@ -135,12 +138,14 @@ type MedicalRecordResponseRes struct {
 }
 
 type DigitizationPayload struct {
-	RecordID     uint64    `json:"record_id"`
-	UserID       uint64    `json:"user_id"`
-	PatientName  string    `json:"patient_name"`
-	FilePath     string    `json:"file_path"`
-	Category     string    `json:"category"`
-	FileName     string    `json:"file_name"`
-	AttachmentId *string   `json:"attachment_id"`
-	ProcessID    uuid.UUID `json:"process_id"`
+	RecordID            uint64    `json:"record_id"`
+	UserID              uint64    `json:"user_id"`
+	PatientName         string    `json:"patient_name"`
+	FilePath            string    `json:"file_path"`
+	Category            string    `json:"category"`
+	FileName            string    `json:"file_name"`
+	AttachmentId        *string   `json:"attachment_id"`
+	ProcessID           uuid.UUID `json:"process_id"`
+	IsPasswordProtected *bool     `json:"is_password_protected"`
+	PDFPassword         *string   `json:"pdf_password,omitempty"`
 }

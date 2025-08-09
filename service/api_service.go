@@ -1,6 +1,7 @@
 package service
 
 import (
+	"biostat/config"
 	"biostat/models"
 	"bytes"
 	"encoding/json"
@@ -24,6 +25,7 @@ type ApiService interface {
 	AnalyzePharmacokineticsInfo(data models.PharmacokineticsInput) (string, error)
 	SummarizeMedicalHistory(data models.PharmacokineticsInput) (string, error)
 	AskAI(message string, userId uint64, patientName string, query_type string) (*models.AskAPIResponse, error)
+	CheckPDFAndGetPassword(file io.Reader, fileName, emailBody string) (*models.PDFProtectionResult, error)
 }
 
 type ApiServiceImpl struct {
@@ -33,6 +35,8 @@ type ApiServiceImpl struct {
 	PharmacokineticsAPI        string
 	SummarizeMedicalHistoryAPI string
 	DigitizePrescriptionAPI    string
+	CheckPDFProtectionAPI      string
+	PDFPasswordAPI             string
 	client                     *http.Client
 	sessionCache               map[uint64]string
 }
@@ -45,6 +49,8 @@ func NewApiService() ApiService {
 		PharmacokineticsAPI:        os.Getenv("PHARMACOKINETICS_API"),
 		SummarizeMedicalHistoryAPI: os.Getenv("SUMMARIZE_HISTORY_API"),
 		DigitizePrescriptionAPI:    os.Getenv("DIGITIZE_PRESCRIPTION_API"),
+		CheckPDFProtectionAPI:      config.PropConfig.ApiURL.CheckPDFProtectionAPI,
+		PDFPasswordAPI:             config.PropConfig.ApiURL.PDFPasswordAPI,
 		client:                     &http.Client{},
 		sessionCache:               make(map[uint64]string),
 	}
@@ -435,4 +441,111 @@ func (s *ApiServiceImpl) AskAI(message string, userId uint64, patientName string
 	}
 	log.Println("AskAPIResponse : ", apiResp)
 	return &apiResp, nil
+}
+
+func (s *ApiServiceImpl) CheckPDFAndGetPassword(file io.Reader, fileName, emailBody string) (*models.PDFProtectionResult, error) {
+	// Step 1: Check if PDF is protected
+	isProtected, err := s.CallCheckPDFProtectionAPI(file, fileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check PDF protection: %w", err)
+	}
+
+	if !isProtected {
+		return &models.PDFProtectionResult{IsProtected: false}, nil
+	}
+
+	// Step 2: Get password from email body
+	password, err := s.CallPDFPasswordAPI(emailBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get PDF password: %w", err)
+	}
+
+	return &models.PDFProtectionResult{
+		IsProtected: true,
+		Password:    password,
+	}, nil
+}
+
+func (s *ApiServiceImpl) CallCheckPDFProtectionAPI(file io.Reader, fileName string) (bool, error) {
+	// Read first 512 bytes to detect MIME type
+	buf := make([]byte, 512)
+	n, err := io.ReadFull(file, buf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return false, fmt.Errorf("failed to read file for MIME detection: %w", err)
+	}
+	mimeType := http.DetectContentType(buf[:n])
+
+	// Reset reader to include the bytes we already read + remaining content
+	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
+
+	// Build multipart body
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Explicit MIME headers for the file part
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, fileName))
+	h.Set("Content-Type", mimeType)
+
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return false, fmt.Errorf("failed to create multipart part: %w", err)
+	}
+
+	if _, err := io.Copy(part, fileReader); err != nil {
+		return false, fmt.Errorf("failed to copy file to multipart: %w", err)
+	}
+
+	writer.Close()
+
+	// Create request
+	req, err := http.NewRequest(http.MethodPost, s.CheckPDFProtectionAPI, body)
+	if err != nil {
+		return false, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Send request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Parse JSON response
+	var result struct {
+		Protected bool `json:"password_protected"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, fmt.Errorf("decode failed: %w", err)
+	}
+
+	return result.Protected, nil
+}
+
+func (s *ApiServiceImpl) CallPDFPasswordAPI(emailBody string) (string, error) {
+	reqBody := map[string]string{"body": emailBody}
+	jsonData, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequest(http.MethodPost, s.PDFPasswordAPI, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	return result.Password, nil
 }
