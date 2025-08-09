@@ -129,8 +129,8 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 		indexCount := idx
 		message, err := service.Users.Messages.Get("me", msg.Id).Do()
 		if err != nil || message == nil {
-			log.Println("Error getting email for ", userId, userEmail, ":", getHeader(message.Payload.Headers, "Subject"), ":", err)
-			logmsg := fmt.Sprintf("Error getting email for userID: %v, userEmail: %v, Subject: %v", userId, userEmail, getHeader(message.Payload.Headers, "Subject"))
+			log.Println("Error getting email for ", userId, userEmail, ":", err)
+			logmsg := fmt.Sprintf("Error getting email for userID: %v, userEmail: %v", userId, userEmail)
 			s.processStatusService.LogStepAndFail(processID, findMailstep, constant.Failure, logmsg, err.Error(), nil, nil, nil)
 			continue
 		}
@@ -184,23 +184,11 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 			extension := filepath.Ext(part.Filename)
 			uniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
 			safeFileName := fmt.Sprintf("%s_%s%s", originalName, uniqueSuffix, extension)
-			docTypeResp := ""
-			docTypeResp, err = utils.CallDocumentTypeAPI(bytes.NewReader(attachmentData), safeFileName)
-			if err != nil {
-				log.Printf("@ExtractAttachments->utils.CallDocumentTypeAPI type:%s %v ", part.Filename, err)
-				s.processStatusService.LogStepAndFail(processID, step1, constant.Failure, string(constant.CheckDocTypeFailedMessage), err.Error(), &recordIndexCount, nil, nil)
-				docTypeResp = string(constant.OTHER)
-			}
-
 			destinationPath := filepath.Join("uploads", safeFileName)
 
 			if err := os.WriteFile(destinationPath, attachmentData, 0644); err != nil {
 				log.Printf("@ExtractAttachments->Failed to save attachment locally %s: %v", part.Filename, err)
 				continue
-			}
-			status := constant.StatusQueued
-			if docTypeResp == string(constant.OTHER) {
-				status = constant.StatusSuccess
 			}
 			initialMetadata := map[string]interface{}{
 				"attachment_id": attachmentId,
@@ -216,16 +204,16 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 				UploadDestination: "LocalServer",
 				Description:       subBody,
 				UploadSource:      "Gmail",
-				RecordCategory:    docTypeResp,
+				RecordCategory:    string(constant.OTHER),
 				SourceAccount:     userEmail,
-				Status:            status,
+				Status:            constant.StatusProcessing,
 				Metadata:          metadataJSON,
 				UploadedBy:        userId,
 				FetchedAt:         time.Now(),
 			}
 			successCount++
 			records = append(records, newRecord)
-			newmsg := fmt.Sprintf("%s : Docs type found :> %s : Document URL : %s", docCompleteMsg, docTypeResp, recordURL)
+			newmsg := fmt.Sprintf("%s : Docs type found : Document URL : %s", docCompleteMsg, recordURL)
 			s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 			s.processStatusService.LogStep(processID, step1, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 		}
@@ -315,6 +303,29 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	msg3 := string(constant.SaveRecord)
 	totalRecord := len(emailMedRecord)
 	gs.processStatusService.LogStep(processID, step3, constant.Running, msg3, errorMsg, nil, nil, &totalRecord, nil, nil, nil)
+	for idx, record := range emailMedRecord {
+		log.Println("@GmailSyncCore: checking doc type for document ", idx+1, "/", totalRecord, record.RecordName)
+		fileName := filepath.Base(record.RecordUrl)
+		localPath := filepath.Join("uploads", fileName)
+		fileData, err := os.ReadFile(localPath)
+		if err != nil {
+			log.Println("error while reading file while getting Doctype", record.RecordName)
+			continue
+		}
+		docTypeResp := ""
+		docTypeResp, err = utils.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
+		if err != nil {
+			log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
+			gs.processStatusService.LogStepAndFail(processID, step1, constant.Failure, string(constant.CheckDocTypeFailedMessage), err.Error(), &idx, nil, nil)
+			docTypeResp = string(constant.OTHER)
+		}
+		status := constant.StatusQueued
+		if docTypeResp == string(constant.OTHER) {
+			status = constant.StatusSuccess
+		}
+		record.RecordCategory = docTypeResp
+		record.Status = status
+	}
 
 	saveRecordErr := gs.medRecordService.SaveMedicalRecords(emailMedRecord, userId)
 	if saveRecordErr != nil {
