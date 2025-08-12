@@ -159,10 +159,10 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 			continue
 		}
 		var bodyText string
-		bodyText = GetMessageBody(message.Payload)
 		subject := getHeader(message.Payload.Headers, "Subject")
 		emailDate := getHeader(message.Payload.Headers, "Date")
-		log.Println(subject)
+		log.Println("Checking ", emailDate, "||", subject)
+		bodyText = GetMessageBody(message)
 		foundLab := false
 		emailMsg := ""
 		for _, lab := range labNames {
@@ -173,8 +173,9 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 			}
 		}
 		if !foundLab {
-			msg := fmt.Sprintf("No valid lab found in email body for message %s", subject)
-			log.Println(msg)
+			msg := fmt.Sprintf("No valid lab found in email body for EmailSub %s dated %s", subject, emailDate)
+			log.Println(msg, "\n message body:", bodyText)
+			s.processStatusService.LogStep(processID, findMailstep, constant.Running, msg, errorMsg, nil, &indexCount, nil, nil, nil, &msgId)
 			continue
 		}
 		log.Println("FetchEmailsWithAttachments Processing Email for:", userId, ":", userEmail, ": Processing Mail", idx+1, " of ", len(results.Messages))
@@ -200,7 +201,7 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 		if part.Filename != "" {
 			recordIndexCount := idx + 1
 			attachmentId := part.Body.AttachmentId
-			body := GetMessageBody(message.Payload)
+			body := GetMessageBody(message)
 			emailDate := getHeader(message.Payload.Headers, "Date")
 			subject := getHeader(message.Payload.Headers, "Subject")
 			msg := fmt.Sprintf("Downloading attachment %s Dated on %s from EmailSub %s", part.Filename, emailDate, subject)
@@ -288,56 +289,77 @@ func getHeader(headers []*gmail.MessagePartHeader, name string) string {
 	return ""
 }
 
-func GetMessageBody(payload *gmail.MessagePart) string {
-	if payload.Body != nil && payload.Body.Data != "" {
-		decoded, err := base64.RawURLEncoding.DecodeString(payload.Body.Data)
-		if err != nil {
-			log.Println("[GetMessageBody] Error decoding root-level body:", err)
-			return ""
-		}
-		preview := string(decoded)
-		if len(preview) > 100 {
-			preview = preview[:100] + "..."
-		}
-		return string(decoded)
+func decodeBase64Safe(data string) string {
+	if data == "" {
+		return ""
 	}
 
-	for i, part := range payload.Parts {
-		if part.MimeType == "multipart/alternative" || part.MimeType == "multipart/mixed" {
-			result := GetMessageBody(part)
-			if result != "" {
+	if decoded, err := base64.RawURLEncoding.DecodeString(data); err == nil {
+		// log.Println("Retuning base64.RawURLEncoding.DecodeString")
+		return string(decoded)
+	} else {
+		log.Printf("[decodeBase64Safe] RawURLEncoding failed: %v", err)
+	}
+	if decoded, err := base64.StdEncoding.DecodeString(data); err == nil {
+		// log.Println("Retuning base64.StdEncoding.DecodeString")
+		return string(decoded)
+	} else {
+		log.Printf("[decodeBase64Safe] StdEncoding failed: %v", err)
+	}
+
+	padded := data
+	if m := len(padded) % 4; m != 0 {
+		padded += strings.Repeat("=", 4-m)
+	}
+	if decoded, err := base64.URLEncoding.DecodeString(padded); err == nil {
+		// log.Println("Retuning base64.URLEncoding.DecodeString")
+		return string(decoded)
+	} else {
+		log.Printf("[decodeBase64Safe] URLEncoding with padding failed: %v", err)
+	}
+
+	log.Printf("[decodeBase64Safe] All decoding attempts failed, returning raw string")
+	return data
+}
+
+func extractBodyFromParts(parts []*gmail.MessagePart) string {
+	for _, part := range parts {
+		if part.MimeType == "text/plain" && part.Body != nil && part.Body.Data != "" {
+			// log.Println("extractBodyFromParts Detected Text/plain")
+			return decodeBase64Safe(part.Body.Data)
+		}
+		if part.MimeType == "text/html" && part.Body != nil && part.Body.Data != "" {
+			// log.Println("extractBodyFromParts Detected Text/html")
+			return utils.StripHTML(decodeBase64Safe(part.Body.Data))
+		}
+		if len(part.Parts) > 0 {
+			if result := extractBodyFromParts(part.Parts); result != "" {
+				// log.Println("extractBodyFromParts this part has its own sub-parts")
 				return result
 			}
 		}
-
-		if part.MimeType == "text/plain" && part.Body != nil && part.Body.Data != "" {
-			decoded, err := decodeGmailBase64(part.Body.Data)
-			if err != nil {
-				log.Printf("[GetMessageBody] Error decoding text/plain in part %d: %v", i, err)
-				continue
-			}
-			preview := string(decoded)
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
-			}
-			return string(decoded)
-		}
-
-		if part.MimeType == "text/html" && part.Body != nil && part.Body.Data != "" {
-			decoded, err := base64.RawURLEncoding.DecodeString(part.Body.Data)
-			if err != nil {
-				log.Printf("[GetMessageBody] Error decoding text/html in part %d: %v", i, err)
-				continue
-			}
-			stripped := utils.StripHTML(string(decoded))
-			preview := stripped
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
-			}
-			return stripped
-		}
 	}
+	// log.Println("Returning empty extractBodyFromParts")
 	return ""
+}
+
+func GetMessageBody(msg *gmail.Message) string {
+	if msg == nil || msg.Payload == nil {
+		log.Println("Message is nil returning Empty string")
+		return ""
+	}
+	if len(msg.Payload.Parts) == 0 && msg.Payload.Body != nil && msg.Payload.Body.Data != "" {
+		body := decodeBase64Safe(msg.Payload.Body.Data)
+		if strings.Contains(strings.ToLower(msg.Payload.MimeType), "html") {
+			// log.Println("Extracting & Returning HTML")
+			return utils.StripHTML(body)
+		}
+		log.Println("Returning decodeBase64Safe HTML")
+		return body
+	}
+
+	// Multipart email
+	return extractBodyFromParts(msg.Payload.Parts)
 }
 
 func decodeGmailBase64(data string) ([]byte, error) {
