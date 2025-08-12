@@ -314,7 +314,7 @@ type ProcessStep string
 const (
 	ProcessTokenExchange       ProcessStep = "token_exchange"
 	ProcessFetchLabs           ProcessStep = "fetch_labs"
-	ProcessFetchEmails         ProcessStep = "fetch_emails"
+	FetchEmailsList            ProcessStep = "fetch_emails_list"
 	CheckPasswordProtectedStep ProcessStep = "check_pdf_password_protected"
 	ProcessSaveRecords         ProcessStep = "save_records"
 	SingleRecordDigitization   ProcessStep = "single_record_digitization"
@@ -341,7 +341,6 @@ const (
 	GmailClientCreated            ProcessStepStatusMessage = "Gmail client created"
 	FetchUserLab                  ProcessStepStatusMessage = "Fetching user diagnostic labs from his lab list"
 	UserLabNotFound               ProcessStepStatusMessage = "Failed to fetch user labs or lab not found"
-	UserLabFetched                ProcessStepStatusMessage = "User diagnostic labs fetch successfully"
 	FetchEmailAttachment          ProcessStepStatusMessage = "Fetching email attachments"
 	CheckPasswordProtectedStepMsg ProcessStepStatusMessage = "Checking is pdf is password protected..."
 	EmailAttachmentFetch          ProcessStepStatusMessage = "Email attachments fetch successfully"

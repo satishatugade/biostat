@@ -33,7 +33,7 @@ type GmailSyncService interface {
 	GetGmailAuthURL(userId uint64) (string, error)
 	CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error)
 	CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error)
-	FetchEmailsWithAttachment(service *gmail.Service, userId uint64, filterString string, processID uuid.UUID) ([]*models.TblMedicalRecord, error)
+	FetchEmailsWithAttachment(service *gmail.Service, userId uint64, filterString string, processID uuid.UUID, labNames []string) ([]*models.TblMedicalRecord, error)
 	ExtractAttachment(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64, processID uuid.UUID, index int) []*models.TblMedicalRecord
 	CreateGmailServiceForApp(userID uint64, accessToken string) (*gmail.Service, error)
 	SyncGmailWeb(userID uint64, code string) error
@@ -105,7 +105,7 @@ func (s *GmailSyncServiceImpl) CreateGmailServiceForApp(userID uint64, accessTok
 	return gmailService, nil
 }
 
-func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service, userId uint64, filterString string, processID uuid.UUID) ([]*models.TblMedicalRecord, error) {
+func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service, userId uint64, filterString string, processID uuid.UUID, labNames []string) ([]*models.TblMedicalRecord, error) {
 	errorMsg := ""
 	profile, err := service.Users.GetProfile("me").Do()
 	if err != nil {
@@ -141,14 +141,16 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 				subject = h.Value
 			}
 		}
-		emailSummaries = append(emailSummaries, fmt.Sprintf("%d from %s: %s", idx+1, from, subject))
+		emailSummaries = append(emailSummaries, fmt.Sprintf("%d : from %s: %s", idx+1, from, subject))
 	}
 	logMsg := strings.Join(emailSummaries, " | ")
-	s.processStatusService.LogStep(processID, "email list", constant.Success, fmt.Sprintf("%d emails found: %s", len(emailSummaries), logMsg), "", nil, nil, nil, nil, nil, nil)
+	step1 := string(constant.FetchEmailsList)
+	s.processStatusService.LogStep(processID, step1, constant.Success, fmt.Sprintf("%d emails found: %s", len(emailSummaries), logMsg), errorMsg, nil, nil, nil, nil, nil, nil)
 	var records []*models.TblMedicalRecord
 	findMailstep := string(constant.FindingEmailWithAttachment)
 	for idx, msg := range results.Messages {
 		indexCount := idx
+		msgId := msg.Id
 		message, err := service.Users.Messages.Get("me", msg.Id).Do()
 		if err != nil || message == nil {
 			log.Println("FetchEmailsWithAttachments Error getting email for ", userId, userEmail, ":", err)
@@ -156,14 +158,33 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 			s.processStatusService.LogStepAndFail(processID, findMailstep, constant.Failure, logmsg, err.Error(), nil, nil, nil)
 			continue
 		}
-		msg := fmt.Sprintf("Processing email attachment: %d / %d", indexCount, len(results.Messages))
-		s.processStatusService.LogStep(processID, findMailstep, constant.Running, msg, errorMsg, nil, &indexCount, nil, nil, nil, nil)
+		var bodyText string
+		bodyText = GetMessageBody(message.Payload)
+		subject := getHeader(message.Payload.Headers, "Subject")
+		log.Println(subject)
+		foundLab := false
+		emailMsg := ""
+		for _, lab := range labNames {
+			if strings.Contains(strings.ToLower(bodyText), strings.ToLower(lab)) {
+				emailMsg = fmt.Sprintf("Lab name %s found in %s", lab, subject)
+				foundLab = true
+				break
+			}
+		}
+		if !foundLab {
+			msg := fmt.Sprintf("No valid lab found in email body for message %s", subject)
+			log.Println(msg)
+			continue
+		}
 		log.Println("FetchEmailsWithAttachments Processing Email for:", userId, ":", userEmail, ": Processing Mail", idx+1, " of ", len(results.Messages))
 		attachments := s.ExtractAttachment(service, message, userEmail, userId, processID, idx+1)
+		msg := fmt.Sprintf("Processing email attachment: %d / %d", indexCount, len(results.Messages))
+		msg = fmt.Sprintf("%s and %d attachments found  MSG: %s", emailMsg, len(attachments), msg)
+		s.processStatusService.LogStep(processID, findMailstep, constant.Running, msg, errorMsg, nil, &indexCount, nil, nil, nil, &msgId)
 		records = append(records, attachments...)
 	}
-	msg3 := fmt.Sprintf("Processed email attachment: %d", len(records)-1)
-	totalRecord := len(records) - 1
+	msg3 := fmt.Sprintf("Found %d email attachment in %d email", len(records), len(results.Messages))
+	totalRecord := len(records)
 	s.processStatusService.LogStep(processID, findMailstep, constant.Success, msg3, errorMsg, nil, &totalRecord, nil, nil, nil, nil)
 	log.Println("@FetchEmailsWithAttachments->Gmail Records found:", len(records), "userEmail: ", userEmail)
 	return records, nil
@@ -388,12 +409,17 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	errorMsg := ""
 	gs.processStatusService.LogStep(processID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, nil)
 	labs, err := gs.diagnosticRepo.GetPatientLabNameAndEmail(userId)
+	var labNames []string
+	for _, lab := range labs {
+		labNames = append(labNames, lab.LabName)
+	}
 	if err != nil {
 		gs.processStatusService.LogStepAndFail(processID, step, constant.Failure, string(constant.UserLabNotFound), err.Error(), nil, nil, nil)
 		log.Println("@GmailSyncCore->GetPatientLabNameAndEmail:", userId, " err:", err)
 		return err
 	} else {
-		gs.processStatusService.LogStep(processID, step, constant.Success, string(constant.UserLabFetched), errorMsg, nil, nil, nil, nil, nil, nil)
+		labMsg := fmt.Sprintf("Total %d labs fetched %s ", len(labNames), strings.Join(labNames, " | "))
+		gs.processStatusService.LogStep(processID, step, constant.Success, labMsg, errorMsg, nil, nil, nil, nil, nil, nil)
 	}
 	filterString := utils.FormatLabsForGmailFilter(labs)
 	profile, err := gmailService.Users.GetProfile("me").Do()
@@ -403,16 +429,13 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		log.Println("@GmailSyncCore->gmailService.Users.GetProfile:", userId, " err:", err)
 		return err
 	}
-	step1 := string(constant.ProcessFetchEmails)
-	gs.processStatusService.LogStep(processID, step1, constant.Success, string(constant.FetchEmailAttachment), errorMsg, nil, nil, nil, nil, nil, nil)
-	emailMedRecord, err := gs.FetchEmailsWithAttachment(gmailService, userId, filterString, processID)
+	emailMedRecord, err := gs.FetchEmailsWithAttachment(gmailService, userId, filterString, processID, labNames)
 	if err != nil {
 		msg := "No valid medical records were found during this current Gmail sync."
 		gs.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
 		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userId, " err:", err)
 		return err
 	}
-	gs.processStatusService.LogStep(processID, step1, constant.Success, string(constant.EmailAttachmentFetch), errorMsg, nil, nil, nil, nil, nil, nil)
 	totalRecord := len(emailMedRecord)
 	checkDocTypeStep := string(constant.CheckDocType)
 	docCompleteMsg := string(constant.CheckDocTypeCompleted)
@@ -436,11 +459,10 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		pdfCheckResult, err := gs.apiService.CheckPDFAndGetPassword(bytes.NewReader(fileData), record.RecordName, record.Description)
 		if err != nil {
 			log.Printf("PDF check failed: for %s %v", record.RecordUrl, err)
-			msg := fmt.Sprintf("Processing doc %d | Failed to check if PDF is password protected", idx+1)
+			msg := fmt.Sprintf("Processing doc %d | Failed to check if PDF is password protected. Doc URL : %s", idx+1, record.RecordUrl)
 			gs.processStatusService.LogStepAndFail(processID, checkPasswordProtectedStep, constant.Failure, msg, err.Error(), &idx, nil, &attachmentId)
 			continue
 		} else if pdfCheckResult.IsProtected {
-			log.Printf("PDF is password protected. File name %s Password: %s", record, pdfCheckResult.Password)
 			decryptMsg := fmt.Sprintf("Processing doc %d | Doc password protected: %s, password we fetched: %s, Trying to decrypt, document URL: %s", idx+1, map[bool]string{true: "Yes", false: "No"}[pdfCheckResult.IsProtected], pdfCheckResult.Password, record.RecordUrl)
 			fileData, err = DecryptPDFIfProtected(fileData, pdfCheckResult.Password)
 			if err != nil {
@@ -452,7 +474,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 			log.Println("Decryption successful.")
 			gs.processStatusService.LogStep(processID, checkPasswordProtectedStep, constant.Success, decryptMsg, errorMsg, nil, nil, nil, nil, nil, &attachmentId)
 		} else {
-			msg := fmt.Sprintf("Processing doc %d | Doc Password protection check successful.", idx+1)
+			msg := fmt.Sprintf("Processing doc %d | Document is not password protected. Doc URL : %s", idx+1, record.RecordUrl)
 			gs.processStatusService.LogStep(processID, checkPasswordProtectedStep, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, &attachmentId)
 		}
 		recordIndexCount := idx + 1
