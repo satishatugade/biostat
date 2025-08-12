@@ -37,7 +37,7 @@ type TblMedicalRecordService interface {
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error)
-	GetMedicalRecords(userID uint64, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, error)
+	GetMedicalRecords(userID uint64, category string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error)
 
 	ReadMedicalRecord(ResourceId uint64, userId, reqUserId uint64) (interface{}, error)
 	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
@@ -402,10 +402,10 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userI
 	return response, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, error) {
-	records, total, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, limit, offset, isDeleted)
+func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, category string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
+	records, total, counts, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, category, limit, offset, isDeleted)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 
 	var recordIDs []uint64
@@ -415,7 +415,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 
 	attachments, err := s.tblMedicalRecordRepo.GetDiagnosticAttachmentByRecordIDs(recordIDs)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 
 	reportMap := make(map[uint64]uint64)
@@ -517,7 +517,7 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, limit, of
 		responses = append(responses, resp)
 	}
 
-	return responses, total, nil
+	return responses, total, counts, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error {

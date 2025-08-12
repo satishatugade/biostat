@@ -903,9 +903,9 @@ func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
 
 	var filterClauses []string
 
-	if len(fromParts) > 0 {
-		filterClauses = append(filterClauses, fmt.Sprintf("(%s)", strings.Join(fromParts, " OR ")))
-	}
+	// if len(fromParts) > 0 {
+	// 	filterClauses = append(filterClauses, fmt.Sprintf("(%s)", strings.Join(fromParts, " OR ")))
+	// }
 	if len(subjectParts) > 0 {
 		filterClauses = append(filterClauses, fmt.Sprintf("(%s)", strings.Join(subjectParts, " OR ")))
 	}
@@ -914,7 +914,7 @@ func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
 		return "in:inbox has:attachment"
 	}
 
-	return fmt.Sprintf("(%s) has:attachment", strings.Join(filterClauses, " OR "))
+	return fmt.Sprintf("-from:me -in:sent -in:draft -in:spam -in:trash (%s) has:attachment", strings.Join(filterClauses, " OR "))
 }
 
 func GetReverseRelation(relationId int, myGenderId int) *int {

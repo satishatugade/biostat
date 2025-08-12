@@ -989,10 +989,11 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 	}
 	page, limit, offset := utils.GetPaginationParams(ctx)
 	isDeleted, queryParamErr := strconv.Atoi(ctx.DefaultQuery("is_deleted", "0"))
+	category := ctx.DefaultQuery("category", "")
 	if queryParamErr != nil {
 		isDeleted = 0
 	}
-	data, total, err := c.medicalRecordService.GetMedicalRecords(patientId, limit, offset, isDeleted)
+	data, total, counts, err := c.medicalRecordService.GetMedicalRecords(patientId,category, limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return
@@ -1002,7 +1003,13 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 	if len(data) > 0 {
 		message = "Data retrieved successfully"
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, pagination, nil)
+	responseData := map[string]interface{}{
+		"records": data,
+		"counts":  counts,
+		"total":   total,
+		"hasMore": (int64(offset+limit) < total),
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, responseData, pagination, nil)
 }
 
 func (c *PatientController) GetDiagnosticLabReportName(ctx *gin.Context) {

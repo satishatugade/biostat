@@ -35,7 +35,7 @@ type TblMedicalRecordRepository interface {
 
 	DeleteTblMedicalRecordWithMappings(id int, user_id string) error
 
-	GetMedicalRecordsByUser(userID uint64, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, error)
+	GetMedicalRecordsByUser(userID uint64, category string, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, map[string]int64, error)
 	GetDiagnosticAttachmentByRecordIDs(recordIDs []uint64) ([]models.PatientReportAttachment, error)
 	GetDiagnosticReport(reportID uint64, isDeleted int) (*models.PatientDiagnosticReport, error)
 	GetDiagnosticTests(reportID uint64) ([]models.PatientDiagnosticTest, error)
@@ -58,25 +58,43 @@ func NewTblMedicalRecordRepository(db *gorm.DB) TblMedicalRecordRepository {
 }
 
 // Get List of ALL MEDICAL RECORDS FOR USER
-func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, error) {
+func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, category string, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, map[string]int64, error) {
 	var records []models.TblMedicalRecord
 	var total int64
+	counts := make(map[string]int64)
 
 	status := config.PropConfig.SystemVaribale.Status
 	statuses := strings.Split(status, ",")
 
-	query := r.db.
+	baseQuery := r.db.
 		Table("tbl_medical_record AS mr").
 		Joins("JOIN tbl_medical_record_user_mapping AS mrum ON mr.record_id = mrum.record_id").
 		Where("mrum.user_id = ? AND mr.is_deleted = ? AND mr.status IN (?) ", userID, isDeleted, statuses)
 
+	var categoryCounts []struct {
+		RecordCategory string
+		Count          int64
+	}
+	countsQuery := baseQuery.Session(&gorm.Session{})
+	if err := countsQuery.Select("mr.record_category, COUNT(*) as count").
+		Group("mr.record_category").
+		Scan(&categoryCounts).Error; err != nil {
+		return nil, 0, nil, err
+	}
+	for _, c := range categoryCounts {
+		counts[c.RecordCategory] = c.Count
+	}
+	query := baseQuery.Session(&gorm.Session{})
 	if isDeleted == 1 {
 		recordCategory := string(constant.DUPLICATE)
 		query = query.Where("mr.record_category = ?", recordCategory)
 	}
+	if category != "" {
+		query = query.Where("mr.record_category = ?", category)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 
 	err := query.
@@ -85,7 +103,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, 
 		Order("mr.created_at DESC").
 		Find(&records).Error
 
-	return records, total, err
+	return records, total, counts, err
 }
 
 // GET LIST OF DIGITIZED RECORDS out of user records
@@ -484,7 +502,6 @@ func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.Tbl
 			tx.Rollback()
 			return nil, err
 		}
-		log.Println("mergedMetadata:", mergedMetadata)
 		updateFields["metadata"] = datatypes.JSON(mergedMetadata)
 	}
 	if data.IsDeleted != 0 {

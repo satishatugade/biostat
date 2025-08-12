@@ -218,10 +218,12 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	reportData, err := w.apiService.CallGeminiService(fileBuf, p.FileName)
 	if err != nil {
-		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, string(constant.CallingAIFailed), err.Error(), nil, &p.RecordID, p.AttachmentId)
+		aiResMsg := fmt.Sprintf("Processed record id %d %s %s %s", p.RecordID, p.Category, p.FileName, string(constant.CallingAIFailed))
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, aiResMsg, err.Error(), nil, &p.RecordID, p.AttachmentId)
 		return err
 	}
-	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, string(constant.CallingAIServiceSuccess), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+	aiResMsg := fmt.Sprintf("Processed record id %d %s %s %s", p.RecordID, p.Category, p.FileName, string(constant.CallingAIServiceSuccess))
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, aiResMsg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
 	var isUnknownReport bool
@@ -245,6 +247,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				return err
 			}
 		}
+		msg = fmt.Sprintf("Processed record id %d %s , Report patient name %s", p.RecordID, string(constant.MatchingNameMsg), reportData.ReportDetails.PatientName)
 		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	}
 	reportData.ReportDetails.IsDigital = true
