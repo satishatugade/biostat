@@ -161,12 +161,13 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 		var bodyText string
 		bodyText = GetMessageBody(message.Payload)
 		subject := getHeader(message.Payload.Headers, "Subject")
+		emailDate := getHeader(message.Payload.Headers, "Date")
 		log.Println(subject)
 		foundLab := false
 		emailMsg := ""
 		for _, lab := range labNames {
 			if strings.Contains(strings.ToLower(bodyText), strings.ToLower(lab)) {
-				emailMsg = fmt.Sprintf("Lab name %s found in %s", lab, subject)
+				emailMsg = fmt.Sprintf("Lab name %s found in EmailSub %s dated %s", lab, subject, emailDate)
 				foundLab = true
 				break
 			}
@@ -178,8 +179,7 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 		}
 		log.Println("FetchEmailsWithAttachments Processing Email for:", userId, ":", userEmail, ": Processing Mail", idx+1, " of ", len(results.Messages))
 		attachments := s.ExtractAttachment(service, message, userEmail, userId, processID, idx+1)
-		msg := fmt.Sprintf("Processing email attachment: %d / %d", indexCount, len(results.Messages))
-		msg = fmt.Sprintf("%s and %d attachments found  MSG: %s", emailMsg, len(attachments), msg)
+		msg := fmt.Sprintf("%s and %d attachments found", emailMsg, len(attachments))
 		s.processStatusService.LogStep(processID, findMailstep, constant.Running, msg, errorMsg, nil, &indexCount, nil, nil, nil, &msgId)
 		records = append(records, attachments...)
 	}
@@ -201,13 +201,15 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 			recordIndexCount := idx + 1
 			attachmentId := part.Body.AttachmentId
 			body := GetMessageBody(message.Payload)
-			msg := fmt.Sprintf("Downloading attachment %s from %s", part.Filename, getHeader(message.Payload.Headers, "Subject"))
+			emailDate := getHeader(message.Payload.Headers, "Date")
+			subject := getHeader(message.Payload.Headers, "Subject")
+			msg := fmt.Sprintf("Downloading attachment %s Dated on %s from EmailSub %s", part.Filename, emailDate, subject)
 			log.Println("@ExtractAttachments Processing Record from Email:", mailIdx, "-", recordIndexCount, "/", len(message.Payload.Parts), ": ", part.Filename, "-", getHeader(message.Payload.Headers, "Subject"))
 			s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 			attachmentData, err := DownloadAttachment(service, message.Id, attachmentId)
 			if err != nil {
 				log.Printf("@ExtractAttachments->DownloadAttachment %s: %v", part.Filename, err)
-				msg = fmt.Sprintf("Error Downloading attachment %s from %s", part.Filename, getHeader(message.Payload.Headers, "Subject"))
+				msg = fmt.Sprintf("Error Downloading attachment %s from %s Dated on %s", part.Filename, subject, emailDate)
 				s.processStatusService.LogStep(processID, step, constant.Failure, msg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 				continue
 			}
@@ -245,6 +247,8 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 				UploadSource:      "Gmail",
 				RecordCategory:    string(constant.OTHER),
 				SourceAccount:     userEmail,
+				UDF1:              subject,
+				UDF2:              emailDate,
 				Status:            constant.StatusProcessing,
 				Metadata:          metadataJSON,
 				UploadedBy:        userId,
@@ -284,41 +288,8 @@ func getHeader(headers []*gmail.MessagePartHeader, name string) string {
 	return ""
 }
 
-// func GetMessageBody(payload *gmail.MessagePart) string {
-// 	if payload.Body != nil && payload.Body.Data != "" {
-// 		// body, _ := base64.URLEncoding.DecodeString(payload.Body.Data)
-// 		body, _ := base64.RawURLEncoding.DecodeString(payload.Body.Data)
-// 		return string(body)
-// 	}
-
-// 	for _, part := range payload.Parts {
-// 		if part.MimeType == "multipart/alternative" || part.MimeType == "multipart/mixed" {
-// 			result := GetMessageBody(part)
-// 			if result != "" {
-// 				return result
-// 			}
-// 		}
-// 		if part.MimeType == "text/plain" && part.Body != nil && part.Body.Data != "" {
-// 			// body, _ := base64.URLEncoding.DecodeString(part.Body.Data)
-// 			body, _ := base64.RawURLEncoding.DecodeString(payload.Body.Data)
-// 			return string(body)
-// 		}
-// 		if part.MimeType == "text/html" && part.Body != nil && part.Body.Data != "" {
-// 			// body, _ := base64.URLEncoding.DecodeString(part.Body.Data)
-// 			body, _ := base64.RawURLEncoding.DecodeString(payload.Body.Data)
-// 			return utils.StripHTML(string(body))
-// 		}
-// 	}
-
-// 	return ""
-// }
-
 func GetMessageBody(payload *gmail.MessagePart) string {
-	// log.Println("[GetMessageBody] Starting function call")
-
-	// Case 1: Direct body data at root level
 	if payload.Body != nil && payload.Body.Data != "" {
-		// log.Println("[GetMessageBody] Found root-level body data")
 		decoded, err := base64.RawURLEncoding.DecodeString(payload.Body.Data)
 		if err != nil {
 			log.Println("[GetMessageBody] Error decoding root-level body:", err)
@@ -328,30 +299,18 @@ func GetMessageBody(payload *gmail.MessagePart) string {
 		if len(preview) > 100 {
 			preview = preview[:100] + "..."
 		}
-		// log.Printf("[GetMessageBody] Message body (root-level preview): %q", preview)
 		return string(decoded)
 	}
 
-	// log.Println("[GetMessageBody] No root-level body, checking parts... total parts:", len(payload.Parts))
-
-	// Loop through all parts
 	for i, part := range payload.Parts {
-		// log.Printf("[GetMessageBody] Checking part %d, MimeType: %s", i, part.MimeType)
-
-		// Recursive check for multipart messages
 		if part.MimeType == "multipart/alternative" || part.MimeType == "multipart/mixed" {
-			// log.Printf("[GetMessageBody] Found multipart type in part %d, diving deeper...", i)
 			result := GetMessageBody(part)
 			if result != "" {
-				log.Printf("[GetMessageBody] Got body from nested part %d", i)
 				return result
 			}
-			// log.Printf("[GetMessageBody] No body found in nested part %d", i)
 		}
 
-		// Plain text case
 		if part.MimeType == "text/plain" && part.Body != nil && part.Body.Data != "" {
-			// log.Printf("[GetMessageBody] Found text/plain body in part %d", i)
 			decoded, err := decodeGmailBase64(part.Body.Data)
 			if err != nil {
 				log.Printf("[GetMessageBody] Error decoding text/plain in part %d: %v", i, err)
@@ -361,13 +320,10 @@ func GetMessageBody(payload *gmail.MessagePart) string {
 			if len(preview) > 100 {
 				preview = preview[:100] + "..."
 			}
-			// log.Printf("[GetMessageBody] Message body (text/plain preview): %q", preview)
 			return string(decoded)
 		}
 
-		// HTML case
 		if part.MimeType == "text/html" && part.Body != nil && part.Body.Data != "" {
-			// log.Printf("[GetMessageBody] Found text/html body in part %d", i)
 			decoded, err := base64.RawURLEncoding.DecodeString(part.Body.Data)
 			if err != nil {
 				log.Printf("[GetMessageBody] Error decoding text/html in part %d: %v", i, err)
@@ -378,12 +334,9 @@ func GetMessageBody(payload *gmail.MessagePart) string {
 			if len(preview) > 100 {
 				preview = preview[:100] + "..."
 			}
-			// log.Printf("[GetMessageBody] Message body (HTML preview after strip): %q", preview)
 			return stripped
 		}
 	}
-
-	log.Println("[GetMessageBody] No body found in any parts")
 	return ""
 }
 
@@ -442,6 +395,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	totalAttempted := 0
 	successCount := 0
 	for idx, record := range emailMedRecord {
+		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		attachmentId, err := utils.GetAttachmentIDFromRecord(record)
 		if err != nil {
 			log.Println("GetAttachmentIDFromRecord Error:", err)
@@ -459,33 +413,33 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		pdfCheckResult, err := gs.apiService.CheckPDFAndGetPassword(bytes.NewReader(fileData), record.RecordName, record.Description)
 		if err != nil {
 			log.Printf("PDF check failed: for %s %v", record.RecordUrl, err)
-			msg := fmt.Sprintf("Processing doc %d | Failed to check if PDF is password protected. Doc URL : %s", idx+1, record.RecordUrl)
+			msg := fmt.Sprintf("Processing doc %d | %s | Failed to check if PDF is password protected. Doc URL : %s", idx+1, recordInfo, record.RecordUrl)
 			gs.processStatusService.LogStepAndFail(processID, checkPasswordProtectedStep, constant.Failure, msg, err.Error(), &idx, nil, &attachmentId)
 			continue
 		} else if pdfCheckResult.IsProtected {
-			decryptMsg := fmt.Sprintf("Processing doc %d | Doc password protected: %s, password we fetched: %s, Trying to decrypt, document URL: %s", idx+1, map[bool]string{true: "Yes", false: "No"}[pdfCheckResult.IsProtected], pdfCheckResult.Password, record.RecordUrl)
+			decryptMsg := fmt.Sprintf("Processing doc %d | %s | Doc password protected: %s, password we fetched: %s, Trying to decrypt, document URL: %s", idx+1, recordInfo, map[bool]string{true: "Yes", false: "No"}[pdfCheckResult.IsProtected], pdfCheckResult.Password, record.RecordUrl)
 			fileData, err = DecryptPDFIfProtected(fileData, pdfCheckResult.Password)
 			if err != nil {
 				log.Printf("Decryption failed: %v", err)
-				decryptErr := fmt.Sprintf("Processing doc %d | Doc decryption failed, password we fetched: %s, document URL: %s", idx+1, pdfCheckResult.Password, record.RecordUrl)
+				decryptErr := fmt.Sprintf("Processing doc %d | %s | Doc decryption failed, password we fetched: %s, document URL: %s", idx+1, recordInfo, pdfCheckResult.Password, record.RecordUrl)
 				gs.processStatusService.LogStepAndFail(processID, checkPasswordProtectedStep, constant.Failure, decryptErr, err.Error(), &idx, nil, &attachmentId)
 				continue
 			}
 			log.Println("Decryption successful.")
 			gs.processStatusService.LogStep(processID, checkPasswordProtectedStep, constant.Success, decryptMsg, errorMsg, nil, nil, nil, nil, nil, &attachmentId)
 		} else {
-			msg := fmt.Sprintf("Processing doc %d | Document is not password protected. Doc URL : %s", idx+1, record.RecordUrl)
+			msg := fmt.Sprintf("Processing doc %d | %s | Document is not password protected. Doc URL : %s", idx+1, recordInfo, record.RecordUrl)
 			gs.processStatusService.LogStep(processID, checkPasswordProtectedStep, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, &attachmentId)
 		}
 		recordIndexCount := idx + 1
-		msg1 := fmt.Sprintf("Processing doc %d | %s", idx+1, string(constant.CheckDocTypeMessage))
+		msg1 := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeMessage), recordInfo)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, msg1, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 		log.Println("@GmailSyncCore: checking doc type for document ", idx+1, "/", totalRecord, record.RecordName)
 		docTypeResp := ""
 		docTypeResp, err = utils.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
 		if err != nil {
 			log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
-			docMsg := fmt.Sprintf("Processing doc %d | %s", idx+1, string(constant.CheckDocTypeFailedMessage))
+			docMsg := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeFailedMessage), recordInfo)
 			gs.processStatusService.LogStepAndFail(processID, checkDocTypeStep, constant.Failure, docMsg, err.Error(), &idx, nil, nil)
 			docTypeResp = string(constant.OTHER)
 		}
@@ -497,7 +451,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		record.Status = status
 		record.IsPasswordProtected = pdfCheckResult.IsProtected
 		record.PDFPassword = pdfCheckResult.Password
-		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s : Document URL : %s", idx+1, docTypeResp, record.RecordUrl)
+		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s : Document URL : %s | %s", idx+1, docTypeResp, record.RecordUrl, recordInfo)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 	}
 	failedCount := totalAttempted - successCount
@@ -524,6 +478,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		return err
 	}
 	for idx, record := range emailMedRecord {
+		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.PRESCRIPTION) {
 			attachmentId, err := utils.GetAttachmentIDFromRecord(record)
 			if err != nil {
@@ -531,7 +486,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 			} else {
 				log.Println("GetAttachmentIDFromRecord Attachment ID:", attachmentId)
 			}
-			msg := fmt.Sprintf("Processing doc %d | Starting digitization for report id :%d category: %s %s", idx+1, record.RecordId, record.RecordCategory, record.RecordName)
+			msg := fmt.Sprintf("Processing doc %d | Starting digitization for report id :%d category: %s %s | %s", idx+1, record.RecordId, record.RecordCategory, record.RecordName, recordInfo)
 			gs.processStatusService.LogStep(processID, step4, constant.Running, msg, errorMsg, &record.RecordId, nil, nil, nil, nil, &attachmentId)
 			log.Println("Starting to Digitize saved record :", record.RecordId)
 			resp, err := http.Get(record.RecordUrl)
@@ -546,14 +501,19 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 			filename := filepath.Base(record.RecordUrl)
 			taskErr := gs.medRecordService.CreateDigitizationTask(record, userInfo, userId, fileBuf, filename, processID, &attachmentId)
 			if taskErr != nil {
-				msg := fmt.Sprintf("Processing doc %d | Failed digitization for report id :%d category: %s %s", idx+1, record.RecordId, record.RecordCategory, record.RecordName)
+				msg := fmt.Sprintf("Processing doc %d | Failed digitization for report id :%d category: %s %s | %s", idx+1, record.RecordId, record.RecordCategory, record.RecordName, recordInfo)
 				log.Println("Error @GmailSyncCore->CreateDigitizationTask: ", taskErr)
 				gs.processStatusService.LogStepAndFail(processID, step4, constant.Failure, msg, taskErr.Error(), nil, &record.RecordId, &attachmentId)
 			}
 			gs.processStatusService.LogStep(processID, step4, constant.Success, msg, errorMsg, &record.RecordId, nil, nil, nil, nil, &attachmentId)
 		}
 	}
-	msg5 := fmt.Sprintf("Gmail Sync completed for %d records. These records are now being processed for digitization. You’ll be notified once the process is complete.", len(emailMedRecord))
+	msg5 := ""
+	if len(emailMedRecord) > 0 {
+		msg5 = fmt.Sprintf("Gmail Sync completed for %d records. These records are now being processed for digitization. You’ll be notified once the process is complete.", len(emailMedRecord))
+	} else {
+		msg5 = fmt.Sprintf("Gmail Sync completed. No records found")
+	}
 	gs.processStatusService.LogStep(processID, step4, constant.Success, msg5, errorMsg, nil, nil, nil, nil, nil, nil)
 	return nil
 }

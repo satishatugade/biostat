@@ -18,6 +18,9 @@ type TblMedicalRecord struct {
 	SourceAccount     string         `gorm:"column:source_account;" json:"source_account"`
 	RecordCategory    string         `gorm:"column:record_category;" json:"record_category"`
 	Description       string         `gorm:"column:description;" json:"description"`
+	UDF1              string         `gorm:"-" json:"udf1"`
+	UDF2              string         `gorm:"-" json:"udf2"`
+	UDF3              string         `gorm:"-" json:"udf3"`
 	FileData          []byte         `gorm:"column:file_data;" json:"file_data"`
 	RecordUrl         string         `gorm:"column:record_url;" json:"record_url"`
 	FetchedAt         time.Time      `gorm:"column:fetched_at;default:CURRENT_TIMESTAMP" json:"fetched_at"`
