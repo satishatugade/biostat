@@ -228,16 +228,16 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	matchedUserID := p.UserID
 	var isUnknownReport bool
 	var matchName string
+	var matchMessage string
 	if reportData.ReportDetails.PatientName != "" {
 		step := string(constant.MatchingReport)
 		msg := string(constant.MatchingNameMsg)
 		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
-		matchedUserID, matchName, isUnknownReport = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
+		matchedUserID, matchName, isUnknownReport, matchMessage = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
 		config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
-		msg1 := fmt.Sprintf("Match Name found: %s", matchName)
+		log.Printf("Match Name found: %s", matchName)
 		if matchedUserID != p.UserID || isUnknownReport {
-			msg = fmt.Sprintf("%s : No matching patient or relative found. Report will be shifted to other bucket list.", msg1)
-			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg1, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 			tx := w.db.Begin()
 			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
 			if err != nil {
@@ -247,7 +247,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				return err
 			}
 		}
-		msg = fmt.Sprintf("Processed record id %d %s , Report patient name %s", p.RecordID, string(constant.MatchingNameMsg), reportData.ReportDetails.PatientName)
+		msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
 		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	}
 	reportData.ReportDetails.IsDigital = true

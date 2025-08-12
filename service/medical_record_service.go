@@ -206,7 +206,7 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 	return nil
 }
 
-func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) (uint64, string, bool) {
+func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) (uint64, string, bool, string) {
 	normalizedPatientName := strings.TrimSpace(strings.ToLower(patientName))
 	config.Log.Info("Patient name on report returned from AI service", zap.String("Patient name", patientName))
 
@@ -214,6 +214,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 	var bestMatchID uint64
 	var bestMatchName string
 	isUnknownReport := false
+	var matchMessage string
 
 	// Match against system patient name
 	systemNameParts := strings.Fields(strings.TrimSpace(systemPatientName))
@@ -228,6 +229,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 			highestScore = score
 			bestMatchID = fallbackUserID
 			bestMatchName = full
+			matchMessage = fmt.Sprintf("Report matches with system patient name '%s' (self)", bestMatchName)
 			isUnknownReport = true
 		}
 	}
@@ -256,6 +258,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 				highestScore = score
 				bestMatchID = relative.RelativeId
 				bestMatchName = full
+				matchMessage = fmt.Sprintf("Report matches with relative '%s'", bestMatchName)
 				isUnknownReport = true
 			}
 		}
@@ -263,14 +266,15 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 	if !isUnknownReport {
 		bestMatchID = fallbackUserID
 		bestMatchName = systemPatientName
-		log.Printf("No good match found. Falling back to system patient name '%s' (User ID: %d)", bestMatchName, bestMatchID)
+		matchMessage = fmt.Sprintf("No good match found. Falling back to system patient name '%s' (User ID: %d) (SELF) in OTHER Bucket", bestMatchName, bestMatchID)
+		log.Printf(matchMessage)
 		isUnknownReport = true
 	} else {
 		isUnknownReport = false
 	}
 
 	log.Printf("Best report name match with: '%s' | User ID: %d | Score: %d | isUnknownReport: %v", bestMatchName, bestMatchID, highestScore, isUnknownReport)
-	return bestMatchID, bestMatchName, isUnknownReport
+	return bestMatchID, bestMatchName, isUnknownReport, matchMessage
 }
 
 func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64) error {
