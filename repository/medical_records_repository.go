@@ -58,6 +58,55 @@ func NewTblMedicalRecordRepository(db *gorm.DB) TblMedicalRecordRepository {
 }
 
 // Get List of ALL MEDICAL RECORDS FOR USER
+// func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, category string, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, map[string]int64, error) {
+// 	var records []models.TblMedicalRecord
+// 	var total int64
+// 	counts := make(map[string]int64)
+
+// 	status := config.PropConfig.SystemVaribale.Status
+// 	statuses := strings.Split(status, ",")
+
+// 	baseQuery := r.db.
+// 		Table("tbl_medical_record AS mr").
+// 		Joins("JOIN tbl_medical_record_user_mapping AS mrum ON mr.record_id = mrum.record_id").
+// 		Where("mrum.user_id = ? AND mr.is_deleted = ? AND mr.status IN (?) ", userID, isDeleted, statuses)
+
+// 	var categoryCounts []struct {
+// 		RecordCategory string
+// 		Count          int64
+// 	}
+// 	countsQuery := baseQuery.Session(&gorm.Session{})
+// 	if err := countsQuery.Select("mr.record_category, COUNT(*) as count").
+// 		Group("mr.record_category").
+// 		Scan(&categoryCounts).Error; err != nil {
+// 		return nil, 0, nil, err
+// 	}
+// 	for _, c := range categoryCounts {
+// 		counts[c.RecordCategory] = c.Count
+// 	}
+// 	query := baseQuery.Session(&gorm.Session{})
+// 	if isDeleted == 1 {
+// 		recordCategory := string(constant.DUPLICATE)
+// 		query = query.Where("mr.record_category = ?", recordCategory)
+// 	}
+// 	if category != "" {
+// 		query = query.Where("mr.record_category = ?", category)
+// 	}
+
+// 	if err := query.Count(&total).Error; err != nil {
+// 		return nil, 0, nil, err
+// 	}
+
+// 	err := query.
+// 		Offset(offset).
+// 		Limit(limit).
+// 		Order("mr.created_at DESC").
+// 		Find(&records).Error
+
+// 	return records, total, counts, err
+// }
+
+// Get List of ALL MEDICAL RECORDS FOR USER
 func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, category string, limit, offset, isDeleted int) ([]models.TblMedicalRecord, int64, map[string]int64, error) {
 	var records []models.TblMedicalRecord
 	var total int64
@@ -85,6 +134,9 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, 
 		counts[c.RecordCategory] = c.Count
 	}
 	query := baseQuery.Session(&gorm.Session{})
+	query = query.
+		Joins("LEFT JOIN tbl_patient_report_attachment AS pra ON pra.record_id = mr.record_id").
+		Joins("LEFT JOIN tbl_patient_diagnostic_report AS report ON report.patient_diagnostic_report_id = pra.patient_diagnostic_report_id")
 	if isDeleted == 1 {
 		recordCategory := string(constant.DUPLICATE)
 		query = query.Where("mr.record_category = ?", recordCategory)
@@ -100,7 +152,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetMedicalRecordsByUser(userID uint64, 
 	err := query.
 		Offset(offset).
 		Limit(limit).
-		Order("mr.created_at DESC").
+		Order("COALESCE(report.report_date, mr.created_at) DESC").
 		Find(&records).Error
 
 	return records, total, counts, err

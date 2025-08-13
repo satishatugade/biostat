@@ -415,7 +415,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	checkDocTypeStep := string(constant.CheckDocType)
 	docCompleteMsg := string(constant.CheckDocTypeCompleted)
 	totalAttempted := 0
-	successCount := 0
+	errorCount := 0
 	for idx, record := range emailMedRecord {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		attachmentId, err := utils.GetAttachmentIDFromRecord(record)
@@ -460,13 +460,14 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		docTypeResp := ""
 		docTypeResp, err = utils.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
 		if err != nil {
+			errorCount++
 			log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
 			docMsg := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeFailedMessage), recordInfo)
 			gs.processStatusService.LogStepAndFail(processID, checkDocTypeStep, constant.Failure, docMsg, err.Error(), &idx, nil, nil)
 			docTypeResp = string(constant.OTHER)
 		}
 		status := constant.StatusQueued
-		if docTypeResp == string(constant.OTHER) {
+		if docTypeResp == string(constant.OTHER) || docTypeResp == string(constant.INSURANCE) || docTypeResp == string(constant.VACCINATION) || docTypeResp == string(constant.DISCHARGESUMMARY) || docTypeResp == string(constant.INVOICE) {
 			status = constant.StatusSuccess
 		}
 		record.RecordCategory = docTypeResp
@@ -476,8 +477,8 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s : Document URL : %s | %s", idx+1, docTypeResp, record.RecordUrl, recordInfo)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 	}
-	failedCount := totalAttempted - successCount
-	gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Success, docCompleteMsg, errorMsg, nil, nil, &totalAttempted, &successCount, &failedCount, nil)
+	successCount := totalAttempted - errorCount
+	gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Success, docCompleteMsg, errorMsg, nil, nil, &totalAttempted, &successCount, &errorCount, nil)
 	step3 := string(constant.ProcessSaveRecords)
 	msg3 := string(constant.SaveRecord)
 	gs.processStatusService.LogStep(processID, step3, constant.Running, msg3, errorMsg, nil, nil, &totalRecord, nil, nil, nil)

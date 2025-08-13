@@ -660,26 +660,26 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 			Find(&existingHOF).Error; err != nil {
 			return rollbackErr(err)
 		}
-		if len(existingHOF) >= 1 {
-			log.Println("existing found ", existingHOF)
-			for _, existing := range existingHOF {
-				if mappingType == string(constant.MappingTypeR) {
-					selfMapping, err := ps.GetSelfMappingWithType(tx, patientId, string(constant.MappingTypeS), true)
-					if err == nil && selfMapping != nil {
-						if err := ps.UpdateMappingType(tx, patientId, selfMapping.UserId, string(constant.MappingTypeHOF)); err != nil {
-							return rollbackErr(err)
-						}
-					}
-				}
-				newMappingType := string(constant.MappingTypeR)
-				if existing.MappingType == string(constant.MappingTypeHOF) && existing.IsSelf == true {
-					newMappingType = string(constant.MappingTypeS)
-				}
-				if err := ps.UpdateMappingType(tx, patientId, existing.UserId, newMappingType); err != nil {
-					return rollbackErr(err)
-				}
-			}
-		}
+		// if len(existingHOF) >= 1 {
+		// 	log.Println("existing found ", existingHOF)
+		// 	for _, existing := range existingHOF {
+		// 		if mappingType == string(constant.MappingTypeR) {
+		// 			selfMapping, err := ps.GetSelfMappingWithType(tx, patientId, string(constant.MappingTypeS), true)
+		// 			if err == nil && selfMapping != nil {
+		// 				if err := ps.UpdateMappingType(tx, patientId, selfMapping.UserId, string(constant.MappingTypeHOF)); err != nil {
+		// 					return rollbackErr(err)
+		// 				}
+		// 			}
+		// 		}
+		// 		newMappingType := string(constant.MappingTypeR)
+		// 		if existing.MappingType == string(constant.MappingTypeHOF) && existing.IsSelf == true {
+		// 			newMappingType = string(constant.MappingTypeS)
+		// 		}
+		// 		if err := ps.UpdateMappingType(tx, patientId, existing.UserId, newMappingType); err != nil {
+		// 			return rollbackErr(err)
+		// 		}
+		// 	}
+		// }
 
 	}
 	if err := tx.Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ? AND mapping_type = ? ", patientId, relativeId, mappingCondition).Update("mapping_type", mappingType).Error; err != nil {
