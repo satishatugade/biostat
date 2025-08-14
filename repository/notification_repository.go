@@ -2,6 +2,7 @@ package repository
 
 import (
 	"biostat/models"
+	"database/sql"
 	"log"
 
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ type UserNotificationRepository interface {
 	GetNotificationByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 	GetRemindersByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 	GetNotifUnregisteredUsers() ([]models.SystemUser_, error)
+	GetUserNotifyId(userId uint64) (string, error)
 }
 
 type UserNotificationRepositoryImpl struct {
@@ -46,4 +48,18 @@ func (r *UserNotificationRepositoryImpl) GetNotifUnregisteredUsers() ([]models.S
 	var users []models.SystemUser_
 	err := r.db.Where("notify_id IS NULL").Find(&users).Error
 	return users, err
+}
+
+func (r *UserNotificationRepositoryImpl) GetUserNotifyId(userId uint64) (string, error) {
+	var notifyId sql.NullString
+	err := r.db.Model(&models.SystemUser_{}).
+		Select("notify_id").Where("user_id = ?", userId).
+		Scan(&notifyId).Error
+	if err != nil {
+		return "", err
+	}
+	if notifyId.Valid {
+		return notifyId.String, nil
+	}
+	return "", nil
 }

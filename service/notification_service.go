@@ -31,6 +31,7 @@ type NotificationService interface {
 	RegisterUserInNotify(fcmToken, phone *string, email string) (uuid.UUID, error)
 	UpadateUserInNotify(recipientId string, fcmToken, email, phone *string) error
 	AddUsersToNotify() error
+	SaveOrUpdateNotifyCreds(userId uint64, fcmToken *string, user *models.SystemUser_) error
 }
 
 type NotificationServiceImpl struct {
@@ -605,4 +606,26 @@ func (e *NotificationServiceImpl) SendResetPasswordMail(systemUser *models.Syste
 	}
 	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
 	return sendErr
+}
+
+func (ns *NotificationServiceImpl) SaveOrUpdateNotifyCreds(userId uint64, fcmToken *string, user *models.SystemUser_) error {
+	notifyId, err := ns.notificationRepo.GetUserNotifyId(userId)
+	if err != nil {
+		return fmt.Errorf("error fetching notify_id: %w", err)
+	}
+	if notifyId == "" {
+		recipientId, err := ns.RegisterUserInNotify(fcmToken, &user.MobileNo, user.Email)
+		if err != nil {
+			return fmt.Errorf("error registering user in notify system: %w", err)
+		}
+		updateInfo := map[string]interface{}{
+			"notify_id": recipientId,
+		}
+		err = ns.userRepo.UpdateUserInfo(user.AuthUserId, updateInfo)
+		if err != nil {
+			return fmt.Errorf("error updating notify_id in DB: %w", err)
+		}
+		return nil
+	}
+	return ns.UpadateUserInNotify(user.NotifyId, fcmToken, &user.Email, &user.MobileNo)
 }

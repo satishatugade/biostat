@@ -378,6 +378,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"User Notifications", http.MethodGet, constant.Reminders, patientController.GetUserReminders},
 		Route{"User Notifications", http.MethodPost, constant.Messages, patientController.GetUserMessages},
 		Route{"User Notifications", http.MethodPost, constant.RunningProcessStatus, patientController.GetRecentUserProcesses},
+		Route{"Create Users on notify", http.MethodPost, constant.RecipientDetails, patientController.AddUpdateRecipient},
 
 		Route{"User address", http.MethodPost, constant.Address, patientController.GetMappedUserAddress},
 		Route{"User permissions", http.MethodPost, constant.Permission, patientController.AssignPermissionHandler},

@@ -53,3 +53,7 @@ type UserReminder struct {
 	NotificationType   string     `json:"notification_type"`
 	IsActive           bool       `json:"is_active"`
 }
+
+type RecipientRequest struct {
+	FCMToken *string `json:"fcm_token"`
+}

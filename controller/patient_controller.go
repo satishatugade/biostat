@@ -2902,3 +2902,28 @@ func (pc *PatientController) GetUserActivityLog(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, logs, pagination, nil)
 }
+
+func (pc *PatientController) AddUpdateRecipient(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var req models.RecipientRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request", nil, err)
+		return
+	}
+	user, err := pc.patientService.GetUserProfileByUserId(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failer to get user", nil, err)
+		return
+	}
+	err = pc.notificationService.SaveOrUpdateNotifyCreds(userId, req.FCMToken, user)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failer to serve request", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "details saved", nil, nil, nil)
+	return
+}
