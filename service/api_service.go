@@ -38,6 +38,7 @@ type ApiServiceImpl struct {
 	DigitizePrescriptionAPI    string
 	CheckPDFProtectionAPI      string
 	PDFPasswordAPI             string
+	DocTypeCheckAPI            string
 	client                     *http.Client
 	sessionCache               map[uint64]string
 }
@@ -52,6 +53,7 @@ func NewApiService() ApiService {
 		DigitizePrescriptionAPI:    os.Getenv("DIGITIZE_PRESCRIPTION_API"),
 		CheckPDFProtectionAPI:      config.PropConfig.ApiURL.CheckPDFProtectionAPI,
 		PDFPasswordAPI:             config.PropConfig.ApiURL.PDFPasswordAPI,
+		DocTypeCheckAPI:            config.PropConfig.ApiURL.DocTypeAPI,
 		client:                     &http.Client{},
 		sessionCache:               make(map[uint64]string),
 	}
@@ -583,7 +585,7 @@ func (s *ApiServiceImpl) CallDocumentTypeAPI(file io.Reader, filename string) (*
 		return nil, fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", os.Getenv("DOCUMENT_TYPE_API"), body)
+	req, err := http.NewRequest(http.MethodPost, s.DocTypeCheckAPI, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

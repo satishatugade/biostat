@@ -459,6 +459,8 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		log.Println("@GmailSyncCore: checking doc type for document ", idx+1, "/", totalRecord, record.RecordName)
 		docType := ""
 		keywordDocType := ""
+		var docTypeLogs string
+		var keywordDocTypeLogs string
 		apiResponse, err := gs.apiService.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
 		if err != nil {
 			errorCount++
@@ -469,9 +471,11 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		}
 		if apiResponse.Content.LLMClassifier.DocumentType != "" {
 			docType = apiResponse.Content.LLMClassifier.DocumentType
+			docTypeLogs = apiResponse.Content.LLMClassifier.Logs
 		}
 		if apiResponse.Content.RegexClassifier.DocumentType != "" {
 			keywordDocType = apiResponse.Content.RegexClassifier.DocumentType
+			keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
 		}
 
 		status := constant.StatusQueued
@@ -482,7 +486,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		record.Status = status
 		record.IsPasswordProtected = pdfCheckResult.IsProtected
 		record.PDFPassword = pdfCheckResult.Password
-		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s ( %s ) : Document URL : %s | %s", idx+1, docType, keywordDocType, record.RecordUrl, recordInfo)
+		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s ( %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, docType, keywordDocType, record.RecordUrl, recordInfo, docTypeLogs, keywordDocTypeLogs)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 	}
 	successCount := totalAttempted - errorCount
