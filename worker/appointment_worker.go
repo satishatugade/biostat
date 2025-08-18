@@ -311,7 +311,7 @@ func (w *DigitizationWorker) HandleDocTypeCheckTask(ctx context.Context, t *asyn
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return err
 	}
-	var docTypeResp string
+	var docTypeResp *models.DocTypeAPIResponse
 	var err error
 	for attempt := 1; attempt <= 3; attempt++ {
 		docTypeResp, err = w.apiService.CallDocumentTypeAPI(bytes.NewReader(payload.FileBytes), payload.FileName)
@@ -326,22 +326,11 @@ func (w *DigitizationWorker) HandleDocTypeCheckTask(ctx context.Context, t *asyn
 	SendDocTypeResult(payload.AttachmentID, docTypeResp)
 	return nil
 }
-
-// func SendDocTypeResult(recordID string, docType string) {
-// 	docTypeResponses.Lock()
-// 	ch, exists := docTypeResponses.data[recordID]
-// 	docTypeResponses.Unlock()
-
-// 	if exists {
-// 		ch <- docType
-// 	}
-// }
-
-func SendDocTypeResult(recordID string, result string) {
+func SendDocTypeResult(recordID string, result *models.DocTypeAPIResponse) {
 	service.DocTypeResponses.Lock()
 	defer service.DocTypeResponses.Unlock()
 	if ch, ok := service.DocTypeResponses.Data[recordID]; ok {
-		ch <- result
+		ch <- result.Content.LLMClassifier.DocumentType
 		close(ch)
 		delete(service.DocTypeResponses.Data, recordID)
 	}
