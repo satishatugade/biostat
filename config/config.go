@@ -85,6 +85,7 @@ type PropertyConfig struct {
 		ReportDigitizationURL       string
 		CheckPDFProtectionAPI       string
 		PDFPasswordAPI              string
+		DocTypeAPI                  string
 	}
 }
 
@@ -142,6 +143,7 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.GoogleRedirectURL = getEnv("GOOGLE_REDIRECT_URI")
 	cfg.ApiURL.CheckPDFProtectionAPI = getEnv("CHECK_IS_PDF_PROTECTED_API")
 	cfg.ApiURL.PDFPasswordAPI = getEnv("PDF_PASSWORD_API")
+	cfg.ApiURL.DocTypeAPI = getEnv("DOCUMENT_TYPE_API")
 
 	return cfg
 }

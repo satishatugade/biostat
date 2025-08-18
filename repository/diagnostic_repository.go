@@ -958,6 +958,12 @@ func (r *DiagnosticRepositoryImpl) GetSampleCollectionDateTestComponentMap(patie
         JOIN 
             tbl_disease_profile_diagnostic_test_component_master dpdtc 
             ON pdtrv.diagnostic_test_component_id = dpdtc.diagnostic_test_component_id
+		JOIN 
+            tbl_patient_report_attachment pra 
+            ON pdr.patient_diagnostic_report_id = pra.patient_diagnostic_report_id
+		JOIN 
+            tbl_medical_record mr 
+            ON pra.record_id = mr.record_id  and mr.record_category != 'other'
         WHERE 
             pdr.patient_id = ? AND pdr.is_deleted = ? AND pdr.collected_date = ?
         ORDER BY 

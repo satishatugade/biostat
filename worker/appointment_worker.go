@@ -6,6 +6,7 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"biostat/service"
+	"biostat/utils"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -93,6 +94,7 @@ func InitAsynqWorker(
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc("digitize:record", worker.HandleDigitizationTask)
+	mux.HandleFunc("check:doctype", worker.HandleDocTypeCheckTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("Could not run Asynq server: %v", err)
@@ -277,8 +279,18 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 			return err
 		}
 	}
-
-	return w.diagnosticService.NotifyAbnormalResult(matchedUserID)
+	if reportData.ReportDetails.ReportDate != "" {
+		reportDate, err := utils.ParseDate(reportData.ReportDetails.ReportDate)
+		if err != nil {
+			log.Println("ReportDate parsing failed:", err)
+			return nil
+		}
+		daysSinceReport := time.Since(reportDate).Hours() / 24
+		if daysSinceReport <= 7 {
+			return w.diagnosticService.NotifyAbnormalResult(matchedUserID)
+		}
+	}
+	return nil
 }
 
 func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
@@ -292,4 +304,45 @@ func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.
 	data.IsDigital = true
 	userId := strconv.FormatUint(p.UserID, 10)
 	return w.patientService.AddPatientPrescription(userId, &data)
+}
+
+func (w *DigitizationWorker) HandleDocTypeCheckTask(ctx context.Context, t *asynq.Task) error {
+	var payload models.DocTypeCheckPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return err
+	}
+	var docTypeResp string
+	var err error
+	for attempt := 1; attempt <= 3; attempt++ {
+		docTypeResp, err = w.apiService.CallDocumentTypeAPI(bytes.NewReader(payload.FileBytes), payload.FileName)
+		if err == nil {
+			break
+		}
+		log.Printf("[Attempt %d] Doc type API failed for record %s: %v : %s", attempt, payload.AttachmentID, err, docTypeResp)
+		time.Sleep(2 * time.Second)
+	}
+
+	log.Printf("Doc type API response for record %s: %+v", payload.AttachmentID, docTypeResp)
+	SendDocTypeResult(payload.AttachmentID, docTypeResp)
+	return nil
+}
+
+// func SendDocTypeResult(recordID string, docType string) {
+// 	docTypeResponses.Lock()
+// 	ch, exists := docTypeResponses.data[recordID]
+// 	docTypeResponses.Unlock()
+
+// 	if exists {
+// 		ch <- docType
+// 	}
+// }
+
+func SendDocTypeResult(recordID string, result string) {
+	service.DocTypeResponses.Lock()
+	defer service.DocTypeResponses.Unlock()
+	if ch, ok := service.DocTypeResponses.Data[recordID]; ok {
+		ch <- result
+		close(ch)
+		delete(service.DocTypeResponses.Data, recordID)
+	}
 }

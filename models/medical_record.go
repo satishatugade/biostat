@@ -152,3 +152,10 @@ type DigitizationPayload struct {
 	IsPasswordProtected *bool     `json:"is_password_protected"`
 	PDFPassword         *string   `json:"pdf_password,omitempty"`
 }
+
+type DocTypeCheckPayload struct {
+	AttachmentID string    `json:"attachment_id"`
+	FileName     string    `json:"file_name"`
+	FileBytes    []byte    `json:"file_bytes"`
+	ProcessID    uuid.UUID `json:"process_id"`
+}

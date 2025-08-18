@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ type TblMedicalRecordService interface {
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
+	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (string, error)
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
@@ -204,6 +206,63 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", time.Duration(config.PropConfig.TaskQueue.Expiration))
 	}
 	return nil
+}
+
+// Global map to store responses for doc type checks
+var DocTypeResponses = struct {
+	sync.Mutex
+	Data map[string]chan string
+}{Data: make(map[string]chan string)}
+
+func (mrs *tblMedicalRecordServiceImpl) EnqueueDocTypeCheckTask(
+	attachmentId string,
+	recordName string,
+	fileData []byte,
+	processID uuid.UUID,
+) (string, error) {
+	payload := models.DocTypeCheckPayload{
+		AttachmentID: attachmentId,
+		FileName:     recordName,
+		FileBytes:    fileData,
+		ProcessID:    processID,
+	}
+
+	ch := make(chan string, 1)
+
+	DocTypeResponses.Lock()
+	DocTypeResponses.Data[attachmentId] = ch
+	DocTypeResponses.Unlock()
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		mrs.cleanupDocTypeChannel(attachmentId)
+		return "", fmt.Errorf("failed to marshal doc type payload: %w", err)
+	}
+
+	task := asynq.NewTask("check:doctype", payloadBytes)
+	_, err = mrs.taskQueue.Enqueue(
+		task,
+		asynq.MaxRetry(config.PropConfig.Retry.MaxAttempts),
+		asynq.Retention(time.Duration(config.PropConfig.TaskQueue.Retention)),
+		asynq.ProcessIn(time.Duration(config.PropConfig.TaskQueue.Delay)),
+	)
+	if err != nil {
+		mrs.cleanupDocTypeChannel(attachmentId)
+		return "", fmt.Errorf("failed to enqueue doc type check task: %w", err)
+	}
+
+	docType := <-ch
+	log.Printf("Doc type for record %s: %s", attachmentId, docType)
+
+	mrs.cleanupDocTypeChannel(attachmentId)
+	return docType, nil
+}
+
+// cleanupDocTypeChannel safely removes a record's channel
+func (mrs *tblMedicalRecordServiceImpl) cleanupDocTypeChannel(recordID string) {
+	DocTypeResponses.Lock()
+	delete(DocTypeResponses.Data, recordID)
+	DocTypeResponses.Unlock()
 }
 
 func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientName string, fallbackUserID uint64, systemPatientName string) (uint64, string, bool, string) {
