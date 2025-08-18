@@ -26,6 +26,7 @@ type ApiService interface {
 	SummarizeMedicalHistory(data models.PharmacokineticsInput) (string, error)
 	AskAI(message string, userId uint64, patientName string, query_type string) (*models.AskAPIResponse, error)
 	CheckPDFAndGetPassword(file io.Reader, fileName, emailBody string) (*models.PDFProtectionResult, error)
+	CallDocumentTypeAPI(file io.Reader, filename string) (*models.DocTypeAPIResponse, error)
 }
 
 type ApiServiceImpl struct {
@@ -548,4 +549,72 @@ func (s *ApiServiceImpl) CallPDFPasswordAPI(emailBody string) (string, error) {
 		return "", err
 	}
 	return result.Password, nil
+}
+
+func (s *ApiServiceImpl) CallDocumentTypeAPI(file io.Reader, filename string) (*models.DocTypeAPIResponse, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	// log.Println("File Name : ", filename)
+
+	buf := make([]byte, 512)
+	n, err := file.Read(buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file for MIME detection: %w", err)
+	}
+	mimeType := http.DetectContentType(buf[:n])
+	// log.Printf("Detected MIME type: %s", mimeType)
+
+	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
+	h.Set("Content-Type", mimeType)
+
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form part: %w", err)
+	}
+
+	if _, err := io.Copy(part, fileReader); err != nil {
+		return nil, fmt.Errorf("failed to copy file data: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close writer: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", os.Getenv("DOCUMENT_TYPE_API"), body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
+	}
+
+	var apiResp models.DocTypeAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
+	}
+	prettyJSON, err := json.MarshalIndent(apiResp, "", "  ")
+	if err != nil {
+		log.Println("Failed to format JSON:", err)
+	} else {
+		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+	}
+	if apiResp.Error != nil && *apiResp.Error != "" {
+		return &apiResp, fmt.Errorf("API returned error: %s", *apiResp.Error)
+	}
+	if apiResp.Content == nil {
+		return &apiResp, fmt.Errorf("API response missing content")
+	}
+	return &apiResp, nil
 }

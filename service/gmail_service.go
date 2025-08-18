@@ -457,24 +457,32 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		msg1 := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeMessage), recordInfo)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, msg1, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 		log.Println("@GmailSyncCore: checking doc type for document ", idx+1, "/", totalRecord, record.RecordName)
-		docTypeResp := ""
-		docTypeResp, err = utils.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
+		docType := ""
+		keywordDocType := ""
+		apiResponse, err := gs.apiService.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
 		if err != nil {
 			errorCount++
 			log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
 			docMsg := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeFailedMessage), recordInfo)
 			gs.processStatusService.LogStepAndFail(processID, checkDocTypeStep, constant.Failure, docMsg, err.Error(), &idx, nil, nil)
-			docTypeResp = string(constant.OTHER)
+			docType = string(constant.OTHER)
 		}
+		if apiResponse.Content.LLMClassifier.DocumentType != "" {
+			docType = apiResponse.Content.LLMClassifier.DocumentType
+		}
+		if apiResponse.Content.RegexClassifier.DocumentType != "" {
+			keywordDocType = apiResponse.Content.RegexClassifier.DocumentType
+		}
+
 		status := constant.StatusQueued
-		if docTypeResp == string(constant.OTHER) || docTypeResp == string(constant.INSURANCE) || docTypeResp == string(constant.VACCINATION) || docTypeResp == string(constant.DISCHARGESUMMARY) || docTypeResp == string(constant.INVOICE) {
+		if docType == string(constant.OTHER) || docType == string(constant.INSURANCE) || docType == string(constant.VACCINATION) || docType == string(constant.DISCHARGESUMMARY) || docType == string(constant.INVOICE) {
 			status = constant.StatusSuccess
 		}
-		record.RecordCategory = docTypeResp
+		record.RecordCategory = docType
 		record.Status = status
 		record.IsPasswordProtected = pdfCheckResult.IsProtected
 		record.PDFPassword = pdfCheckResult.Password
-		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s : Document URL : %s | %s", idx+1, docTypeResp, record.RecordUrl, recordInfo)
+		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s ( %s ) : Document URL : %s | %s", idx+1, docType, keywordDocType, record.RecordUrl, recordInfo)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 	}
 	successCount := totalAttempted - errorCount

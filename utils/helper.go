@@ -11,9 +11,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"net/url"
 	"os"
 	"reflect"
@@ -714,76 +712,6 @@ func MakeRESTRequest(method, url string, body interface{}, headers map[string]st
 	}
 
 	return resp.StatusCode, responseData, nil
-}
-
-func CallDocumentTypeAPI(file io.Reader, filename string) (string, error) {
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	// log.Println("File Name : ", filename)
-
-	buf := make([]byte, 512)
-	n, err := file.Read(buf)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file for MIME detection: %w", err)
-	}
-	mimeType := http.DetectContentType(buf[:n])
-	// log.Printf("Detected MIME type: %s", mimeType)
-
-	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
-
-	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
-	h.Set("Content-Type", mimeType)
-
-	part, err := writer.CreatePart(h)
-	if err != nil {
-		return "", fmt.Errorf("failed to create form part: %w", err)
-	}
-
-	if _, err := io.Copy(part, fileReader); err != nil {
-		return "", fmt.Errorf("failed to copy file data: %w", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("failed to close writer: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", os.Getenv("DOCUMENT_TYPE_API"), body)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
-	}
-
-	var reportData map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
-		return "", fmt.Errorf("failed to parse JSON response: %w", err)
-	}
-	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
-	if err != nil {
-		log.Println("Failed to format JSON:", err)
-	} else {
-		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
-	}
-	if errMsg, ok := reportData["error"].(string); ok && errMsg != "" {
-		return "", fmt.Errorf("document type error: %s", errMsg)
-	}
-	docType, ok := reportData["document_type"].(string)
-	if !ok || docType == "" {
-		return "", fmt.Errorf("document type not found in response")
-	}
-
-	return docType, nil
 }
 
 func GenerateGoogleCalendarLink(title, description, location string, start, end time.Time) string {
