@@ -288,7 +288,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 			highestScore = score
 			bestMatchID = fallbackUserID
 			bestMatchName = full
-			matchMessage = fmt.Sprintf("Report matches with system patient name '%s' (self)", bestMatchName)
+			matchMessage = fmt.Sprintf("Report matches with system patient name '%s' (self) : Score : %d", bestMatchName, highestScore)
 			isUnknownReport = true
 		}
 	}
@@ -317,7 +317,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 				highestScore = score
 				bestMatchID = relative.RelativeId
 				bestMatchName = full
-				matchMessage = fmt.Sprintf("Report matches with relative '%s'", bestMatchName)
+				matchMessage = fmt.Sprintf("Report matches with relative '%s' : Score : %d", bestMatchName, highestScore)
 				isUnknownReport = true
 			}
 		}
@@ -326,7 +326,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 		bestMatchID = fallbackUserID
 		bestMatchName = systemPatientName
 		matchMessage = fmt.Sprintf("No good match found. Falling back to system patient name '%s' (User ID: %d) (SELF) in OTHER Bucket", bestMatchName, bestMatchID)
-		log.Printf(matchMessage)
+		log.Print(matchMessage)
 		isUnknownReport = true
 	} else {
 		isUnknownReport = false
@@ -380,7 +380,7 @@ func (s *tblMedicalRecordServiceImpl) DeleteTblMedicalRecord(id int, updatedBy s
 }
 
 func (s *tblMedicalRecordServiceImpl) IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error) {
-	belongsTouser, err := s.tblMedicalRecordRepo.IsRecordBelongsToUser(userID, recordID)
+	belongsTouser, _ := s.tblMedicalRecordRepo.IsRecordBelongsToUser(userID, recordID)
 	if belongsTouser == true {
 		return true, nil
 	}

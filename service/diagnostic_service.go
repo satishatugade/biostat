@@ -484,6 +484,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 		IsDigital:                 reportData.ReportDetails.IsDigital,
 		IsDeleted:                 reportData.ReportDetails.IsDeleted,
 		IsLabReport:               reportData.ReportDetails.IsLabReport,
+		IsHealthVital:             reportData.ReportDetails.IsHealthVital,
 		CollectedAt:               reportData.ReportDetails.LabLocation,
 	}
 	reportInfo, err := s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)
@@ -752,7 +753,7 @@ func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(repo
 	reportData.ReportDetails.IsDeleted = 0
 	if ShouldSkipReport(CollectionDate, allComponentNames, existingMap) {
 		log.Println("Save report in duplicate bucket and marked is_deleted as True for patient : ", patientId)
-		msg = fmt.Sprintf("Report id %d saved in duplicate bucket and marked deleted for logged in UserID :%d  ", *recordId, patientId)
+		msg = fmt.Sprintf("Report id %d saved in duplicate bucket and marked deleted for logged in UserID :%d  || sample collection date :%s || Fetched test component list : %s || Existing test component list : %+v ", *recordId, patientId, utils.FormatDateTime(&CollectionDate), allComponentNames, existingMap)
 		s.processStatusService.LogStep(processID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, attachmentId)
 		reportData.ReportDetails.IsDeleted = 0
 		_, updateErr := s.medicalRecordsRepo.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: *recordId, IsDeleted: 0, RecordCategory: string(constant.DUPLICATE)})

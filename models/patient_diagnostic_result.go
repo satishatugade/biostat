@@ -83,6 +83,7 @@ type PatientDiagnosticReport struct {
 	IsDeleted                 int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
 	IsDigital                 bool      `gorm:"column:is_digital;default:false" json:"is_digital"`
 	IsLabReport               bool      `gorm:"column:is_lab_report;default:false" json:"is_lab_report"`
+	IsHealthVital             bool      `gorm:"column:is_health_vital;default:false" json:"is_health_vital"`
 	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
 
@@ -256,6 +257,7 @@ type LabReport struct {
 		LabId            string  `json:"lab_id"`
 		IsDigital        bool    `json:"is_digital"`
 		IsLabReport      bool    `json:"is_lab_report"`
+		IsHealthVital    bool    `json:"is_health_vital"`
 		IsUnknownRecord  bool    `json:"is_unknown_record"`
 		IsDeleted        int     `json:"is_deleted"`
 		LabLocation      string  `json:"lab_location"`

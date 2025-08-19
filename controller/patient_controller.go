@@ -993,7 +993,7 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 	if queryParamErr != nil {
 		isDeleted = 0
 	}
-	data, total, counts, err := c.medicalRecordService.GetMedicalRecords(patientId,category, limit, offset, isDeleted)
+	data, total, counts, err := c.medicalRecordService.GetMedicalRecords(patientId, category, limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return
@@ -1952,6 +1952,7 @@ func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
 	}
 	reportData.ReportDetails.LabName = response.LabName
 	reportData.ReportDetails.ReportDate = recordedAt
+	reportData.ReportDetails.IsHealthVital = true
 	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, func() *uint64 { v := uint64(0); return &v }())
 	if err1 != nil {
 		log.Printf("Health stats update error : %d: %v", userId, err1)
