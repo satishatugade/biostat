@@ -163,10 +163,12 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 		emailDate := getHeader(message.Payload.Headers, "Date")
 		log.Println("Checking ", emailDate, "||", subject)
 		bodyText = GetMessageBody(message)
+		normalizeBodyText := normalizeText(bodyText)
 		foundLab := false
 		emailMsg := ""
 		for _, lab := range labNames {
-			if strings.Contains(strings.ToLower(bodyText), strings.ToLower(lab)) {
+			normalizeLabName := normalizeText(lab)
+			if strings.Contains(normalizeBodyText, normalizeLabName) {
 				emailMsg = fmt.Sprintf("Lab name %s found in EmailSub %s dated %s", lab, subject, emailDate)
 				foundLab = true
 				break
@@ -378,6 +380,22 @@ func decodeGmailBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(cleanData)
 }
 
+func normalizeText(s string) string {
+	// lowercase
+	s = strings.ToLower(s)
+
+	// replace punctuation with space
+	rePunct := regexp.MustCompile(`[^\w\s]`)
+	s = rePunct.ReplaceAllString(s, " ")
+
+	// collapse multiple spaces into one
+	reSpace := regexp.MustCompile(`\s+`)
+	s = reSpace.ReplaceAllString(s, " ")
+
+	// trim spaces at the ends
+	return strings.TrimSpace(s)
+}
+
 func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID, gmailService *gmail.Service) error {
 	msg := string(constant.FetchUserLab)
 	step := string(constant.ProcessFetchLabs)
@@ -469,13 +487,15 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 			gs.processStatusService.LogStepAndFail(processID, checkDocTypeStep, constant.Failure, docMsg, err.Error(), &idx, nil, nil)
 			docType = string(constant.OTHER)
 		}
-		if apiResponse.Content.LLMClassifier.DocumentType != "" {
-			docType = apiResponse.Content.LLMClassifier.DocumentType
-			docTypeLogs = apiResponse.Content.LLMClassifier.Logs
-		}
-		if apiResponse.Content.RegexClassifier.DocumentType != "" {
-			keywordDocType = apiResponse.Content.RegexClassifier.DocumentType
-			keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
+		if apiResponse.Content != nil {
+			if apiResponse.Content.LLMClassifier.DocumentType != "" {
+				docType = apiResponse.Content.LLMClassifier.DocumentType
+				docTypeLogs = apiResponse.Content.LLMClassifier.Logs
+			}
+			if apiResponse.Content.RegexClassifier.DocumentType != "" {
+				keywordDocType = apiResponse.Content.RegexClassifier.DocumentType
+				keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
+			}
 		}
 
 		status := constant.StatusQueued
