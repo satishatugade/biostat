@@ -72,6 +72,7 @@ type PropertyConfig struct {
 	ApiURL struct {
 		RedisURL                    string
 		NotifyServerURL             string
+		NotifyAPIKey                string
 		ShareReportBaseURL          string
 		ShortBaseURL                string
 		AskChatBotURL               string
@@ -131,6 +132,7 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.RedisURL = getEnv("REDIS_ADDR")
 	cfg.ApiURL.ReportDigitizationURL = getEnv("GEMINI_API_URL")
 	cfg.ApiURL.NotifyServerURL = getEnv("NOTIFY_SERVER_URL")
+	cfg.ApiURL.NotifyAPIKey = getEnv("NOTIFY_API_KEY")
 	cfg.ApiURL.ShareReportBaseURL = getEnv("SHARE_REPORT_BASE_URL")
 	cfg.ApiURL.ShortBaseURL = getEnv("SHORT_URL_BASE")
 	cfg.ApiURL.AskChatBotURL = getEnv("ASK_API")

@@ -111,7 +111,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	errorMsg := ""
 	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, nil)
 	queueName := "report_digitization"
-	if p.Category == string(constant.PRESCRIPTION) {
+	if p.Category == string(constant.MEDICATION) {
 		queueName = "prescription_digitization"
 	}
 	retryCount, _ := asynq.GetRetryCount(ctx)
@@ -146,7 +146,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 		if err := w.handleTestReport(fileBuf, p); err != nil {
 			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
 		}
-	case string(constant.PRESCRIPTION):
+	case string(constant.MEDICATION):
 		if err := w.handlePrescription(fileBuf, p); err != nil {
 			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
 		}
@@ -294,8 +294,12 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 }
 
 func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
+	errorMsg := ""
+	step := string(constant.CallAIService)
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	data, err := w.apiService.CallPrescriptionDigitizeAPI(fileBuf, p.FileName)
 	if err != nil {
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, "Prescription medication digitization failed", err.Error(), nil, &p.RecordID, p.AttachmentId)
 		return err
 	}
 
@@ -303,7 +307,12 @@ func (w *DigitizationWorker) handlePrescription(fileBuf *bytes.Buffer, p models.
 	data.RecordId = p.RecordID
 	data.IsDigital = true
 	userId := strconv.FormatUint(p.UserID, 10)
-	return w.patientService.AddPatientPrescription(userId, &data)
+	PrescMediErr := w.patientService.AddPatientPrescription(userId, &data)
+	if PrescMediErr != nil {
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, "Failed to save prescrition in database", err.Error(), nil, &p.RecordID, p.AttachmentId)
+	}
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, "Prescription saved succesfully", errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+	return nil
 }
 
 func (w *DigitizationWorker) HandleDocTypeCheckTask(ctx context.Context, t *asynq.Task) error {

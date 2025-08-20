@@ -499,7 +499,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		}
 
 		status := constant.StatusQueued
-		if docType == string(constant.OTHER) || docType == string(constant.INSURANCE) || docType == string(constant.VACCINATION) || docType == string(constant.DISCHARGESUMMARY) || docType == string(constant.INVOICE) {
+		if docType == string(constant.OTHER) || docType == string(constant.INSURANCE) || docType == string(constant.VACCINATION) || docType == string(constant.DISCHARGESUMMARY) || docType == string(constant.INVOICE) || docType == string(constant.NONMEDICAL) {
 			status = constant.StatusSuccess
 		}
 		record.RecordCategory = docType
@@ -534,7 +534,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	}
 	for idx, record := range emailMedRecord {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
-		if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.PRESCRIPTION) {
+		if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
 			attachmentId, err := utils.GetAttachmentIDFromRecord(record)
 			if err != nil {
 				log.Println("GetAttachmentIDFromRecord Error:", err)

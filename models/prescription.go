@@ -15,6 +15,7 @@ type PatientPrescription struct {
 	IsDigital        bool       `gorm:"column:is_digital;default:false" json:"is_digital"`
 	StartDate        *time.Time `gorm:"column:prescription_start_date" json:"prescription_start_date"`
 	EndDate          *time.Time `gorm:"column:prescription_end_date" json:"prescription_end_date"`
+	Duration         int        `gorm:"-" json:"duration"`
 
 	// Relationship to PrescriptionDetail
 	PrescriptionDetails []PrescriptionDetail `gorm:"foreignKey:PrescriptionId;references:PrescriptionId" json:"prescription_details"`

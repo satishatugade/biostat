@@ -110,7 +110,10 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 	if _, err := io.ReadAll(tee); err != nil {
 		return nil, err
 	}
-
+	Status := constant.StatusQueued
+	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) {
+		Status = constant.StatusSuccess
+	}
 	newRecord := models.TblMedicalRecord{
 		RecordName:        header.Filename,
 		RecordSize:        int64(header.Size),
@@ -123,7 +126,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		FetchedAt:         time.Now(),
 		UploadedBy:        uploadingPerson,
 		SourceAccount:     fmt.Sprint(uploadSource),
-		Status:            constant.StatusQueued,
+		Status:            Status,
 	}
 
 	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(&newRecord)
@@ -143,22 +146,26 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		log.Println("CreateMedicalRecordMappings Mapping  ERROR : ", err)
 		return nil, mappingErr
 	}
-	userInfo, err := s.userService.GetSystemUserInfoByUserID(userId)
-	if err != nil {
-		log.Println("GetSystemUserInfoByUserID ERROR : ", err)
-		return nil, err
+	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
+		userInfo, err := s.userService.GetSystemUserInfoByUserID(userId)
+		if err != nil {
+			log.Println("GetSystemUserInfoByUserID ERROR : ", err)
+			return nil, err
+		}
+		if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID, nil); err != nil {
+			log.Printf("Digitization task failed: %v", err)
+			s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+		}
+		s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil, nil, nil)
+	} else {
+		s.processStatusService.LogStep(processID, step, constant.Success, "Record saved successfully", errorMsg, nil, nil, nil, nil, nil, nil)
 	}
-	if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID, nil); err != nil {
-		log.Printf("Digitization task failed: %v", err)
-		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
-	}
-	s.processStatusService.LogStep(processID, step, constant.Success, "Record saved, digitization is in progress", errorMsg, nil, nil, nil, nil, nil, nil)
 	return record, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
 	userId uint64, fileBuf *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error {
-	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.PRESCRIPTION) {
+	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
 		log.Println("Queue worker starts............")
 		tempDir := os.TempDir()
 		tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))

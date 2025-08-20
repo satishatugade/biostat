@@ -1,6 +1,7 @@
 package service
 
 import (
+	"biostat/config"
 	"biostat/models"
 	"biostat/repository"
 	"biostat/utils"
@@ -8,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -25,6 +27,7 @@ type NotificationService interface {
 
 	GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error)
 	ScheduleReminders(recipeintId, name string, user_id uint64, config []models.ReminderConfig) error
+	UpdateReminder(userID uint64, recipeintId string, notifID uuid.UUID, reminder models.ReminderConfig) error
 	SendSOS(recipientId, familyMember, patientName, location, dateTime, deviceId string) error
 	GetUserReminders(userId uint64) ([]models.UserReminder, error)
 
@@ -47,11 +50,14 @@ func (e *NotificationServiceImpl) GetUserNotifications(userId uint64) ([]models.
 	return e.notificationRepo.GetNotificationByUserId(userId)
 }
 
-func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, user_id uint64, config []models.ReminderConfig) error {
+func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, user_id uint64, reminderconfig []models.ReminderConfig) error {
 	startDate := time.Now()
 	var failedSlots []string
 
-	for _, reminder := range config {
+	notifyServerURL := config.PropConfig.ApiURL.NotifyServerURL
+	notifyAPIKey := config.PropConfig.ApiURL.NotifyAPIKey
+
+	for _, reminder := range reminderconfig {
 		reminderTimeStr := fmt.Sprintf("%s %s", startDate.Format("2006-01-02"), reminder.Time)
 		reminderTime, err := time.ParseInLocation("2006-01-02 15:04", reminderTimeStr, time.Local)
 		if err != nil {
@@ -84,9 +90,9 @@ func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, us
 			},
 		}
 		header := map[string]string{
-			"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+			"X-API-Key": notifyAPIKey,
 		}
-		_, data, err := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
+		_, data, err := utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/schedule", scheduleBody, header)
 		if err != nil {
 			log.Printf("@ScheduleReminders ->MakeRESTRequest [%s] -> Failed to schedule notification: %v", reminder.TimeSlot, err)
 			failedSlots = append(failedSlots, fmt.Sprintf("%s: scheduling failed", reminder.TimeSlot))
@@ -119,6 +125,59 @@ func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, us
 	return nil
 }
 
+func (e *NotificationServiceImpl) UpdateReminder(userID uint64, recipeintId string, notifID uuid.UUID, reminder models.ReminderConfig) error {
+	startDate := time.Now()
+	reminderTimeStr := fmt.Sprintf("%s %s", startDate.Format("2006-01-02"), reminder.Time)
+	reminderTime, err := time.ParseInLocation("2006-01-02 15:04", reminderTimeStr, time.Local)
+	if err != nil {
+		return fmt.Errorf("invalid time format: %v", err)
+	}
+
+	scheduleTime := reminderTime.Format(time.RFC3339)
+	repeatUntil := reminderTime.AddDate(0, 0, reminder.DurationDays).Format(time.RFC3339)
+
+	var medList []string
+	for _, med := range reminder.Medicines {
+		medList = append(medList, fmt.Sprintf("%s (%d %s)", med.Name, med.Dose, med.Unit))
+	}
+
+	updateBody := map[string]interface{}{
+		"target_type":     "recipient_id",
+		"target_value":    recipeintId,
+		"notification_id": notifID.String(),
+		"schedule_time":   scheduleTime,
+		"repeat_type":     reminder.Frequency,
+		"repeat_interval": 1,
+		"repeat_times":    reminder.DurationDays,
+		"repeat_until":    repeatUntil,
+		"is_recurring":    true,
+	}
+	notifyServerURL := config.PropConfig.ApiURL.NotifyServerURL
+	notifyAPIKey := config.PropConfig.ApiURL.NotifyAPIKey
+	headers := map[string]string{
+		"X-API-Key": notifyAPIKey,
+	}
+
+	_, _, err = utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/update-schedule", updateBody, headers)
+	if err != nil {
+		return fmt.Errorf("failed to update notification: %v", err)
+	}
+
+	updateErr := e.notificationRepo.UpdateNotificationMapping(models.UserNotificationMapping{
+		UserID:           userID,
+		NotificationID:   notifID,
+		Title:            fmt.Sprintf("%s Medicine Reminder", reminder.TimeSlot),
+		Message:          fmt.Sprintf("Please take medicines: %s", strings.Join(medList, ", ")),
+		Tags:             "medication,reminder",
+		NotificationType: "scheduled",
+	})
+	if updateErr != nil {
+		return fmt.Errorf("failed to update mapping: %v", updateErr)
+	}
+
+	return nil
+}
+
 func (e *NotificationServiceImpl) SendSOS(recipientId, familyMember, patientName, location, dateTime, deviceId string) error {
 	scheduleBody := map[string]interface{}{
 		// "recipient_mail_id": recipientEmail,
@@ -134,10 +193,13 @@ func (e *NotificationServiceImpl) SendSOS(recipientId, familyMember, patientName
 			"deviceId":     deviceId,
 		},
 	}
+	notifyAPIKey := config.PropConfig.ApiURL.NotifyAPIKey
+	notifyServerURL := config.PropConfig.ApiURL.NotifyServerURL
+
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": notifyAPIKey,
 	}
-	_, _, err := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", scheduleBody, header)
+	_, _, err := utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/send", scheduleBody, header)
 	return err
 }
 

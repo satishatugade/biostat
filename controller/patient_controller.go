@@ -436,6 +436,12 @@ func (pc *PatientController) AddPrescription(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, errors.New("You need subscription for uploading own records"))
 		return
 	}
+	if prescription.StartDate != nil && prescription.EndDate != nil {
+		diff := prescription.EndDate.Sub(*prescription.StartDate)
+		prescription.Duration = int(diff.Hours() / 24)
+	} else {
+		prescription.Duration = 0
+	}
 	err1 := pc.patientService.AddPatientPrescription(authUserId, &prescription)
 	if err1 != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to add patient prescription", nil, err1)
@@ -1058,13 +1064,16 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	uploadSource := ctx.PostForm("upload_source")
 	description := ctx.PostForm("description")
 	recordCategory := ctx.PostForm("record_category")
-	log.Println("record category : ", recordCategory)
 	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Your record has been created successfully. Digitization is in progress and should complete within 4–5 minutes.", data, nil, nil)
+	message := "Your record has been created successfully. Digitization is in progress and should complete within 4–5 minutes."
+	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) {
+		message = "Record saved successfully"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, nil, nil)
 }
 
 func (pc *PatientController) SaveReport(ctx *gin.Context) {
@@ -1891,14 +1900,17 @@ func (pc *PatientController) ReadUserUploadedMedicalFile(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
-	response, err := pc.medicalRecordService.ReadMedicalRecord(req.ResourceId, user_id, reqUserId)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, string(constant.PermissionViewMedicalRecord), nil, err)
+	if req.ResourceId != 0 {
+		response, err := pc.medicalRecordService.ReadMedicalRecord(req.ResourceId, user_id, reqUserId)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, string(constant.PermissionViewMedicalRecord), nil, err)
+			return
+		}
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
 		return
+	} else {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Invalid or missing record ID. Record not found.", nil, err)
 	}
-
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Resource loaded", response, nil, nil)
-	return
 }
 
 func (pc *PatientController) AddMappingToMergeTestComponent(c *gin.Context) {
@@ -2410,7 +2422,7 @@ func (pc *PatientController) GetUserMessages(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	notifications, err := pc.notificationService.GetUserNotifications(user_id)
+	notifications, _ := pc.notificationService.GetUserNotifications(user_id)
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "notifications loaded", notifications, nil, nil)
 	return
 }
@@ -2443,6 +2455,45 @@ func (pc *PatientController) SetUserReminder(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "reminder saved successfully", nil, nil, nil)
 	return
+}
+
+func (pc *PatientController) UpdateUserReminder(ctx *gin.Context) {
+	_, userID, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	user, err := pc.patientService.GetUserProfileByUserId(userID)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	var reminderReq models.ReminderConfig
+	if err := ctx.ShouldBindJSON(&reminderReq); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
+		return
+	}
+
+	// notification_id from query or request body
+	notificationIDStr := ctx.Query("notification_id")
+	if notificationIDStr == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "notification_id is required", nil, nil)
+		return
+	}
+	notificationID, err := uuid.Parse(notificationIDStr)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid notification_id", nil, err)
+		return
+	}
+
+	err1 := pc.notificationService.UpdateReminder(userID, user.NotifyId, notificationID, reminderReq)
+	if err1 != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to update reminder", nil, err1)
+		return
+	}
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "reminder updated successfully", nil, nil, nil)
 }
 
 func (pc *PatientController) GetUserReminders(ctx *gin.Context) {

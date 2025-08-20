@@ -3,6 +3,7 @@ package service
 import (
 	"biostat/config"
 	"biostat/models"
+	"biostat/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	"net/http"
 	"net/textproto"
 	"os"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -218,13 +218,12 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		return models.PatientPrescription{}, fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	req, err1 := http.NewRequest("POST", s.DigitizePrescriptionAPI, body)
+	req, err1 := http.NewRequest(http.MethodPost, s.DigitizePrescriptionAPI, body)
 	if err1 != nil {
 		return models.PatientPrescription{}, fmt.Errorf("failed to create request: %w", err1)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	// Send request
 	resp, err1 := s.client.Do(req)
 	if err1 != nil {
 		return models.PatientPrescription{}, fmt.Errorf("failed to send request: %w", err1)
@@ -240,33 +239,9 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 	if err := json.NewDecoder(resp.Body).Decode(&prescriptionData); err != nil {
 		return models.PatientPrescription{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
-
-	var parsedDate time.Time
-	var err error
-
-	dateFormats := []string{
-		"02-Jan-2006",
-		"02-Jan-06",
-		"02/01/2006",
-		"02-01-2006",
-		"2006-01-02",
-		"2006/01/02",
-		"2006.01.02",
-		"2006-01-02T15:04:05",
-		"2006-01-02T15:04:05Z07:00",
-	}
-
-	for _, format := range dateFormats {
-		if prescriptionData.PrescriptionDate != "" {
-			parsedDate, err = time.Parse(format, prescriptionData.PrescriptionDate)
-			if err == nil {
-				break
-			}
-		}
-	}
-
+	prescriptionDate, err := utils.ParseDate(prescriptionData.PrescriptionDate)
 	if err != nil {
-		log.Println("Invalid date format:", err)
+		log.Println("Prescription medication Date parsing failed:", err)
 		return models.PatientPrescription{}, fmt.Errorf("invalid date format: %w", err)
 	}
 	data := models.PatientPrescription{
@@ -275,7 +250,7 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		PrescribedBy:        prescriptionData.PrescribedBy,
 		PrescriptionName:    &prescriptionData.PrescriptionName,
 		Description:         prescriptionData.Description,
-		PrescriptionDate:    &parsedDate,
+		PrescriptionDate:    &prescriptionDate,
 		PrescriptionDetails: make([]models.PrescriptionDetail, 0),
 	}
 
@@ -296,7 +271,12 @@ func (s *ApiServiceImpl) CallPrescriptionDigitizeAPI(file io.Reader, filename st
 		}
 		data.PrescriptionDetails = append(data.PrescriptionDetails, d)
 	}
-
+	prettyJSON, err := json.MarshalIndent(prescriptionData, "", "  ")
+	if err != nil {
+		log.Println("Failed to format prescription JSON:", err)
+	} else {
+		log.Println("Digitize prescription response (pretty):\n", string(prettyJSON))
+	}
 	return data, nil
 }
 

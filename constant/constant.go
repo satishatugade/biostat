@@ -213,6 +213,7 @@ const (
 	Postalcode              = "/address/postalcode"
 	Messages                = "/messages"
 	Reminder                = "/reminder"
+	UpdateReminder          = "/update-reminder"
 	Reminders               = "/reminders"
 	Permission              = "/permission"
 	ManageFamilyPermission  = "/family/manage-permission"
@@ -262,7 +263,6 @@ type RecordCategory string
 
 const (
 	TESTREPORT       RecordCategory = "test_report"
-	PRESCRIPTION     RecordCategory = "Prescriptions"
 	DUPLICATE        RecordCategory = "duplicate"
 	INSURANCE        RecordCategory = "insurance"
 	MEDICATION       RecordCategory = "medications"
@@ -270,6 +270,7 @@ const (
 	DISCHARGESUMMARY RecordCategory = "discharge_summary"
 	OTHER            RecordCategory = "other"
 	INVOICE          RecordCategory = "invoice"
+	NONMEDICAL       RecordCategory = "non_medical"
 )
 
 type SubscriptionStatus string

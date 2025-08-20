@@ -4,12 +4,14 @@ import (
 	"biostat/models"
 	"database/sql"
 	"log"
+	"time"
 
 	"gorm.io/gorm"
 )
 
 type UserNotificationRepository interface {
 	CreateNotificationMapping(mapping models.UserNotificationMapping) error
+	UpdateNotificationMapping(mapping models.UserNotificationMapping) error
 	GetNotificationByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 	GetRemindersByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 	GetNotifUnregisteredUsers() ([]models.SystemUser_, error)
@@ -30,6 +32,18 @@ func NewUserNotificationRepository(db *gorm.DB) UserNotificationRepository {
 func (r *UserNotificationRepositoryImpl) CreateNotificationMapping(mapping models.UserNotificationMapping) error {
 	log.Println(mapping)
 	return r.db.Create(&mapping).Error
+}
+
+func (r *UserNotificationRepositoryImpl) UpdateNotificationMapping(mapping models.UserNotificationMapping) error {
+	return r.db.Model(&models.UserNotificationMapping{}).
+		Where("notification_id = ? AND user_id = ?", mapping.NotificationID, mapping.UserID).
+		Updates(map[string]interface{}{
+			"title":             mapping.Title,
+			"message":           mapping.Message,
+			"tags":              mapping.Tags,
+			"notification_type": mapping.NotificationType,
+			"updated_at":        time.Now(),
+		}).Error
 }
 
 func (r *UserNotificationRepositoryImpl) GetNotificationByUserId(userId uint64) ([]models.UserNotificationMapping, error) {
