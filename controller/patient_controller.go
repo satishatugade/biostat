@@ -2463,31 +2463,19 @@ func (pc *PatientController) UpdateUserReminder(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
-	user, err := pc.patientService.GetUserProfileByUserId(userID)
+	_, err = pc.patientService.GetUserProfileByUserId(userID)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
 		return
 	}
 
-	var reminderReq models.ReminderConfig
-	if err := ctx.ShouldBindJSON(&reminderReq); err != nil {
+	var updateReminderReq models.UpdateReminderRequest
+	if err := ctx.ShouldBindJSON(&updateReminderReq); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
 		return
 	}
 
-	// notification_id from query or request body
-	notificationIDStr := ctx.Query("notification_id")
-	if notificationIDStr == "" {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "notification_id is required", nil, nil)
-		return
-	}
-	notificationID, err := uuid.Parse(notificationIDStr)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid notification_id", nil, err)
-		return
-	}
-
-	err1 := pc.notificationService.UpdateReminder(userID, user.NotifyId, notificationID, reminderReq)
+	err1 := pc.notificationService.UpdateReminder(userID, updateReminderReq)
 	if err1 != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to update reminder", nil, err1)
 		return

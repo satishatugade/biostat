@@ -27,7 +27,7 @@ type NotificationService interface {
 
 	GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error)
 	ScheduleReminders(recipeintId, name string, user_id uint64, config []models.ReminderConfig) error
-	UpdateReminder(userID uint64, recipeintId string, notifID uuid.UUID, reminder models.ReminderConfig) error
+	UpdateReminder(userID uint64, reminder models.UpdateReminderRequest) error
 	SendSOS(recipientId, familyMember, patientName, location, dateTime, deviceId string) error
 	GetUserReminders(userId uint64) ([]models.UserReminder, error)
 
@@ -125,55 +125,57 @@ func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, us
 	return nil
 }
 
-func (e *NotificationServiceImpl) UpdateReminder(userID uint64, recipeintId string, notifID uuid.UUID, reminder models.ReminderConfig) error {
-	startDate := time.Now()
-	reminderTimeStr := fmt.Sprintf("%s %s", startDate.Format("2006-01-02"), reminder.Time)
-	reminderTime, err := time.ParseInLocation("2006-01-02 15:04", reminderTimeStr, time.Local)
-	if err != nil {
-		return fmt.Errorf("invalid time format: %v", err)
+func (e *NotificationServiceImpl) UpdateReminder(userID uint64, reminder models.UpdateReminderRequest) error {
+	updateBody := map[string]interface{}{
+		"notification_id": reminder.NotificationID,
 	}
-
-	scheduleTime := reminderTime.Format(time.RFC3339)
-	repeatUntil := reminderTime.AddDate(0, 0, reminder.DurationDays).Format(time.RFC3339)
+	if reminder.RepeatType != nil {
+		updateBody["repeat_type"] = *reminder.RepeatType
+	}
+	if reminder.RepeatInterval != nil {
+		updateBody["repeat_interval"] = *reminder.RepeatInterval
+	}
+	if reminder.RepeatTimes != nil {
+		updateBody["repeat_times"] = *reminder.RepeatTimes
+	}
+	if reminder.RepeatUntil != nil {
+		updateBody["repeat_until"] = reminder.RepeatUntil.Format(time.RFC3339)
+	}
+	if reminder.NextSendAt != nil {
+		updateBody["next_send_at"] = reminder.NextSendAt.Format(time.RFC3339)
+	}
+	if reminder.IsActive != nil {
+		updateBody["is_active"] = *reminder.IsActive
+	}
+	jsonBytes, _ := json.MarshalIndent(updateBody, "", "  ")
+	log.Println(string(jsonBytes))
 
 	var medList []string
 	for _, med := range reminder.Medicines {
 		medList = append(medList, fmt.Sprintf("%s (%d %s)", med.Name, med.Dose, med.Unit))
 	}
 
-	updateBody := map[string]interface{}{
-		"target_type":     "recipient_id",
-		"target_value":    recipeintId,
-		"notification_id": notifID.String(),
-		"schedule_time":   scheduleTime,
-		"repeat_type":     reminder.Frequency,
-		"repeat_interval": 1,
-		"repeat_times":    reminder.DurationDays,
-		"repeat_until":    repeatUntil,
-		"is_recurring":    true,
-	}
 	notifyServerURL := config.PropConfig.ApiURL.NotifyServerURL
 	notifyAPIKey := config.PropConfig.ApiURL.NotifyAPIKey
 	headers := map[string]string{
 		"X-API-Key": notifyAPIKey,
 	}
 
-	_, _, err = utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/update-schedule", updateBody, headers)
+	_, _, err := utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/update-schedule", updateBody, headers)
 	if err != nil {
 		return fmt.Errorf("failed to update notification: %v", err)
 	}
 
-	updateErr := e.notificationRepo.UpdateNotificationMapping(models.UserNotificationMapping{
-		UserID:           userID,
-		NotificationID:   notifID,
-		Title:            fmt.Sprintf("%s Medicine Reminder", reminder.TimeSlot),
-		Message:          fmt.Sprintf("Please take medicines: %s", strings.Join(medList, ", ")),
-		Tags:             "medication,reminder",
-		NotificationType: "scheduled",
-	})
-	if updateErr != nil {
-		return fmt.Errorf("failed to update mapping: %v", updateErr)
-	}
+	// updateErr := e.notificationRepo.UpdateNotificationMapping(models.UserNotificationMapping{
+	// 	UserID:           userID,
+	// 	NotificationID:   reminder.NotificationID,
+	// 	Message:          fmt.Sprintf("Please take medicines: %s", strings.Join(medList, ", ")),
+	// 	Tags:             "medication,reminder",
+	// 	NotificationType: "scheduled",
+	// })
+	// if updateErr != nil {
+	// 	return fmt.Errorf("failed to update mapping: %v", updateErr)
+	// }
 
 	return nil
 }
@@ -230,17 +232,21 @@ func (s *NotificationServiceImpl) GetUserReminders(userId uint64) ([]models.User
 	if !ok {
 		return nil, errors.New("invalid or missing 'content' field")
 	}
+	type notifyResponse struct {
+		Notification models.UserReminder `json:"notification"`
+	}
 	for _, res := range content {
 		jsonBytes, err := json.Marshal(res)
 		if err != nil {
 			log.Println("@GetUserReminders=>Marshal:", res)
 			continue
 		}
-		var reminder models.UserReminder
-		if err := json.Unmarshal(jsonBytes, &reminder); err != nil {
+		var wrapper notifyResponse
+		if err := json.Unmarshal(jsonBytes, &wrapper); err != nil {
 			log.Println("@GetUserReminders:>error unmarshaling reminder:", err)
 			continue
 		}
+		reminder := wrapper.Notification
 		if mapping, exists := metadataMap[reminder.ReminderID]; exists {
 			reminder.Title = mapping.Title
 			reminder.Message = mapping.Message
