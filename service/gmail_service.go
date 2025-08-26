@@ -35,7 +35,7 @@ type GmailSyncService interface {
 	CreateGmailServiceClient(accessToken string, googleOauthConfig *oauth2.Config) (*gmail.Service, error)
 	CreateGmailServiceFromToken(ctx context.Context, accessToken string) (*gmail.Service, error)
 	FetchEmailsWithAttachment(service *gmail.Service, userId uint64, filterString string, processID uuid.UUID, labNames []string) ([]*models.TblMedicalRecord, error)
-	ExtractAttachment(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64, processID uuid.UUID, index int) []*models.TblMedicalRecord
+	ExtractAttachment(service *gmail.Service, message *gmail.Message, bodyText string, subject string, emailDate string, userEmail string, userId uint64, processID uuid.UUID, index int) []*models.TblMedicalRecord
 	CreateGmailServiceForApp(userID uint64, accessToken string) (*gmail.Service, error)
 	SyncGmailWeb(userID uint64, code string) error
 	SyncGmailApp(userID uint64, service *gmail.Service) error
@@ -122,40 +122,34 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 	msg1 := fmt.Sprintf("%s Inbox Search Query : %s", msg, filterString)
 	log.Println("Inbox Search Query:", userId, ":", userEmail, ":", filterString)
 	s.processStatusService.LogStep(processID, step, constant.Running, msg1, errorMsg, nil, nil, nil, nil, nil, nil)
-	results, err := service.Users.Messages.List("me").Q(filterString).Do()
+	results, err := service.Users.Messages.List("me").Q(filterString).MaxResults(500).Do()
 	if err != nil {
 		log.Println("Error fetching user gmails for filter query:", userId, ":", err)
 		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, string(constant.GmailSearchMessage), err.Error(), nil, nil, nil)
 		return nil, err
 	}
+	log.Println("Got email from initial search:", len(results.Messages))
+	var allMessages []*gmail.Message
+	allMessages = append(allMessages, results.Messages...)
+	for results.NextPageToken != "" {
+		results, err = service.Users.Messages.List("me").Q(filterString).MaxResults(500).PageToken(results.NextPageToken).Do()
+		if err != nil {
+			log.Println("Error fetching paginated user gmails:", userId, ":", err)
+			break
+		}
+		log.Println("Got email from pagination search:", len(results.Messages))
+		allMessages = append(allMessages, results.Messages...)
+	}
+
 	s.processStatusService.LogStep(processID, step, constant.Success, msg1, errorMsg, nil, nil, nil, nil, nil, nil)
 	var emailSummaries []string
-	for idx, m := range results.Messages {
-		msg, err := service.Users.Messages.Get("me", m.Id).Format("metadata").MetadataHeaders("From", "Subject").Do()
-		if err != nil {
-			continue // skip if one fails
-		}
-
-		var from, subject string
-		for _, h := range msg.Payload.Headers {
-			switch h.Name {
-			case "From":
-				from = h.Value
-			case "Subject":
-				subject = h.Value
-			}
-		}
-		emailSummaries = append(emailSummaries, fmt.Sprintf("%d : from %s: %s", idx+1, from, subject))
-	}
-	logMsg := strings.Join(emailSummaries, " | ")
-	step1 := string(constant.FetchEmailsList)
-	s.processStatusService.LogStep(processID, step1, constant.Success, fmt.Sprintf("%d emails found: %s", len(emailSummaries), logMsg), errorMsg, nil, nil, nil, nil, nil, nil)
 	var records []*models.TblMedicalRecord
 	findMailstep := string(constant.FindingEmailWithAttachment)
-	for idx, msg := range results.Messages {
+
+	for idx, msg := range allMessages {
 		indexCount := idx
 		msgId := msg.Id
-		message, err := service.Users.Messages.Get("me", msg.Id).Do()
+		message, err := service.Users.Messages.Get("me", msgId).Format("full").Do()
 		if err != nil || message == nil {
 			log.Println("FetchEmailsWithAttachments Error getting email for ", userId, userEmail, ":", err)
 			logmsg := fmt.Sprintf("Error getting email for userID: %v, userEmail: %v", userId, userEmail)
@@ -165,7 +159,10 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 		var bodyText string
 		subject := getHeader(message.Payload.Headers, "Subject")
 		emailDate := getHeader(message.Payload.Headers, "Date")
-		log.Println("Checking ", emailDate, "||", subject)
+		from := getHeader(message.Payload.Headers, "From")
+		emailSummaries = append(emailSummaries, fmt.Sprintf("%d : from %s: %s", idx+1, from, subject))
+		log.Println(idx+1, ": Checking ", emailDate, "||", subject)
+
 		bodyText = GetMessageBody(message)
 		normalizeBodyText := normalizeText(bodyText)
 		foundLab := false
@@ -185,19 +182,26 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 			continue
 		}
 		log.Println("FetchEmailsWithAttachments Processing Email for:", userId, ":", userEmail, ": Processing Mail", idx+1, " of ", len(results.Messages))
-		attachments := s.ExtractAttachment(service, message, userEmail, userId, processID, idx+1)
+		attachments := s.ExtractAttachment(service, message, bodyText, subject, emailDate, userEmail, userId, processID, idx+1)
 		msg := fmt.Sprintf("%s and %d attachments found", emailMsg, len(attachments))
 		s.processStatusService.LogStep(processID, findMailstep, constant.Running, msg, errorMsg, nil, &indexCount, nil, nil, nil, &msgId)
 		records = append(records, attachments...)
 	}
-	msg3 := fmt.Sprintf("Found %d email attachment in %d email", len(records), len(results.Messages))
+
+	logMsg := strings.Join(emailSummaries, " | ")
+	log.Println(logMsg)
+	step1 := string(constant.FetchEmailsList)
+	s.processStatusService.LogStep(processID, step1, constant.Success, fmt.Sprintf("%d emails found: %s", len(emailSummaries), logMsg), errorMsg, nil, nil, nil, nil, nil, nil)
+
+	msg3 := fmt.Sprintf("Found %d email attachment in %d email", len(records), len(allMessages))
+	log.Println(msg3)
 	totalRecord := len(records)
 	s.processStatusService.LogStep(processID, findMailstep, constant.Success, msg3, errorMsg, nil, &totalRecord, nil, nil, nil, nil)
 	log.Println("@FetchEmailsWithAttachments->Gmail Records found:", len(records), "userEmail: ", userEmail)
 	return records, nil
 }
 
-func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message *gmail.Message, userEmail string, userId uint64, processID uuid.UUID, mailIdx int) []*models.TblMedicalRecord {
+func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message *gmail.Message, bodyText string, subject string, emailDate string, userEmail string, userId uint64, processID uuid.UUID, mailIdx int) []*models.TblMedicalRecord {
 	var records []*models.TblMedicalRecord
 	totalAttempted := 0
 	successCount := 0
@@ -207,11 +211,8 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 		if part.Filename != "" {
 			recordIndexCount := idx + 1
 			attachmentId := part.Body.AttachmentId
-			body := GetMessageBody(message)
-			emailDate := getHeader(message.Payload.Headers, "Date")
-			subject := getHeader(message.Payload.Headers, "Subject")
 			msg := fmt.Sprintf("Downloading attachment %s Dated on %s from EmailSub %s", part.Filename, emailDate, subject)
-			log.Println("@ExtractAttachments Processing Record from Email:", mailIdx, "-", recordIndexCount, "/", len(message.Payload.Parts), ": ", part.Filename, "-", getHeader(message.Payload.Headers, "Subject"))
+			log.Println("@ExtractAttachments Processing Record from Email:", mailIdx, "-", recordIndexCount, "/", len(message.Payload.Parts), ": ", part.Filename, "-", subject)
 			s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 			attachmentData, err := DownloadAttachment(service, message.Id, attachmentId)
 			if err != nil {
@@ -243,7 +244,7 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 			}
 			metadataJSON, _ := json.Marshal(initialMetadata)
 			recordURL := fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName)
-			subBody := fmt.Sprintf("Subject and body of email sub : %s : Body :%+v ", getHeader(message.Payload.Headers, "Subject"), body)
+			subBody := fmt.Sprintf("Subject and body of email sub : %s : Body :%+v ", subject, bodyText)
 			newRecord := &models.TblMedicalRecord{
 				RecordName:        safeFileName,
 				RecordSize:        int64(len(attachmentData)),
@@ -676,7 +677,8 @@ func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOn
 		keywordDocType == string(constant.VACCINATION) ||
 		keywordDocType == string(constant.DISCHARGESUMMARY) ||
 		keywordDocType == string(constant.INVOICE) ||
-		keywordDocType == string(constant.NONMEDICAL) {
+		keywordDocType == string(constant.NONMEDICAL) ||
+		keywordDocType == string(constant.SCAN) {
 
 		status = constant.StatusSuccess
 
