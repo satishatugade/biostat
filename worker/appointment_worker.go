@@ -269,7 +269,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				matchMessage = fmt.Sprintf("Fallback :%t | Match userId :%d | Patient name on report %s | Name match with user: %s ", apiResp.IsFallback, apiResp.MatchedUserID, patientNameOnReport, apiResp.FinalPatientName)
 				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 				tx := w.db.Begin()
-				err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
+				err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": apiResp.MatchedUserID, "is_unknown_record": apiResp.IsFallback})
 				if err != nil {
 					return err
 				}

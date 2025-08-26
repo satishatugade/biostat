@@ -656,6 +656,7 @@ func DecryptPDFIfProtected(fileData []byte, password string) ([]byte, error) {
 func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOnReport string, userId uint64) (constant.JobStatus, *models.PatientDocResponse, error) {
 	status := constant.StatusQueued
 	var patientDocInfo *models.PatientDocResponse
+	var err error
 
 	if keywordDocType == string(constant.OTHER) ||
 		keywordDocType == string(constant.INSURANCE) ||
@@ -672,11 +673,11 @@ func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOn
 			keywordDocType == string(constant.DISCHARGESUMMARY) ||
 			keywordDocType == string(constant.INVOICE) {
 
-			info, err := gs.GetPatientNameOnDoc(patientNameOnReport, userId)
+			patientDocInfo, err = gs.GetPatientNameOnDoc(patientNameOnReport, userId)
 			if err != nil {
 				return status, nil, err
 			}
-			patientDocInfo = info
+			return status, patientDocInfo, nil
 		} else {
 			userDetails, err := gs.patientService.GetUserProfileByUserId(userId)
 			if err != nil {
@@ -707,7 +708,6 @@ func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOn
 		}
 		return status, patientDocInfo, nil
 	}
-	return status, patientDocInfo, nil
 }
 
 func (gs *GmailSyncServiceImpl) GetPatientNameOnDoc(patientNameOnReport string, userID uint64) (*models.PatientDocResponse, error) {

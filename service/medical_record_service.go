@@ -351,7 +351,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 
 func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64, patientDocInfo *models.PatientDocResponse) error {
 	var uniqueRecords []*models.TblMedicalRecord
-
+	newUserId := userId
 	for _, record := range records {
 		exists, err := s.tblMedicalRecordRepo.ExistsRecordForUser(userId, record.UploadSource, record.RecordUrl)
 		if err != nil {
@@ -371,11 +371,17 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	for _, record := range uniqueRecords {
-		if !patientDocInfo.IsFallback {
-			userId = patientDocInfo.MatchedUserID
+		// if !patientDocInfo.IsFallback {
+		// 	userId = patientDocInfo.MatchedUserID
+		// }
+		log.Println("patientDocInfo :", patientDocInfo)
+		log.Println("Before patientDocInfo.MatchedUserID != userId condition true :", patientDocInfo.MatchedUserID, userId)
+		if patientDocInfo.MatchedUserID != userId {
+			log.Println("patientDocInfo.MatchedUserID != userId condition true :", patientDocInfo.MatchedUserID, userId)
+			newUserId = patientDocInfo.MatchedUserID
 		}
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
-			UserID:          userId,
+			UserID:          newUserId,
 			RecordID:        record.RecordId,
 			IsUnknownRecord: patientDocInfo.IsFallback,
 		})
