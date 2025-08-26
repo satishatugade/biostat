@@ -45,6 +45,7 @@ type TblMedicalRecord struct {
 
 	IsPasswordProtected bool   `gorm:"-" json:"is_password_protected"`
 	PDFPassword         string `gorm:"-" json:"pdf_password,omitempty"`
+	PatientName         string `gorm:"-" json:"patient_name,omitempty"`
 }
 
 func (TblMedicalRecord) TableName() string {

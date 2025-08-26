@@ -58,7 +58,7 @@ func (GenderMaster) TableName() string {
 
 type PatientRelative struct {
 	RelativeId        uint64             `json:"user_id"` //relative_id
-	PatientId         *uint              `json:"patient_id,omitempty"`
+	PatientId         *uint64            `json:"patient_id,omitempty"`
 	FirstName         string             `json:"first_name"`
 	MiddleName        string             `json:"middle_name"`
 	LastName          string             `json:"last_name"`

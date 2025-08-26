@@ -271,6 +271,7 @@ const (
 	OTHER            RecordCategory = "other"
 	INVOICE          RecordCategory = "invoice"
 	NONMEDICAL       RecordCategory = "non_medical"
+	SCAN             RecordCategory = "scan"
 )
 
 type SubscriptionStatus string

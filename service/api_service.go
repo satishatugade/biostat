@@ -27,6 +27,7 @@ type ApiService interface {
 	AskAI(message string, userId uint64, patientName string, query_type string) (*models.AskAPIResponse, error)
 	CheckPDFAndGetPassword(file io.Reader, fileName, emailBody string) (*models.PDFProtectionResult, error)
 	CallDocumentTypeAPI(file io.Reader, filename string) (*models.DocTypeAPIResponse, error)
+	CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error)
 }
 
 type ApiServiceImpl struct {
@@ -39,6 +40,7 @@ type ApiServiceImpl struct {
 	CheckPDFProtectionAPI      string
 	PDFPasswordAPI             string
 	DocTypeCheckAPI            string
+	FetchNameAPI               string
 	client                     *http.Client
 	sessionCache               map[uint64]string
 }
@@ -54,6 +56,7 @@ func NewApiService() ApiService {
 		CheckPDFProtectionAPI:      config.PropConfig.ApiURL.CheckPDFProtectionAPI,
 		PDFPasswordAPI:             config.PropConfig.ApiURL.PDFPasswordAPI,
 		DocTypeCheckAPI:            config.PropConfig.ApiURL.DocTypeAPI,
+		FetchNameAPI:               config.PropConfig.ApiURL.FetchNameAPI,
 		client:                     &http.Client{},
 		sessionCache:               make(map[uint64]string),
 	}
@@ -598,5 +601,29 @@ func (s *ApiServiceImpl) CallDocumentTypeAPI(file io.Reader, filename string) (*
 	if apiResp.Content == nil {
 		return &apiResp, fmt.Errorf("API response missing content")
 	}
+	return &apiResp, nil
+}
+
+func (s *ApiServiceImpl) CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error) {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := http.Post(s.FetchNameAPI, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, fmt.Errorf("API call failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status: %d", resp.StatusCode)
+	}
+
+	var apiResp models.PatientDocResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
 	return &apiResp, nil
 }

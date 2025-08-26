@@ -772,11 +772,20 @@ func (ps *PatientServiceImpl) FetchPatientDiagnosticReports(patientId uint64, fi
 }
 
 func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64, filter models.DiagnosticReportFilter, limit, offset int) (map[string]interface{}, int64, error) {
-	data, totalReports, err := ps.patientRepo.GetPatientDiagnosticReportResult(patientId, filter, limit, offset)
-	if err != nil {
-		return nil, 0, err
+	var totalReports int64
+	var err error
+	var data []models.ReportRow
+	if !filter.HealthVital {
+		data, totalReports, err = ps.patientRepo.GetPatientDiagnosticReportResult(patientId, filter, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
+	} else {
+		data, totalReports, err = ps.patientRepo.GetPatientDiagnosticHealthVital(patientId, filter, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
 	}
-
 	response := ps.patientRepo.ProcessReportGridData(data)
 	return response, totalReports, nil
 }

@@ -89,7 +89,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 		time.Duration(config.PropConfig.HealthCheck.TimeoutSeconds)*time.Second,
 	)
 
-	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo, apiService)
+	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo, apiService, patientService, medicalRecordsRepo, db)
 	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService, healthService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)

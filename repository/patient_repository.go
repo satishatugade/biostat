@@ -66,6 +66,7 @@ type PatientRepository interface {
 	NoOfMessagesForDashboard(patientID uint64) (int64, error)
 	NoOfLabReusltsForDashboard(patientID uint64) (int64, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
+	GetPatientDiagnosticHealthVital(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
 	ProcessReportGridData(rows []models.ReportRow) map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
@@ -653,6 +654,7 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 	case string(constant.MappingTypeR):
 		mappingCondition = string(constant.MappingTypeHOF)
 	}
+	// if mappingType == string(constant.MappingTypeHOF) || mappingType == string(constant.MappingTypeR) || mappingType == string(constant.MappingTypeS) {
 	if mappingType == string(constant.MappingTypeHOF) || mappingType == string(constant.MappingTypeR) {
 		var existingHOF []models.SystemUserRoleMapping
 		if err := tx.Model(&models.SystemUserRoleMapping{}).
@@ -685,6 +687,9 @@ func (ps *PatientRepositoryImpl) AssignPrimaryCaregiver(patientId uint64, relati
 	if err := tx.Model(&models.SystemUserRoleMapping{}).Where("patient_id = ? AND user_id = ? AND mapping_type = ? ", patientId, relativeId, mappingCondition).Update("mapping_type", mappingType).Error; err != nil {
 		return rollbackErr(err)
 	}
+	// if err := tx.Model(&models.SystemUserRoleMapping{}).Where("user_id = ? AND mapping_type = ? ", relativeId, mappingCondition).Update("mapping_type", mappingType).Error; err != nil {
+	// 	return rollbackErr(err)
+	// }
 
 	return tx.Commit().Error
 }
@@ -1603,7 +1608,6 @@ func (p *PatientRepositoryImpl) FetchPatientDiagnosticReports(patientId uint64, 
 
 func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error) {
 	var results []models.ReportRow
-	fmt.Println("filter ", filter)
 	totalReports, err := p.CountPatientDiagnosticReports(patientId, filter)
 	if err != nil {
 		return nil, 0, err
@@ -1633,7 +1637,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		SELECT 
 			pdr.patient_diagnostic_report_id,
 			pdr.patient_id,
-			mr.record_id,
+			pra.record_id,
 			format_datetime(pdr.collected_date) AS collected_date,
 			format_datetime(pdr.report_date) AS report_date,
 			pdr.report_status,
@@ -1654,10 +1658,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			format_datetime(pdtrv.result_date) AS result_date,
 			pdtrv.result_comment,
 			dl.diagnostic_lab_id,
-			CASE 
-				WHEN pdr.is_lab_report = TRUE THEN dl.lab_name
-				ELSE hvs.source_name
-			END AS lab_name,
+			dl.lab_name AS lab_name,
 			dc.is_pinned,
 			pdtrv.udf1 AS qualifier
 		FROM tbl_patient_diagnostic_test_result_value pdtrv
@@ -1681,13 +1682,11 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			AND pdtrv.patient_id = dc.patient_id
 		LEFT JOIN tbl_patient_report_attachment pra 
 				ON pdtrv.patient_diagnostic_report_id = pra.patient_diagnostic_report_id
-		LEFT JOIN tbl_medical_record mr 
+		INNER JOIN tbl_medical_record mr 
 				ON mr.record_id = pra.record_id
 			AND mr.is_deleted = 0 AND mr.record_category NOT IN ('duplicate', 'other')
 		LEFT JOIN tbl_diagnostic_lab dl 
 			ON pdr.diagnostic_lab_id = dl.diagnostic_lab_id
-		LEFT JOIN tbl_health_vital_source hvs
-			ON pdr.diagnostic_lab_id = hvs.source_id
 		WHERE pdtrv.patient_diagnostic_report_id IN (
 			SELECT patient_diagnostic_report_id FROM paginated_reports
 		) AND pdr.is_deleted = 0
@@ -1724,7 +1723,6 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 	query += p.BuildOrderByClause(filter.OrderBy, filter.OrderDir)
 
 	fmt.Println("Executing Query:", query)
-	fmt.Println("With Args:", args)
 	if err := p.db.Raw(query, args...).Scan(&results).Error; err != nil {
 		return nil, 0, fmt.Errorf("data query failed: %w", err)
 	}
@@ -1798,6 +1796,123 @@ func GetReferenceRange(minStr, maxStr, bioRange string) string {
 		return bioRange
 	}
 	return fmt.Sprintf("%s - %s", minStr, maxStr)
+}
+
+func (p *PatientRepositoryImpl) GetPatientDiagnosticHealthVital(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error) {
+	var results []models.ReportRow
+	totalReports, err := p.CountPatientDiagnosticReports(patientId, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := `WITH paginated_reports AS (
+		SELECT DISTINCT pdr.patient_diagnostic_report_id
+		FROM tbl_patient_diagnostic_report pdr
+		WHERE pdr.patient_id = ? AND pdr.is_deleted = 0 `
+	args := []interface{}{patientId}
+
+	if filter.ReportStatus != nil {
+		query += " AND pdr.report_status = ?"
+		args = append(args, *filter.ReportStatus)
+	}
+	if filter.ReportName != nil {
+		query += " AND pdr.report_name = ?"
+		args = append(args, *filter.ReportName)
+	}
+	if filter.ReportID != nil {
+		query += " AND pdr.patient_diagnostic_report_id = ?"
+		args = append(args, *filter.ReportID)
+	}
+
+	query += ` ORDER BY pdr.patient_diagnostic_report_id DESC LIMIT ? OFFSET ? ) `
+	args = append(args, limit, offset)
+
+	query += `
+		SELECT 
+			pdr.patient_diagnostic_report_id,
+			pdr.patient_id,
+			format_datetime(pdr.collected_date) AS collected_date,
+			format_datetime(pdr.report_date) AS report_date,
+			pdr.report_status,
+			pdr.report_name,
+			pdt.test_note,
+			pdt.test_date,
+			pdtrv.diagnostic_test_id,
+			pdtm.test_name,
+			pdtrv.diagnostic_test_component_id,
+			COALESCE(orig_comp.test_component_name, tdpdtcm.test_component_name) AS test_component_name,
+			COALESCE(orig_comp.units, tdpdtcm.units) AS component_unit,
+			pdtrv.result_value,
+			dtrr.normal_min,
+			dtrr.normal_max,
+			dtrr.biological_reference_description,
+			dtrr.units AS ref_units,
+			pdtrv.result_status,
+			format_datetime(pdtrv.result_date) AS result_date,
+			pdtrv.result_comment,
+			hvs.source_id AS source_id,
+			hvs.source_name AS lab_name,
+			pdtrv.udf1 AS qualifier
+		FROM tbl_patient_diagnostic_test_result_value pdtrv
+		LEFT JOIN tbl_patient_diagnostic_test pdt 
+			ON pdtrv.patient_diagnostic_report_id = pdt.patient_diagnostic_report_id 
+			AND pdtrv.diagnostic_test_id = pdt.diagnostic_test_id
+		LEFT JOIN tbl_patient_diagnostic_report pdr 
+			ON pdtrv.patient_diagnostic_report_id = pdr.patient_diagnostic_report_id
+			AND pdr.is_health_vital = true
+		LEFT JOIN tbl_diagnostic_test_reference_range dtrr 
+			ON pdtrv.diagnostic_test_component_id = dtrr.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm 
+			ON pdtrv.diagnostic_test_component_id = tdpdtcm.diagnostic_test_component_id
+		LEFT JOIN tbl_diagnostic_test_component_alias_mapping tcam 
+			ON tcam.alias_test_component_id = pdtrv.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_component_master orig_comp
+   			ON orig_comp.diagnostic_test_component_id = tcam.diagnostic_test_component_id
+		LEFT JOIN tbl_disease_profile_diagnostic_test_master pdtm 
+			ON pdtrv.diagnostic_test_id = pdtm.diagnostic_test_id
+		LEFT JOIN tbl_health_vital_source hvs
+			ON pdr.diagnostic_lab_id = hvs.source_id
+		WHERE pdtrv.patient_diagnostic_report_id IN (
+			SELECT patient_diagnostic_report_id FROM paginated_reports
+		) AND pdr.is_deleted = 0
+	`
+
+	if filter.TestName != nil {
+		query += " AND pdtm.test_name ILIKE ? "
+		args = append(args, "%"+*filter.TestName+"%")
+	}
+	if filter.TestNote != nil {
+		query += " AND pdt.test_note ILIKE ? "
+		args = append(args, "%"+*filter.TestNote+"%")
+	}
+	if filter.Qualifier != nil {
+		query += " AND pdtrv.udf1 = ? "
+		args = append(args, *filter.Qualifier)
+	}
+	if filter.TestComponentName != nil {
+		query += " AND tdpdtcm.test_component_name ILIKE ? "
+		args = append(args, "%"+*filter.TestComponentName+"%")
+	}
+	if filter.DiagnosticLabID != nil {
+		query += " AND dl.diagnostic_lab_id = ? "
+		args = append(args, *filter.DiagnosticLabID)
+	}
+	if filter.ResultDateFrom != nil && filter.ResultDateTo != nil {
+		query += " AND DATE(pdtrv.result_date) BETWEEN ? AND ? "
+		args = append(args, *filter.ResultDateFrom, *filter.ResultDateTo)
+	}
+	if filter.ReportDate != nil {
+		query += " AND DATE(pdr.report_date) = ?"
+		args = append(args, *filter.ReportDate)
+	}
+	query += p.BuildOrderByClause(filter.OrderBy, filter.OrderDir)
+
+	fmt.Println("Executing Query:", query)
+	if err := p.db.Raw(query, args...).Scan(&results).Error; err != nil {
+		return nil, 0, fmt.Errorf("data query failed: %w", err)
+	}
+
+	return results, totalReports, nil
 }
 
 func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) map[string]interface{} {

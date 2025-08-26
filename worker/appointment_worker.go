@@ -335,12 +335,14 @@ func (w *DigitizationWorker) HandleDocTypeCheckTask(ctx context.Context, t *asyn
 	SendDocTypeResult(payload.AttachmentID, docTypeResp)
 	return nil
 }
-func SendDocTypeResult(recordID string, result *models.DocTypeAPIResponse) {
+func SendDocTypeResult(AttachmentID string, result *models.DocTypeAPIResponse) {
 	service.DocTypeResponses.Lock()
 	defer service.DocTypeResponses.Unlock()
-	if ch, ok := service.DocTypeResponses.Data[recordID]; ok {
-		ch <- result.Content.LLMClassifier.DocumentType
+	if ch, ok := service.DocTypeResponses.Data[AttachmentID]; ok {
+		// ch <- result.Content.LLMClassifier.DocumentType
+		// ch <- result.Content.RegexClassifier.DocumentType
+		ch <- result
 		close(ch)
-		delete(service.DocTypeResponses.Data, recordID)
+		delete(service.DocTypeResponses.Data, AttachmentID)
 	}
 }

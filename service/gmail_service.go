@@ -27,6 +27,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
+	"gorm.io/gorm"
 )
 
 type GmailSyncService interface {
@@ -46,10 +47,13 @@ type GmailSyncServiceImpl struct {
 	userService          UserService
 	diagnosticRepo       repository.DiagnosticRepository
 	apiService           ApiService
+	patientService       PatientService
+	recordRepo           repository.TblMedicalRecordRepository
+	db                   *gorm.DB
 }
 
-func NewGmailSyncService(processStatusService ProcessStatusService, medRecordService TblMedicalRecordService, userService UserService, diagnosticRepo repository.DiagnosticRepository, apiService ApiService) GmailSyncService {
-	return &GmailSyncServiceImpl{processStatusService: processStatusService, medRecordService: medRecordService, userService: userService, diagnosticRepo: diagnosticRepo, apiService: apiService}
+func NewGmailSyncService(processStatusService ProcessStatusService, medRecordService TblMedicalRecordService, userService UserService, diagnosticRepo repository.DiagnosticRepository, apiService ApiService, patientService PatientService, recordRepo repository.TblMedicalRecordRepository, db *gorm.DB) GmailSyncService {
+	return &GmailSyncServiceImpl{processStatusService: processStatusService, medRecordService: medRecordService, userService: userService, diagnosticRepo: diagnosticRepo, apiService: apiService, patientService: patientService, recordRepo: recordRepo, db: db}
 }
 
 func (gs *GmailSyncServiceImpl) GetGmailAuthURL(userId uint64) (string, error) {
@@ -434,6 +438,9 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	docCompleteMsg := string(constant.CheckDocTypeCompleted)
 	totalAttempted := 0
 	errorCount := 0
+	var patientDocInfo *models.PatientDocResponse
+	var status constant.JobStatus
+	var matchNameError error
 	for idx, record := range emailMedRecord {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		attachmentId, err := utils.GetAttachmentIDFromRecord(record)
@@ -479,7 +486,9 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		keywordDocType := ""
 		var docTypeLogs string
 		var keywordDocTypeLogs string
-		apiResponse, err := gs.apiService.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
+		var patientNameOnReport string
+		apiResponse, err := gs.medRecordService.EnqueueDocTypeCheckTask(attachmentId, record.RecordName, fileData, processID)
+		// apiResponse, err := gs.apiService.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
 		if err != nil {
 			errorCount++
 			log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
@@ -488,6 +497,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 			docType = string(constant.OTHER)
 		}
 		if apiResponse.Content != nil {
+			patientNameOnReport = apiResponse.Content.PatientName
 			if apiResponse.Content.LLMClassifier.DocumentType != "" {
 				docType = apiResponse.Content.LLMClassifier.DocumentType
 				docTypeLogs = apiResponse.Content.LLMClassifier.Logs
@@ -497,16 +507,19 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 				keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
 			}
 		}
-
-		status := constant.StatusQueued
-		if docType == string(constant.OTHER) || docType == string(constant.INSURANCE) || docType == string(constant.VACCINATION) || docType == string(constant.DISCHARGESUMMARY) || docType == string(constant.INVOICE) || docType == string(constant.NONMEDICAL) {
-			status = constant.StatusSuccess
+		// status := constant.StatusQueued
+		// if keywordDocType == string(constant.OTHER) || keywordDocType == string(constant.INSURANCE) || keywordDocType == string(constant.VACCINATION) || keywordDocType == string(constant.DISCHARGESUMMARY) || keywordDocType == string(constant.INVOICE) || keywordDocType == string(constant.NONMEDICAL) {
+		// 	status = constant.StatusSuccess
+		// }
+		status, patientDocInfo, matchNameError = gs.AssignDocToPatient(keywordDocType, patientNameOnReport, userId)
+		if matchNameError != nil {
+			log.Println("Error fetching patient info:", matchNameError)
 		}
-		record.RecordCategory = docType
+		record.RecordCategory = keywordDocType
 		record.Status = status
 		record.IsPasswordProtected = pdfCheckResult.IsProtected
 		record.PDFPassword = pdfCheckResult.Password
-		newmsg := fmt.Sprintf("Processing doc %d | Document classified as: %s ( %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, docType, keywordDocType, record.RecordUrl, recordInfo, docTypeLogs, keywordDocTypeLogs)
+		newmsg := fmt.Sprintf("Processing doc %d | Document classification : Regex → Keyword classify as →: %s (LLM classify as →: %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, keywordDocType, docType, record.RecordUrl, recordInfo, docTypeLogs, keywordDocTypeLogs)
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 	}
 	successCount := totalAttempted - errorCount
@@ -514,7 +527,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	step3 := string(constant.ProcessSaveRecords)
 	msg3 := string(constant.SaveRecord)
 	gs.processStatusService.LogStep(processID, step3, constant.Running, msg3, errorMsg, nil, nil, &totalRecord, nil, nil, nil)
-	saveRecordErr := gs.medRecordService.SaveMedicalRecords(emailMedRecord, userId)
+	saveRecordErr := gs.medRecordService.SaveMedicalRecords(emailMedRecord, userId, patientDocInfo)
 	if saveRecordErr != nil {
 		log.Println("@GmailSyncCore->SaveMedicalRecords:", userId, " : ", saveRecordErr)
 		gs.processStatusService.LogStepAndFail(processID, step3, constant.Failure, string(constant.FailedSaveRecords), saveRecordErr.Error(), nil, nil, nil)
@@ -567,7 +580,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	if len(emailMedRecord) > 0 {
 		msg5 = fmt.Sprintf("Gmail Sync completed for %d records. These records are now being processed for digitization. You’ll be notified once the process is complete.", len(emailMedRecord))
 	} else {
-		msg5 = fmt.Sprintf("Gmail Sync completed. No records found")
+		msg5 = "Gmail Sync completed. No records found"
 	}
 	gs.processStatusService.LogStep(processID, step4, constant.Success, msg5, errorMsg, nil, nil, nil, nil, nil, nil)
 	return nil
@@ -652,4 +665,76 @@ func DecryptPDFIfProtected(fileData []byte, password string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to decrypt PDF: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOnReport string, userId uint64) (constant.JobStatus, *models.PatientDocResponse, error) {
+	status := constant.StatusQueued
+	var patientDocInfo *models.PatientDocResponse
+
+	if keywordDocType == string(constant.OTHER) ||
+		keywordDocType == string(constant.INSURANCE) ||
+		keywordDocType == string(constant.VACCINATION) ||
+		keywordDocType == string(constant.DISCHARGESUMMARY) ||
+		keywordDocType == string(constant.INVOICE) ||
+		keywordDocType == string(constant.NONMEDICAL) {
+
+		status = constant.StatusSuccess
+
+		// nested condition → fetch patient name on doc
+		if keywordDocType == string(constant.INSURANCE) ||
+			keywordDocType == string(constant.VACCINATION) ||
+			keywordDocType == string(constant.DISCHARGESUMMARY) ||
+			keywordDocType == string(constant.INVOICE) {
+
+			info, err := gs.GetPatientNameOnDoc(patientNameOnReport, userId)
+			if err != nil {
+				return status, nil, err
+			}
+			patientDocInfo = info
+		}
+	}
+
+	return status, patientDocInfo, nil
+}
+
+func (gs *GmailSyncServiceImpl) GetPatientNameOnDoc(patientNameOnReport string, userID uint64) (*models.PatientDocResponse, error) {
+	userDetails, err := gs.patientService.GetUserProfileByUserId(userID)
+	if err != nil {
+
+	}
+	relatives, _ := gs.patientService.GetRelativeList(&userID)
+	var rels []models.Relative
+	for _, r := range relatives {
+		fullName := BuildFullName(r.FirstName, r.MiddleName, r.LastName)
+		rels = append(rels, models.Relative{
+			UserID: r.RelativeId,
+			Name:   fullName,
+		})
+	}
+	fullName := strings.TrimSpace(fmt.Sprintf("%s %s %s", userDetails.FirstName, userDetails.MiddleName, userDetails.LastName))
+	req := &models.PatientDocRequest{
+		UserID:            userID,
+		PatientName:       fullName,
+		Relatives:         rels,
+		ReportPatientName: patientNameOnReport,
+	}
+	apiResp, err := gs.apiService.CallPatientDocInfoAPI(req)
+	if err != nil {
+		return &models.PatientDocResponse{}, err
+	}
+	return apiResp, nil
+}
+
+func BuildFullName(first, middle, last string) string {
+	var parts []string
+	if first != "" {
+		parts = append(parts, first)
+	}
+	if middle != "" {
+		parts = append(parts, middle)
+	}
+	if last != "" {
+		parts = append(parts, last)
+	}
+	return strings.Join(parts, " ")
 }

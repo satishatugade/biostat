@@ -392,6 +392,7 @@ type DiagnosticReportFilter struct {
 	ReportName        *string `json:"report_name,omitempty"`
 	TestName          *string `json:"test_name,omitempty"`
 	TestNote          *string `json:"test_note,omitempty"`
+	HealthVital       bool    `json:"health_vital,omitempty"`
 	Qualifier         *string `json:"qualifier,omitempty"`
 	TestComponentName *string `json:"test_component_name,omitempty"`
 	DiagnosticLabID   *uint64 `json:"diagnostic_lab_id,omitempty"`

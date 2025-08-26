@@ -33,8 +33,8 @@ type TblMedicalRecordService interface {
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
 	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
-	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (string, error)
-	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
+	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (*models.DocTypeAPIResponse, error)
+	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64, patientDocInfo *models.PatientDocResponse) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
@@ -111,7 +111,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		return nil, err
 	}
 	Status := constant.StatusQueued
-	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) {
+	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) || recordCategory == string(constant.SCAN) {
 		Status = constant.StatusSuccess
 	}
 	newRecord := models.TblMedicalRecord{
@@ -216,17 +216,22 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 }
 
 // Global map to store responses for doc type checks
+// var DocTypeResponses = struct {
+// 	sync.Mutex
+// 	Data map[string]chan string
+// }{Data: make(map[string]chan string)}
+
 var DocTypeResponses = struct {
 	sync.Mutex
-	Data map[string]chan string
-}{Data: make(map[string]chan string)}
+	Data map[string]chan *models.DocTypeAPIResponse
+}{Data: make(map[string]chan *models.DocTypeAPIResponse)}
 
 func (mrs *tblMedicalRecordServiceImpl) EnqueueDocTypeCheckTask(
 	attachmentId string,
 	recordName string,
 	fileData []byte,
 	processID uuid.UUID,
-) (string, error) {
+) (*models.DocTypeAPIResponse, error) {
 	payload := models.DocTypeCheckPayload{
 		AttachmentID: attachmentId,
 		FileName:     recordName,
@@ -234,7 +239,7 @@ func (mrs *tblMedicalRecordServiceImpl) EnqueueDocTypeCheckTask(
 		ProcessID:    processID,
 	}
 
-	ch := make(chan string, 1)
+	ch := make(chan *models.DocTypeAPIResponse, 1)
 
 	DocTypeResponses.Lock()
 	DocTypeResponses.Data[attachmentId] = ch
@@ -243,7 +248,7 @@ func (mrs *tblMedicalRecordServiceImpl) EnqueueDocTypeCheckTask(
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		mrs.cleanupDocTypeChannel(attachmentId)
-		return "", fmt.Errorf("failed to marshal doc type payload: %w", err)
+		return &models.DocTypeAPIResponse{}, fmt.Errorf("failed to marshal doc type payload: %w", err)
 	}
 
 	task := asynq.NewTask("check:doctype", payloadBytes)
@@ -255,7 +260,7 @@ func (mrs *tblMedicalRecordServiceImpl) EnqueueDocTypeCheckTask(
 	)
 	if err != nil {
 		mrs.cleanupDocTypeChannel(attachmentId)
-		return "", fmt.Errorf("failed to enqueue doc type check task: %w", err)
+		return &models.DocTypeAPIResponse{}, fmt.Errorf("failed to enqueue doc type check task: %w", err)
 	}
 
 	docType := <-ch
@@ -343,7 +348,7 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 	return bestMatchID, bestMatchName, isUnknownReport, matchMessage
 }
 
-func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64) error {
+func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64, patientDocInfo *models.PatientDocResponse) error {
 	var uniqueRecords []*models.TblMedicalRecord
 
 	for _, record := range records {
@@ -365,10 +370,13 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	for _, record := range uniqueRecords {
-		log.Printf("Creating mapping for %d", record.RecordId)
+		if !patientDocInfo.IsFallback {
+			userId = patientDocInfo.MatchedUserID
+		}
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
-			UserID:   userId,
-			RecordID: record.RecordId,
+			UserID:          userId,
+			RecordID:        record.RecordId,
+			IsUnknownRecord: patientDocInfo.IsFallback,
 		})
 	}
 	return s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
@@ -434,7 +442,7 @@ func (s *tblMedicalRecordServiceImpl) ReadUserLocalServerFile(localFileUrl strin
 }
 
 func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userId, reqUserId uint64) (interface{}, error) {
-	isAccessible, err := s.IsRecordAccessibleToUser(userId, ResourceId)
+	isAccessible, err := s.IsRecordAccessibleToUser(reqUserId, ResourceId)
 	if err != nil {
 		return nil, err
 	}

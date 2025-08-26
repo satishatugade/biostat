@@ -258,6 +258,21 @@ func (rs *RoleServiceImpl) AddUserRelativeMappings(tx *gorm.DB, userId uint64, r
 	if err != nil {
 		return err
 	}
+	// SELF MAPPING
+	selfMappingErr := rs.roleRepo.AddSystemUserMapping(tx, &models.SystemUserRoleMapping{
+		UserId:      relativeId,
+		PatientId:   relativeId,
+		RoleId:      roleId,
+		IsSelf:      false,
+		MappingType: string(constant.MappingTypeS),
+		RelationId:  0,
+		FamilyId:    familyIdPtr,
+	})
+	if selfMappingErr != nil {
+		log.Println("@AddUserRelativeMappings->selfMappingErr:", err)
+		return err
+	}
+
 	// UPDATE MAPPING IN ALL OTHER RELATIVES
 	log.Println("List of ALL Relatives for User:", userId)
 	for _, relative := range realtives {
