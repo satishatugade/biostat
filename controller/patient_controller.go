@@ -1064,13 +1064,14 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 	uploadSource := ctx.PostForm("upload_source")
 	description := ctx.PostForm("description")
 	recordCategory := ctx.PostForm("record_category")
-	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory)
+	recordSubCategory := ctx.PostForm("record_sub_category")
+	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory, recordSubCategory)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
 	}
 	message := "Your record has been created successfully. Digitization is in progress and should complete within 4–5 minutes."
-	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) {
+	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) || recordCategory == string(constant.SCANS) {
 		message = "Record saved successfully"
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, nil, nil)

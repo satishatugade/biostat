@@ -267,11 +267,25 @@ const (
 	INSURANCE        RecordCategory = "insurance"
 	MEDICATION       RecordCategory = "medications"
 	VACCINATION      RecordCategory = "vaccinations"
+	Prescription     RecordCategory = "prescription"
 	DISCHARGESUMMARY RecordCategory = "discharge_summary"
 	OTHER            RecordCategory = "other"
 	INVOICE          RecordCategory = "invoice"
 	NONMEDICAL       RecordCategory = "non_medical"
-	SCAN             RecordCategory = "scan"
+	SCANS            RecordCategory = "scans"
+)
+
+type RecordSubCategory string
+
+const (
+	CTSCAN      RecordSubCategory = "ct-scan"
+	MRI         RecordSubCategory = "mri"
+	XRAY        RecordSubCategory = "x-ray"
+	ANGIOGRAPHY RecordSubCategory = "angiography"
+	ENDOSCOPY   RecordSubCategory = "endoscopy"
+	SONOGRAPHY  RecordSubCategory = "sonography"
+	FRACTURE    RecordSubCategory = "fracture"
+	OTHERS      RecordSubCategory = "other"
 )
 
 type SubscriptionStatus string

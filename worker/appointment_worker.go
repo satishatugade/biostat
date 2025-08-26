@@ -53,6 +53,7 @@ type DigitizationWorker struct {
 	db                   *gorm.DB
 	healthMonitor        *service.HealthMonitorService
 	processStatusService service.ProcessStatusService
+	gmailService         service.GmailSyncService
 }
 
 func NewDigitizationWorker(db *gorm.DB) *DigitizationWorker {
@@ -69,6 +70,8 @@ func InitAsynqWorker(
 	recordRepo repository.TblMedicalRecordRepository,
 	db *gorm.DB,
 	processStatusService service.ProcessStatusService,
+	gmailService service.GmailSyncService,
+
 ) {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: config.PropConfig.ApiURL.RedisURL})
 	healthMonitor := service.NewHealthMonitorService(config.RedisClient, config.PropConfig.HealthCheck.URL, time.Duration(config.PropConfig.HealthCheck.IntervalSeconds)*time.Second, time.Duration(config.PropConfig.HealthCheck.TimeoutSeconds)*time.Second)
@@ -83,6 +86,7 @@ func InitAsynqWorker(
 		db:                   db,
 		healthMonitor:        healthMonitor,
 		processStatusService: processStatusService,
+		gmailService:         gmailService,
 	}
 
 	srv := asynq.NewServer(
@@ -226,34 +230,59 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	}
 	aiResMsg := fmt.Sprintf("Processed record id %d %s %s %s", p.RecordID, p.Category, p.FileName, string(constant.CallingAIServiceSuccess))
 	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, aiResMsg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
-	relatives, _ := w.patientService.GetRelativeList(&p.UserID)
 	matchedUserID := p.UserID
 	var isUnknownReport bool
 	var matchName string
 	var matchMessage string
+	var patientNameOnReport string
+	var apiResp *models.PatientDocResponse
+	var apiErr error
 	if reportData.ReportDetails.PatientName != "" {
 		step := string(constant.MatchingReport)
 		msg := string(constant.MatchingNameMsg)
 		w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
-		matchedUserID, matchName, isUnknownReport, matchMessage = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
-		config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
-		log.Printf("Match Name found: %s", matchName)
-		if matchedUserID != p.UserID || isUnknownReport {
+		patientNameOnReport = reportData.ReportDetails.PatientName
+		apiResp, apiErr = w.gmailService.GetPatientNameOnDoc(patientNameOnReport, p.UserID)
+		if apiErr != nil {
+			config.Log.Error("gmailService.GetPatientNameOnDoc ERROR", zap.Error(apiErr))
+			relatives, _ := w.patientService.GetRelativeList(&p.UserID)
+			matchedUserID, matchName, isUnknownReport, matchMessage = service.MatchPatientNameWithRelative(relatives, reportData.ReportDetails.PatientName, p.UserID, p.PatientName)
+			config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", isUnknownReport))
+			config.Log.Info("Match Name found:", zap.String("matchName", matchName))
+			if matchedUserID != p.UserID || isUnknownReport {
+				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+				tx := w.db.Begin()
+				err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
+				if err != nil {
+					return err
+				}
+				if err := tx.Commit().Error; err != nil {
+					return err
+				}
+			}
+			msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+			reportData.ReportDetails.IsUnknownRecord = isUnknownReport
+		} else {
+			config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", apiResp.IsFallback))
+			if apiResp.MatchedUserID != p.UserID || apiResp.IsFallback {
+				matchMessage = fmt.Sprintf("Fallback :%t | Match userId :%d | Patient name on report %s | Name match with user: %s ", apiResp.IsFallback, apiResp.MatchedUserID, patientNameOnReport, apiResp.FinalPatientName)
+				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+				tx := w.db.Begin()
+				err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
+				if err != nil {
+					return err
+				}
+				if err := tx.Commit().Error; err != nil {
+					return err
+				}
+			}
+			// msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
 			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
-			tx := w.db.Begin()
-			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": matchedUserID, "is_unknown_record": isUnknownReport})
-			if err != nil {
-				return err
-			}
-			if err := tx.Commit().Error; err != nil {
-				return err
-			}
+			reportData.ReportDetails.IsUnknownRecord = apiResp.IsFallback
 		}
-		msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
-		w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	}
 	reportData.ReportDetails.IsDigital = true
-	reportData.ReportDetails.IsUnknownRecord = isUnknownReport
 	aiMetadata := map[string]interface{}{
 		"ai": reportData,
 	}
@@ -262,7 +291,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 			RecordId: p.RecordID,
 			Metadata: datatypes.JSON(jsonBytes),
 		}
-		if isUnknownReport {
+		if isUnknownReport || apiResp.IsFallback {
 			updateRecord.RecordCategory = string(constant.OTHER)
 		}
 		_, err := w.recordRepo.UpdateTblMedicalRecord(updateRecord)

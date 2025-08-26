@@ -17,6 +17,7 @@ type TblMedicalRecord struct {
 	UploadDestination string         `gorm:"column:upload_destination;not null" json:"upload_destination"`
 	SourceAccount     string         `gorm:"column:source_account;" json:"source_account"`
 	RecordCategory    string         `gorm:"column:record_category;" json:"record_category"`
+	RecordSubCategory string         `gorm:"column:record_sub_category;" json:"record_sub_category"`
 	Description       string         `gorm:"column:description;" json:"description"`
 	UDF1              string         `gorm:"-" json:"udf1"`
 	UDF2              string         `gorm:"-" json:"udf2"`

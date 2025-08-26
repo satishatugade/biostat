@@ -31,7 +31,7 @@ import (
 type TblMedicalRecordService interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]map[string]interface{}, int64, error)
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
-	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error)
+	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
 	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (*models.DocTypeAPIResponse, error)
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64, patientDocInfo *models.PatientDocResponse) error
@@ -75,7 +75,7 @@ func (s *tblMedicalRecordServiceImpl) GetAllMedicalRecord(patientId uint64, limi
 	return processed, totalRecords, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory string) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string) (*models.TblMedicalRecord, error) {
 	processType := string(constant.ManualRecordUpload)
 	step := string(constant.ProcessSaveRecords)
 	msg := string(constant.SaveRecord)
@@ -111,7 +111,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		return nil, err
 	}
 	Status := constant.StatusQueued
-	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) || recordCategory == string(constant.SCAN) {
+	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) || recordCategory == string(constant.SCANS) {
 		Status = constant.StatusSuccess
 	}
 	newRecord := models.TblMedicalRecord{
@@ -123,6 +123,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		UploadSource:      uploadSource,
 		Description:       description,
 		RecordCategory:    recordCategory,
+		RecordSubCategory: recordSubCategory,
 		FetchedAt:         time.Now(),
 		UploadedBy:        uploadingPerson,
 		SourceAccount:     fmt.Sprint(uploadSource),

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"biostat/config"
 	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
@@ -24,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	pdfcpuapi "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -39,6 +41,7 @@ type GmailSyncService interface {
 	CreateGmailServiceForApp(userID uint64, accessToken string) (*gmail.Service, error)
 	SyncGmailWeb(userID uint64, code string) error
 	SyncGmailApp(userID uint64, service *gmail.Service) error
+	GetPatientNameOnDoc(patientNameOnReport string, userID uint64) (*models.PatientDocResponse, error)
 }
 
 type GmailSyncServiceImpl struct {
@@ -164,13 +167,15 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 		log.Println(idx+1, ": Checking ", emailDate, "||", subject)
 
 		bodyText = GetMessageBody(message)
-		normalizeBodyText := normalizeText(bodyText)
+		normalizeBodyText := utils.NormalizeText(bodyText)
 		foundLab := false
 		emailMsg := ""
 		for _, lab := range labNames {
-			normalizeLabName := normalizeText(lab)
-			if strings.Contains(normalizeBodyText, normalizeLabName) {
-				emailMsg = fmt.Sprintf("Lab name %s found in EmailSub %s dated %s", lab, subject, emailDate)
+			normalizeLabName := utils.NormalizeText(lab)
+			matched, detail := utils.MatchLabInBody(normalizeBodyText, normalizeLabName)
+			if matched {
+				summary := detail.Summary(lab)
+				emailMsg = fmt.Sprintf("Lab name %s found in EmailSub %s dated %s, summary: %s", lab, subject, emailDate, summary)
 				foundLab = true
 				break
 			}
@@ -385,22 +390,6 @@ func decodeGmailBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(cleanData)
 }
 
-func normalizeText(s string) string {
-	// lowercase
-	s = strings.ToLower(s)
-
-	// replace punctuation with space
-	rePunct := regexp.MustCompile(`[^\w\s]`)
-	s = rePunct.ReplaceAllString(s, " ")
-
-	// collapse multiple spaces into one
-	reSpace := regexp.MustCompile(`\s+`)
-	s = reSpace.ReplaceAllString(s, " ")
-
-	// trim spaces at the ends
-	return strings.TrimSpace(s)
-}
-
 func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID, gmailService *gmail.Service) error {
 	msg := string(constant.FetchUserLab)
 	step := string(constant.ProcessFetchLabs)
@@ -508,10 +497,6 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 				keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
 			}
 		}
-		// status := constant.StatusQueued
-		// if keywordDocType == string(constant.OTHER) || keywordDocType == string(constant.INSURANCE) || keywordDocType == string(constant.VACCINATION) || keywordDocType == string(constant.DISCHARGESUMMARY) || keywordDocType == string(constant.INVOICE) || keywordDocType == string(constant.NONMEDICAL) {
-		// 	status = constant.StatusSuccess
-		// }
 		status, patientDocInfo, matchNameError = gs.AssignDocToPatient(keywordDocType, patientNameOnReport, userId)
 		if matchNameError != nil {
 			log.Println("Error fetching patient info:", matchNameError)
@@ -520,7 +505,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		record.Status = status
 		record.IsPasswordProtected = pdfCheckResult.IsProtected
 		record.PDFPassword = pdfCheckResult.Password
-		newmsg := fmt.Sprintf("Processing doc %d | Document classification : Regex → Keyword classify as →: %s (LLM classify as →: %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, keywordDocType, docType, record.RecordUrl, recordInfo, docTypeLogs, keywordDocTypeLogs)
+		newmsg := fmt.Sprintf("Processing doc %d | Doc belongs to userId →:%d Fallback →:%t Name of user →:%s | Document classification : Regex → Keyword classify as →: %s | (LLM classify as →: %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, utils.SafeUint64(&patientDocInfo.MatchedUserID), utils.SafeBool(&patientDocInfo.IsFallback), utils.SafeString(&patientDocInfo.FinalPatientName), utils.SafeString(&keywordDocType), utils.SafeString(&docType), utils.SafeString(&record.RecordUrl), utils.SafeString(&recordInfo), utils.SafeString(&docTypeLogs), utils.SafeString(&keywordDocTypeLogs))
 		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
 	}
 	successCount := totalAttempted - errorCount
@@ -677,8 +662,7 @@ func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOn
 		keywordDocType == string(constant.VACCINATION) ||
 		keywordDocType == string(constant.DISCHARGESUMMARY) ||
 		keywordDocType == string(constant.INVOICE) ||
-		keywordDocType == string(constant.NONMEDICAL) ||
-		keywordDocType == string(constant.SCAN) {
+		keywordDocType == string(constant.NONMEDICAL) {
 
 		status = constant.StatusSuccess
 
@@ -693,38 +677,77 @@ func (gs *GmailSyncServiceImpl) AssignDocToPatient(keywordDocType, patientNameOn
 				return status, nil, err
 			}
 			patientDocInfo = info
+		} else {
+			userDetails, err := gs.patientService.GetUserProfileByUserId(userId)
+			if err != nil {
+				config.Log.Info("User not found", zap.Uint64("UserId", userId))
+			}
+			fullName := BuildFullName(userDetails.FirstName, userDetails.MiddleName, userDetails.LastName)
+			fallback := false
+			patientDocInfo = &models.PatientDocResponse{
+				UserID:           userId,
+				FinalPatientName: fullName,
+				MatchedUserID:    userId,
+				IsFallback:       fallback,
+			}
+			return status, patientDocInfo, nil
 		}
+	} else {
+		userDetails, err := gs.patientService.GetUserProfileByUserId(userId)
+		if err != nil {
+			config.Log.Info("User not found", zap.Uint64("UserId", userId))
+		}
+		fullName := BuildFullName(userDetails.FirstName, userDetails.MiddleName, userDetails.LastName)
+		fallback := false
+		patientDocInfo = &models.PatientDocResponse{
+			UserID:           userId,
+			FinalPatientName: fullName,
+			MatchedUserID:    userId,
+			IsFallback:       fallback,
+		}
+		return status, patientDocInfo, nil
 	}
-
 	return status, patientDocInfo, nil
 }
 
 func (gs *GmailSyncServiceImpl) GetPatientNameOnDoc(patientNameOnReport string, userID uint64) (*models.PatientDocResponse, error) {
 	userDetails, err := gs.patientService.GetUserProfileByUserId(userID)
 	if err != nil {
-
+		config.Log.Info("User not found", zap.Uint64("UserId", userID))
 	}
 	relatives, _ := gs.patientService.GetRelativeList(&userID)
 	var rels []models.Relative
-	for _, r := range relatives {
-		fullName := BuildFullName(r.FirstName, r.MiddleName, r.LastName)
-		rels = append(rels, models.Relative{
-			UserID: r.RelativeId,
-			Name:   fullName,
-		})
+	if len(relatives) > 0 {
+		for _, r := range relatives {
+			fullName := BuildFullName(r.FirstName, r.MiddleName, r.LastName)
+			rels = append(rels, models.Relative{
+				UserID: r.RelativeId,
+				Name:   fullName,
+			})
+		}
+		fullName := strings.TrimSpace(fmt.Sprintf("%s %s %s", userDetails.FirstName, userDetails.MiddleName, userDetails.LastName))
+		req := &models.PatientDocRequest{
+			UserID:            userID,
+			PatientName:       fullName,
+			Relatives:         rels,
+			ReportPatientName: patientNameOnReport,
+		}
+		apiResp, err := gs.apiService.CallPatientDocInfoAPI(req)
+		if err != nil {
+			return &models.PatientDocResponse{}, err
+		}
+		return apiResp, nil
+	} else {
+		fullName := BuildFullName(userDetails.FirstName, userDetails.MiddleName, userDetails.LastName)
+		fallback := true
+		apiResp := &models.PatientDocResponse{
+			UserID:           userID,
+			FinalPatientName: fullName,
+			MatchedUserID:    userID,
+			IsFallback:       fallback,
+		}
+		return apiResp, nil
 	}
-	fullName := strings.TrimSpace(fmt.Sprintf("%s %s %s", userDetails.FirstName, userDetails.MiddleName, userDetails.LastName))
-	req := &models.PatientDocRequest{
-		UserID:            userID,
-		PatientName:       fullName,
-		Relatives:         rels,
-		ReportPatientName: patientNameOnReport,
-	}
-	apiResp, err := gs.apiService.CallPatientDocInfoAPI(req)
-	if err != nil {
-		return &models.PatientDocResponse{}, err
-	}
-	return apiResp, nil
 }
 
 func BuildFullName(first, middle, last string) string {

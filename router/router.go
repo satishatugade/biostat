@@ -109,7 +109,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	// Workers
 	worker.NewDigitizationWorker(db)
 	worker.StartAppointmentScheduler(appointmentService)
-	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo, db, processStatusService)
+	go worker.InitAsynqWorker(apiService, patientService, diagnosticService, medicalRecordsRepo, db, processStatusService, gmailSyncService)
 
 }
 

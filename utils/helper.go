@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -1239,4 +1240,296 @@ func StripHTML(input string) string {
 	}
 	f(doc)
 	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+func SafeString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// SafeUint64 returns 0 if the pointer is nil
+func SafeUint64(v *uint64) uint64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+// SafeBool returns false if the pointer is nil
+func SafeBool(b *bool) bool {
+	if b == nil {
+		return false
+	}
+	return *b
+}
+func StringPtr(s string) *string {
+	return &s
+}
+
+func (m MatchDetail) Summary(labName string) string {
+	if m.Matched {
+		switch m.Strategy {
+		case "substring":
+			return fmt.Sprintf("Lab '%s' matched by exact/substring search in email body (snippet: \"%s\").",
+				labName, m.Snippet)
+
+		case "token_containment_all":
+			return fmt.Sprintf("Lab '%s' matched by token containment (all tokens present, coverage=%.0f%%).",
+				labName, m.Coverage*100)
+
+		case "token_containment_partial":
+			return fmt.Sprintf("Lab '%s' matched by partial token containment (coverage=%.0f%%, missing tokens: %v).",
+				labName, m.Coverage*100, m.MissingTokens)
+
+		case "token_window_fuzzy":
+			return fmt.Sprintf("Lab '%s' matched by fuzzy window (score=%.2f, snippet: \"%s\").",
+				labName, m.Score, m.Snippet)
+
+		default:
+			return fmt.Sprintf("Lab '%s' matched using strategy '%s'.", labName, m.Strategy)
+		}
+	} else {
+
+		switch m.Strategy {
+		case "token_containment_all", "token_containment_partial":
+			return fmt.Sprintf("Lab '%s' not matched — missing tokens: %v (coverage=%.0f%%).",
+				labName, m.MissingTokens, m.Coverage*100)
+
+		case "token_window_fuzzy":
+			return fmt.Sprintf("Lab '%s' not matched — fuzzy similarity too low (score=%.2f).",
+				labName, m.Score)
+
+		case "substring":
+			return fmt.Sprintf("Lab '%s' not matched — no substring found.", labName)
+
+		default:
+			return fmt.Sprintf("Lab '%s' not matched using strategy '%s' %v.", labName, m.Strategy, m.MissingTokens)
+		}
+	}
+}
+
+type MatchDetail struct {
+	Matched       bool
+	Strategy      string
+	Score         float64
+	Coverage      float64
+	MissingTokens []string
+	Snippet       string
+}
+
+const (
+	fuzzyWindowThreshold = 0.88
+	minContainment       = 0.80
+	maxWindowGrow        = 2
+	maxWindowSizeCap     = 8
+)
+
+var SynonymMap = map[string]string{
+	"pvt":    "private",
+	"pvtltd": "privatelimited",
+	"ltd":    "limited",
+	"centre": "center",
+	"diag":   "diagnostic",
+	"labs":   "lab",
+}
+
+var genericWords = map[string]bool{
+	"pvt": true, "private": true, "ltd": true, "limited": true,
+	"hospital": true, "clinic": true, "labs": true, "lab": true,
+	"center": true, "centre": true, "diagnostics": true,
+}
+
+var (
+	reApos  = regexp.MustCompile(`['’ʼʻʹˈ´]`)
+	rePunct = regexp.MustCompile(`[^a-z0-9\s]`)
+	reSpace = regexp.MustCompile(`\s+`)
+)
+
+func NormalizeText(s string) string {
+	s = strings.ToLower(s)
+	s = reApos.ReplaceAllString(s, "")
+	s = rePunct.ReplaceAllString(s, " ")
+	s = reSpace.ReplaceAllString(s, " ")
+	s = strings.TrimSpace(s)
+
+	toks := strings.Fields(s)
+	for i, t := range toks {
+		if repl, ok := SynonymMap[t]; ok {
+			toks[i] = repl
+		}
+	}
+	return strings.Join(toks, " ")
+}
+
+func tokens(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Fields(s)
+}
+
+func withoutGeneric(toks []string) []string {
+	out := make([]string, 0, len(toks))
+	for _, t := range toks {
+		if !genericWords[t] {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func joinNoSpace(toks []string) string {
+	return strings.Join(toks, "")
+}
+
+func jaroWinkler(a, b string) float64 {
+
+	return smetrics.JaroWinkler(a, b, 0.7, 4)
+}
+
+func slideWindows(bodyToks []string, k int, fn func(span []string) bool) {
+	if k <= 0 || k > len(bodyToks) {
+		return
+	}
+	for i := 0; i+k <= len(bodyToks); i++ {
+		if stop := fn(bodyToks[i : i+k]); stop {
+			return
+		}
+	}
+}
+
+func MatchLabInBody(nBody, nLab string) (bool, MatchDetail) {
+	var detail MatchDetail
+
+	if nBody == "" || nLab == "" {
+		return false, MatchDetail{Matched: false, Strategy: "empty_after_normalize"}
+	}
+
+	if idx := strings.Index(nBody, nLab); idx >= 0 {
+		detail = MatchDetail{
+			Matched:  true,
+			Strategy: "substring",
+			Score:    1.0,
+			Coverage: 1.0,
+			Snippet:  safeSnippet(nBody, idx, idx+len(nLab)),
+		}
+		return true, detail
+	}
+
+	bodyToks := tokens(nBody)
+	labAll := tokens(nLab)
+	labCore := withoutGeneric(labAll)
+	if len(labCore) == 0 {
+		labCore = labAll
+	}
+
+	bodySet := make(map[string]struct{}, len(bodyToks))
+	for _, t := range bodyToks {
+		bodySet[t] = struct{}{}
+	}
+	var missing []string
+	found := 0
+	for _, t := range labCore {
+		if _, ok := bodySet[t]; ok {
+			found++
+		} else {
+			missing = append(missing, t)
+		}
+	}
+	coverage := 0.0
+	if len(labCore) > 0 {
+		coverage = float64(found) / float64(len(labCore))
+	}
+
+	if coverage == 1.0 {
+		return true, MatchDetail{
+			Matched:  true,
+			Strategy: "token_containment_all",
+			Score:    1.0,
+			Coverage: 1.0,
+			Snippet:  "",
+		}
+	}
+	if coverage >= minContainment {
+		return true, MatchDetail{
+			Matched:       true,
+			Strategy:      "token_containment_partial",
+			Score:         coverage,
+			Coverage:      coverage,
+			MissingTokens: missing,
+		}
+	}
+
+	coreLen := len(labCore)
+	if coreLen == 0 {
+		coreLen = int(math.Min(4, float64(len(labAll))))
+	}
+	minK := max(1, coreLen-1)
+	maxK := min(maxWindowSizeCap, coreLen+maxWindowGrow)
+
+	bestScore := 0.0
+	bestSpan := ""
+
+	labWithSpace := strings.Join(labCore, " ")
+	if labWithSpace == "" {
+		labWithSpace = strings.Join(labAll, " ")
+	}
+	labNoSpace := joinNoSpace(labCore)
+	if labNoSpace == "" {
+		labNoSpace = joinNoSpace(labAll)
+	}
+
+	for k := minK; k <= maxK; k++ {
+		slideWindows(bodyToks, k, func(span []string) bool {
+			spanWith := strings.Join(span, " ")
+			spanNo := joinNoSpace(span)
+
+			score := jaroWinkler(spanWith, labWithSpace)
+			if s2 := jaroWinkler(spanNo, labNoSpace); s2 > score {
+				score = s2
+			}
+			if score > bestScore {
+				bestScore = score
+				bestSpan = spanWith
+			}
+
+			return false
+		})
+	}
+
+	if bestScore >= fuzzyWindowThreshold {
+		return true, MatchDetail{
+			Matched:  true,
+			Strategy: "token_window_fuzzy",
+			Score:    bestScore,
+			Snippet:  bestSpan,
+		}
+	}
+
+	return false, MatchDetail{
+		Matched:       false,
+		Strategy:      "no_match",
+		Score:         bestScore,
+		Coverage:      coverage,
+		MissingTokens: missing,
+	}
+}
+
+func safeSnippet(s string, start, end int) string {
+	if start < 0 {
+		start = 0
+	}
+	if end > len(s) {
+		end = len(s)
+	}
+	return s[max(0, start-20):min(len(s), end+20)]
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
