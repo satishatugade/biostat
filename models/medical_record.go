@@ -9,27 +9,28 @@ import (
 )
 
 type TblMedicalRecord struct {
-	RecordId          uint64         `gorm:"column:record_id;primaryKey;autoIncrement" json:"record_id"`
-	RecordName        string         `gorm:"column:record_name;not null" json:"record_name"`
-	RecordSize        int64          `gorm:"column:record_size;" json:"record_size"`
-	FileType          string         `gorm:"column:file_type;" json:"file_type"`
-	UploadSource      string         `gorm:"column:upload_source;not null" json:"upload_source"`
-	UploadDestination string         `gorm:"column:upload_destination;not null" json:"upload_destination"`
-	SourceAccount     string         `gorm:"column:source_account;" json:"source_account"`
-	RecordCategory    string         `gorm:"column:record_category;" json:"record_category"`
-	RecordSubCategory string         `gorm:"column:record_sub_category;" json:"record_sub_category"`
-	Description       string         `gorm:"column:description;" json:"description"`
-	UDF1              string         `gorm:"-" json:"udf1"`
-	UDF2              string         `gorm:"-" json:"udf2"`
-	UDF3              string         `gorm:"-" json:"udf3"`
-	FileData          []byte         `gorm:"column:file_data;" json:"file_data"`
-	RecordUrl         string         `gorm:"column:record_url;" json:"record_url"`
-	FetchedAt         time.Time      `gorm:"column:fetched_at;default:CURRENT_TIMESTAMP" json:"fetched_at"`
-	UploadedBy        uint64         `gorm:"column:uploaded_by;" json:"uploaded_by"`
-	IsVerified        bool           `gorm:"column:is_verified;default:false" json:"is_verified"`
-	Metadata          datatypes.JSON `gorm:"column:metadata;" json:"metadata"`
-	IsDeleted         int            `gorm:"column:is_deleted;default:0" json:"is_deleted"`
-	DigitizeFlag      int            `gorm:"column:digitize_flag;default:0" json:"digitize_flag"`
+	RecordId                uint64         `gorm:"column:record_id;primaryKey;autoIncrement" json:"record_id"`
+	RecordName              string         `gorm:"column:record_name;not null" json:"record_name"`
+	RecordSize              int64          `gorm:"column:record_size;" json:"record_size"`
+	FileType                string         `gorm:"column:file_type;" json:"file_type"`
+	UploadSource            string         `gorm:"column:upload_source;not null" json:"upload_source"`
+	UploadDestination       string         `gorm:"column:upload_destination;not null" json:"upload_destination"`
+	SourceAccount           string         `gorm:"column:source_account;" json:"source_account"`
+	RecordCategory          string         `gorm:"column:record_category;" json:"record_category"`
+	RecordSubCategory       string         `gorm:"column:record_sub_category;" json:"record_sub_category"`
+	Description             string         `gorm:"column:description;" json:"description"`
+	UDF1                    string         `gorm:"-" json:"udf1"`
+	UDF2                    string         `gorm:"-" json:"udf2"`
+	UDF3                    string         `gorm:"-" json:"udf3"`
+	FileData                []byte         `gorm:"column:file_data;" json:"file_data"`
+	RecordUrl               string         `gorm:"column:record_url;" json:"record_url"`
+	FetchedAt               time.Time      `gorm:"column:fetched_at;default:CURRENT_TIMESTAMP" json:"fetched_at"`
+	UploadedBy              uint64         `gorm:"column:uploaded_by;" json:"uploaded_by"`
+	IsVerified              bool           `gorm:"column:is_verified;default:false" json:"is_verified"`
+	Metadata                datatypes.JSON `gorm:"column:metadata;" json:"metadata"`
+	DocTypeResponseMetaData datatypes.JSON `gorm:"column:doctype_response_meta_data;" json:"doctype_response_meta_data"`
+	IsDeleted               int            `gorm:"column:is_deleted;default:0" json:"is_deleted"`
+	DigitizeFlag            int            `gorm:"column:digitize_flag;default:0" json:"digitize_flag"`
 
 	Status              constant.JobStatus `gorm:"type:status_enum" json:"status"`
 	RetryCount          int                `gorm:"column:retry_count;default:0" json:"retry_count"`

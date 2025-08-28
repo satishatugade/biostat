@@ -34,7 +34,7 @@ type TblMedicalRecordService interface {
 	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
 	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (*models.DocTypeAPIResponse, error)
-	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64, patientDocInfo *models.PatientDocResponse) error
+	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
@@ -265,7 +265,7 @@ func (mrs *tblMedicalRecordServiceImpl) EnqueueDocTypeCheckTask(
 	}
 
 	docType := <-ch
-	log.Printf("Doc type for record %s: %s", attachmentId, docType)
+	// log.Printf("Doc type for record %s: %v", attachmentId, docType)
 
 	mrs.cleanupDocTypeChannel(attachmentId)
 	return docType, nil
@@ -349,9 +349,8 @@ func MatchPatientNameWithRelative(relatives []models.PatientRelative, patientNam
 	return bestMatchID, bestMatchName, isUnknownReport, matchMessage
 }
 
-func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64, patientDocInfo *models.PatientDocResponse) error {
+func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMedicalRecord, userId uint64) error {
 	var uniqueRecords []*models.TblMedicalRecord
-	newUserId := userId
 	for _, record := range records {
 		exists, err := s.tblMedicalRecordRepo.ExistsRecordForUser(userId, record.UploadSource, record.RecordUrl)
 		if err != nil {
@@ -371,19 +370,9 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	}
 	var mappings []models.TblMedicalRecordUserMapping
 	for _, record := range uniqueRecords {
-		// if !patientDocInfo.IsFallback {
-		// 	userId = patientDocInfo.MatchedUserID
-		// }
-		log.Println("patientDocInfo :", patientDocInfo)
-		log.Println("Before patientDocInfo.MatchedUserID != userId condition true :", patientDocInfo.MatchedUserID, userId)
-		if patientDocInfo.MatchedUserID != userId {
-			log.Println("patientDocInfo.MatchedUserID != userId condition true :", patientDocInfo.MatchedUserID, userId)
-			newUserId = patientDocInfo.MatchedUserID
-		}
 		mappings = append(mappings, models.TblMedicalRecordUserMapping{
-			UserID:          newUserId,
-			RecordID:        record.RecordId,
-			IsUnknownRecord: patientDocInfo.IsFallback,
+			UserID:   userId,
+			RecordID: record.RecordId,
 		})
 	}
 	return s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)

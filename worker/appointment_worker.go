@@ -356,11 +356,11 @@ func (w *DigitizationWorker) HandleDocTypeCheckTask(ctx context.Context, t *asyn
 		if err == nil {
 			break
 		}
-		log.Printf("[Attempt %d] Doc type API failed for record %s: %v : %s", attempt, payload.AttachmentID, err, docTypeResp)
-		time.Sleep(2 * time.Second)
+		log.Printf("[Attempt %d] Doc type API failed for record %s: %v : %v", attempt, payload.AttachmentID, err, docTypeResp)
+		time.Sleep(5 * time.Second)
 	}
 
-	log.Printf("Doc type API response for record %s: %+v", payload.AttachmentID, docTypeResp)
+	// log.Printf("Doc type API response for record %s: %+v", payload.AttachmentID, docTypeResp)
 	SendDocTypeResult(payload.AttachmentID, docTypeResp)
 	return nil
 }

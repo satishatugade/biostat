@@ -1871,7 +1871,7 @@ func (pc *PatientController) DigiLockerSyncController(ctx *gin.Context) {
 			}
 		}
 		log.Printf("Total documents collected: %d %v", len(allDocs), allDocs)
-		err = pc.medicalRecordService.SaveMedicalRecords(allDocs, userID, nil)
+		err = pc.medicalRecordService.SaveMedicalRecords(allDocs, userID)
 		if err != nil {
 			log.Println("Error occurend while saving medical records from digilocker for", userID, digiLockerId, err)
 		}

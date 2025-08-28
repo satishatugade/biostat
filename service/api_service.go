@@ -605,6 +605,13 @@ func (s *ApiServiceImpl) CallDocumentTypeAPI(file io.Reader, filename string) (*
 }
 
 func (s *ApiServiceImpl) CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error) {
+
+	reqJSON, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		log.Println("Error marshaling req for debug:", err)
+	} else {
+		log.Println("CallPatientDocInfoAPI Request Payload:\n", string(reqJSON))
+	}
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
