@@ -276,9 +276,11 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				if err := tx.Commit().Error; err != nil {
 					return err
 				}
+				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+			} else {
+				msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
+				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 			}
-			// msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
-			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 			reportData.ReportDetails.IsUnknownRecord = apiResp.IsFallback
 		}
 	}
