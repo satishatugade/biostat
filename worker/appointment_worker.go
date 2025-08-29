@@ -266,7 +266,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 		} else {
 			config.Log.Info("MatchPatientNameWithRelative ", zap.Bool("Is Unknown Report Found", apiResp.IsFallback))
 			if apiResp.MatchedUserID != p.UserID || apiResp.IsFallback {
-				matchMessage = fmt.Sprintf("Fallback :%t | Match userId :%d | Patient name on report %s | Name match with user: %s ", apiResp.IsFallback, apiResp.MatchedUserID, patientNameOnReport, apiResp.FinalPatientName)
+				matchMessage = fmt.Sprintf("Processed record Id : %d | Fallback :%t | Match userId :%d | Patient name on report %s | Name match with user: %s ", &p.RecordID, apiResp.IsFallback, apiResp.MatchedUserID, patientNameOnReport, apiResp.FinalPatientName)
 				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 				tx := w.db.Begin()
 				err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": apiResp.MatchedUserID, "is_unknown_record": apiResp.IsFallback})
@@ -278,7 +278,7 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 				}
 				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 			} else {
-				msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
+				msg = fmt.Sprintf("Processed record id %d : %s , Patient Name on report  %s", &p.RecordID, matchMessage, reportData.ReportDetails.PatientName)
 				w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 			}
 			reportData.ReportDetails.IsUnknownRecord = apiResp.IsFallback
