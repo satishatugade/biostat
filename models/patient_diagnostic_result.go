@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type DiagnosticLab struct {
 	DiagnosticLabId  uint64    `gorm:"column:diagnostic_lab_id;primaryKey;autoIncrement" json:"diagnostic_lab_id"`
@@ -241,6 +244,46 @@ type AudioNoteParsedData struct {
 		Type          string    `json:"type"`
 	} `json:"data"`
 	Message string `json:"message"`
+}
+
+type DocResponse struct {
+	Status     string  `json:"status"`
+	StatusCode int     `json:"status_code"`
+	Message    string  `json:"message"`
+	Error      string  `json:"error"`
+	Content    Content `json:"content"`
+}
+
+type DocumentResponse struct {
+	DocumentBucket  *string         `json:"document_bucket"`
+	DocumentOwner   *string         `json:"document_owner"`
+	Summary         *string         `json:"summary"`
+	DocumentDetails json.RawMessage `json:"document_details"`
+	NearMatchedWith *NearMatched    `json:"near_matched_with"`
+}
+
+type NearMatched struct {
+	Name   *string `json:"name"`
+	UserID *uint64 `json:"user_id"`
+}
+
+type InsuranceDetails struct {
+	PolicyNo         *string `json:"policy_no"`
+	InsuredPerson    *string `json:"insured_person"`
+	InsuranceCompany *string `json:"insurance_company"`
+}
+
+type DischargeSummaryDetails struct {
+	HospitalName  *string `json:"hospital_name"`
+	AdmissionDate *string `json:"admission_date"`
+	DischargeDate *string `json:"discharge_date"`
+}
+
+type InvoiceDetails struct {
+	InvoiceNo       *string `json:"invoice_no"`
+	BillingDate     *string `json:"billing_date"`
+	BillerName      *string `json:"biller_name"`
+	FinalPayableAmt *string `json:"final_payable_amt"`
 }
 
 type LabReport struct {

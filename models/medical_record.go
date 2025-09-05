@@ -150,6 +150,7 @@ type DigitizationPayload struct {
 	FilePath            string    `json:"file_path"`
 	Category            string    `json:"category"`
 	FileName            string    `json:"file_name"`
+	RecordURL           string    `json:"record_url"`
 	AttachmentId        *string   `json:"attachment_id"`
 	ProcessID           uuid.UUID `json:"process_id"`
 	IsPasswordProtected *bool     `json:"is_password_protected"`

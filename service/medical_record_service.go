@@ -166,53 +166,54 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 
 func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
 	userId uint64, fileBuf *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error {
-	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
-		log.Println("Queue worker starts............")
-		tempDir := os.TempDir()
-		tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))
-		// var fileBytes []byte
-		fileBytes := fileBuf.Bytes()
-		if record.IsPasswordProtected {
-			log.Println("PDF is password protected, decrypting before saving...")
-			decryptedBytes, err := DecryptPDFIfProtected(fileBytes, record.PDFPassword)
-			if err != nil {
-				log.Printf("Failed to decrypt PDF for record %d: %v", record.RecordId, err)
-				return err
-			}
-			fileBytes = decryptedBytes
-			log.Println("Decryption successful, proceeding with saving decrypted file.")
-		}
-
-		// if err := os.WriteFile(tempPath, fileBuf.Bytes(), 0644); err != nil {
-		if err := os.WriteFile(tempPath, fileBytes, 0644); err != nil {
-			log.Printf("Failed to write temp file for record %d: %v", record.RecordId, err)
-			return err
-		}
-		payload := models.DigitizationPayload{
-			RecordID:     record.RecordId,
-			UserID:       userId,
-			PatientName:  userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
-			FilePath:     tempPath,
-			Category:     record.RecordCategory,
-			FileName:     filename,
-			ProcessID:    processID,
-			AttachmentId: attachmentId,
-		}
-
-		payloadBytes, err := json.Marshal(payload)
+	// if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
+	log.Println("Queue worker starts............")
+	tempDir := os.TempDir()
+	tempPath := filepath.Join(tempDir, fmt.Sprintf("record_%d_%s", record.RecordId, filename))
+	// var fileBytes []byte
+	fileBytes := fileBuf.Bytes()
+	if record.IsPasswordProtected {
+		log.Println("PDF is password protected, decrypting before saving...")
+		decryptedBytes, err := DecryptPDFIfProtected(fileBytes, record.PDFPassword)
 		if err != nil {
-			log.Printf("Failed to marshal digitization payload for record %d: %v", record.RecordId, err)
+			log.Printf("Failed to decrypt PDF for record %d: %v", record.RecordId, err)
 			return err
 		}
-
-		task := asynq.NewTask("digitize:record", payloadBytes)
-		if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(config.PropConfig.Retry.MaxAttempts), asynq.Retention(time.Duration(config.PropConfig.TaskQueue.Retention)), asynq.ProcessIn(time.Duration(config.PropConfig.TaskQueue.Delay))); err != nil {
-			log.Printf("Failed to enqueue digitization task for record %d: %v", record.RecordId, err)
-			return err
-		}
-		log.Printf("record Id : %d : status : %s", record.RecordId, "queued")
-		s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", time.Duration(config.PropConfig.TaskQueue.Expiration))
+		fileBytes = decryptedBytes
+		log.Println("Decryption successful, proceeding with saving decrypted file.")
 	}
+
+	// if err := os.WriteFile(tempPath, fileBuf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(tempPath, fileBytes, 0644); err != nil {
+		log.Printf("Failed to write temp file for record %d: %v", record.RecordId, err)
+		return err
+	}
+	payload := models.DigitizationPayload{
+		RecordID:     record.RecordId,
+		UserID:       userId,
+		PatientName:  userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
+		FilePath:     tempPath,
+		Category:     record.RecordCategory,
+		RecordURL:    record.RecordUrl,
+		FileName:     filename,
+		ProcessID:    processID,
+		AttachmentId: attachmentId,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Failed to marshal digitization payload for record %d: %v", record.RecordId, err)
+		return err
+	}
+
+	task := asynq.NewTask("digitize:record", payloadBytes)
+	if _, err := s.taskQueue.Enqueue(task, asynq.MaxRetry(config.PropConfig.Retry.MaxAttempts), asynq.Retention(time.Duration(config.PropConfig.TaskQueue.Retention)), asynq.ProcessIn(time.Duration(config.PropConfig.TaskQueue.Delay))); err != nil {
+		log.Printf("Failed to enqueue digitization task for record %d: %v", record.RecordId, err)
+		return err
+	}
+	log.Printf("record Id : %d : status : %s", record.RecordId, "queued")
+	s.redisClient.Set(context.Background(), fmt.Sprintf("record_status:%d", record.RecordId), "queued", time.Duration(config.PropConfig.TaskQueue.Expiration))
+	// }
 	return nil
 }
 

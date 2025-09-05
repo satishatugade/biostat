@@ -45,6 +45,7 @@ type PatientService interface {
 	SummarizeHistorybyAIModel(patientId uint64) (string, error)
 	// GetPatientRelative(patientId string) ([]models.PatientRelative, error) //TODO DEL V
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
+	GetRelativeListString(patientId *uint64) (string, error)
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
 	GetCaregiverList(patientId *uint64) ([]models.Caregiver, error)
@@ -382,6 +383,31 @@ func ExtractPatientAndRelationIds(userRelations []models.UserRelation) ([]uint64
 	}
 
 	return patientIds, relationIds
+}
+
+func (s *PatientServiceImpl) GetRelativeListString(patientId *uint64) (string, error) {
+	userDetails, err := s.GetUserProfileByUserId(*patientId)
+	if err != nil {
+		return "", err
+	}
+
+	relatives, err := s.GetRelativeList(patientId)
+	if err != nil {
+		return "", err
+	}
+
+	var parts []string
+
+	selfFullName := strings.TrimSpace(strings.Join([]string{userDetails.FirstName, userDetails.MiddleName, userDetails.LastName}, " "))
+	parts = append(parts, fmt.Sprintf("%s(Me, user_id:%d)", selfFullName, userDetails.UserId))
+
+	for _, r := range relatives {
+		fullName := strings.TrimSpace(strings.Join([]string{r.FirstName, r.MiddleName, r.LastName}, " "))
+		parts = append(parts, fmt.Sprintf("%s(%s, user_id:%d)", fullName, r.Relationship, r.RelativeId))
+	}
+	result := strings.Join(parts, ", ")
+	log.Println("GetRelativeListString input param string :", result)
+	return result, nil
 }
 
 func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.PatientRelative, error) {

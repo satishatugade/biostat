@@ -19,6 +19,7 @@ import (
 
 type ApiService interface {
 	CallGeminiService(file io.Reader, filename string) (models.LabReport, error)
+	ClassifyDocGetGeminiReponse(file io.Reader, filename, relatives string) (models.DocumentResponse, error)
 	CallPrescriptionDigitizeAPI(file io.Reader, filename string) (models.PatientPrescription, error)
 	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
 	AnalyzePrescriptionWithAI(data models.PatientPrescription) (string, error)
@@ -32,6 +33,7 @@ type ApiService interface {
 
 type ApiServiceImpl struct {
 	GeminiAPIURL               string
+	ExtractDocDetail           string
 	ReportSummaryAPI           string
 	PrescriptionAPI            string
 	PharmacokineticsAPI        string
@@ -48,6 +50,7 @@ type ApiServiceImpl struct {
 func NewApiService() ApiService {
 	return &ApiServiceImpl{
 		GeminiAPIURL:               os.Getenv("GEMINI_API_URL"),
+		ExtractDocDetail:           config.PropConfig.ApiURL.ExtractDocDetail,
 		ReportSummaryAPI:           os.Getenv("REPORT_SUMMARY_API"),
 		PrescriptionAPI:            os.Getenv("PRESCRIPTION_API"),
 		PharmacokineticsAPI:        os.Getenv("PHARMACOKINETICS_API"),
@@ -94,7 +97,7 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 		return models.LabReport{}, fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", s.GeminiAPIURL, body)
+	req, err := http.NewRequest(http.MethodPost, s.GeminiAPIURL, body)
 	if err != nil {
 		return models.LabReport{}, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -114,6 +117,76 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 	var reportData models.LabReport
 	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
 		return models.LabReport{}, fmt.Errorf("failed to parse JSON response: %w", err)
+	}
+	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
+	if err != nil {
+		log.Println("Failed to format JSON:", err)
+	} else {
+		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+	}
+	return reportData, nil
+}
+
+func (s *ApiServiceImpl) ClassifyDocGetGeminiReponse(file io.Reader, filename, relatives string) (models.DocumentResponse, error) {
+
+	log.Println("ClassifyDocGetGeminiReponse ", relatives)
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	log.Println("File Name : ", filename)
+
+	buf := make([]byte, 512)
+	n, err := file.Read(buf)
+	if err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to read file for MIME detection: %w", err)
+	}
+	mimeType := http.DetectContentType(buf[:n])
+	log.Printf("Detected MIME type: %s", mimeType)
+
+	fileReader := io.MultiReader(bytes.NewReader(buf[:n]), file)
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
+	h.Set("Content-Type", mimeType)
+
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to create form part: %w", err)
+	}
+
+	if _, err := io.Copy(part, fileReader); err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to copy file data: %w", err)
+	}
+
+	if relatives != "" {
+		if err := writer.WriteField("relatives_string", relatives); err != nil {
+			return models.DocumentResponse{}, fmt.Errorf("failed to write relatives field: %w", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to close writer: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, s.ExtractDocDetail, body)
+	if err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return models.DocumentResponse{}, fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
+	}
+
+	log.Println("resp.Body ", resp.Body)
+	var reportData models.DocumentResponse
+	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
+		return models.DocumentResponse{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
 	if err != nil {

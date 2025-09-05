@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -391,6 +392,10 @@ func (s *ProcessStatusServiceImpl) GetUserRecentProcesses(userID uint64, process
 			break
 		}
 	}
+	sort.Slice(processList, func(i, j int) bool {
+		return processList[i].StartedAt.After(processList[j].StartedAt)
+	})
+
 	var response []models.ProcessStatusResponse
 	for _, log := range processList {
 		var steps []models.ProcessStepLogResponse

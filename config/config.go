@@ -58,8 +58,9 @@ type PropertyConfig struct {
 		Retention         int
 	}
 	SystemVaribale struct {
-		Score  int
-		Status string
+		Score      int
+		Status     string
+		GeminiCall bool
 	}
 	Database struct {
 		Host     string
@@ -85,6 +86,7 @@ type PropertyConfig struct {
 		GoogleRedirectURL           string
 		ReportDigitizationURL       string
 		CheckPDFProtectionAPI       string
+		ExtractDocDetail            string
 		PDFPasswordAPI              string
 		DocTypeAPI                  string
 		FetchNameAPI                string
@@ -98,6 +100,7 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.SystemVaribale.Score = getEnvAsInt("SYSTEM_DUPLICATE_REPORT_SCORE", 60)
 
 	cfg.SystemVaribale.Status = getEnv("SYSTEM_REPORT_STATUS")
+	cfg.SystemVaribale.GeminiCall = getEnvAsBool("SYSTEM_GEMINI_CALL", true)
 
 	cfg.Database.Host = getEnv("DB_HOST")
 	cfg.Database.Port = getEnv("DB_PORT")
@@ -145,6 +148,7 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.DigilockerRedirectURL = getEnv("DIGILOCKER_REDIRECT_URI")
 	cfg.ApiURL.GoogleRedirectURL = getEnv("GOOGLE_REDIRECT_URI")
 	cfg.ApiURL.CheckPDFProtectionAPI = getEnv("CHECK_IS_PDF_PROTECTED_API")
+	cfg.ApiURL.ExtractDocDetail = getEnv("EXTRACT_DOC_DETAIL")
 	cfg.ApiURL.PDFPasswordAPI = getEnv("PDF_PASSWORD_API")
 	cfg.ApiURL.DocTypeAPI = getEnv("DOCUMENT_TYPE_API")
 	cfg.ApiURL.FetchNameAPI = getEnv("FETCH_NAME_API")

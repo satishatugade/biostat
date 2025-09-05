@@ -429,6 +429,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	docCompleteMsg := string(constant.CheckDocTypeCompleted)
 	totalAttempted := 0
 	errorCount := 0
+	flag := config.PropConfig.SystemVaribale.GeminiCall
 	for idx, record := range emailMedRecord {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		attachmentId, err := utils.GetAttachmentIDFromRecord(record)
@@ -466,53 +467,59 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 			msg := fmt.Sprintf("Processing doc %d | %s | Document is not password protected. Doc URL : %s", idx+1, recordInfo, record.RecordUrl)
 			gs.processStatusService.LogStep(processID, checkPasswordProtectedStep, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, &attachmentId)
 		}
-		recordIndexCount := idx + 1
-		msg1 := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeMessage), recordInfo)
-		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, msg1, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
-		log.Println("@GmailSyncCore: checking doc type for document ", idx+1, "/", totalRecord, record.RecordName)
-		docType := ""
-		keywordDocType := ""
-		var docTypeLogs string
-		var keywordDocTypeLogs string
-		var patientNameOnReport string
-		apiResponse, err := gs.medRecordService.EnqueueDocTypeCheckTask(attachmentId, record.RecordName, fileData, processID)
-		// apiResponse, err := gs.apiService.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
-		if err != nil {
-			errorCount++
-			log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
-			docMsg := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeFailedMessage), recordInfo)
-			gs.processStatusService.LogStepAndFail(processID, checkDocTypeStep, constant.Failure, docMsg, err.Error(), &idx, nil, nil)
-			docType = string(constant.OTHER)
-		}
-		if apiResponse.Content != nil {
-			patientNameOnReport = apiResponse.Content.PatientName
-			if apiResponse.Content.LLMClassifier.DocumentType != "" {
-				docType = apiResponse.Content.LLMClassifier.DocumentType
-				docTypeLogs = apiResponse.Content.LLMClassifier.Logs
-			}
-			if apiResponse.Content.RegexClassifier.DocumentType != "" {
-				keywordDocType = apiResponse.Content.RegexClassifier.DocumentType
-				keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
-			}
-		}
-		status := constant.StatusQueued
-		if record.RecordCategory == string(constant.INSURANCE) || record.RecordCategory == string(constant.INVOICE) || record.RecordCategory == string(constant.DISCHARGESUMMARY) || record.RecordCategory == string(constant.VACCINATION) || record.RecordCategory == string(constant.NONMEDICAL) || record.RecordCategory == string(constant.SCANS) || record.RecordCategory == string(constant.OTHER) {
-			status = constant.Success
-		}
-		jsonData, err := json.Marshal(apiResponse)
-		if err != nil {
-			return fmt.Errorf("failed to marshal apiResponse: %w", err)
-		}
-		record.DocTypeResponseMetaData = datatypes.JSON(jsonData)
-		record.RecordCategory = keywordDocType
-		record.Status = status
 		record.IsPasswordProtected = pdfCheckResult.IsProtected
 		record.PDFPassword = pdfCheckResult.Password
-		newmsg := fmt.Sprintf("Processing doc %d Name of patient on document →:%s | Document classification : Regex → Keyword classify as →: %s | (LLM classify as →: %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, patientNameOnReport, utils.SafeString(&keywordDocType), utils.SafeString(&docType), utils.SafeString(&record.RecordUrl), utils.SafeString(&recordInfo), utils.SafeString(&docTypeLogs), utils.SafeString(&keywordDocTypeLogs))
-		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
+		if !flag {
+			recordIndexCount := idx + 1
+			msg1 := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeMessage), recordInfo)
+			gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, msg1, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
+			log.Println("@GmailSyncCore: checking doc type for document ", idx+1, "/", totalRecord, record.RecordName)
+			docType := ""
+			keywordDocType := ""
+			var docTypeLogs string
+			var keywordDocTypeLogs string
+			var patientNameOnReport string
+			apiResponse, err := gs.medRecordService.EnqueueDocTypeCheckTask(attachmentId, record.RecordName, fileData, processID)
+			// apiResponse, err := gs.apiService.CallDocumentTypeAPI(bytes.NewReader(fileData), record.RecordName)
+			if err != nil {
+				errorCount++
+				log.Printf("@GmailServiceCode->utils.CallDocumentTypeAPI type:%s %v ", record.RecordName, err)
+				docMsg := fmt.Sprintf("Processing doc %d | %s | %s", idx+1, string(constant.CheckDocTypeFailedMessage), recordInfo)
+				gs.processStatusService.LogStepAndFail(processID, checkDocTypeStep, constant.Failure, docMsg, err.Error(), &idx, nil, nil)
+				docType = string(constant.OTHER)
+			}
+			if apiResponse.Content != nil {
+				patientNameOnReport = apiResponse.Content.PatientName
+				if apiResponse.Content.LLMClassifier.DocumentType != "" {
+					docType = apiResponse.Content.LLMClassifier.DocumentType
+					docTypeLogs = apiResponse.Content.LLMClassifier.Logs
+				}
+				if apiResponse.Content.RegexClassifier.DocumentType != "" {
+					keywordDocType = apiResponse.Content.RegexClassifier.DocumentType
+					keywordDocTypeLogs = apiResponse.Content.RegexClassifier.Logs
+				}
+			}
+			status := constant.StatusQueued
+			if record.RecordCategory == string(constant.INSURANCE) || record.RecordCategory == string(constant.INVOICE) || record.RecordCategory == string(constant.DISCHARGESUMMARY) || record.RecordCategory == string(constant.VACCINATION) || record.RecordCategory == string(constant.NONMEDICAL) || record.RecordCategory == string(constant.SCANS) || record.RecordCategory == string(constant.OTHER) {
+				status = constant.Success
+			}
+			jsonData, err := json.Marshal(apiResponse)
+			if err != nil {
+				return fmt.Errorf("failed to marshal apiResponse: %w", err)
+			}
+			record.DocTypeResponseMetaData = datatypes.JSON(jsonData)
+			record.RecordCategory = keywordDocType
+			record.Status = status
+			record.IsPasswordProtected = pdfCheckResult.IsProtected
+			record.PDFPassword = pdfCheckResult.Password
+			newmsg := fmt.Sprintf("Processing doc %d Name of patient on document →:%s | Document classification : Regex → Keyword classify as →: %s | (LLM classify as →: %s ) : Document URL : %s | %s : LLMClassifier Reason :%s  : RegexClassifier Reason : %s ", idx+1, patientNameOnReport, utils.SafeString(&keywordDocType), utils.SafeString(&docType), utils.SafeString(&record.RecordUrl), utils.SafeString(&recordInfo), utils.SafeString(&docTypeLogs), utils.SafeString(&keywordDocTypeLogs))
+			gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Running, newmsg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
+		}
 	}
-	successCount := totalAttempted - errorCount
-	gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Success, docCompleteMsg, errorMsg, nil, nil, &totalAttempted, &successCount, &errorCount, nil)
+	if !flag {
+		successCount := totalAttempted - errorCount
+		gs.processStatusService.LogStep(processID, checkDocTypeStep, constant.Success, docCompleteMsg, errorMsg, nil, nil, &totalAttempted, &successCount, &errorCount, nil)
+	}
 	step3 := string(constant.ProcessSaveRecords)
 	msg3 := string(constant.SaveRecord)
 	gs.processStatusService.LogStep(processID, step3, constant.Running, msg3, errorMsg, nil, nil, &totalRecord, nil, nil, nil)
@@ -536,7 +543,68 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	}
 	for idx, record := range emailMedRecord {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
-		if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
+		if !flag {
+			if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
+				attachmentId, err := utils.GetAttachmentIDFromRecord(record)
+				if err != nil {
+					log.Println("GetAttachmentIDFromRecord Error:", err)
+				} else {
+					log.Println("GetAttachmentIDFromRecord Attachment ID:", attachmentId)
+				}
+				msg := fmt.Sprintf("Processing doc %d | Starting digitization for report id :%d category: %s %s | %s", idx+1, record.RecordId, record.RecordCategory, record.RecordName, recordInfo)
+				gs.processStatusService.LogStep(processID, step4, constant.Running, msg, errorMsg, &record.RecordId, nil, nil, nil, nil, &attachmentId)
+				log.Println("Starting to Digitize saved record :", record.RecordId)
+				resp, err := http.Get(record.RecordUrl)
+				if err != nil {
+					log.Printf("Error @GmailSyncCore->Read File From URL:%v", err)
+					continue
+				}
+				defer resp.Body.Close()
+
+				fileBuf := new(bytes.Buffer)
+				_, _ = io.Copy(fileBuf, resp.Body)
+				filename := filepath.Base(record.RecordUrl)
+				taskErr := gs.medRecordService.CreateDigitizationTask(record, userInfo, userId, fileBuf, filename, processID, &attachmentId)
+				if taskErr != nil {
+					msg := fmt.Sprintf("Processing doc %d | Failed digitization for report id :%d category: %s %s | %s", idx+1, record.RecordId, record.RecordCategory, record.RecordName, recordInfo)
+					log.Println("Error @GmailSyncCore->CreateDigitizationTask: ", taskErr)
+					gs.processStatusService.LogStepAndFail(processID, step4, constant.Failure, msg, taskErr.Error(), nil, &record.RecordId, &attachmentId)
+				}
+				gs.processStatusService.LogStep(processID, step4, constant.Success, msg, errorMsg, &record.RecordId, nil, nil, nil, nil, &attachmentId)
+			} else if record.RecordCategory == string(constant.INSURANCE) || record.RecordCategory == string(constant.INVOICE) || record.RecordCategory == string(constant.DISCHARGESUMMARY) || record.RecordCategory == string(constant.VACCINATION) {
+				type DocTypeResponse struct {
+					Content struct {
+						PatientName string `json:"patient_name"`
+					} `json:"content"`
+				}
+				var docResponse DocTypeResponse
+				if err := json.Unmarshal(record.DocTypeResponseMetaData, &docResponse); err != nil {
+					log.Println("failed to unmarshal DocTypeResponseMetadata:", err)
+				}
+				log.Println("DocTypeResponse ", record.DocTypeResponseMetaData)
+				log.Println("DocTypeResponse patient name ", docResponse.Content.PatientName)
+				_, patientDocInfo, matchNameError := gs.AssignDocToPatient(record.RecordCategory, docResponse.Content.PatientName, userId)
+				if matchNameError != nil {
+					log.Println("Error fetching patient info:", matchNameError)
+				} else {
+					// Pretty JSON print
+					jsonData, err := json.MarshalIndent(patientDocInfo, "", "  ")
+					if err != nil {
+						log.Println("Error marshaling patientDocInfo:", err)
+					} else {
+						log.Println("AssignDocToPatient api response Patient doc Info:\n", string(jsonData))
+					}
+				}
+				tx := gs.db.Begin()
+				err := gs.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &record.RecordId, map[string]interface{}{"user_id": patientDocInfo.MatchedUserID, "is_unknown_record": patientDocInfo.IsFallback})
+				if err != nil {
+					return err
+				}
+				if err := tx.Commit().Error; err != nil {
+					return err
+				}
+			}
+		} else {
 			attachmentId, err := utils.GetAttachmentIDFromRecord(record)
 			if err != nil {
 				log.Println("GetAttachmentIDFromRecord Error:", err)
@@ -552,7 +620,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 				continue
 			}
 			defer resp.Body.Close()
-
+			log.Println("Data else condition")
 			fileBuf := new(bytes.Buffer)
 			_, _ = io.Copy(fileBuf, resp.Body)
 			filename := filepath.Base(record.RecordUrl)
@@ -563,38 +631,6 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 				gs.processStatusService.LogStepAndFail(processID, step4, constant.Failure, msg, taskErr.Error(), nil, &record.RecordId, &attachmentId)
 			}
 			gs.processStatusService.LogStep(processID, step4, constant.Success, msg, errorMsg, &record.RecordId, nil, nil, nil, nil, &attachmentId)
-		} else if record.RecordCategory == string(constant.INSURANCE) || record.RecordCategory == string(constant.INVOICE) || record.RecordCategory == string(constant.DISCHARGESUMMARY) || record.RecordCategory == string(constant.VACCINATION) {
-			type DocTypeResponse struct {
-				Content struct {
-					PatientName string `json:"patient_name"`
-				} `json:"content"`
-			}
-			var docResponse DocTypeResponse
-			if err := json.Unmarshal(record.DocTypeResponseMetaData, &docResponse); err != nil {
-				log.Println("failed to unmarshal DocTypeResponseMetadata:", err)
-			}
-			log.Println("DocTypeResponse ", record.DocTypeResponseMetaData)
-			log.Println("DocTypeResponse patient name ", docResponse.Content.PatientName)
-			_, patientDocInfo, matchNameError := gs.AssignDocToPatient(record.RecordCategory, docResponse.Content.PatientName, userId)
-			if matchNameError != nil {
-				log.Println("Error fetching patient info:", matchNameError)
-			} else {
-				// Pretty JSON print
-				jsonData, err := json.MarshalIndent(patientDocInfo, "", "  ")
-				if err != nil {
-					log.Println("Error marshaling patientDocInfo:", err)
-				} else {
-					log.Println("AssignDocToPatient api response Patient doc Info:\n", string(jsonData))
-				}
-			}
-			tx := gs.db.Begin()
-			err := gs.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &record.RecordId, map[string]interface{}{"user_id": patientDocInfo.MatchedUserID, "is_unknown_record": patientDocInfo.IsFallback})
-			if err != nil {
-				return err
-			}
-			if err := tx.Commit().Error; err != nil {
-				return err
-			}
 		}
 
 	}

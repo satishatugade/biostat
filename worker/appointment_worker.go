@@ -145,17 +145,25 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 	}
 
 	fileBuf := bytes.NewBuffer(fileBytes)
-	switch p.Category {
-	case string(constant.TESTREPORT):
-		if err := w.handleTestReport(fileBuf, p); err != nil {
-			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
+	flag := config.PropConfig.SystemVaribale.GeminiCall
+	log.Println("flag ", flag)
+	if !flag {
+		switch p.Category {
+		case string(constant.TESTREPORT):
+			if err := w.handleTestReport(fileBuf, p); err != nil {
+				return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
+			}
+		case string(constant.MEDICATION):
+			if err := w.handlePrescription(fileBuf, p); err != nil {
+				return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
+			}
 		}
-	case string(constant.MEDICATION):
-		if err := w.handlePrescription(fileBuf, p); err != nil {
+	} else {
+		log.Println("Inside ClassifyDoc ")
+		if err := w.ClassifyDoc(fileBuf, p); err != nil {
 			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
 		}
 	}
-
 	if err := w.logAndUpdateStatus(ctx, p.RecordID, queueName, constant.StatusSuccess, 1, nil, retryCount); err != nil {
 		return err
 	}
@@ -319,6 +327,122 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 		daysSinceReport := time.Since(reportDate).Hours() / 24
 		if daysSinceReport <= 7 {
 			return w.diagnosticService.NotifyAbnormalResult(matchedUserID)
+		}
+	}
+	return nil
+}
+
+func (w *DigitizationWorker) ClassifyDoc(fileBuf *bytes.Buffer, p models.DigitizationPayload) error {
+	step := string(constant.CallAIService)
+	errorMsg := ""
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+	relatives, _ := w.patientService.GetRelativeListString(&p.UserID)
+
+	reportData, err := w.apiService.ClassifyDocGetGeminiReponse(fileBuf, p.FileName, relatives)
+	if err != nil {
+		aiResMsg := fmt.Sprintf("Processed record id %d %s %s %s", p.RecordID, utils.SafeString(reportData.DocumentBucket), p.FileName, string(constant.CallingAIFailed))
+		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, aiResMsg, err.Error(), nil, &p.RecordID, p.AttachmentId)
+		return err
+	}
+	var labReport models.LabReport
+	matchedUserID := p.UserID
+	if reportData.DocumentBucket != nil {
+		switch *reportData.DocumentBucket {
+		case "test_report":
+			if err := json.Unmarshal(reportData.DocumentDetails, &labReport); err != nil {
+				return fmt.Errorf("failed to unmarshal lab_report: %w", err)
+			}
+			log.Printf("Lab report for patient: %s, Report name: %s",
+				labReport.ReportDetails.PatientName, labReport.ReportDetails.ReportName)
+
+		case "insurance":
+			var ins models.InsuranceDetails
+			if err := json.Unmarshal(reportData.DocumentDetails, &ins); err != nil {
+				return fmt.Errorf("failed to unmarshal insurance: %w", err)
+			}
+			log.Printf("Insurance: Policy %s, Insured: %s", utils.SafeString(ins.PolicyNo), ins.InsuredPerson)
+
+		case "invoice":
+			var inv models.InvoiceDetails
+			if err := json.Unmarshal(reportData.DocumentDetails, &inv); err != nil {
+				return fmt.Errorf("failed to unmarshal invoice details: %w", err)
+			}
+			log.Printf("Invoice: No %s, Biller Name: %s", utils.SafeString(inv.InvoiceNo), utils.SafeString(inv.BillerName))
+
+		case "discharge_summary":
+			var ds models.DischargeSummaryDetails
+			if err := json.Unmarshal(reportData.DocumentDetails, &ds); err != nil {
+				return fmt.Errorf("failed to unmarshal discharge_summary: %w", err)
+			}
+			log.Printf("Discharge from %s, Admission: %s, Discharge: %s",
+				&ds.HospitalName, &ds.AdmissionDate, &ds.DischargeDate)
+
+		default:
+			log.Printf("Unknown document bucket: %s", utils.SafeString(reportData.DocumentBucket))
+		}
+	}
+	var msg string
+	msg = fmt.Sprintf("Processed record Id : %d | Doc Category classify as : %s | Patient Name on doc : %s |Doc URL : %s summary reason : %s", p.RecordID, utils.SafeString(reportData.DocumentBucket), utils.SafeString(reportData.DocumentOwner), p.RecordURL, utils.SafeString(reportData.Summary))
+	if reportData.NearMatchedWith != nil {
+		if reportData.NearMatchedWith.UserID != &p.UserID {
+			matchedUserID = *reportData.NearMatchedWith.UserID
+			step := string(constant.MatchingReport)
+			msg := string(constant.MatchingNameMsg)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Running, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+			tx := w.db.Begin()
+			err := w.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &p.RecordID, map[string]interface{}{"user_id": reportData.NearMatchedWith.UserID, "is_unknown_record": false})
+			if err != nil {
+				return err
+			}
+			matchMessage := fmt.Sprintf("Processed record Id :%d | Record Category :%s | Name match with user Id :%d | Patient Name on doc :%s Name match with member : %s | DOC URL : %s", p.RecordID, utils.SafeString(reportData.DocumentBucket), utils.SafeUint64(reportData.NearMatchedWith.UserID), utils.SafeString(reportData.DocumentOwner), utils.SafeString(reportData.NearMatchedWith.Name), p.RecordURL)
+			w.processStatusService.LogStep(p.ProcessID, step, constant.Success, matchMessage, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+			if err := tx.Commit().Error; err != nil {
+				return err
+			}
+		} else {
+			msg = fmt.Sprintf("Processed record Id : %d | Doc Category classify as : %s | Patient Name on doc : %s | Name match with user %s |Doc URL : %s | summary : %s", p.RecordID, utils.SafeString(reportData.DocumentBucket), utils.SafeString(reportData.DocumentOwner), utils.SafeString(reportData.NearMatchedWith.Name), p.RecordURL, utils.SafeString(reportData.Summary))
+		}
+	}
+	labReport.ReportDetails.IsDigital = true
+	aiMetadata := map[string]interface{}{
+		"ai": reportData,
+	}
+	if jsonBytes, err := json.Marshal(aiMetadata); err == nil {
+		updateRecord := &models.TblMedicalRecord{
+			RecordId: p.RecordID,
+			Metadata: datatypes.JSON(jsonBytes),
+		}
+		if reportData.NearMatchedWith == nil {
+			updateRecord.RecordCategory = string(constant.OTHER)
+		} else {
+			updateRecord.RecordCategory = *reportData.DocumentBucket
+		}
+		_, err := w.recordRepo.UpdateTblMedicalRecord(updateRecord)
+		if err != nil {
+			log.Println("Error Worker updaing Record @UpdateTblMedicalRecord ", err)
+		}
+	}
+	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, msg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
+	if *reportData.DocumentBucket == string(constant.TESTREPORT) {
+		// if reportData.NearMatchedWith.UserID != &p.UserID {
+		// 	if _, err := w.diagnosticService.DigitizeDiagnosticReport(labReport, matchedUserID, &p.RecordID); err != nil {
+		// 		return err
+		// 	}
+		// } else {
+		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(labReport, matchedUserID, &p.RecordID, p.ProcessID, p.AttachmentId); err != nil {
+			return err
+		}
+		// }
+		if labReport.ReportDetails.ReportDate != "" {
+			reportDate, err := utils.ParseDate(labReport.ReportDetails.ReportDate)
+			if err != nil {
+				log.Println("ReportDate parsing failed:", err)
+				return nil
+			}
+			daysSinceReport := time.Since(reportDate).Hours() / 24
+			if daysSinceReport <= 7 {
+				return w.diagnosticService.NotifyAbnormalResult(matchedUserID)
+			}
 		}
 	}
 	return nil
