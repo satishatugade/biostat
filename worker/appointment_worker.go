@@ -412,7 +412,7 @@ func (w *DigitizationWorker) ClassifyDoc(fileBuf *bytes.Buffer, p models.Digitiz
 			RecordId: p.RecordID,
 			Metadata: datatypes.JSON(jsonBytes),
 		}
-		if reportData.NearMatchedWith == nil {
+		if *reportData.DocumentBucket != "non_medical" && reportData.NearMatchedWith == nil {
 			updateRecord.RecordCategory = string(constant.OTHER)
 		} else {
 			updateRecord.RecordCategory = *reportData.DocumentBucket
