@@ -40,3 +40,7 @@ type PatientDocResponse struct {
 	MatchedUserID    uint64 `json:"matched_user_id"` // id of patient or relative
 	IsFallback       bool   `json:"is_fallback"`
 }
+
+type GmailReSyncRequest struct {
+	ProviderID string `json:"provider_id"`
+}

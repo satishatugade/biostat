@@ -1432,32 +1432,51 @@ func MatchLabInBody(nBody, nLab string) (bool, MatchDetail) {
 	var missing []string
 	found := 0
 	for _, t := range labCore {
-		if _, ok := bodySet[t]; ok {
-			found++
+		if len(t) <= 3 { // short tokens → exact match only
+			if _, ok := bodySet[t]; ok {
+				found++
+			} else {
+				missing = append(missing, t)
+			}
 		} else {
-			missing = append(missing, t)
+			if _, ok := bodySet[t]; ok {
+				found++
+			} else {
+				missing = append(missing, t)
+			}
 		}
 	}
-	coverage := 0.0
-	if len(labCore) > 0 {
-		coverage = float64(found) / float64(len(labCore))
-	}
+	coverageCore := 0.0
 
-	if coverage == 1.0 {
+	foundCore := 0
+	for _, t := range labCore {
+		if len(t) <= 3 {
+			if _, ok := bodySet[t]; ok {
+				foundCore++
+			}
+		} else {
+			if _, ok := bodySet[t]; ok {
+				foundCore++
+			}
+		}
+	}
+	coverageCore = float64(foundCore) / float64(len(labCore))
+
+	if coverageCore >= 0.80 {
 		return true, MatchDetail{
 			Matched:  true,
-			Strategy: "token_containment_all",
-			Score:    1.0,
-			Coverage: 1.0,
+			Strategy: "token_overlap_strict",
+			Score:    coverageCore,
+			Coverage: coverageCore,
 			Snippet:  "",
 		}
 	}
-	if coverage >= minContainment {
-		return true, MatchDetail{
-			Matched:       true,
-			Strategy:      "token_containment_partial",
-			Score:         coverage,
-			Coverage:      coverage,
+	if coverageCore >= 0.75 {
+		return false, MatchDetail{
+			Matched:       false,
+			Strategy:      "near_match",
+			Score:         coverageCore,
+			Coverage:      coverageCore,
 			MissingTokens: missing,
 		}
 	}
@@ -1483,6 +1502,23 @@ func MatchLabInBody(nBody, nLab string) (bool, MatchDetail) {
 
 	for k := minK; k <= maxK; k++ {
 		slideWindows(bodyToks, k, func(span []string) bool {
+			// enforce exact match check for short tokens
+			spanToks := strings.Fields(strings.Join(span, " "))
+			for _, labTok := range labCore {
+				if len(labTok) <= 3 {
+					foundExact := false
+					for _, spanTok := range spanToks {
+						if labTok == spanTok {
+							foundExact = true
+							break
+						}
+					}
+					if !foundExact {
+						return false
+					}
+				}
+			}
+
 			spanWith := strings.Join(span, " ")
 			spanNo := joinNoSpace(span)
 
@@ -1512,7 +1548,7 @@ func MatchLabInBody(nBody, nLab string) (bool, MatchDetail) {
 		Matched:       false,
 		Strategy:      "no_match",
 		Score:         bestScore,
-		Coverage:      coverage,
+		Coverage:      coverageCore,
 		MissingTokens: missing,
 	}
 }

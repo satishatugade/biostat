@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -13,8 +14,9 @@ type UserRepository interface {
 	GetAllTblUserTokens(limit int, offset int) ([]models.TblUserToken, int64, error)
 	CreateTblUserToken(data *models.TblUserToken) (*models.TblUserToken, error)
 	UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error)
-	GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error)
-	DeleteTblUserToken(id uint64, updatedBy string) error
+	UpsertUserToken(data *models.TblUserToken) (*models.TblUserToken, error)
+	GetUserToken(userID uint64, provider string, providerID *string) (*models.TblUserToken, error)
+	GetUserProviderIDs(userID uint64, provider string) ([]string, error)
 	CreateSystemUser(tx *gorm.DB, systemUser models.SystemUser_) (models.SystemUser_, error)
 	CreateSystemUserAddress(tx *gorm.DB, systemUserAddress models.AddressMaster) (models.AddressMaster, error)
 	CreateSystemUserAddressMapping(tx *gorm.DB, userAddressMapping models.SystemUserAddressMapping) error
@@ -71,17 +73,60 @@ func (r *UserRepositoryImpl) UpdateTblUserToken(data *models.TblUserToken, updat
 	return data, nil
 }
 
-func (r *UserRepositoryImpl) GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error) {
-	var obj models.TblUserToken
-	err := r.db.Where("user_id = ? AND provider=?", id, provider).Order("created_at DESC").First(&obj).Error
+func (r *UserRepositoryImpl) UpsertUserToken(data *models.TblUserToken) (*models.TblUserToken, error) {
+	var existing models.TblUserToken
+	err := r.db.Where("user_id = ? AND provider = ? AND provider_id = ?",
+		data.UserId, data.Provider, data.ProviderId).
+		First(&existing).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := r.db.Create(data).Error; err != nil {
+				return nil, err
+			}
+			return data, nil
+		}
+		return nil, err
+	}
+
+	// Update existing record
+	existing.AuthToken = data.AuthToken
+	existing.RefreshToken = data.RefreshToken
+	existing.UpdatedAt = time.Now()
+	if err := r.db.Save(&existing).Error; err != nil {
+		return nil, err
+	}
+	return &existing, nil
+}
+
+func (r *UserRepositoryImpl) GetUserToken(userID uint64, provider string, providerID *string) (*models.TblUserToken, error) {
+	var token models.TblUserToken
+	query := r.db.Where("user_id = ? AND provider = ?", userID, provider)
+
+	if providerID != nil && *providerID != "" {
+		query = query.Where("provider_id = ?", *providerID)
+	} else {
+		query = query.Where("provider_id IS NULL OR provider_id = ''")
+	}
+
+	err := query.First(&token).Error
 	if err != nil {
 		return nil, err
 	}
-	return &obj, nil
+	return &token, nil
 }
 
-func (r *UserRepositoryImpl) DeleteTblUserToken(id uint64, updatedBy string) error {
-	return r.db.Where("user_id = ?", id).Delete(&models.TblUserToken{}).Error
+func (r *UserRepositoryImpl) GetUserProviderIDs(userID uint64, provider string) ([]string, error) {
+	var providerIDs []string
+
+	err := r.db.Model(&models.TblUserToken{}).
+		Where("user_id = ? AND provider = ?", userID, provider).
+		Pluck("provider_id", &providerIDs).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return providerIDs, nil
 }
 
 // CreateSystemUser implements UserRepository.

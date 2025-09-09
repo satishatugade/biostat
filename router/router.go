@@ -391,6 +391,9 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"Active-subscription", http.MethodPost, constant.ActiveSubscriptionPlan, patientController.GetActiveSubscription},
 		Route{"Get-subscription-plan", http.MethodPost, constant.GetSubscriptionPlan, patientController.GetSubscriptionPlanService},
 		Route{"BIO-Chat-bot ", http.MethodPost, constant.BIOCHATBOT, patientController.AskAIHandler},
+
+		Route{"Gmail ", http.MethodPost, constant.ProviderList, patientController.GetGmailProviderToSync},
+		Route{"Gmail ", http.MethodPost, constant.GmailReSync, patientController.GmailSyncRefreshToken},
 	}
 
 }

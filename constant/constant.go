@@ -227,6 +227,8 @@ const (
 	RunningProcessStatus    = "/process-status"
 	ActivityLog             = "/activity-log"
 	RecipientDetails        = "/recipient-details"
+	ProviderList            = "/provider-details"
+	GmailReSync             = "/resync"
 )
 
 const (

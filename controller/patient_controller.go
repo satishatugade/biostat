@@ -1255,11 +1255,11 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 
 	var status models.ThirdPartyTokenStatus
 
-	gmail, _ := pc.userService.GetSingleTblUserToken(user_id, "gmail")
+	gmail, _ := pc.userService.GetSingleTblUserToken(user_id, "gmail", nil)
 	if gmail != nil {
 		status.GmailPresent = true
 	}
-	digilocker, _ := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker")
+	digilocker, _ := pc.userService.GetSingleTblUserToken(user_id, "DigiLocker", nil)
 	if digilocker != nil {
 		status.DigiLockerPresent = true
 		createdAtUTC := digilocker.CreatedAt
@@ -1423,7 +1423,7 @@ func (pc *PatientController) ScheduleAppointment(ctx *gin.Context) {
 		}
 		startTime := utils.ConvertToZoomTime(appointment.AppointmentDate.Format("2006-01-02"), appointment.AppointmentTime)
 
-		zToken, _ := pc.userService.GetSingleTblUserToken(0, "ZOOM")
+		zToken, _ := pc.userService.GetSingleTblUserToken(0, "ZOOM", nil)
 		expiresIn := 59 * time.Minute
 
 		if time.Since(zToken.CreatedAt.UTC()) > expiresIn {
@@ -2957,14 +2957,64 @@ func (pc *PatientController) AddUpdateRecipient(ctx *gin.Context) {
 	}
 	user, err := pc.patientService.GetUserProfileByUserId(userId)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failer to get user", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to get user", nil, err)
 		return
 	}
 	err = pc.notificationService.SaveOrUpdateNotifyCreds(userId, req.FCMToken, user)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failer to serve request", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "details saved", nil, nil, nil)
+	return
+}
+
+func (pc *PatientController) GetGmailProviderToSync(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	_, err = pc.patientService.GetUserProfileByUserId(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to get user", nil, err)
+		return
+	}
+	providers, err := pc.userService.GetUserProviderIDs(userId, "Gmail")
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "provider loaded", providers, nil, nil)
+	return
+}
+
+func (pc *PatientController) GmailSyncRefreshToken(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	var req models.GmailReSyncRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request", nil, err)
+		return
+	}
+	_, err = pc.patientService.GetUserProfileByUserId(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to get user", nil, err)
+		return
+	}
+	tokenDetails, err := pc.userService.GetSingleTblUserToken(userId, "Gmail", &req.ProviderID)
+	if err != nil || tokenDetails.RefreshToken == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
+		return
+	}
+	go func() {
+		if err := pc.gmailSyncService.SyncGmailRefreshToken(userId, tokenDetails.RefreshToken); err != nil {
+			log.Println("GmailSyncRefreshToken:", err)
+		}
+	}()
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Gmail syncing process started will update you once done", gin.H{"message": "Gmail syncing process started will update you once done"}, nil, nil)
 	return
 }

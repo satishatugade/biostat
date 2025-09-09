@@ -16,8 +16,8 @@ type UserService interface {
 	GetAllTblUserTokens(limit int, offset int) ([]models.TblUserToken, int64, error)
 	CreateTblUserToken(data *models.TblUserToken) (*models.TblUserToken, error)
 	UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error)
-	GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error)
-	DeleteTblUserToken(id uint64, updatedBy string) error
+	GetSingleTblUserToken(userID uint64, provider string, providerID *string) (*models.TblUserToken, error)
+	GetUserProviderIDs(userID uint64, provider string) ([]string, error)
 	FetchAddressByPincode(postalcode string) ([]models.PincodeMaster, error)
 	GetAllMappedUserAddress(patientId uint64, limit, offset int, MappingType []string) ([]models.UserAddressResponse, int64, error)
 	GetUserIdBySUB(sub string) (uint64, error)
@@ -47,23 +47,23 @@ func (s *UserServiceImpl) GetAllTblUserTokens(limit int, offset int) ([]models.T
 }
 
 func (s *UserServiceImpl) CreateTblUserToken(data *models.TblUserToken) (*models.TblUserToken, error) {
-	return s.userRepo.CreateTblUserToken(data)
+	return s.userRepo.UpsertUserToken(data)
 }
 
 func (s *UserServiceImpl) UpdateTblUserToken(data *models.TblUserToken, updatedBy string) (*models.TblUserToken, error) {
 	return s.userRepo.UpdateTblUserToken(data, updatedBy)
 }
 
-func (s *UserServiceImpl) GetSingleTblUserToken(id uint64, provider string) (*models.TblUserToken, error) {
-	return s.userRepo.GetSingleTblUserToken(id, provider)
+func (s *UserServiceImpl) GetSingleTblUserToken(userID uint64, provider string, providerID *string) (*models.TblUserToken, error) {
+	return s.userRepo.GetUserToken(userID, provider, providerID)
+}
+
+func (s *UserServiceImpl) GetUserProviderIDs(userID uint64, provider string) ([]string, error) {
+	return s.userRepo.GetUserProviderIDs(userID, provider)
 }
 
 func (s *UserServiceImpl) GetAllMappedUserAddress(patientID uint64, limit, offset int, MappingType []string) ([]models.UserAddressResponse, int64, error) {
 	return s.userRepo.FetchMappedUserAddress(patientID, MappingType, limit, offset)
-}
-
-func (s *UserServiceImpl) DeleteTblUserToken(id uint64, updatedBy string) error {
-	return s.userRepo.DeleteTblUserToken(id, updatedBy)
 }
 
 // CreateSystemUser implements UserService.

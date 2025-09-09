@@ -409,7 +409,7 @@ func (s *tblMedicalRecordServiceImpl) IsRecordAccessibleToUser(userID uint64, re
 }
 
 func (s *tblMedicalRecordServiceImpl) ReadUserDigiLockerFile(userId uint64, digiLockerFileUrl string) (*models.DigiLockerFile, error) {
-	userDigiToken, err := s.userService.GetSingleTblUserToken(userId, "DigiLocker")
+	userDigiToken, err := s.userService.GetSingleTblUserToken(userId, "DigiLocker", nil)
 	if err != nil {
 		return nil, err
 	}

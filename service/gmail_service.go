@@ -8,7 +8,6 @@ import (
 	"biostat/utils"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,6 +41,7 @@ type GmailSyncService interface {
 	CreateGmailServiceForApp(userID uint64, accessToken string) (*gmail.Service, error)
 	SyncGmailWeb(userID uint64, code string) error
 	SyncGmailApp(userID uint64, service *gmail.Service) error
+	SyncGmailRefreshToken(userID uint64, refreshToken string) error
 	GetPatientNameOnDoc(patientNameOnReport string, userID uint64) (*models.PatientDocResponse, error)
 }
 
@@ -75,7 +75,7 @@ func (gs *GmailSyncServiceImpl) GetGmailAuthURL(userId uint64) (string, error) {
 		Scopes:       []string{"https://mail.google.com/"},
 		Endpoint:     google.Endpoint,
 	}
-	authURL := googleOauthConfig.AuthCodeURL(strconv.FormatUint(userId, 10), oauth2.AccessTypeOffline)
+	authURL := googleOauthConfig.AuthCodeURL(strconv.FormatUint(userId, 10), oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent"))
 	return authURL, nil
 }
 
@@ -161,13 +161,13 @@ func (s *GmailSyncServiceImpl) FetchEmailsWithAttachment(service *gmail.Service,
 			continue
 		}
 		var bodyText string
-		subject := getHeader(message.Payload.Headers, "Subject")
-		emailDate := getHeader(message.Payload.Headers, "Date")
-		from := getHeader(message.Payload.Headers, "From")
+		subject := utils.GetHeader(message.Payload.Headers, "Subject")
+		emailDate := utils.GetHeader(message.Payload.Headers, "Date")
+		from := utils.GetHeader(message.Payload.Headers, "From")
 		emailSummaries = append(emailSummaries, fmt.Sprintf("%d : from %s: %s", idx+1, from, subject))
 		log.Println(idx+1, ": Checking ", emailDate, "||", subject)
 
-		bodyText = GetMessageBody(message)
+		bodyText = utils.GetMessageBody(message)
 		normalizeBodyText := utils.NormalizeText(bodyText)
 		foundLab := false
 		emailMsg := ""
@@ -220,7 +220,7 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 			msg := fmt.Sprintf("Downloading attachment %s Dated on %s from EmailSub %s", part.Filename, emailDate, subject)
 			log.Println("@ExtractAttachments Processing Record from Email:", mailIdx, "-", recordIndexCount, "/", len(message.Payload.Parts), ": ", part.Filename, "-", subject)
 			s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, &recordIndexCount, &recordIndexCount, nil, nil, &attachmentId)
-			attachmentData, err := DownloadAttachment(service, message.Id, attachmentId)
+			attachmentData, err := utils.DownloadAttachment(service, message.Id, attachmentId)
 			if err != nil {
 				log.Printf("@ExtractAttachments->DownloadAttachment %s: %v", part.Filename, err)
 				msg = fmt.Sprintf("Error Downloading attachment %s from %s Dated on %s", part.Filename, subject, emailDate)
@@ -277,118 +277,6 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 	failedCount := totalAttempted - successCount
 	s.processStatusService.LogStep(processID, step, constant.Success, string(constant.DownloadAttachmentComplete), errorMsg, nil, nil, &count, &successCount, &failedCount, nil)
 	return records
-}
-
-func DownloadAttachment(service *gmail.Service, messageID, attachmentID string) ([]byte, error) {
-	attachment, err := service.Users.Messages.Attachments.Get("me", messageID, attachmentID).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	decodedData, err := base64.URLEncoding.DecodeString(attachment.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	return decodedData, nil
-}
-
-func getHeader(headers []*gmail.MessagePartHeader, name string) string {
-	for _, h := range headers {
-		if h.Name == name {
-			return h.Value
-		}
-	}
-	return ""
-}
-
-func decodeBase64Safe(data string) string {
-	if data == "" {
-		return ""
-	}
-
-	if decoded, err := base64.RawURLEncoding.DecodeString(data); err == nil {
-		// log.Println("Retuning base64.RawURLEncoding.DecodeString")
-		return string(decoded)
-	} else {
-		log.Printf("[decodeBase64Safe] RawURLEncoding failed: %v", err)
-	}
-	if decoded, err := base64.StdEncoding.DecodeString(data); err == nil {
-		// log.Println("Retuning base64.StdEncoding.DecodeString")
-		return string(decoded)
-	} else {
-		log.Printf("[decodeBase64Safe] StdEncoding failed: %v", err)
-	}
-
-	padded := data
-	if m := len(padded) % 4; m != 0 {
-		padded += strings.Repeat("=", 4-m)
-	}
-	if decoded, err := base64.URLEncoding.DecodeString(padded); err == nil {
-		// log.Println("Retuning base64.URLEncoding.DecodeString")
-		return string(decoded)
-	} else {
-		log.Printf("[decodeBase64Safe] URLEncoding with padding failed: %v", err)
-	}
-
-	log.Printf("[decodeBase64Safe] All decoding attempts failed, returning raw string")
-	return data
-}
-
-func extractBodyFromParts(parts []*gmail.MessagePart) string {
-	for _, part := range parts {
-		if part.MimeType == "text/plain" && part.Body != nil && part.Body.Data != "" {
-			// log.Println("extractBodyFromParts Detected Text/plain")
-			return decodeBase64Safe(part.Body.Data)
-		}
-		if part.MimeType == "text/html" && part.Body != nil && part.Body.Data != "" {
-			// log.Println("extractBodyFromParts Detected Text/html")
-			return utils.StripHTML(decodeBase64Safe(part.Body.Data))
-		}
-		if len(part.Parts) > 0 {
-			if result := extractBodyFromParts(part.Parts); result != "" {
-				// log.Println("extractBodyFromParts this part has its own sub-parts")
-				return result
-			}
-		}
-	}
-	// log.Println("Returning empty extractBodyFromParts")
-	return ""
-}
-
-func GetMessageBody(msg *gmail.Message) string {
-	if msg == nil || msg.Payload == nil {
-		log.Println("Message is nil returning Empty string")
-		return ""
-	}
-	if len(msg.Payload.Parts) == 0 && msg.Payload.Body != nil && msg.Payload.Body.Data != "" {
-		body := decodeBase64Safe(msg.Payload.Body.Data)
-		if strings.Contains(strings.ToLower(msg.Payload.MimeType), "html") {
-			// log.Println("Extracting & Returning HTML")
-			return utils.StripHTML(body)
-		}
-		log.Println("Returning decodeBase64Safe HTML")
-		return body
-	}
-
-	// Multipart email
-	return extractBodyFromParts(msg.Payload.Parts)
-}
-
-func decodeGmailBase64(data string) ([]byte, error) {
-	// Gmail sometimes sends with spaces or line breaks — clean them
-	cleanData := strings.ReplaceAll(data, "-", "+")
-	cleanData = strings.ReplaceAll(cleanData, "_", "/")
-	cleanData = strings.ReplaceAll(cleanData, "\n", "")
-	cleanData = strings.ReplaceAll(cleanData, "\r", "")
-	cleanData = strings.ReplaceAll(cleanData, " ", "")
-
-	// Add padding if missing
-	if m := len(cleanData) % 4; m != 0 {
-		cleanData += strings.Repeat("=", 4-m)
-	}
-
-	return base64.StdEncoding.DecodeString(cleanData)
 }
 
 func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID, gmailService *gmail.Service) error {
@@ -664,11 +552,19 @@ func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 	}
 	s.processStatusService.LogStep(processIdKey, step, constant.Success, string(constant.TokenExchangeSuccess), errorMsg, nil, nil, nil, nil, nil, nil)
 
+	email, err := s.getEmailFromToken(token)
+	if err != nil {
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, string(constant.TokenExchangeFailed), err.Error(), nil, nil, nil)
+		return fmt.Errorf("failed to fetch email: %w", err)
+	}
 	// Step: Save User Token
 	_, tokenErr := s.userService.CreateTblUserToken(&models.TblUserToken{
-		UserId:    userID,
-		AuthToken: token.AccessToken,
-		Provider:  "Gmail",
+		UserId:       userID,
+		AuthToken:    token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Provider:     "Gmail",
+		ProviderId:   email,
+		ExpiresAt:    token.Expiry,
 	})
 	if tokenErr != nil {
 		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, "Failed to save user token: ", tokenErr.Error(), nil, nil, nil)
@@ -688,6 +584,64 @@ func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 	return s.GmailSyncCore(userID, processIdKey, gmailService)
 }
 
+func (s *GmailSyncServiceImpl) SyncGmailApp(userID uint64, gmailService *gmail.Service) error {
+	processID := uuid.New()
+	msg := string(constant.ProcessStarted)
+	errorMsg := ""
+	s.processStatusService.LogStep(processID, string(constant.GmailSync), constant.Running, msg, errorMsg, nil, nil, nil, nil, nil, nil)
+	return s.GmailSyncCore(userID, processID, gmailService)
+}
+
+func (s *GmailSyncServiceImpl) SyncGmailRefreshToken(userID uint64, refreshToken string) error {
+	// Start the process in Redis
+	errorMsg := ""
+	processIdKey, _ := s.processStatusService.StartProcessInRedis(
+		userID,
+		string(constant.GmailSync),
+		strconv.FormatUint(userID, 10),
+		string(constant.MedicalRecordEntity),
+		string(constant.ProcessTokenExchange),
+	)
+	// Step: Token Exchange
+	token, err := s.generateTokenFromRefreshToken(refreshToken)
+	step := string(constant.ProcessTokenExchange)
+	if err != nil {
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, string(constant.TokenExchangeFailed), err.Error(), nil, nil, nil)
+		return err
+	}
+	s.processStatusService.LogStep(processIdKey, step, constant.Success, string(constant.TokenExchangeSuccess), errorMsg, nil, nil, nil, nil, nil, nil)
+
+	email, err := s.getEmailFromToken(token)
+	if err != nil {
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, string(constant.TokenExchangeFailed), err.Error(), nil, nil, nil)
+		return fmt.Errorf("failed to fetch email: %w", err)
+	}
+	// Step: Save User Token
+	_, tokenErr := s.userService.CreateTblUserToken(&models.TblUserToken{
+		UserId:       userID,
+		AuthToken:    token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Provider:     "Gmail",
+		ProviderId:   email,
+		ExpiresAt:    token.Expiry,
+	})
+	if tokenErr != nil {
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, "Failed to save user token: ", tokenErr.Error(), nil, nil, nil)
+	} else {
+		s.processStatusService.LogStep(processIdKey, step, constant.Success, "User token fetch successfully", "", nil, nil, nil, nil, nil, nil)
+	}
+
+	// Step: Create Gmail client
+	step = string(constant.ProcessGmailClient)
+	gmailService, err := s.CreateGmailServiceClient(token.AccessToken, s.googleOauthConfig())
+	if err != nil {
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, string(constant.GmailClientCreateFailed), err.Error(), nil, nil, nil)
+		return err
+	}
+	s.processStatusService.LogStep(processIdKey, step, constant.Success, string(constant.GmailClientCreated), errorMsg, nil, nil, nil, nil, nil, nil)
+	return s.GmailSyncCore(userID, processIdKey, gmailService)
+}
+
 // Helper: Exchange Google OAuth token
 func (s *GmailSyncServiceImpl) exchangeGoogleToken(code string) (*oauth2.Token, error) {
 	return s.googleOauthConfig().Exchange(context.Background(), code)
@@ -704,13 +658,31 @@ func (s *GmailSyncServiceImpl) googleOauthConfig() *oauth2.Config {
 	}
 }
 
-func (s *GmailSyncServiceImpl) SyncGmailApp(userID uint64, gmailService *gmail.Service) error {
-	processID := uuid.New()
-	msg := string(constant.ProcessStarted)
-	errorMsg := ""
-	s.processStatusService.LogStep(processID, string(constant.GmailSync), constant.Running, msg, errorMsg, nil, nil, nil, nil, nil, nil)
-	return s.GmailSyncCore(userID, processID, gmailService)
+func (s *GmailSyncServiceImpl) getEmailFromToken(token *oauth2.Token) (string, error) {
+	client := s.googleOauthConfig().Client(context.Background(), token)
+	srv, err := gmail.New(client)
+	if err != nil {
+		return "", fmt.Errorf("failed to create gmail client: %w", err)
+	}
+	profile, err := srv.Users.GetProfile("me").Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to get profile: %w", err)
+	}
+	return profile.EmailAddress, nil
 }
+
+func (s *GmailSyncServiceImpl) generateTokenFromRefreshToken(refreshToken string) (*oauth2.Token, error) {
+	config := s.googleOauthConfig()
+	token := &oauth2.Token{RefreshToken: refreshToken}
+	tokenSource := config.TokenSource(context.Background(), token)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh token: %w", err)
+	}
+	log.Println("New Access Token:", newToken.AccessToken)
+	return newToken, nil
+}
+
 func DecryptPDFIfProtected(fileData []byte, password string) ([]byte, error) {
 	buf := &bytes.Buffer{}
 
