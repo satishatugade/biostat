@@ -1989,6 +1989,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow, u
 	}
 	userInfoMap := map[string]interface{}{
 		"patient_name":  userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
+		"patient_id":    userInfo.UserId,
 		"bloog_group":   userInfo.BloodGroup,
 		"gender":        userInfo.Gender,
 		"email":         userInfo.Email,

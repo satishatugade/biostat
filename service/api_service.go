@@ -18,7 +18,7 @@ import (
 )
 
 type ApiService interface {
-	CallGeminiService(file io.Reader, filename string) (models.LabReport, error)
+	CallGeminiService(file io.Reader, filename, relatives, docType string) (models.DocumentDetail, error)
 	ClassifyDocGetGeminiReponse(file io.Reader, filename, relatives string) (models.DocumentResponse, error)
 	CallPrescriptionDigitizeAPI(file io.Reader, filename string) (models.PatientPrescription, error)
 	CallSummarizeReportService(data models.PatientBasicInfo) (models.ResultSummary, error)
@@ -66,7 +66,7 @@ func NewApiService() ApiService {
 	}
 }
 
-func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (models.LabReport, error) {
+func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename, relatives, docType string) (models.DocumentDetail, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	log.Println("File Name : ", filename)
@@ -74,7 +74,7 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 	buf := make([]byte, 512)
 	n, err := file.Read(buf)
 	if err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to read file for MIME detection: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to read file for MIME detection: %w", err)
 	}
 	mimeType := http.DetectContentType(buf[:n])
 	log.Printf("Detected MIME type: %s", mimeType)
@@ -87,37 +87,47 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 
 	part, err := writer.CreatePart(h)
 	if err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to create form part: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to create form part: %w", err)
 	}
 
 	if _, err := io.Copy(part, fileReader); err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to copy file data: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to copy file data: %w", err)
+	}
+	if relatives != "" {
+		if err := writer.WriteField("relatives_string", relatives); err != nil {
+			return models.DocumentDetail{}, fmt.Errorf("failed to write relatives field: %w", err)
+		}
+	}
+	if docType != "" {
+		if err := writer.WriteField("document_type", docType); err != nil {
+			return models.DocumentDetail{}, fmt.Errorf("failed to write document_type field: %w", err)
+		}
 	}
 
 	if err := writer.Close(); err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to close writer: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to close writer: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, s.GeminiAPIURL, body)
 	if err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to create request: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to send request: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return models.LabReport{}, fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
+		return models.DocumentDetail{}, fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
 	}
 
-	var reportData models.LabReport
+	var reportData models.DocumentDetail
 	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
-		return models.LabReport{}, fmt.Errorf("failed to parse JSON response: %w", err)
+		return models.DocumentDetail{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
 	if err != nil {

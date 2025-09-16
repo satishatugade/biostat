@@ -286,6 +286,13 @@ type InvoiceDetails struct {
 	FinalPayableAmt *string `json:"final_payable_amt"`
 }
 
+type DocumentDetail struct {
+	DocumentDetails LabReport    `json:"document_details"`
+	DocumentOwner   string       `json:"document_owner"`
+	NearMatchedWith *NearMatched `json:"near_matched_with"`
+	Summary         string       `json:"summary"`
+}
+
 type LabReport struct {
 	ReportDetails struct {
 		ReportName       string  `json:"report_name"`

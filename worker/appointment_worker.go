@@ -146,8 +146,8 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 
 	fileBuf := bytes.NewBuffer(fileBytes)
 	flag := config.PropConfig.SystemVaribale.GeminiCall
-	log.Println("flag ", flag)
 	if !flag {
+		log.Println("GEMINI call flag if : ", flag)
 		switch p.Category {
 		case string(constant.TESTREPORT):
 			if err := w.handleTestReport(fileBuf, p); err != nil {
@@ -159,7 +159,7 @@ func (w *DigitizationWorker) HandleDigitizationTask(ctx context.Context, t *asyn
 			}
 		}
 	} else {
-		log.Println("Inside ClassifyDoc ")
+		log.Println("GEMINI call flag else : ", flag)
 		if err := w.ClassifyDoc(fileBuf, p); err != nil {
 			return w.failTask(ctx, queueName, p.ProcessID, p.RecordID, err.Error(), retryCount)
 		}
@@ -230,12 +230,14 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 	step := string(constant.CallAIService)
 	errorMsg := ""
 	w.processStatusService.LogStep(p.ProcessID, step, constant.Running, string(constant.CallingAIServiceMsg), errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
-	reportData, err := w.apiService.CallGeminiService(fileBuf, p.FileName)
+	relatives, _ := w.patientService.GetRelativeListString(&p.UserID)
+	docDetail, err := w.apiService.CallGeminiService(fileBuf, p.FileName, relatives, p.Category)
 	if err != nil {
 		aiResMsg := fmt.Sprintf("Processed record id %d %s %s %s", p.RecordID, p.Category, p.FileName, string(constant.CallingAIFailed))
 		w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, aiResMsg, err.Error(), nil, &p.RecordID, p.AttachmentId)
 		return err
 	}
+	reportData := docDetail.DocumentDetails
 	aiResMsg := fmt.Sprintf("Processed record id %d %s %s %s", p.RecordID, p.Category, p.FileName, string(constant.CallingAIServiceSuccess))
 	w.processStatusService.LogStep(p.ProcessID, step, constant.Success, aiResMsg, errorMsg, &p.RecordID, nil, nil, nil, nil, p.AttachmentId)
 	matchedUserID := p.UserID
