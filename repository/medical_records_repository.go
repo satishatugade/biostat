@@ -373,7 +373,7 @@ func (p *tblMedicalRecordRepositoryImpl) ProcessMedicalRecordResponse(rows []mod
 				"upload_source":                item.UploadSource,
 				"source_account":               item.SourceAccount,
 				"record_category":              item.RecordCategory,
-				"record_url":                   item.RecordURL,
+				"record_url":                   item.RecordUrl,
 				"digitize_flag":                item.DigitizeFlag,
 				"patient_diagnostic_report_id": reportID,
 				"patient_id":                   item.PatientId,

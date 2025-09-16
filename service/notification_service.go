@@ -40,10 +40,11 @@ type NotificationService interface {
 type NotificationServiceImpl struct {
 	notificationRepo repository.UserNotificationRepository
 	userRepo         repository.UserRepository
+	apiService       ApiService
 }
 
-func NewNotificationService(repo repository.UserNotificationRepository, userRepo repository.UserRepository) NotificationService {
-	return &NotificationServiceImpl{notificationRepo: repo, userRepo: userRepo}
+func NewNotificationService(repo repository.UserNotificationRepository, userRepo repository.UserRepository, apiService ApiService) NotificationService {
+	return &NotificationServiceImpl{notificationRepo: repo, userRepo: userRepo, apiService: apiService}
 }
 
 func (e *NotificationServiceImpl) GetUserNotifications(userId uint64) ([]models.UserNotificationMapping, error) {
@@ -92,7 +93,7 @@ func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, us
 		header := map[string]string{
 			"X-API-Key": notifyAPIKey,
 		}
-		_, data, err := utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/schedule", scheduleBody, header)
+		_, data, err := e.apiService.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/schedule", scheduleBody, header)
 		if err != nil {
 			log.Printf("@ScheduleReminders ->MakeRESTRequest [%s] -> Failed to schedule notification: %v", reminder.TimeSlot, err)
 			failedSlots = append(failedSlots, fmt.Sprintf("%s: scheduling failed", reminder.TimeSlot))
@@ -161,7 +162,7 @@ func (e *NotificationServiceImpl) UpdateReminder(userID uint64, reminder models.
 		"X-API-Key": notifyAPIKey,
 	}
 
-	_, _, err := utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/update-schedule", updateBody, headers)
+	_, _, err := e.apiService.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/update-schedule", updateBody, headers)
 	if err != nil {
 		return fmt.Errorf("failed to update notification: %v", err)
 	}
@@ -201,7 +202,7 @@ func (e *NotificationServiceImpl) SendSOS(recipientId, familyMember, patientName
 	header := map[string]string{
 		"X-API-Key": notifyAPIKey,
 	}
-	_, _, err := utils.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/send", scheduleBody, header)
+	_, _, err := e.apiService.MakeRESTRequest(http.MethodPost, notifyServerURL+"/api/v1/notifications/send", scheduleBody, header)
 	return err
 }
 
@@ -222,9 +223,9 @@ func (s *NotificationServiceImpl) GetUserReminders(userId uint64) ([]models.User
 		"notification_id": notificationIds,
 	}
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
-	_, response, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/info", sendBody, header)
+	_, response, sendErr := s.apiService.MakeRESTRequest(http.MethodPost, os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/info", sendBody, header)
 	if sendErr != nil {
 		return nil, sendErr
 	}
@@ -258,7 +259,7 @@ func (s *NotificationServiceImpl) GetUserReminders(userId uint64) ([]models.User
 
 func (s *NotificationServiceImpl) RegisterUserInNotify(fcmToken, phone *string, email string) (uuid.UUID, error) {
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
 	requestBody := map[string]interface{}{}
 	if fcmToken != nil && strings.TrimSpace(*fcmToken) != "" {
@@ -270,7 +271,7 @@ func (s *NotificationServiceImpl) RegisterUserInNotify(fcmToken, phone *string, 
 	if phone != nil && strings.TrimSpace(*phone) != "" {
 		requestBody["phone"] = *phone
 	}
-	_, response, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/recipient/register", requestBody, header)
+	_, response, sendErr := s.apiService.MakeRESTRequest(http.MethodPost, os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/recipient/register", requestBody, header)
 	if sendErr != nil {
 		return uuid.Nil, sendErr
 	}
@@ -283,7 +284,7 @@ func (s *NotificationServiceImpl) RegisterUserInNotify(fcmToken, phone *string, 
 
 func (s *NotificationServiceImpl) UpadateUserInNotify(recipientId string, fcmToken, email, phone *string) error {
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
 	requestBody := map[string]interface{}{}
 	if strings.TrimSpace(recipientId) != "" {
@@ -298,7 +299,7 @@ func (s *NotificationServiceImpl) UpadateUserInNotify(recipientId string, fcmTok
 	if phone != nil && strings.TrimSpace(*phone) != "" {
 		requestBody["phone"] = *phone
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/recipient/update", requestBody, header)
+	_, _, sendErr := s.apiService.MakeRESTRequest(http.MethodPost, os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/recipient/update", requestBody, header)
 	if sendErr != nil {
 		return sendErr
 	}
@@ -329,7 +330,7 @@ func (s *NotificationServiceImpl) AddUsersToNotify() error {
 }
 
 func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, password *string, patient *models.Patient, relationship string) error {
-	APPURL := os.Getenv("APP_URL")
+	APPURL := config.PropConfig.ApiURL.APPURL
 	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
 	roleName := systemUser.RoleName
 	if relationship != "" {
@@ -361,9 +362,9 @@ func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemU
 		},
 	}
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
-	_, body, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	_, body, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
 	if sendErr != nil {
 		return sendErr
 	}
@@ -410,9 +411,9 @@ func (e *NotificationServiceImpl) SendConnectionMail(systemUser models.SystemUse
 		},
 	}
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	_, _, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
 	if sendErr != nil {
 		return sendErr
 	}
@@ -512,9 +513,9 @@ func (e *NotificationServiceImpl) SendAppointmentMail(appointment models.Appoint
 		},
 	}
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
-	sendStatus, sendData, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	sendStatus, sendData, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
 
 	scheduleTime := start.Add(-30 * time.Minute).Format(time.RFC3339)
 	scheduleBody := map[string]interface{}{
@@ -536,7 +537,7 @@ func (e *NotificationServiceImpl) SendAppointmentMail(appointment models.Appoint
 		},
 	}
 
-	scheduleStatus, scheduleData, scheduleErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
+	scheduleStatus, scheduleData, scheduleErr := e.apiService.MakeRESTRequest(http.MethodPost, os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/schedule", scheduleBody, header)
 	var errs []string
 	if sendErr != nil {
 		errs = append(errs, fmt.Sprintf("send failed: %v (status: %d, data: %v)", sendErr, sendStatus, sendData))
@@ -600,9 +601,9 @@ func (e *NotificationServiceImpl) SendReportResultsEmail(patientInfo *models.Sys
 		},
 	}
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
-	_, sendData, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	_, sendData, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
 	if sendErr != nil {
 		return sendErr
 	}
@@ -628,7 +629,7 @@ func (e *NotificationServiceImpl) SendReportResultsEmail(patientInfo *models.Sys
 func (e *NotificationServiceImpl) ShareReportEmail(recipientEmail []string, userDetails *models.SystemUser_, shortURL string) error {
 	var errs []string
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
 	for _, email := range recipientEmail {
 		sendBody := map[string]interface{}{
@@ -643,22 +644,22 @@ func (e *NotificationServiceImpl) ShareReportEmail(recipientEmail []string, user
 				"reportLink": shortURL,
 			},
 		}
-		_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+		_, _, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
 		if sendErr != nil {
 			errs = append(errs, fmt.Sprintf("send failed for %v: %v", email, sendErr))
 		}
 	}
 	if len(errs) > 0 {
-		return fmt.Errorf(strings.Join(errs, " | "))
+		return fmt.Errorf("%s", strings.Join(errs, " | "))
 	}
 	return nil
 }
 
 func (e *NotificationServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_, token string, recipientEmail string) error {
-	APPURL := os.Getenv("APP_URL")
+	APPURL := config.PropConfig.ApiURL.APPURL
 	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s", APPURL, token)
 	header := map[string]string{
-		"X-API-Key": os.Getenv("NOTIFY_API_KEY"),
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
 	}
 	sendBody := map[string]interface{}{
 		// "user_id":           systemUser.UserId,
@@ -672,7 +673,7 @@ func (e *NotificationServiceImpl) SendResetPasswordMail(systemUser *models.Syste
 			"resetURL": resetURL,
 		},
 	}
-	_, _, sendErr := utils.MakeRESTRequest("POST", os.Getenv("NOTIFY_SERVER_URL")+"/api/v1/notifications/send", sendBody, header)
+	_, _, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
 	return sendErr
 }
 

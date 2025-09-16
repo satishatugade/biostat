@@ -25,7 +25,7 @@ type DiseaseService interface {
 	GetAllDiseaseAuditLogs(limit, offset int) ([]models.DiseaseAudit, int64, error)
 
 	ProcessUploadFromStream(entity, authUserId string, reader io.Reader) (int, error)
-	AddPatientReportNote(reportId, patientId uint64, comment string) error
+	AddPatientReportNote(reportId string, patientId uint64, comment string) error
 }
 
 type DiseaseServiceImpl struct {
@@ -229,6 +229,6 @@ func processMedicationInsert(s *DiseaseServiceImpl, reader io.Reader, authUserId
 	return totalInserted, nil
 }
 
-func (s *DiseaseServiceImpl) AddPatientReportNote(reportId, patientId uint64, comment string) error {
+func (s *DiseaseServiceImpl) AddPatientReportNote(reportId string, patientId uint64, comment string) error {
 	return s.diseaseRepo.AddPatientReportNote(reportId, patientId, comment)
 }

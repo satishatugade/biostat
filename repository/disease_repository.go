@@ -28,7 +28,7 @@ type DiseaseRepository interface {
 	InsertMedicationType(medicationType *[]models.MedicationType) error
 
 	BulkInsert(data interface{}) error
-	AddPatientReportNote(reportId, patientId uint64, comment string) error
+	AddPatientReportNote(reportId string, patientId uint64, comment string) error
 }
 
 type DiseaseRepositoryImpl struct {
@@ -327,7 +327,7 @@ func (repo *DiseaseRepositoryImpl) InsertMedicationType(medicationType *[]models
 	return repo.db.Create(medicationType).Error
 }
 
-func (ds *DiseaseRepositoryImpl) AddPatientReportNote(reportID uint64, patientID uint64, comment string) error {
+func (ds *DiseaseRepositoryImpl) AddPatientReportNote(reportID string, patientID uint64, comment string) error {
 	return ds.db.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&models.PatientDiagnosticReport{}).
 			Where("patient_diagnostic_report_id = ? AND patient_id = ?", reportID, patientID).

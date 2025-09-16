@@ -271,7 +271,7 @@ func (as *AuthServiceImpl) SendResetPasswordLink(email string) error {
 
 	MailErr := as.emailService.SendResetPasswordMail(userInfo, token, email)
 	if MailErr != nil {
-		return errors.New("reset password email not sent")
+		return errors.New("failed to send reset-password email")
 	}
 	return nil
 }

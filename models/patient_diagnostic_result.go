@@ -504,7 +504,7 @@ type ReportRow struct {
 	UploadSource   string
 	SourceAccount  string
 	RecordCategory string
-	RecordURL      string
+	RecordUrl      string
 	DigitizeFlag   int
 	Status         string
 
@@ -619,6 +619,7 @@ type CellData struct {
 	Qualifier    string `json:"qualifier"`
 	ReportId     string `json:"patient_diagnostic_report_id"`
 	RecordId     string `json:"record_id"`
+	RecordUrl    string `json:"record_url"`
 	ResultDate   string `json:"result_date"`
 	ReportName   string `json:"report_name"`
 }

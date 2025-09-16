@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"biostat/config"
 	"biostat/constant"
 	"biostat/database"
 	"biostat/models"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -68,7 +70,7 @@ type PatientRepository interface {
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
 	GetPatientDiagnosticHealthVital(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
-	ProcessReportGridData(rows []models.ReportRow) map[string]interface{}
+	ProcessReportGridData(rows []models.ReportRow, userInfo models.SystemUser_) map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
 	GetDiagnosticReportId(patientId uint64) (*string, error)
 
@@ -1487,12 +1489,15 @@ func (p *PatientRepositoryImpl) NoOfMessagesForDashboard(patientID uint64) (int6
 }
 
 func (p *PatientRepositoryImpl) NoOfLabReusltsForDashboard(patientID uint64) (int64, error) {
+	status := config.PropConfig.SystemVaribale.Status
+	statuses := strings.Split(status, ",")
 	var count int64
 	err := p.db.Table("tbl_medical_record").
 		Where("record_id IN (?)", p.db.Table("tbl_medical_record_user_mapping").
 			Select("record_id").
 			Where("user_id = ?", patientID),
 		).
+		Where("status IN (?) AND is_deleted = ?", statuses, 0).
 		Count(&count).Error
 
 	if err != nil {
@@ -1638,6 +1643,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 			pdr.patient_diagnostic_report_id,
 			pdr.patient_id,
 			pra.record_id,
+			mr.record_url,
 			format_datetime(pdr.collected_date) AS collected_date,
 			format_datetime(pdr.report_date) AS report_date,
 			pdr.report_status,
@@ -1915,7 +1921,7 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticHealthVital(patientId uint64
 	return results, totalReports, nil
 }
 
-func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) map[string]interface{} {
+func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow, userInfo models.SystemUser_) map[string]interface{} {
 	if len(rows) == 0 {
 		return map[string]interface{}{}
 	}
@@ -1955,6 +1961,7 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 			ResultDate:   row.ResultDate,
 			Qualifier:    row.Qualifier,
 			RecordId:     strconv.Itoa(int(row.RecordId)),
+			RecordUrl:    row.RecordUrl,
 			ReportName:   row.ReportName,
 		}
 
@@ -1980,11 +1987,20 @@ func (p *PatientRepositoryImpl) ProcessReportGridData(rows []models.ReportRow) m
 		}
 		finalRows = append(finalRows, row)
 	}
+	userInfoMap := map[string]interface{}{
+		"patient_name":  userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
+		"bloog_group":   userInfo.BloodGroup,
+		"gender":        userInfo.Gender,
+		"email":         userInfo.Email,
+		"date_of_birth": userInfo.DateOfBirth,
+		"mobile_no":     userInfo.MobileNo,
+	}
 
 	return map[string]interface{}{
-		"columns": []string{"TEST", "UNIT", "REF.RANGE", "DATES"},
-		"dates":   allDates,
-		"rows":    finalRows,
+		"columns":   []string{"TEST", "UNIT", "REF.RANGE", "DATES"},
+		"dates":     allDates,
+		"rows":      finalRows,
+		"user_info": userInfoMap,
 	}
 }
 

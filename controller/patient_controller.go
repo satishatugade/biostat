@@ -1249,7 +1249,7 @@ func (pc *PatientController) GetUserOnBoardingStatus(ctx *gin.Context) {
 
 	basicDetailsAdded, familyDetailsAdded, healthDetailsAdded, noOfUpcomingAppointments, noOfMedicationsForDashboard, noOfMessagesForDashboard, noOfLabReusltsForDashboard, err := pc.patientService.GetUserOnboardingStatusByUID(user_id)
 	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while gwtting Onboarding status", nil, err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while getting Onboarding status", nil, err)
 		return
 	}
 
@@ -2012,10 +2012,15 @@ func (pc *PatientController) ArchivePatientDiagnosticReport(c *gin.Context) {
 }
 
 func (pc *PatientController) AddPatientReportNote(ctx *gin.Context) {
+	_, user_id, _, err1 := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err1 != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err1.Error(), nil, err1)
+		return
+	}
 	type UpdateReportCommentRequest struct {
-		PatientReportId uint64 `json:"patient_diagnostic_report_id" binding:"required"`
-		PatientId       uint64 `json:"patient_id" binding:"required"`
-		Comment         string `json:"comments" binding:"required"`
+		PatientReportId string `json:"patient_diagnostic_report_id" binding:"required"`
+		// PatientId       uint64 `json:"patient_id" binding:"required"`
+		Comment string `json:"comments" binding:"required"`
 	}
 	var req UpdateReportCommentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -2023,7 +2028,7 @@ func (pc *PatientController) AddPatientReportNote(ctx *gin.Context) {
 		return
 	}
 
-	err := pc.diseaseService.AddPatientReportNote(req.PatientReportId, req.PatientId, req.Comment)
+	err := pc.diseaseService.AddPatientReportNote(req.PatientReportId, user_id, req.Comment)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update report comment", nil, err)
 		return
@@ -2291,7 +2296,8 @@ func (pc *PatientController) SendSMS(c *gin.Context) {
 }
 
 type SendEmailRequest struct {
-	Email []string `json:"email" binding:"required"`
+	Email                     []string `json:"email" binding:"required"`
+	PatientDiagnosticReportId string   `json:"patient_diagnostic_report_id"`
 }
 
 func (pc *PatientController) ShareReport(c *gin.Context) {
@@ -2325,7 +2331,9 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 		return
 	}
 
-	longLink := fmt.Sprintf("%s/shared-report?token=%s", baseURL, token)
+	// longLink := fmt.Sprintf("%s/shared-report?token=%s", baseURL, token)
+	longLink := fmt.Sprintf("%s/shared-report?report_id=%s&token=%s", baseURL, req.PatientDiagnosticReportId, token)
+
 	shortCode := generateShortCode()
 	shortURLMap[shortCode] = longLink
 	shortURL := fmt.Sprintf("%s/v1/user/r/%s", os.Getenv("SHORT_URL_BASE"), shortCode)
@@ -2335,8 +2343,8 @@ func (pc *PatientController) ShareReport(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send email", nil, err1)
 		return
 	}
-
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Email sent successfully", nil, nil, nil)
+	return
 }
 
 func (pc *PatientController) GetUserOrders(ctx *gin.Context) {

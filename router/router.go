@@ -39,12 +39,11 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var exerciseRepo = repository.NewExerciseRepository(db)
 	var exerciseService = service.NewExerciseService(exerciseRepo)
-
-	var notificiationRepo = repository.NewUserNotificationRepository(db)
-	var notificationService = service.NewNotificationService(notificiationRepo, userRepo)
-
-	var emailService = service.NewEmailService(notificiationRepo)
 	var apiService = service.NewApiService()
+	var notificiationRepo = repository.NewUserNotificationRepository(db)
+	var notificationService = service.NewNotificationService(notificiationRepo, userRepo, apiService)
+
+	var emailService = service.NewEmailService(notificiationRepo, userRepo, apiService)
 
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
 	var patientRepo = repository.NewPatientRepository(db)
@@ -57,7 +56,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var permissionRepo = repository.NewPermissionRepository(db)
 	var permissionService = service.NewPermissionService(permissionRepo, roleRepo)
 
-	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo)
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo, userRepo)
 
 	var subscriptionRepo = repository.NewSubscriptionRepository(db)
 	var subscriptionService = service.NewSubscriptionService(subscriptionRepo, roleRepo)

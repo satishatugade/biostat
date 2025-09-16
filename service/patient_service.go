@@ -90,15 +90,16 @@ type PatientServiceImpl struct {
 	roleRepo            repository.RoleRepository
 	notificationService NotificationService
 	permissionRepo      repository.PermissionRepository
+	userRepo            repository.UserRepository
 }
 
 // Ensure patientRepo is properly initialized
 func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService,
 	medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository,
-	notificationService NotificationService, permissionRepo repository.PermissionRepository) PatientService {
+	notificationService NotificationService, permissionRepo repository.PermissionRepository, userRepo repository.UserRepository) PatientService {
 	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService,
 		medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo, notificationService: notificationService,
-		permissionRepo: permissionRepo}
+		permissionRepo: permissionRepo, userRepo: userRepo}
 }
 
 // GetAllRelation implements PatientService.
@@ -801,6 +802,10 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64,
 	var totalReports int64
 	var err error
 	var data []models.ReportRow
+	userInfo, err := ps.userRepo.GetSystemUserInfo(patientId)
+	if err != nil {
+		return nil, 0, err
+	}
 	if !filter.HealthVital {
 		data, totalReports, err = ps.patientRepo.GetPatientDiagnosticReportResult(patientId, filter, limit, offset)
 		if err != nil {
@@ -812,7 +817,7 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64,
 			return nil, 0, err
 		}
 	}
-	response := ps.patientRepo.ProcessReportGridData(data)
+	response := ps.patientRepo.ProcessReportGridData(data, userInfo)
 	return response, totalReports, nil
 }
 

@@ -529,7 +529,7 @@ func (ac *UserController) SendResetPasswordLink(c *gin.Context) {
 
 	err := ac.authService.SendResetPasswordLink(strings.ToLower(req.Email))
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to send reset link", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, err.Error(), nil, err)
 		return
 	}
 

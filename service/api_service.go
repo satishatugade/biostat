@@ -29,6 +29,7 @@ type ApiService interface {
 	CheckPDFAndGetPassword(file io.Reader, fileName, emailBody string) (*models.PDFProtectionResult, error)
 	CallDocumentTypeAPI(file io.Reader, filename string) (*models.DocTypeAPIResponse, error)
 	CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error)
+	MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error)
 }
 
 type ApiServiceImpl struct {
@@ -120,9 +121,9 @@ func (s *ApiServiceImpl) CallGeminiService(file io.Reader, filename string) (mod
 	}
 	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
 	if err != nil {
-		log.Println("Failed to format JSON:", err)
+		log.Println("Failed to format JSON:", filename, "\n", err)
 	} else {
-		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+		log.Println("Digitize report response (pretty):", filename, "\n", string(prettyJSON))
 	}
 	return reportData, nil
 }
@@ -182,17 +183,15 @@ func (s *ApiServiceImpl) ClassifyDocGetGeminiReponse(file io.Reader, filename, r
 		respBody, _ := io.ReadAll(resp.Body)
 		return models.DocumentResponse{}, fmt.Errorf("service returned error: %s, body: %s", resp.Status, string(respBody))
 	}
-
-	log.Println("resp.Body ", resp.Body)
 	var reportData models.DocumentResponse
 	if err := json.NewDecoder(resp.Body).Decode(&reportData); err != nil {
 		return models.DocumentResponse{}, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 	prettyJSON, err := json.MarshalIndent(reportData, "", "  ")
 	if err != nil {
-		log.Println("Failed to format JSON:", err)
+		log.Println("Failed to format JSON:", filename, "\n", err)
 	} else {
-		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+		log.Println("Digitize report response (pretty):", filename, "\n", string(prettyJSON))
 	}
 	return reportData, nil
 }
@@ -664,9 +663,9 @@ func (s *ApiServiceImpl) CallDocumentTypeAPI(file io.Reader, filename string) (*
 	}
 	prettyJSON, err := json.MarshalIndent(apiResp, "", "  ")
 	if err != nil {
-		log.Println("Failed to format JSON:", err)
+		log.Println("Failed to format JSON:", filename, "\n", err)
 	} else {
-		log.Println("Digitize report response (pretty):\n", string(prettyJSON))
+		log.Println("Digitize report response (pretty):", filename, "\n", string(prettyJSON))
 	}
 	if apiResp.Error != nil && *apiResp.Error != "" {
 		return &apiResp, fmt.Errorf("API returned error: %s", *apiResp.Error)
@@ -706,4 +705,48 @@ func (s *ApiServiceImpl) CallPatientDocInfoAPI(req interface{}) (*models.Patient
 	}
 
 	return &apiResp, nil
+}
+
+func (s *ApiServiceImpl) MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error) {
+	var requestBody io.Reader
+
+	if body != nil {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			log.Println("failed to marshal body:", err)
+			return 0, nil, fmt.Errorf("failed to marshal body: %w", err)
+		}
+		requestBody = bytes.NewBuffer(jsonData)
+	}
+	req, err := http.NewRequest(method, url, requestBody)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("Notification sending request failed : ", err)
+		return 0, nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	var responseData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
+		return resp.StatusCode, nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	prettyJSON, err := json.MarshalIndent(responseData, "", "  ")
+	if err != nil {
+		log.Println("failed to format response JSON:", err)
+	} else {
+		log.Println("Response Pretty:\n", string(prettyJSON))
+	}
+	if errMsg, ok := responseData["error"].(string); ok && errMsg != "" {
+		return resp.StatusCode, responseData, fmt.Errorf("API error: %s", errMsg)
+	}
+	return resp.StatusCode, responseData, nil
 }
