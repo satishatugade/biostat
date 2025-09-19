@@ -5,6 +5,7 @@ import (
 	"biostat/models"
 	"biostat/service"
 	"biostat/utils"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -20,15 +21,17 @@ type GmailSyncController struct {
 	service          service.TblMedicalRecordService
 	gTokenService    service.UserService
 	healthMonitor    *service.HealthMonitorService
+	outlookService   service.OutLookService
 }
 
 func NewGmailSyncController(gmailSyncService service.GmailSyncService, service service.TblMedicalRecordService,
-	gTokenService service.UserService, healthMonitor *service.HealthMonitorService) *GmailSyncController {
+	gTokenService service.UserService, healthMonitor *service.HealthMonitorService, outlookService service.OutLookService) *GmailSyncController {
 	return &GmailSyncController{
 		gmailSyncService: gmailSyncService,
 		service:          service,
 		gTokenService:    gTokenService,
 		healthMonitor:    healthMonitor,
+		outlookService:   outlookService,
 	}
 }
 
@@ -60,12 +63,12 @@ func (c *GmailSyncController) GmailCallbackHandler(ctx *gin.Context) {
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while authenticating", nil, errors.New("Invalid user id"))
 	}
-	if !c.healthMonitor.IsServiceUp() {
-		log.Printf("[GmailCallback] AI service is down. Request: %s\n", ctx.Request.URL.String())
-		redirectURL := fmt.Sprintf("%s/dashboard/medical-reports?status=ai_down", os.Getenv("APP_URL"))
-		ctx.Redirect(http.StatusFound, redirectURL)
-		return
-	}
+	// if !c.healthMonitor.IsServiceUp() {
+	// 	log.Printf("[GmailCallback] AI service is down. Request: %s\n", ctx.Request.URL.String())
+	// 	redirectURL := fmt.Sprintf("%s/dashboard/medical-reports?status=ai_down", os.Getenv("APP_URL"))
+	// 	ctx.Redirect(http.StatusFound, redirectURL)
+	// 	return
+	// }
 	log.Printf("[GmailCallback] AI service is UP. Request: %s%s\n", ctx.Request.Host, ctx.Request.URL.String())
 	ctx.Redirect(http.StatusFound, fmt.Sprintf(os.Getenv("APP_URL")+"/dashboard/medical-reports?status=processing"))
 
@@ -95,5 +98,46 @@ func (c *GmailSyncController) FetchEmailsHandlerApp(ctx *gin.Context) {
 
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", gin.H{"message": "Gmail syncing process started will update you once done"}, nil, nil)
 	return
+
+}
+
+func (pc *GmailSyncController) OutLookLoginHandler(ctx *gin.Context) {
+	userId := utils.GetParamAsUInt(ctx, "user_id")
+	if userId == 0 {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Error while syncing", nil, errors.New("User Id missing in request"))
+		return
+	}
+	authURL, err := pc.outlookService.GetOutLookAuthURL(userId)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Gmail couldn't be synced", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", gin.H{"auth_url": authURL}, nil, nil)
+	return
+}
+
+func (gc *GmailSyncController) OutLookCallbackHandler(ctx *gin.Context) {
+	code := ctx.Query("code")
+	userID := ctx.Query("state")
+	if code == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "no code returned", nil, nil)
+		return
+	}
+	userIDInt64, err := strconv.ParseUint(userID, 10, 64)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Error while authenticating", nil, errors.New("Invalid user id"))
+	}
+	c := context.Background()
+	token, err := gc.outlookService.GetOutLookToken(c, code)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "token exchange failed", "details": err.Error()})
+		return
+	}
+	go func() {
+		if err := gc.outlookService.SyncOutLookWeb(c, userIDInt64, token); err != nil {
+			log.Println("Gmail sync error:", err)
+		}
+	}()
+	ctx.Redirect(http.StatusFound, fmt.Sprintf(os.Getenv("APP_URL")+"/dashboard/medical-reports?status=processing"))
 
 }

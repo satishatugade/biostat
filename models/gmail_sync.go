@@ -1,5 +1,7 @@
 package models
 
+import "net/http"
+
 type GmailSyncRequest struct {
 	AccessToken string `json:"access_token"`
 	UserID      uint64 `json:"user_id"`
@@ -43,4 +45,37 @@ type PatientDocResponse struct {
 
 type GmailReSyncRequest struct {
 	ProviderID string `json:"provider_id"`
+}
+
+type OutlookService struct {
+	Client *http.Client
+}
+
+type OutlookMessage struct {
+	ID             string    `json:"id"`
+	Subject        string    `json:"subject"`
+	From           FromField `json:"from"`
+	Received       string    `json:"receivedDateTime"`
+	HasAttachments bool      `json:"hasAttachments"`
+	BodyPreview    string    `json:"bodyPreview"`
+}
+
+type FromField struct {
+	EmailAddress struct {
+		Address string `json:"address"`
+		Name    string `json:"name"`
+	} `json:"emailAddress"`
+}
+
+type OutlookMessagesResponse struct {
+	Value    []OutlookMessage `json:"value"`
+	NextLink string           `json:"@odata.nextLink"`
+}
+
+type OutlookAttachment struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Size         int    `json:"size"`
+	ContentType  string `json:"contentType"`
+	ContentBytes string `json:"contentBytes"`
 }

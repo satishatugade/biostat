@@ -52,18 +52,16 @@ func (e *NotificationServiceImpl) GetUserNotifications(userId uint64) ([]models.
 }
 
 func (e *NotificationServiceImpl) ScheduleReminders(recipientId, name string, user_id uint64, reminderconfig []models.ReminderConfig) error {
-	startDate := time.Now()
 	var failedSlots []string
 
 	notifyServerURL := config.PropConfig.ApiURL.NotifyServerURL
 	notifyAPIKey := config.PropConfig.ApiURL.NotifyAPIKey
 
 	for _, reminder := range reminderconfig {
-		reminderTimeStr := fmt.Sprintf("%s %s", startDate.Format("2006-01-02"), reminder.Time)
-		reminderTime, err := time.ParseInLocation("2006-01-02 15:04", reminderTimeStr, time.Local)
+		reminderTime, err := time.ParseInLocation("2006-01-02T15:04:05", reminder.StartDateTime, time.Local)
 		if err != nil {
 			log.Printf("@ScheduleReminders Error parsing time for %s slot: %v", reminder.TimeSlot, err)
-			failedSlots = append(failedSlots, fmt.Sprintf("%s: invalid time format", reminder.TimeSlot))
+			failedSlots = append(failedSlots, fmt.Sprintf("%s: invalid datetime format", reminder.TimeSlot))
 			continue
 		}
 		scheduleTime := reminderTime.Format(time.RFC3339)

@@ -804,6 +804,22 @@ func FormatLabsForGmailFilter(labs []models.DiagnosticLabResponse) string {
 	return fmt.Sprintf("-from:me -in:sent -in:draft -in:spam -in:trash (%s) has:attachment", strings.Join(filterClauses, " OR "))
 }
 
+func FormatLabsForOutlookFilter(labs []models.DiagnosticLabResponse) string {
+	var conditions []string
+
+	for _, lab := range labs {
+		if lab.LabName != "" {
+			safeName := strings.ReplaceAll(lab.LabName, "'", "''")
+			conditions = append(conditions, fmt.Sprintf("contains(subject,'%s')", safeName))
+		}
+	}
+
+	if len(conditions) == 0 {
+		return ""
+	}
+	return strings.Join(conditions, " or ")
+}
+
 func GetReverseRelation(relationId int, myGenderId int) *int {
 	switch relationId {
 	case 1: // Father

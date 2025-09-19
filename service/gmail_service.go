@@ -43,6 +43,7 @@ type GmailSyncService interface {
 	SyncGmailApp(userID uint64, service *gmail.Service) error
 	SyncGmailRefreshToken(userID uint64, refreshToken string) error
 	GetPatientNameOnDoc(patientNameOnReport string, userID uint64) (*models.PatientDocResponse, error)
+	GmailSyncCore(userId uint64, processID uuid.UUID, emailMedRecords []*models.TblMedicalRecord) error
 }
 
 type GmailSyncServiceImpl struct {
@@ -279,7 +280,7 @@ func (s *GmailSyncServiceImpl) ExtractAttachment(service *gmail.Service, message
 	return records
 }
 
-func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID, gmailService *gmail.Service) error {
+func (gs *GmailSyncServiceImpl) GetGmailRecords(userId uint64, processID uuid.UUID, gmailService *gmail.Service) ([]*models.TblMedicalRecord, error) {
 	msg := string(constant.FetchUserLab)
 	step := string(constant.ProcessFetchLabs)
 	errorMsg := ""
@@ -292,33 +293,69 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	if err != nil {
 		gs.processStatusService.LogStepAndFail(processID, step, constant.Failure, string(constant.UserLabNotFound), err.Error(), nil, nil, nil)
 		log.Println("@GmailSyncCore->GetPatientLabNameAndEmail:", userId, " err:", err)
-		return err
+		return nil, err
 	} else {
 		labMsg := fmt.Sprintf("Total %d labs fetched %s ", len(labNames), strings.Join(labNames, " | "))
 		gs.processStatusService.LogStep(processID, step, constant.Success, labMsg, errorMsg, nil, nil, nil, nil, nil, nil)
 	}
 	filterString := utils.FormatLabsForGmailFilter(labs)
-	profile, err := gmailService.Users.GetProfile("me").Do()
+	_, err = gmailService.Users.GetProfile("me").Do()
 	if err != nil {
 		step := string(constant.ProcessVerifyCredentials)
 		gs.processStatusService.LogStep(processID, step, constant.Success, string(constant.InvalidCredentials), errorMsg, nil, nil, nil, nil, nil, nil)
 		log.Println("@GmailSyncCore->gmailService.Users.GetProfile:", userId, " err:", err)
-		return err
+		return nil, err
 	}
 	emailMedRecord, err := gs.FetchEmailsWithAttachment(gmailService, userId, filterString, processID, labNames)
 	if err != nil {
 		msg := "No valid medical records were found during this current Gmail sync."
 		gs.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
 		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userId, " err:", err)
-		return err
+		return nil, err
 	}
-	totalRecord := len(emailMedRecord)
+	return emailMedRecord, nil
+}
+
+func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID, emailMedRecords []*models.TblMedicalRecord) error {
+	// msg := string(constant.FetchUserLab)
+	step := string(constant.ProcessFetchLabs)
+	errorMsg := ""
+	// gs.processStatusService.LogStep(processID, step, constant.Success, msg, errorMsg, nil, nil, nil, nil, nil, nil)
+	// labs, err := gs.diagnosticRepo.GetPatientLabNameAndEmail(userId)
+	// var labNames []string
+	// for _, lab := range labs {
+	// 	labNames = append(labNames, lab.LabName)
+	// }
+	// if err != nil {
+	// 	gs.processStatusService.LogStepAndFail(processID, step, constant.Failure, string(constant.UserLabNotFound), err.Error(), nil, nil, nil)
+	// 	log.Println("@GmailSyncCore->GetPatientLabNameAndEmail:", userId, " err:", err)
+	// 	return err
+	// } else {
+	// 	labMsg := fmt.Sprintf("Total %d labs fetched %s ", len(labNames), strings.Join(labNames, " | "))
+	// 	gs.processStatusService.LogStep(processID, step, constant.Success, labMsg, errorMsg, nil, nil, nil, nil, nil, nil)
+	// }
+	// filterString := utils.FormatLabsForGmailFilter(labs)
+	// profile, err := gmailService.Users.GetProfile("me").Do()
+	// if err != nil {
+	// 	step := string(constant.ProcessVerifyCredentials)
+	// 	gs.processStatusService.LogStep(processID, step, constant.Success, string(constant.InvalidCredentials), errorMsg, nil, nil, nil, nil, nil, nil)
+	// 	log.Println("@GmailSyncCore->gmailService.Users.GetProfile:", userId, " err:", err)
+	// 	return err
+	// }
+	// emailMedRecord, err := gs.FetchEmailsWithAttachment(gmailService, userId, filterString, processID, labNames)
+	// if err != nil {
+	// 	msg := "No valid medical records were found during this current Gmail sync."
+	// 	gs.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+	// 	log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userId, " err:", err)
+	// 	return err
+	// }
+	totalRecord := len(emailMedRecords)
 	checkDocTypeStep := string(constant.CheckDocType)
 	docCompleteMsg := string(constant.CheckDocTypeCompleted)
 	totalAttempted := 0
 	errorCount := 0
 	flag := config.PropConfig.SystemVaribale.GeminiCall
-	for idx, record := range emailMedRecord {
+	for idx, record := range emailMedRecords {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		attachmentId, err := utils.GetAttachmentIDFromRecord(record)
 		if err != nil {
@@ -411,7 +448,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	step3 := string(constant.ProcessSaveRecords)
 	msg3 := string(constant.SaveRecord)
 	gs.processStatusService.LogStep(processID, step3, constant.Running, msg3, errorMsg, nil, nil, &totalRecord, nil, nil, nil)
-	saveRecordErr := gs.medRecordService.SaveMedicalRecords(emailMedRecord, userId)
+	saveRecordErr := gs.medRecordService.SaveMedicalRecords(emailMedRecords, userId)
 	if saveRecordErr != nil {
 		log.Println("@GmailSyncCore->SaveMedicalRecords:", userId, " : ", saveRecordErr)
 		gs.processStatusService.LogStepAndFail(processID, step3, constant.Failure, string(constant.FailedSaveRecords), saveRecordErr.Error(), nil, nil, nil)
@@ -421,7 +458,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 	step4 := string(constant.ProcessDigitization)
 	msg4 := string(constant.DigitizationTaskQueue)
 	gs.processStatusService.LogStep(processID, step4, constant.Running, msg4, errorMsg, nil, nil, nil, nil, nil, nil)
-	log.Println("Email sync completed for user:", userId, " : ", profile.EmailAddress)
+	log.Println("Email sync completed for user:", userId, " : ")
 
 	userInfo, err := gs.userService.GetSystemUserInfoByUserID(userId)
 	if err != nil {
@@ -429,7 +466,7 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 		log.Println("@GmailSyncCore->GetSystemUserInfoByUserID:", userId, " : ", err)
 		return err
 	}
-	for idx, record := range emailMedRecord {
+	for idx, record := range emailMedRecords {
 		recordInfo := fmt.Sprintf("%s:- %s", record.UDF2, record.UDF1)
 		if !flag {
 			if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
@@ -523,8 +560,8 @@ func (gs *GmailSyncServiceImpl) GmailSyncCore(userId uint64, processID uuid.UUID
 
 	}
 	msg5 := ""
-	if len(emailMedRecord) > 0 {
-		msg5 = fmt.Sprintf("Gmail Sync completed for %d records. These records are now being processed for digitization. You’ll be notified once the process is complete.", len(emailMedRecord))
+	if len(emailMedRecords) > 0 {
+		msg5 = fmt.Sprintf("Gmail Sync completed for %d records. These records are now being processed for digitization. You’ll be notified once the process is complete.", len(emailMedRecords))
 	} else {
 		msg5 = "Gmail Sync completed. No records found"
 	}
@@ -581,7 +618,15 @@ func (s *GmailSyncServiceImpl) SyncGmailWeb(userID uint64, code string) error {
 	}
 	s.processStatusService.LogStep(processIdKey, step, constant.Success, string(constant.GmailClientCreated), errorMsg, nil, nil,
 		nil, nil, nil, nil)
-	return s.GmailSyncCore(userID, processIdKey, gmailService)
+	allEmailRecords, err := s.GetGmailRecords(userID, processIdKey, gmailService)
+	if err != nil {
+		step := string(constant.ProcessFetchLabs)
+		msg := "No valid medical records were found during this current Gmail sync."
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userID, " err:", err)
+		return err
+	}
+	return s.GmailSyncCore(userID, processIdKey, allEmailRecords)
 }
 
 func (s *GmailSyncServiceImpl) SyncGmailApp(userID uint64, gmailService *gmail.Service) error {
@@ -589,7 +634,15 @@ func (s *GmailSyncServiceImpl) SyncGmailApp(userID uint64, gmailService *gmail.S
 	msg := string(constant.ProcessStarted)
 	errorMsg := ""
 	s.processStatusService.LogStep(processID, string(constant.GmailSync), constant.Running, msg, errorMsg, nil, nil, nil, nil, nil, nil)
-	return s.GmailSyncCore(userID, processID, gmailService)
+	allEmailRecords, err := s.GetGmailRecords(userID, processID, gmailService)
+	if err != nil {
+		step := string(constant.ProcessFetchLabs)
+		msg := "No valid medical records were found during this current Gmail sync."
+		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userID, " err:", err)
+		return err
+	}
+	return s.GmailSyncCore(userID, processID, allEmailRecords)
 }
 
 func (s *GmailSyncServiceImpl) SyncGmailRefreshToken(userID uint64, refreshToken string) error {
@@ -639,7 +692,15 @@ func (s *GmailSyncServiceImpl) SyncGmailRefreshToken(userID uint64, refreshToken
 		return err
 	}
 	s.processStatusService.LogStep(processIdKey, step, constant.Success, string(constant.GmailClientCreated), errorMsg, nil, nil, nil, nil, nil, nil)
-	return s.GmailSyncCore(userID, processIdKey, gmailService)
+	allEmailRecords, err := s.GetGmailRecords(userID, processIdKey, gmailService)
+	if err != nil {
+		step := string(constant.ProcessFetchLabs)
+		msg := "No valid medical records were found during this current Gmail sync."
+		s.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userID, " err:", err)
+		return err
+	}
+	return s.GmailSyncCore(userID, processIdKey, allEmailRecords)
 }
 
 // Helper: Exchange Google OAuth token

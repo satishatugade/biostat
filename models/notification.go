@@ -25,11 +25,11 @@ func (UserNotificationMapping) TableName() string {
 }
 
 type ReminderConfig struct {
-	TimeSlot     string `json:"time_slot"`
-	Time         string `json:"time"`      // "HH:MM"
-	Frequency    string `json:"frequency"` // e.g., "daily"
-	DurationDays int    `json:"duration_days"`
-	Medicines    []struct {
+	TimeSlot      string `json:"time_slot"`
+	StartDateTime string `json:"start_time"` // "HH:MM"
+	Frequency     string `json:"frequency"`  // e.g., "daily"
+	DurationDays  int    `json:"duration_days"`
+	Medicines     []struct {
 		Name string `json:"name"`
 		Dose int    `json:"dose"`
 		Unit string `json:"unit"`
