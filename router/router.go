@@ -90,8 +90,9 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo, apiService, patientService, medicalRecordsRepo, db)
 	var outlookService = service.NewOutLookService(userService, apiService, processStatusService, gmailSyncService, diagnosticRepo)
+	var yahooService = service.NewYahooService(userService, apiService, processStatusService, gmailSyncService, diagnosticRepo)
 
-	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService, healthService, outlookService)
+	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService, healthService, outlookService, yahooService)
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
@@ -427,5 +428,7 @@ func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Rout
 		{"gmail sync route", http.MethodGet, "/web-sync/:user_id", gmailSyncController.GmailLoginHandler},
 		Route{"Outlook ", http.MethodPost, "/outlook/login/:user_id", gmailSyncController.OutLookLoginHandler},
 		Route{"Outlook ", http.MethodGet, "/outlook/callback", gmailSyncController.OutLookCallbackHandler},
+		Route{"Yahoo ", http.MethodPost, "/yahoo/login/:user_id", gmailSyncController.YahooLoginHandler},
+		Route{"Yahoo ", http.MethodGet, "/yahoo/callback", gmailSyncController.YahooCallbackHandler},
 	}
 }

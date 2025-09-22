@@ -123,7 +123,7 @@ func Routing(envFile string) {
 	db := database.GetDBConn()
 	InitializeRoutes(apiGroup, db)
 	if envFile == "dev" {
-		r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
+		r.router.RunTLS(":" + os.Getenv("GO_SERVER_PORT"),"D:\\playground\\BioStat\\cert.pem","D:\\playground\\BioStat\\key.pem")
 	} else {
 		err := r.router.RunTLS(":"+os.Getenv("GO_SERVER_PORT"),
 			"/etc/letsencrypt/live/api.biostack.catseye.cloud/fullchain.pem",
