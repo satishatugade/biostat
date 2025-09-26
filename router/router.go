@@ -344,6 +344,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"medical records create", http.MethodPost, constant.UploadRecord, patientController.CreateTblMedicalRecord},
 		Route{"medical records", http.MethodPost, constant.MedicalRecord, patientController.GetAllMedicalRecord},
+		Route{"FetchUserTag ", http.MethodPost, constant.FetchUserTag, patientController.FetchUserTag},
+		Route{"Add report Tag ", http.MethodPost, constant.AddTag, patientController.AddTag},
 		Route{"LabReportName", http.MethodPost, constant.LabReportName, patientController.GetDiagnosticLabReportName},
 		Route{"medical records get", http.MethodPost, constant.UserMedicalRecord, patientController.GetUserMedicalRecords},
 		Route{"medical records get single", http.MethodGet, constant.GetByRecordId, patientController.GetMedicalRecordByRecordId},

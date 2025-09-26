@@ -659,3 +659,15 @@ type SampleComponentInfo struct {
 	CollectedDate     time.Time `gorm:"column:collected_date"`
 	TestComponentName string    `gorm:"column:test_component_name"`
 }
+
+type PatientReportComment struct {
+	CommentId                 uint64    `gorm:"column:comment_id;primaryKey;autoIncrement" json:"comment_id"`
+	PatientDiagnosticReportId string    `gorm:"column:patient_diagnostic_report_id;not null" json:"patient_diagnostic_report_id"`
+	ShareWith                 string    `gorm:"column:share_with" json:"share_with"`
+	Comment                   string    `gorm:"column:comment" json:"comment"`
+	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+}
+
+func (PatientReportComment) TableName() string {
+	return "tbl_patient_report_comment"
+}

@@ -7,6 +7,7 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"biostat/utils"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -32,7 +33,9 @@ type DiagnosticService interface {
 	GetAllDiagnosticLabAuditRecords(limit, offset int) ([]models.DiagnosticLabAudit, int64, error)
 	AddMapping(userId uint64, LabInfo *models.DiagnosticLab) error
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
-
+	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
+	SavePatientReportAttachmentMapping(recordMapping *models.PatientReportAttachment) error
+	SaveUserTag(userID uint64, tagName string, recordID, reportID *uint64) ([]*models.UserTag, error)
 	GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error)
 	CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error)
 	UpdateDiagnosticTest(diagnosticTest *models.DiagnosticTest, updatedBy string) (*models.DiagnosticTest, error)
@@ -59,8 +62,8 @@ type DiagnosticService interface {
 	GetAllTestRefRangeView(limit int, offset int, isDeleted uint64) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
 	ViewTestReferenceRange(testReferenceRangeId uint64) (*models.DiagnosticTestReferenceRange, error)
 	GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId uint64, limit, offset int) ([]models.Diagnostic_Test_Component_ReferenceRange, int64, error)
-	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error)
-	CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processId uuid.UUID, attachmentId *string) error
+	DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64, reportId *uint64) (string, error)
+	CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processId uuid.UUID, attachmentId *string, reportId *uint64) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
 	NotifyAbnormalResult(patientId uint64) error
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
@@ -74,6 +77,51 @@ type DiagnosticServiceImpl struct {
 	patientService       PatientService
 	medicalRecordsRepo   repository.TblMedicalRecordRepository
 	processStatusService ProcessStatusService
+}
+
+// SavePatientReportAttachmentMapping implements DiagnosticService.
+func (s *DiagnosticServiceImpl) SavePatientReportAttachmentMapping(recordMapping *models.PatientReportAttachment) error {
+	return s.diagnosticRepo.SavePatientReportAttachmentMapping(recordMapping)
+}
+
+func (s *DiagnosticServiceImpl) SaveUserTag(userID uint64, tagName string, recordID, reportID *uint64) ([]*models.UserTag, error) {
+	if recordID == nil && reportID == nil {
+		return nil, fmt.Errorf("either recordID or reportID must be provided")
+	}
+
+	var tags []string
+	err := json.Unmarshal([]byte(tagName), &tags)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tags format: %v", err)
+	}
+	var savedTags []*models.UserTag
+
+	for _, t := range tags {
+		trimmedTag := strings.TrimSpace(t)
+		if trimmedTag == "" {
+			continue
+		}
+
+		tag := &models.UserTag{
+			UserId:                    userID,
+			TagName:                   trimmedTag,
+			RecordId:                  recordID,
+			PatientDiagnosticReportId: reportID,
+		}
+
+		if err := s.diagnosticRepo.CreateUserTag(tag); err != nil {
+			log.Println("Error saving user tag:", err)
+			return nil, err
+		}
+
+		savedTags = append(savedTags, tag)
+	}
+
+	return savedTags, nil
+}
+
+func (s *DiagnosticServiceImpl) GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error) {
+	return s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, patientDiagnoReport)
 }
 
 func NewDiagnosticService(repo repository.DiagnosticRepository, emailService EmailService, patientService PatientService,
@@ -401,7 +449,7 @@ func (s *DiagnosticServiceImpl) GetTestReferenceRangeAuditRecord(testReferenceRa
 	return s.diagnosticRepo.GetTestReferenceRangeAuditRecord(testReferenceRangeId, auditId, limit, offset)
 }
 
-func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64) (string, error) {
+func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabReport, patientId uint64, recordId *uint64, reportId *uint64) (string, error) {
 	testNameCache, componentNameCache := s.diagnosticRepo.LoadDiagnosticTestMasterData()
 	if testNameCache == nil || componentNameCache == nil {
 		log.Println("Failed to load diagnostic test master data")
@@ -470,38 +518,66 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 			collectionDate = reportDate
 		}
 	}
-	reporId := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
-	log.Println("PatientDiagnosticReport Id 19 digit : ", reporId)
-	patientReport := models.PatientDiagnosticReport{
-		PatientDiagnosticReportId: reporId,
-		DiagnosticLabId:           diagnosticLabId,
-		PatientId:                 patientId,
-		PaymentStatus:             constant.Success,
-		ReportName:                reportData.ReportDetails.ReportName,
-		CollectedDate:             collectionDate,
-		ReportDate:                reportDate,
-		Observation:               "",
-		IsDigital:                 reportData.ReportDetails.IsDigital,
-		IsDeleted:                 reportData.ReportDetails.IsDeleted,
-		IsLabReport:               reportData.ReportDetails.IsLabReport,
-		IsHealthVital:             reportData.ReportDetails.IsHealthVital,
-		CollectedAt:               reportData.ReportDetails.LabLocation,
-	}
-	reportInfo, err := s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)
-	if err != nil {
-		log.Println("ERROR saving PatientDiagnosticReport:", err)
-		tx.Rollback()
-		return "", fmt.Errorf("error while saving patient diagnostic report: %w", err)
-	}
-	recordmapping := models.PatientReportAttachment{
-		PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
-		RecordId:                  *recordId,
-		PatientId:                 patientId,
-	}
-	if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, &recordmapping); err != nil {
-		log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
-		tx.Rollback()
-		return "", fmt.Errorf("error while SavePatientReportAttachmentMapping: %w", err)
+	var reportInfo *models.PatientDiagnosticReport
+	var reportErr error
+	if reportId == nil {
+		reporIdNew := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
+		log.Println("PatientDiagnosticReport Id 19 digit : ", reporIdNew)
+		patientReport := models.PatientDiagnosticReport{
+			PatientDiagnosticReportId: reporIdNew,
+			DiagnosticLabId:           diagnosticLabId,
+			PatientId:                 patientId,
+			PaymentStatus:             constant.Success,
+			ReportName:                reportData.ReportDetails.ReportName,
+			CollectedDate:             collectionDate,
+			ReportDate:                reportDate,
+			Observation:               "",
+			IsDigital:                 reportData.ReportDetails.IsDigital,
+			IsDeleted:                 reportData.ReportDetails.IsDeleted,
+			IsLabReport:               reportData.ReportDetails.IsLabReport,
+			IsHealthVital:             reportData.ReportDetails.IsHealthVital,
+			CollectedAt:               reportData.ReportDetails.LabLocation,
+		}
+		reportInfo, reportErr = s.diagnosticRepo.GeneratePatientDiagnosticReport(tx, &patientReport)
+		if reportErr != nil {
+			log.Println("ERROR saving PatientDiagnosticReport:", reportErr)
+			tx.Rollback()
+			return "", fmt.Errorf("error while saving patient diagnostic report: %w", reportErr)
+		}
+		recordmapping := models.PatientReportAttachment{
+			PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
+			RecordId:                  *recordId,
+			PatientId:                 patientId,
+		}
+		if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(&recordmapping); err != nil {
+			log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
+			tx.Rollback()
+			return "", fmt.Errorf("error while SavePatientReportAttachmentMapping: %w", err)
+		}
+	} else {
+
+		updateData := map[string]interface{}{
+			"diagnostic_lab_id": diagnosticLabId,
+			"patient_id":        patientId,
+			"payment_status":    constant.Success,
+			"report_name":       reportData.ReportDetails.ReportName,
+			"collected_date":    collectionDate,
+			"report_date":       reportDate,
+			"observation":       "",
+			"is_digital":        reportData.ReportDetails.IsDigital,
+			"is_deleted":        reportData.ReportDetails.IsDeleted,
+			"is_lab_report":     reportData.ReportDetails.IsLabReport,
+			"is_health_vital":   reportData.ReportDetails.IsHealthVital,
+			"collected_at":      reportData.ReportDetails.LabLocation,
+		}
+
+		reportInfo, reportErr = s.diagnosticRepo.UpdatePatientDiagnosticReport(tx, *reportId, updateData)
+		if reportErr != nil {
+			log.Println("ERROR updating PatientDiagnosticReport:", reportErr)
+			tx.Rollback()
+			return "", fmt.Errorf("error while updating patient diagnostic report: %w", reportErr)
+		}
+
 	}
 	for _, testData := range reportData.Tests {
 		testName := testData.TestName
@@ -726,7 +802,7 @@ func (s *DiagnosticServiceImpl) GetDiagnosticLabReportName(patientId uint64) ([]
 	return s.diagnosticRepo.GetDiagnosticLabReportName(patientId)
 }
 
-func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processID uuid.UUID, attachmentId *string) error {
+func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(reportData models.LabReport, patientId uint64, recordId *uint64, processID uuid.UUID, attachmentId *string, reportId *uint64) error {
 	log.Println("reportData.ReportDetails.CollectionDate ", reportData.ReportDetails.CollectionDate)
 	step := string(constant.CheckReportDuplication)
 	msg := fmt.Sprintf("Processing report id %d %s %s", *recordId, reportData.ReportDetails.ReportName, string(constant.CheckReportDuplicationMsg))
@@ -761,7 +837,7 @@ func (s *DiagnosticServiceImpl) CheckReportExistWithSampleDateTestComponent(repo
 			log.Println("failed to update medicalRecordService.UpdateTblMedicalRecord:", updateErr)
 		}
 	}
-	if _, err := s.DigitizeDiagnosticReport(reportData, patientId, recordId); err != nil {
+	if _, err := s.DigitizeDiagnosticReport(reportData, patientId, recordId, reportId); err != nil {
 		return err
 	}
 	s.processStatusService.LogStep(processID, step, constant.Success, string(constant.ReportDuplicationSuccess), errorMsg, nil, nil, nil, nil, nil, nil)

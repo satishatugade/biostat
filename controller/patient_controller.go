@@ -996,10 +996,11 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 	page, limit, offset := utils.GetPaginationParams(ctx)
 	isDeleted, queryParamErr := strconv.Atoi(ctx.DefaultQuery("is_deleted", "0"))
 	category := ctx.DefaultQuery("category", "")
+	tag := ctx.DefaultQuery("tag", "")
 	if queryParamErr != nil {
 		isDeleted = 0
 	}
-	data, total, counts, err := c.medicalRecordService.GetMedicalRecords(patientId, category, limit, offset, isDeleted)
+	data, total, counts, err := c.medicalRecordService.GetMedicalRecords(patientId, category, tag, limit, offset, isDeleted)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
 		return
@@ -1061,11 +1062,14 @@ func (pc *PatientController) CreateTblMedicalRecord(ctx *gin.Context) {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
 		return
 	}
+	form, _ := ctx.MultipartForm()
+	attachments := form.File["attachments"]
 	uploadSource := ctx.PostForm("upload_source")
 	description := ctx.PostForm("description")
 	recordCategory := ctx.PostForm("record_category")
 	recordSubCategory := ctx.PostForm("record_sub_category")
-	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory, recordSubCategory)
+	tags := ctx.PostForm("tags")
+	data, err := pc.medicalRecordService.CreateTblMedicalRecord(userId, authUserId, file, header, uploadSource, description, recordCategory, recordSubCategory, attachments, tags)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
 		return
@@ -1966,7 +1970,7 @@ func (pc *PatientController) AddHealthStats(ctx *gin.Context) {
 	reportData.ReportDetails.LabName = response.LabName
 	reportData.ReportDetails.ReportDate = recordedAt
 	reportData.ReportDetails.IsHealthVital = true
-	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, func() *uint64 { v := uint64(0); return &v }())
+	_, err1 := pc.diagnosticService.DigitizeDiagnosticReport(reportData, userId, func() *uint64 { v := uint64(0); return &v }(), nil)
 	if err1 != nil {
 		log.Printf("Health stats update error : %d: %v", userId, err1)
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, err1.Error(), nil, err1)
@@ -3025,4 +3029,43 @@ func (pc *PatientController) GmailSyncRefreshToken(ctx *gin.Context) {
 	}()
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Gmail syncing process started will update you once done", gin.H{"message": "Gmail syncing process started will update you once done"}, nil, nil)
 	return
+}
+
+func (pc *PatientController) AddTag(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Unauthorized", nil, err)
+		return
+	}
+	var req models.AddTagRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
+		return
+	}
+	req.UserId = userId
+	tag, err := pc.medicalRecordService.AddTagsToRecordOrReport(req)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to add tag", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Tag added successfully", tag, nil, nil)
+}
+
+func (pc *PatientController) FetchUserTag(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	page, limit, offset := utils.GetPaginationParams(ctx)
+	data, totalRecords, err := pc.medicalRecordService.GetAllReportTag(userId, limit, offset)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Tag not found", nil, err)
+	}
+	message := "Tags not found"
+	if len(data) > 0 {
+		message = "All Tag fetch successfully"
+	}
+	pagination := utils.GetPagination(limit, page, offset, totalRecords)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, pagination, nil)
 }

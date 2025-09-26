@@ -60,9 +60,10 @@ type DiagnosticRepository interface {
 	LoadDiagnosticTestMasterData() (map[string]uint64, map[string]uint64)
 	LoadDiagnosticLabData() map[string]uint64
 	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
+	UpdatePatientDiagnosticReport(tx *gorm.DB, reportId uint64, updates map[string]interface{}) (*models.PatientDiagnosticReport, error)
 	SavePatientDiagnosticTestInterpretation(tx *gorm.DB, patientDiagnoTest *models.PatientDiagnosticTest) (*models.PatientDiagnosticTest, error)
 	SavePatientReportResultValue(tx *gorm.DB, resultValues *models.PatientDiagnosticTestResultValue) (*models.PatientDiagnosticTestResultValue, error)
-	SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error
+	SavePatientReportAttachmentMapping(recordMapping *models.PatientReportAttachment) error
 	GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error)
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 	AddMappingToMergeTestComponent(mapping []models.DiagnosticTestComponentAliasMapping) error
@@ -70,6 +71,7 @@ type DiagnosticRepository interface {
 	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
 	GetPatientLabNameAndEmail(userId uint64) ([]models.DiagnosticLabResponse, error)
 	GetSampleCollectionDateTestComponentMap(patientID uint64, CollectionDate time.Time) (map[string]bool, error)
+	CreateUserTag(tag *models.UserTag) error
 }
 
 type DiagnosticRepositoryImpl struct {
@@ -787,6 +789,21 @@ func (r *DiagnosticRepositoryImpl) GeneratePatientDiagnosticReport(tx *gorm.DB, 
 	return report, nil
 }
 
+func (r *DiagnosticRepositoryImpl) UpdatePatientDiagnosticReport(tx *gorm.DB, reportId uint64, updates map[string]interface{}) (*models.PatientDiagnosticReport, error) {
+	var report models.PatientDiagnosticReport
+	if err := tx.Model(&report).
+		Where("patient_diagnostic_report_id = ?", reportId).
+		Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	// Fetch updated record
+	if err := tx.Where("patient_diagnostic_report_id = ?", reportId).First(&report).Error; err != nil {
+		return nil, err
+	}
+	return &report, nil
+}
+
 func (r *DiagnosticRepositoryImpl) SavePatientDiagnosticTestInterpretation(tx *gorm.DB, interpretation *models.PatientDiagnosticTest) (*models.PatientDiagnosticTest, error) {
 	if err := tx.Create(interpretation).Error; err != nil {
 		return nil, err
@@ -801,11 +818,15 @@ func (r *DiagnosticRepositoryImpl) SavePatientReportResultValue(tx *gorm.DB, res
 	return resultValues, nil
 }
 
-func (r *DiagnosticRepositoryImpl) SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error {
-	if err := tx.Create(recordMapping).Error; err != nil {
-		return err
-	}
-	return nil
+// func (r *DiagnosticRepositoryImpl) SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error {
+// 	if err := tx.Create(recordMapping).Error; err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
+
+func (r *DiagnosticRepositoryImpl) SavePatientReportAttachmentMapping(recordMapping *models.PatientReportAttachment) error {
+	return r.db.Create(recordMapping).Error
 }
 
 func (ds *DiagnosticRepositoryImpl) GetAbnormalValue(patientId uint64) ([]models.TestResultAlert, error) {
@@ -982,4 +1003,8 @@ func (r *DiagnosticRepositoryImpl) GetSampleCollectionDateTestComponentMap(patie
 	}
 
 	return existingMap, nil
+}
+
+func (r *DiagnosticRepositoryImpl) CreateUserTag(tag *models.UserTag) error {
+	return r.db.Create(tag).Error
 }

@@ -29,6 +29,7 @@ type DiseaseRepository interface {
 
 	BulkInsert(data interface{}) error
 	AddPatientReportNote(reportId string, patientId uint64, comment string) error
+	AddReportCommentLog(reportID string, comment string) error
 }
 
 type DiseaseRepositoryImpl struct {
@@ -343,4 +344,13 @@ func (ds *DiseaseRepositoryImpl) AddPatientReportNote(reportID string, patientID
 
 		return nil
 	})
+}
+
+func (ds *DiseaseRepositoryImpl) AddReportCommentLog(reportID string, comment string) error {
+	newComment := models.PatientReportComment{
+		PatientDiagnosticReportId: reportID,
+		Comment:                   comment,
+		CreatedAt:                 time.Now(),
+	}
+	return ds.db.Create(&newComment).Error
 }

@@ -45,9 +45,10 @@ type TblMedicalRecord struct {
 	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
 
-	IsPasswordProtected bool   `gorm:"-" json:"is_password_protected"`
-	PDFPassword         string `gorm:"-" json:"pdf_password,omitempty"`
-	PatientName         string `gorm:"-" json:"patient_name,omitempty"`
+	IsPasswordProtected       bool    `gorm:"-" json:"is_password_protected"`
+	PDFPassword               string  `gorm:"-" json:"pdf_password,omitempty"`
+	PatientName               string  `gorm:"-" json:"patient_name,omitempty"`
+	PatientDiagnosticReportId *uint64 `gorm:"-" json:"patient_diagnostic_report_id,omitempty"`
 }
 
 func (TblMedicalRecord) TableName() string {
@@ -123,38 +124,40 @@ type UploadedDiagnosticRes struct {
 }
 
 type MedicalRecordResponseRes struct {
-	DigitizeFlag              int                    `json:"digitize_flag"`
-	FileType                  string                 `json:"file_type"`
-	PatientDiagnosticReportID string                 `json:"patient_diagnostic_report_id"`
-	PatientID                 uint64                 `json:"patient_id"`
-	RecordCategory            string                 `json:"record_category"`
-	RecordID                  uint64                 `json:"record_id"`
-	RecordName                string                 `json:"record_name"`
-	RecordSize                int64                  `json:"record_size"`
-	RecordURL                 string                 `json:"record_url"`
-	RecordDescription         string                 `json:"record_description"`
-	IsVerified                bool                   `json:"is_verified"`
-	SourceAccount             string                 `json:"source_account"`
-	Status                    string                 `json:"status"`
-	UploadSource              string                 `json:"upload_source"`
-	ErrorMessage              string                 `json:"error_message"`
-	CreatedAt                 string                 `json:"created_at"`
-	IsDeleted                 int                    `json:"is_deleted"`
-	UploadedDiagnostic        *UploadedDiagnosticRes `json:"uploaded_diagnostic"`
+	DigitizeFlag              int                        `json:"digitize_flag"`
+	FileType                  string                     `json:"file_type"`
+	PatientDiagnosticReportID string                     `json:"patient_diagnostic_report_id"`
+	PatientID                 uint64                     `json:"patient_id"`
+	RecordCategory            string                     `json:"record_category"`
+	RecordID                  uint64                     `json:"record_id"`
+	RecordName                string                     `json:"record_name"`
+	RecordSize                int64                      `json:"record_size"`
+	RecordURL                 string                     `json:"record_url"`
+	RecordDescription         string                     `json:"record_description"`
+	IsVerified                bool                       `json:"is_verified"`
+	SourceAccount             string                     `json:"source_account"`
+	Status                    string                     `json:"status"`
+	UploadSource              string                     `json:"upload_source"`
+	ErrorMessage              string                     `json:"error_message"`
+	CreatedAt                 string                     `json:"created_at"`
+	IsDeleted                 int                        `json:"is_deleted"`
+	UploadedDiagnostic        *UploadedDiagnosticRes     `json:"uploaded_diagnostic"`
+	SupportingDocs            []MedicalRecordResponseRes `json:"supporting_docs,omitempty"`
 }
 
 type DigitizationPayload struct {
-	RecordID            uint64    `json:"record_id"`
-	UserID              uint64    `json:"user_id"`
-	PatientName         string    `json:"patient_name"`
-	FilePath            string    `json:"file_path"`
-	Category            string    `json:"category"`
-	FileName            string    `json:"file_name"`
-	RecordURL           string    `json:"record_url"`
-	AttachmentId        *string   `json:"attachment_id"`
-	ProcessID           uuid.UUID `json:"process_id"`
-	IsPasswordProtected *bool     `json:"is_password_protected"`
-	PDFPassword         *string   `json:"pdf_password,omitempty"`
+	RecordID                  uint64    `json:"record_id"`
+	UserID                    uint64    `json:"user_id"`
+	PatientName               string    `json:"patient_name"`
+	FilePath                  string    `json:"file_path"`
+	Category                  string    `json:"category"`
+	FileName                  string    `json:"file_name"`
+	RecordURL                 string    `json:"record_url"`
+	AttachmentId              *string   `json:"attachment_id"`
+	ProcessID                 uuid.UUID `json:"process_id"`
+	IsPasswordProtected       *bool     `json:"is_password_protected"`
+	PDFPassword               *string   `json:"pdf_password,omitempty"`
+	PatientDiagnosticReportId *uint64   `json:"patient_diagnostic_report_id,omitempty"`
 }
 
 type DocTypeCheckPayload struct {
@@ -162,4 +165,24 @@ type DocTypeCheckPayload struct {
 	FileName     string    `json:"file_name"`
 	FileBytes    []byte    `json:"file_bytes"`
 	ProcessID    uuid.UUID `json:"process_id"`
+}
+
+type AddTagRequest struct {
+	UserId                    uint64   `json:"user_id"`
+	RecordId                  *uint64  `json:"record_id,omitempty"`
+	PatientDiagnosticReportId *uint64  `json:"patient_diagnostic_report_id,omitempty"`
+	Tags                      []string `json:"tags" binding:"required,min=1"` // multiple tags
+}
+
+type UserTag struct {
+	TagId                     uint64    `gorm:"primaryKey;column:tag_id;autoIncrement" json:"tag_id"`
+	UserId                    uint64    `gorm:"column:user_id;not null" json:"user_id"`
+	TagName                   string    `gorm:"column:tag_name;type:varchar(255);not null" json:"tag_name"`
+	RecordId                  *uint64   `gorm:"column:record_id" json:"record_id,omitempty"`
+	PatientDiagnosticReportId *uint64   `gorm:"column:patient_diagnostic_report_id" json:"patient_diagnostic_report_id,omitempty"`
+	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+}
+
+func (UserTag) TableName() string {
+	return "tbl_user_tag"
 }

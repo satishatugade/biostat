@@ -185,6 +185,8 @@ const (
 	SyncDigiLocker      = "/sync-digilocker"
 	GetMedicalResource  = "/get-medical-resource"
 	MedicalRecord       = "/medical-record-info"
+	FetchUserTag        = "/get-report-tag"
+	AddTag              = "/record/add-tag"
 	LabReportName       = "/diagnostic-lab-report-name"
 	UserMedicalRecord   = "/medical_records/:user_id"
 	GetByRecordId       = "/medical_records/:id"
@@ -280,14 +282,15 @@ const (
 type RecordSubCategory string
 
 const (
-	CTSCAN      RecordSubCategory = "ct-scan"
-	MRI         RecordSubCategory = "mri"
-	XRAY        RecordSubCategory = "x-ray"
-	ANGIOGRAPHY RecordSubCategory = "angiography"
-	ENDOSCOPY   RecordSubCategory = "endoscopy"
-	SONOGRAPHY  RecordSubCategory = "sonography"
-	FRACTURE    RecordSubCategory = "fracture"
-	OTHERS      RecordSubCategory = "other"
+	CTSCAN        RecordSubCategory = "ct-scan"
+	MRI           RecordSubCategory = "mri"
+	XRAY          RecordSubCategory = "x-ray"
+	ANGIOGRAPHY   RecordSubCategory = "angiography"
+	ENDOSCOPY     RecordSubCategory = "endoscopy"
+	SONOGRAPHY    RecordSubCategory = "sonography"
+	FRACTURE      RecordSubCategory = "fracture"
+	OTHERS        RecordSubCategory = "other"
+	SUPPORTINGDOC RecordSubCategory = "supporting_doc"
 )
 
 type SubscriptionStatus string

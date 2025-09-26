@@ -230,5 +230,11 @@ func processMedicationInsert(s *DiseaseServiceImpl, reader io.Reader, authUserId
 }
 
 func (s *DiseaseServiceImpl) AddPatientReportNote(reportId string, patientId uint64, comment string) error {
-	return s.diseaseRepo.AddPatientReportNote(reportId, patientId, comment)
+	if err := s.diseaseRepo.AddPatientReportNote(reportId, patientId, comment); err != nil {
+		return err
+	}
+	if err := s.diseaseRepo.AddReportCommentLog(reportId, comment); err != nil {
+		return err
+	}
+	return nil
 }

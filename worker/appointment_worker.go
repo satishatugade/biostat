@@ -312,11 +312,11 @@ func (w *DigitizationWorker) handleTestReport(fileBuf *bytes.Buffer, p models.Di
 		}
 	}
 	if isUnknownReport {
-		if _, err := w.diagnosticService.DigitizeDiagnosticReport(reportData, matchedUserID, &p.RecordID); err != nil {
+		if _, err := w.diagnosticService.DigitizeDiagnosticReport(reportData, matchedUserID, &p.RecordID, p.PatientDiagnosticReportId); err != nil {
 			return err
 		}
 	} else {
-		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID, p.ProcessID, p.AttachmentId); err != nil {
+		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(reportData, matchedUserID, &p.RecordID, p.ProcessID, p.AttachmentId, p.PatientDiagnosticReportId); err != nil {
 			return err
 		}
 	}
@@ -431,7 +431,7 @@ func (w *DigitizationWorker) ClassifyDoc(fileBuf *bytes.Buffer, p models.Digitiz
 		// 		return err
 		// 	}
 		// } else {
-		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(labReport, matchedUserID, &p.RecordID, p.ProcessID, p.AttachmentId); err != nil {
+		if err := w.diagnosticService.CheckReportExistWithSampleDateTestComponent(labReport, matchedUserID, &p.RecordID, p.ProcessID, p.AttachmentId, p.PatientDiagnosticReportId); err != nil {
 			return err
 		}
 		// }

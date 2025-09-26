@@ -3,6 +3,7 @@ package service
 import (
 	"biostat/config"
 	"biostat/constant"
+	"biostat/database"
 	"biostat/models"
 	"biostat/repository"
 	"biostat/utils"
@@ -13,10 +14,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +34,7 @@ import (
 type TblMedicalRecordService interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]map[string]interface{}, int64, error)
 	GetUserMedicalRecords(userID uint64) ([]models.TblMedicalRecord, error)
-	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string) (*models.TblMedicalRecord, error)
+	CreateTblMedicalRecord(createdBy uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string, attachment []*multipart.FileHeader, tags string) (*models.TblMedicalRecord, error)
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
 	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (*models.DocTypeAPIResponse, error)
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
@@ -39,10 +42,12 @@ type TblMedicalRecordService interface {
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error)
-	GetMedicalRecords(userID uint64, category string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error)
+	GetMedicalRecords(userID uint64, category, tag string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error)
 
 	ReadMedicalRecord(ResourceId uint64, userId, reqUserId uint64) (interface{}, error)
 	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
+	GetAllReportTag(userId uint64, limit, offset int) ([]models.UserTag, int64, error)
+	AddTagsToRecordOrReport(req models.AddTagRequest) ([]models.UserTag, error)
 }
 
 type tblMedicalRecordServiceImpl struct {
@@ -75,7 +80,7 @@ func (s *tblMedicalRecordServiceImpl) GetAllMedicalRecord(patientId uint64, limi
 	return processed, totalRecords, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, authUserId string, file multipart.File, header *multipart.FileHeader, uploadSource string, description string, recordCategory, recordSubCategory string, attachments []*multipart.FileHeader, tags string) (*models.TblMedicalRecord, error) {
 	processType := string(constant.ManualRecordUpload)
 	step := string(constant.ProcessSaveRecords)
 	msg := string(constant.SaveRecord)
@@ -111,8 +116,36 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		return nil, err
 	}
 	Status := constant.StatusQueued
+	IsLabReport := true
 	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) || recordCategory == string(constant.SCANS) {
 		Status = constant.StatusSuccess
+		IsLabReport = false
+	}
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Recovered in DigitizeDiagnosticReport:", r)
+			log.Println("Stack trace:\n" + string(debug.Stack()))
+			tx.Rollback()
+		}
+	}()
+	reporId := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
+	patientReport := models.PatientDiagnosticReport{
+		PatientDiagnosticReportId: reporId,
+		DiagnosticLabId:           0,
+		PatientId:                 userId,
+		PaymentStatus:             constant.Success,
+		IsLabReport:               IsLabReport,
+		IsHealthVital:             false,
+	}
+	reportInfo, err := s.diagnosticService.GeneratePatientDiagnosticReport(tx, &patientReport)
+	if err != nil {
+		log.Println("ERROR saving PatientDiagnosticReport:", err)
+		tx.Rollback()
+		return nil, fmt.Errorf("error while saving patient diagnostic report: %w", err)
+	}
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("ERROR committing transaction: err : %v", err)
 	}
 	newRecord := models.TblMedicalRecord{
 		RecordName:        header.Filename,
@@ -147,12 +180,40 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		log.Println("CreateMedicalRecordMappings Mapping  ERROR : ", err)
 		return nil, mappingErr
 	}
+	reportAttachment := models.PatientReportAttachment{
+		PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
+		RecordId:                  record.RecordId,
+		PatientId:                 userId,
+	}
+	if err := s.diagnosticService.SavePatientReportAttachmentMapping(&reportAttachment); err != nil {
+		log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
+	}
+	if len(attachments) > 0 {
+		if err := s.SaveAttachments(
+			userId,
+			uploadingPerson,
+			uploadSource,
+			description,
+			recordCategory,
+			recordSubCategory,
+			attachments,
+			reportInfo.PatientDiagnosticReportId,
+		); err != nil {
+			return nil, err
+		}
+	}
+	savedTags, err := s.diagnosticService.SaveUserTag(userId, tags, &record.RecordId, &reportInfo.PatientDiagnosticReportId)
+	if err != nil {
+		log.Println("Error while creating SaveUserTag:", err)
+	}
+	log.Println("SaveUserTag tags ", savedTags)
 	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
 		userInfo, err := s.userService.GetSystemUserInfoByUserID(userId)
 		if err != nil {
 			log.Println("GetSystemUserInfoByUserID ERROR : ", err)
 			return nil, err
 		}
+		record.PatientDiagnosticReportId = &reportInfo.PatientDiagnosticReportId
 		if err := s.CreateDigitizationTask(record, userInfo, userId, &fileBuf, fileName, processID, nil); err != nil {
 			log.Printf("Digitization task failed: %v", err)
 			s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
@@ -162,6 +223,75 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		s.processStatusService.LogStep(processID, step, constant.Success, "Record saved successfully", errorMsg, nil, nil, nil, nil, nil, nil)
 	}
 	return record, nil
+}
+
+func (s *tblMedicalRecordServiceImpl) SaveAttachments(
+	userId uint64,
+	uploadingPerson uint64,
+	uploadSource, description, recordCategory, recordSubCategory string,
+	attachments []*multipart.FileHeader,
+	patientDiagnosticReportID uint64,
+) error {
+
+	for _, att := range attachments {
+		attFileName := utils.SanitizeFileName(att.Filename)
+		attUniqueSuffix := time.Now().Format("20060102150405") + "-" + uuid.New().String()[:8]
+		attExt := filepath.Ext(attFileName)
+		attOriginalName := strings.TrimSuffix(attFileName, attExt)
+		attSafeFileName := fmt.Sprintf("%s_%s%s", attOriginalName, attUniqueSuffix, attExt)
+		attDestinationPath := filepath.Join("uploads", attSafeFileName)
+
+		if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
+			return err
+		}
+		if err := utils.SaveFile(att, attDestinationPath); err != nil {
+			log.Println("SaveFile (attachment) ERROR:", err)
+			return err
+		}
+
+		// Create record entry
+		attRecord := models.TblMedicalRecord{
+			RecordName:        att.Filename,
+			RecordSize:        int64(att.Size),
+			FileType:          att.Header.Get("Content-Type"),
+			RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), attSafeFileName),
+			UploadDestination: "LocalServer",
+			UploadSource:      uploadSource,
+			Description:       description,
+			RecordCategory:    string(constant.SUPPORTINGDOC),
+			RecordSubCategory: string(constant.SUPPORTINGDOC),
+			FetchedAt:         time.Now(),
+			UploadedBy:        uploadingPerson,
+			SourceAccount:     fmt.Sprint(uploadSource),
+			Status:            constant.StatusSuccess,
+		}
+
+		savedAttRecord, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(&attRecord)
+		if err != nil {
+			log.Println("CreateTblMedicalRecord (attachment) ERROR:", err)
+			return err
+		}
+
+		// Add mapping
+		attMapping := models.TblMedicalRecordUserMapping{
+			UserID:   userId,
+			RecordID: savedAttRecord.RecordId,
+		}
+		if err := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&[]models.TblMedicalRecordUserMapping{attMapping}); err != nil {
+			log.Println("CreateMedicalRecordMappings (attachment) ERROR:", err)
+			return err
+		}
+
+		reportAttachment := models.PatientReportAttachment{
+			PatientDiagnosticReportId: patientDiagnosticReportID,
+			RecordId:                  savedAttRecord.RecordId,
+			PatientId:                 userId,
+		}
+		if err := s.diagnosticService.SavePatientReportAttachmentMapping(&reportAttachment); err != nil {
+			log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
+		}
+	}
+	return nil
 }
 
 func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_,
@@ -189,15 +319,16 @@ func (s *tblMedicalRecordServiceImpl) CreateDigitizationTask(record *models.TblM
 		return err
 	}
 	payload := models.DigitizationPayload{
-		RecordID:     record.RecordId,
-		UserID:       userId,
-		PatientName:  userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
-		FilePath:     tempPath,
-		Category:     record.RecordCategory,
-		RecordURL:    record.RecordUrl,
-		FileName:     filename,
-		ProcessID:    processID,
-		AttachmentId: attachmentId,
+		RecordID:                  record.RecordId,
+		UserID:                    userId,
+		PatientName:               userInfo.FirstName + " " + userInfo.MiddleName + " " + userInfo.LastName,
+		FilePath:                  tempPath,
+		Category:                  record.RecordCategory,
+		RecordURL:                 record.RecordUrl,
+		FileName:                  filename,
+		ProcessID:                 processID,
+		AttachmentId:              attachmentId,
+		PatientDiagnosticReportId: record.PatientDiagnosticReportId,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -477,119 +608,265 @@ func (s *tblMedicalRecordServiceImpl) ReadMedicalRecord(ResourceId uint64, userI
 	return response, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, category string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
-	records, total, counts, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, category, limit, offset, isDeleted)
+// func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, category, tag string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
+// 	records, total, counts, err := s.tblMedicalRecordRepo.GetMedicalRecordsByUser(userID, category, tag, limit, offset, isDeleted)
+// 	if err != nil {
+// 		return nil, 0, nil, err
+// 	}
+
+// 	var recordIDs []uint64
+// 	for _, r := range records {
+// 		recordIDs = append(recordIDs, r.RecordId)
+// 	}
+
+// 	attachments, err := s.tblMedicalRecordRepo.GetDiagnosticAttachmentByRecordIDs(recordIDs)
+// 	if err != nil {
+// 		return nil, 0, nil, err
+// 	}
+
+// 	reportMap := make(map[uint64]uint64)
+// 	for _, a := range attachments {
+// 		reportMap[a.RecordId] = uint64(a.PatientDiagnosticReportId)
+// 	}
+
+// 	var responses []models.MedicalRecordResponseRes
+// 	for _, rec := range records {
+// 		resp := models.MedicalRecordResponseRes{
+// 			DigitizeFlag:              rec.DigitizeFlag, //rec.DigitizeFlag,
+// 			FileType:                  rec.FileType,
+// 			PatientID:                 userID,
+// 			RecordCategory:            rec.RecordCategory,
+// 			RecordID:                  rec.RecordId,
+// 			IsDeleted:                 rec.IsDeleted,
+// 			RecordName:                rec.RecordName,
+// 			RecordSize:                rec.RecordSize,
+// 			RecordURL:                 rec.RecordUrl,
+// 			IsVerified:                rec.IsVerified,
+// 			RecordDescription:         rec.Description,
+// 			SourceAccount:             rec.SourceAccount,
+// 			Status:                    string(rec.Status),
+// 			UploadSource:              rec.UploadSource,
+// 			ErrorMessage:              rec.ErrorMessage,
+// 			CreatedAt:                 utils.FormatDateTime(&rec.CreatedAt),
+// 			PatientDiagnosticReportID: "0",
+// 		}
+
+// 		if reportID, ok := reportMap[rec.RecordId]; ok {
+// 			resp.PatientDiagnosticReportID = fmt.Sprintf("%d", reportID)
+// 			report, err := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID, isDeleted)
+// 			if err != nil {
+// 				log.Println("@GetMedicalRecords->GetDiagnosticReport:", err)
+// 				continue
+// 			}
+
+// 			diagnostic := &models.UploadedDiagnosticRes{
+// 				CollectedAt:     report.CollectedAt,
+// 				CollectedDate:   utils.FormatDateTime(&report.CollectedDate),
+// 				Comments:        report.Comments,
+// 				DiagnosticLabID: report.DiagnosticLabId,
+// 				LabName:         "", // can fetch if needed
+// 				ReportDate:      utils.FormatDateTime(&report.ReportDate),
+// 				ReportName:      report.ReportName,
+// 				IsDeleted:       report.IsDeleted,
+// 				ReportStatus:    report.ReportStatus,
+// 			}
+
+// 			tests, _ := s.tblMedicalRecordRepo.GetDiagnosticTests(reportID)
+// 			for _, test := range tests {
+// 				testMaster, _ := s.tblMedicalRecordRepo.GetDiagnosticTestMaster(test.DiagnosticTestId) //(test.DiagnosticTestID)
+// 				dt := models.DiagnosticTestRes{
+// 					DiagnosticTestID: test.DiagnosticTestId,
+// 					TestName:         testMaster.TestName,
+// 					TestNote:         test.TestNote,
+// 					TestDate:         test.TestDate, // if available
+// 				}
+
+// 				results, _ := s.tblMedicalRecordRepo.GetTestComponents(reportID, test.DiagnosticTestId)
+// 				for _, result := range results {
+// 					comp, _ := s.tblMedicalRecordRepo.GetComponentDetails(result.DiagnosticTestComponentId) //(result.DiagnosticTestComponentID)
+// 					ranges, _ := s.tblMedicalRecordRepo.GetReferenceRanges(result.DiagnosticTestComponentId)
+
+// 					dtc := models.TestComponentRes{
+// 						DiagnosticTestComponentID: result.DiagnosticTestComponentId,
+// 						TestComponentName:         comp.TestComponentName,
+// 						Units:                     comp.Units,
+// 					}
+
+// 					for _, r := range ranges {
+// 						dtc.TestReferenceRange = append(dtc.TestReferenceRange, models.DiagnosticReferenceRangeRes{
+// 							Age:       r.Age,
+// 							AgeGroup:  r.AgeGroup,
+// 							Gender:    r.Gender,
+// 							NormalMin: fmt.Sprintf("%.2f", r.NormalMin),
+// 							NormalMax: fmt.Sprintf("%.2f", r.NormalMax),
+// 							Units:     r.Units,
+// 						})
+// 					}
+
+// 					dtc.TestResultValue = append(dtc.TestResultValue, models.TestResultValueRes{
+// 						ResultValue:   fmt.Sprintf("%.2f", result.ResultValue),
+// 						Qualifier:     "",
+// 						ResultComment: result.ResultComment,
+// 						ResultDate:    utils.FormatDateTime(&result.ResultDate),
+// 						ResultStatus:  result.ResultStatus,
+// 					})
+
+// 					dt.TestComponents = append(dt.TestComponents, dtc)
+// 				}
+
+// 				diagnostic.PatientDiagnosticTest = append(diagnostic.PatientDiagnosticTest, dt)
+// 			}
+
+// 			resp.UploadedDiagnostic = diagnostic
+// 		}
+
+// 		responses = append(responses, resp)
+// 	}
+
+// 	return responses, total, counts, nil
+// }
+
+func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(
+	userID uint64,
+	category, tag string,
+	limit, offset, isDeleted int,
+) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
+
+	reportMap, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, isDeleted)
 	if err != nil {
 		return nil, 0, nil, err
-	}
-
-	var recordIDs []uint64
-	for _, r := range records {
-		recordIDs = append(recordIDs, r.RecordId)
-	}
-
-	attachments, err := s.tblMedicalRecordRepo.GetDiagnosticAttachmentByRecordIDs(recordIDs)
-	if err != nil {
-		return nil, 0, nil, err
-	}
-
-	reportMap := make(map[uint64]uint64)
-	for _, a := range attachments {
-		reportMap[a.RecordId] = uint64(a.PatientDiagnosticReportId) //a.PatientDiagnosticReportID
 	}
 
 	var responses []models.MedicalRecordResponseRes
-	for _, rec := range records {
-		resp := models.MedicalRecordResponseRes{
-			DigitizeFlag:              rec.DigitizeFlag, //rec.DigitizeFlag,
-			FileType:                  rec.FileType,
-			PatientID:                 userID,
-			RecordCategory:            rec.RecordCategory,
-			RecordID:                  rec.RecordId,
-			IsDeleted:                 rec.IsDeleted,
-			RecordName:                rec.RecordName,
-			RecordSize:                rec.RecordSize,
-			RecordURL:                 rec.RecordUrl,
-			IsVerified:                rec.IsVerified,
-			RecordDescription:         rec.Description,
-			SourceAccount:             rec.SourceAccount,
-			Status:                    string(rec.Status),
-			UploadSource:              rec.UploadSource,
-			ErrorMessage:              rec.ErrorMessage,
-			CreatedAt:                 utils.FormatDateTime(&rec.CreatedAt),
-			PatientDiagnosticReportID: "0",
+	counts := make(map[string]int64)
+	var total int64
+
+	for reportID, recordIDs := range reportMap {
+		records, err := s.tblMedicalRecordRepo.GetRecordsByIDs(recordIDs, isDeleted)
+		if err != nil {
+			return nil, 0, nil, err
 		}
 
-		if reportID, ok := reportMap[rec.RecordId]; ok {
-			resp.PatientDiagnosticReportID = fmt.Sprintf("%d", reportID)
-			report, err := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID, isDeleted)
-			if err != nil {
-				log.Println("@GetMedicalRecords->GetDiagnosticReport:", err)
-				continue
+		total += int64(len(records))
+		for _, rec := range records {
+			counts[rec.RecordCategory]++
+		}
+
+		report, err := s.tblMedicalRecordRepo.GetDiagnosticReport(reportID, isDeleted)
+		if err != nil {
+			log.Println("GetMedicalReport error:", err)
+			continue
+		}
+
+		diagnostic := &models.UploadedDiagnosticRes{
+			CollectedAt:     report.CollectedAt,
+			CollectedDate:   utils.FormatDateTime(&report.CollectedDate),
+			Comments:        report.Comments,
+			DiagnosticLabID: report.DiagnosticLabId,
+			ReportDate:      utils.FormatDateTime(&report.ReportDate),
+			ReportName:      report.ReportName,
+			IsDeleted:       report.IsDeleted,
+			ReportStatus:    report.ReportStatus,
+		}
+
+		// Fetch diagnostic tests
+		tests, _ := s.tblMedicalRecordRepo.GetDiagnosticTests(reportID)
+		for _, test := range tests {
+			testMaster, _ := s.tblMedicalRecordRepo.GetDiagnosticTestMaster(test.DiagnosticTestId)
+
+			dt := models.DiagnosticTestRes{
+				DiagnosticTestID: test.DiagnosticTestId,
+				TestName:         testMaster.TestName,
+				TestNote:         test.TestNote,
+				TestDate:         test.TestDate,
 			}
 
-			diagnostic := &models.UploadedDiagnosticRes{
-				CollectedAt:     report.CollectedAt,
-				CollectedDate:   utils.FormatDateTime(&report.CollectedDate),
-				Comments:        report.Comments,
-				DiagnosticLabID: report.DiagnosticLabId,
-				LabName:         "", // can fetch if needed
-				ReportDate:      utils.FormatDateTime(&report.ReportDate),
-				ReportName:      report.ReportName,
-				IsDeleted:       report.IsDeleted,
-				ReportStatus:    report.ReportStatus,
-			}
+			results, _ := s.tblMedicalRecordRepo.GetTestComponents(reportID, test.DiagnosticTestId)
+			for _, result := range results {
+				comp, _ := s.tblMedicalRecordRepo.GetComponentDetails(result.DiagnosticTestComponentId)
+				ranges, _ := s.tblMedicalRecordRepo.GetReferenceRanges(result.DiagnosticTestComponentId)
 
-			tests, _ := s.tblMedicalRecordRepo.GetDiagnosticTests(reportID)
-			for _, test := range tests {
-				testMaster, _ := s.tblMedicalRecordRepo.GetDiagnosticTestMaster(test.DiagnosticTestId) //(test.DiagnosticTestID)
-				dt := models.DiagnosticTestRes{
-					DiagnosticTestID: test.DiagnosticTestId,
-					TestName:         testMaster.TestName,
-					TestNote:         test.TestNote,
-					TestDate:         test.TestDate, // if available
+				dtc := models.TestComponentRes{
+					DiagnosticTestComponentID: result.DiagnosticTestComponentId,
+					TestComponentName:         comp.TestComponentName,
+					Units:                     comp.Units,
 				}
 
-				results, _ := s.tblMedicalRecordRepo.GetTestComponents(reportID, test.DiagnosticTestId)
-				for _, result := range results {
-					comp, _ := s.tblMedicalRecordRepo.GetComponentDetails(result.DiagnosticTestComponentId) //(result.DiagnosticTestComponentID)
-					ranges, _ := s.tblMedicalRecordRepo.GetReferenceRanges(result.DiagnosticTestComponentId)
-
-					dtc := models.TestComponentRes{
-						DiagnosticTestComponentID: result.DiagnosticTestComponentId,
-						TestComponentName:         comp.TestComponentName,
-						Units:                     comp.Units,
-					}
-
-					for _, r := range ranges {
-						dtc.TestReferenceRange = append(dtc.TestReferenceRange, models.DiagnosticReferenceRangeRes{
-							Age:       r.Age,
-							AgeGroup:  r.AgeGroup,
-							Gender:    r.Gender,
-							NormalMin: fmt.Sprintf("%.2f", r.NormalMin),
-							NormalMax: fmt.Sprintf("%.2f", r.NormalMax),
-							Units:     r.Units,
-						})
-					}
-
-					dtc.TestResultValue = append(dtc.TestResultValue, models.TestResultValueRes{
-						ResultValue:   fmt.Sprintf("%.2f", result.ResultValue),
-						Qualifier:     "",
-						ResultComment: result.ResultComment,
-						ResultDate:    utils.FormatDateTime(&result.ResultDate),
-						ResultStatus:  result.ResultStatus,
+				for _, r := range ranges {
+					dtc.TestReferenceRange = append(dtc.TestReferenceRange, models.DiagnosticReferenceRangeRes{
+						Age:       r.Age,
+						AgeGroup:  r.AgeGroup,
+						Gender:    r.Gender,
+						NormalMin: fmt.Sprintf("%.2f", r.NormalMin),
+						NormalMax: fmt.Sprintf("%.2f", r.NormalMax),
+						Units:     r.Units,
 					})
-
-					dt.TestComponents = append(dt.TestComponents, dtc)
 				}
 
-				diagnostic.PatientDiagnosticTest = append(diagnostic.PatientDiagnosticTest, dt)
+				dtc.TestResultValue = append(dtc.TestResultValue, models.TestResultValueRes{
+					ResultValue:   fmt.Sprintf("%.2f", result.ResultValue),
+					ResultComment: result.ResultComment,
+					ResultDate:    utils.FormatDateTime(&result.ResultDate),
+					ResultStatus:  result.ResultStatus,
+				})
+
+				dt.TestComponents = append(dt.TestComponents, dtc)
 			}
 
-			resp.UploadedDiagnostic = diagnostic
+			diagnostic.PatientDiagnosticTest = append(diagnostic.PatientDiagnosticTest, dt)
 		}
 
-		responses = append(responses, resp)
+		mainRecords := []models.MedicalRecordResponseRes{}
+		var lastMain *models.MedicalRecordResponseRes
+
+		for _, rec := range records {
+			// Category filter
+			if rec.RecordCategory == string(constant.SUPPORTINGDOC) {
+				lastMain.SupportingDocs = append(lastMain.SupportingDocs, models.MedicalRecordResponseRes{
+					RecordID:          rec.RecordId,
+					PatientID:         userID,
+					RecordName:        rec.RecordName,
+					RecordCategory:    rec.RecordCategory,
+					RecordDescription: rec.Description,
+					UploadSource:      rec.UploadSource,
+					SourceAccount:     rec.SourceAccount,
+					RecordURL:         rec.RecordUrl,
+					RecordSize:        rec.RecordSize,
+					FileType:          rec.FileType,
+					DigitizeFlag:      rec.DigitizeFlag,
+					IsDeleted:         rec.IsDeleted,
+					IsVerified:        rec.IsVerified,
+					Status:            string(rec.Status),
+					ErrorMessage:      rec.ErrorMessage,
+					CreatedAt:         utils.FormatDateTime(&rec.CreatedAt),
+				})
+			} else {
+				mainRec := models.MedicalRecordResponseRes{
+					RecordID:                  rec.RecordId,
+					PatientID:                 userID,
+					RecordName:                rec.RecordName,
+					RecordCategory:            rec.RecordCategory,
+					RecordDescription:         rec.Description,
+					UploadSource:              rec.UploadSource,
+					SourceAccount:             rec.SourceAccount,
+					RecordURL:                 rec.RecordUrl,
+					RecordSize:                rec.RecordSize,
+					FileType:                  rec.FileType,
+					DigitizeFlag:              rec.DigitizeFlag,
+					IsDeleted:                 rec.IsDeleted,
+					IsVerified:                rec.IsVerified,
+					Status:                    string(rec.Status),
+					ErrorMessage:              rec.ErrorMessage,
+					CreatedAt:                 utils.FormatDateTime(&rec.CreatedAt),
+					PatientDiagnosticReportID: fmt.Sprintf("%d", reportID),
+					UploadedDiagnostic:        diagnostic,
+				}
+				mainRecords = append(mainRecords, mainRec)
+				lastMain = &mainRecords[len(mainRecords)-1]
+			}
+		}
+
+		responses = append(responses, mainRecords...)
 	}
 
 	return responses, total, counts, nil
@@ -597,4 +874,28 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, category 
 
 func (s *tblMedicalRecordServiceImpl) MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error {
 	return s.tblMedicalRecordRepo.MovePatientRecord(patientId, targetPatientId, recordId, reportId)
+}
+
+func (s *tblMedicalRecordServiceImpl) GetAllReportTag(userId uint64, limit int, offset int) ([]models.UserTag, int64, error) {
+	return s.tblMedicalRecordRepo.GetAllReportTag(userId, limit, offset)
+}
+
+func (s *tblMedicalRecordServiceImpl) AddTagsToRecordOrReport(req models.AddTagRequest) ([]models.UserTag, error) {
+	var savedTags []models.UserTag
+
+	for _, tagName := range req.Tags {
+		tag := models.UserTag{
+			UserId:                    req.UserId,
+			TagName:                   tagName,
+			RecordId:                  req.RecordId,
+			PatientDiagnosticReportId: req.PatientDiagnosticReportId,
+		}
+
+		if err := s.tblMedicalRecordRepo.AddTag(&tag); err != nil {
+			return nil, err
+		}
+		savedTags = append(savedTags, tag)
+	}
+
+	return savedTags, nil
 }
