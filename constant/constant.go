@@ -191,7 +191,7 @@ const (
 	UserMedicalRecord   = "/medical_records/:user_id"
 	GetByRecordId       = "/medical_records/:id"
 	UploadRecord        = "/medical_records"
-	UpdateMedicalRecord = "/medical_records/:id"
+	UpdateMedicalRecord = "/medical_records"
 	DeleteMedicalRecord = "/medical_records/:id"
 
 	AddOrder  = "/order"

@@ -104,7 +104,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
-	
+
 	OpenRoutes(apiGroup, patientController)
 
 	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService)

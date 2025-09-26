@@ -38,7 +38,7 @@ type TblMedicalRecordService interface {
 	CreateDigitizationTask(record *models.TblMedicalRecord, userInfo models.SystemUser_, userId uint64, file *bytes.Buffer, filename string, processID uuid.UUID, attachmentId *string) error
 	EnqueueDocTypeCheckTask(attachmentId string, recordName string, fileData []byte, processID uuid.UUID) (*models.DocTypeAPIResponse, error)
 	SaveMedicalRecords(data []*models.TblMedicalRecord, userId uint64) error
-	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
+	UpdateTblMedicalRecord(userId uint64, data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordAccessibleToUser(userID uint64, recordID uint64) (bool, error)
@@ -510,8 +510,22 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 	return s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
 }
 
-func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
+func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(userId uint64, data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
+	if len(data.Tags) > 0 {
+		for _, tagName := range data.Tags {
+			tag := models.UserTag{
+				UserId:                    userId,
+				TagName:                   tagName,
+				RecordId:                  &data.RecordId,
+				PatientDiagnosticReportId: data.PatientDiagnosticReportId,
+			}
+			if err := s.tblMedicalRecordRepo.AddTag(&tag); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return s.tblMedicalRecordRepo.UpdateTblMedicalRecord(data)
+
 }
 
 func (s *tblMedicalRecordServiceImpl) GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error) {

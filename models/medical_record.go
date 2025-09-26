@@ -45,10 +45,11 @@ type TblMedicalRecord struct {
 	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
 
-	IsPasswordProtected       bool    `gorm:"-" json:"is_password_protected"`
-	PDFPassword               string  `gorm:"-" json:"pdf_password,omitempty"`
-	PatientName               string  `gorm:"-" json:"patient_name,omitempty"`
-	PatientDiagnosticReportId *uint64 `gorm:"-" json:"patient_diagnostic_report_id,omitempty"`
+	IsPasswordProtected       bool     `gorm:"-" json:"is_password_protected"`
+	PDFPassword               string   `gorm:"-" json:"pdf_password,omitempty"`
+	PatientName               string   `gorm:"-" json:"patient_name,omitempty"`
+	PatientDiagnosticReportId *uint64  `gorm:"-" json:"patient_diagnostic_report_id,omitempty"`
+	Tags                      []string `gorm:"-" json:"tags"`
 }
 
 func (TblMedicalRecord) TableName() string {

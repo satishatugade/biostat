@@ -92,6 +92,7 @@ type PropertyConfig struct {
 		PDFPasswordAPI              string
 		DocTypeAPI                  string
 		FetchNameAPI                string
+		SpeechToTextAPI             string
 	}
 }
 
@@ -156,6 +157,7 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.PDFPasswordAPI = getEnv("PDF_PASSWORD_API")
 	cfg.ApiURL.DocTypeAPI = getEnv("DOCUMENT_TYPE_API")
 	cfg.ApiURL.FetchNameAPI = getEnv("FETCH_NAME_API")
+	cfg.ApiURL.SpeechToTextAPI = getEnv("SPEECH_TO_TEXT_API")
 
 	return cfg
 }

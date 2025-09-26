@@ -777,7 +777,7 @@ func (s *ApiServiceImpl) GetTranscription(file multipart.File) (string, error) {
 	writer.Close()
 
 	resp, err := http.Post(
-		os.Getenv("SPEECH_TO_TEXT_API"),
+		config.PropConfig.ApiURL.SpeechToTextAPI,
 		writer.FormDataContentType(),
 		&requestBody,
 	)
@@ -793,7 +793,7 @@ func (s *ApiServiceImpl) GetTranscription(file multipart.File) (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Println("API call failed: %v", result["error"])
+		log.Printf("API call failed: %v", result["error"])
 		return "", fmt.Errorf(result["error"].(string))
 	}
 

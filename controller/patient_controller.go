@@ -1128,7 +1128,7 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 		return
 	}
 
-	_, updateErr := pc.medicalRecordService.UpdateTblMedicalRecord(&models.TblMedicalRecord{RecordId: recordId, Status: constant.StatusRetrying})
+	_, updateErr := pc.medicalRecordService.UpdateTblMedicalRecord(patientId, &models.TblMedicalRecord{RecordId: recordId, Status: constant.StatusRetrying})
 	if updateErr != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update record", nil, updateErr)
 		return
@@ -1148,23 +1148,28 @@ func (pc *PatientController) SaveReport(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Digitization queued successfully", nil, nil, nil)
 }
 
-func (c *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
+func (pc *PatientController) UpdateTblMedicalRecord(ctx *gin.Context) {
+	_, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	var payload models.TblMedicalRecord
 	if err := ctx.ShouldBindJSON(&payload); err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Invalid request body", nil, err)
 		return
 	}
 	if payload.RecordId == 0 {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Param id is required", nil, nil)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Record id is required", nil, nil)
 		return
 	}
-	// updatedBy := ctx.GetString("user")
-	data, err := c.medicalRecordService.UpdateTblMedicalRecord(&payload)
+	data, err := pc.medicalRecordService.UpdateTblMedicalRecord(user_id, &payload)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to update record", nil, nil)
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Record updated successfully", data, nil, nil)
+	return
 }
 
 func (c *PatientController) GetMedicalRecordByRecordId(ctx *gin.Context) {
