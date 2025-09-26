@@ -231,6 +231,14 @@ const (
 	RecipientDetails        = "/recipient-details"
 	ProviderList            = "/provider-details"
 	GmailReSync             = "/resync"
+	AppSync                 = "/app-sync"
+	OuthCallBack            = "/oauth2callback"
+	WebSync                 = "/web-sync/:user_id"
+	OutlookWebSync          = "/outlook/login/:user_id"
+	OutlookCallBack         = "/outlook/callback"
+	YahooWebSync            = "/yahoo/login/:user_id"
+	YahooCallBack           = "/yahoo/callback"
+	Transcribe              = "/transcribe"
 )
 
 const (

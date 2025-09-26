@@ -2,23 +2,21 @@ package service
 
 import (
 	"biostat/repository"
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
+	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
 type YahooService interface {
 	GetYahooAuthURL(userID uint64) (string, error)
 	GetYahooToken(ctx context.Context, code string) (*YahooOAuthToken, error)
-	// SyncYahooWeb(ctx context.Context, userId uint64, token *oauth2.Token) error
 }
 
 type YahooServiceImpl struct {
@@ -33,23 +31,6 @@ func NewYahooService(userService UserService, apiService ApiService, processStat
 	return &YahooServiceImpl{userService: userService, apiService: apiService, processStatusService: processStatusService, gmailSyncService: gmailSyncService, diagnosticRepo: diagnosticRepo}
 }
 
-func generateCodeVerifier() string {
-	rand.Seed(time.Now().UnixNano())
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
-	b := make([]byte, 64)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(b)
-}
-
-func generateCodeChallenge(verifier string) string {
-	h := sha256.New()
-	h.Write([]byte(verifier))
-	sha := h.Sum(nil)
-	return base64.RawURLEncoding.EncodeToString(sha)
-}
-
 func (ys *YahooServiceImpl) GetYahooAuthURL(userID uint64) (string, error) {
 	_, err := ys.diagnosticRepo.GetPatientLabNameAndEmail(userID)
 	if err != nil {
@@ -57,12 +38,10 @@ func (ys *YahooServiceImpl) GetYahooAuthURL(userID uint64) (string, error) {
 	}
 	clientID := os.Getenv("YAHOO_CLIENT_ID")
 	redirectURI := os.Getenv("YAHOO_REDIRECT_URL")
-	scope := "openid"
-	codeVerifier := generateCodeVerifier()
-	codeChallenge := generateCodeChallenge(codeVerifier)
+	scope := "mail-r"
 	authURL := fmt.Sprintf(
-		"https://api.login.yahoo.com/oauth2/request_auth?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&state=%d&code_challenge=%s&code_challenge_method=S256",
-		clientID, redirectURI, scope, userID, codeChallenge,
+		"https://api.login.yahoo.com/oauth2/request_auth?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&state=%d",
+		clientID, redirectURI, scope, userID,
 	)
 	return authURL, nil
 }
@@ -78,12 +57,19 @@ type YahooOAuthToken struct {
 func (ys *YahooServiceImpl) GetYahooToken(ctx context.Context, code string) (*YahooOAuthToken, error) {
 	clientID := os.Getenv("YAHOO_CLIENT_ID")
 	clientSecret := os.Getenv("YAHOO_CLIENT_SECRET")
-	redirectURI := os.Getenv("YAHOO_REDIRECT_URI")
-	data := fmt.Sprintf("client_id=%s&client_secret=%s&redirect_uri=%s&code=%s&grant_type=authorization_code",
-		clientID, clientSecret, redirectURI, code,
-	)
-	req, _ := http.NewRequest("POST", "https://api.login.yahoo.com/oauth2/get_token", bytes.NewBufferString(data))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	redirectURI := os.Getenv("YAHOO_REDIRECT_URL")
+	log.Println("@GetYahooToken:", code)
+	data := url.Values{}
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
+	data.Set("redirect_uri", redirectURI)
+
+	req, err := http.NewRequest("POST", "https://api.login.yahoo.com/oauth2/get_token", strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(clientID, clientSecret)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -92,8 +78,14 @@ func (ys *YahooServiceImpl) GetYahooToken(ctx context.Context, code string) (*Ya
 	}
 	defer resp.Body.Close()
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode != 200 {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Println("Yahoo Token Response:", string(body))
+
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed token exchange: %s", string(body))
 	}
 

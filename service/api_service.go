@@ -30,6 +30,7 @@ type ApiService interface {
 	CallDocumentTypeAPI(file io.Reader, filename string) (*models.DocTypeAPIResponse, error)
 	CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error)
 	MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error)
+	GetTranscription(file multipart.File) (string, error)
 }
 
 type ApiServiceImpl struct {
@@ -759,4 +760,47 @@ func (s *ApiServiceImpl) MakeRESTRequest(method, url string, body interface{}, h
 		return resp.StatusCode, responseData, fmt.Errorf("API error: %s", errMsg)
 	}
 	return resp.StatusCode, responseData, nil
+}
+
+func (s *ApiServiceImpl) GetTranscription(file multipart.File) (string, error) {
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+
+	part, err := writer.CreateFormFile("file", "audio.webm")
+	if err != nil {
+		return "", fmt.Errorf("could not create form file: %v", err)
+	}
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return "", fmt.Errorf("could not copy file data: %v", err)
+	}
+	writer.Close()
+
+	resp, err := http.Post(
+		os.Getenv("SPEECH_TO_TEXT_API"),
+		writer.FormDataContentType(),
+		&requestBody,
+	)
+	if err != nil {
+		return "", fmt.Errorf("request to Python API failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse response from Python API: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Println("API call failed: %v", result["error"])
+		return "", fmt.Errorf(result["error"].(string))
+	}
+
+	transcription, ok := result["content"].(map[string]interface{})["transcription"].(string)
+	if !ok {
+		return "", fmt.Errorf("failed to extract transcription from response")
+	}
+
+	return transcription, nil
 }

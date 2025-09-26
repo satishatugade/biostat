@@ -3069,3 +3069,19 @@ func (pc *PatientController) FetchUserTag(ctx *gin.Context) {
 	pagination := utils.GetPagination(limit, page, offset, totalRecords)
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, pagination, nil)
 }
+
+func (pc *PatientController) TranscriptionHandler(ctx *gin.Context) {
+	audioFile, _, err := ctx.Request.FormFile("file")
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Please provid file", nil, errors.New("Error while transcribing"))
+		return
+	}
+	defer audioFile.Close()
+	transcription, err := pc.apiService.GetTranscription(audioFile)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Transcribe", gin.H{"transcription": transcription}, nil, nil)
+	return
+}

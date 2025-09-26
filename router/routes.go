@@ -103,6 +103,22 @@ func GmailSyncRoutes(g *gin.RouterGroup, gmailSyncController *controller.GmailSy
 	}
 }
 
+func OpenRoutes(g *gin.RouterGroup, patientController *controller.PatientController) {
+	public := g.Group("/public")
+	for _, publicRoute := range getOpenRoutes(patientController) {
+		switch publicRoute.Method {
+		case http.MethodPost:
+			public.POST(publicRoute.Path, publicRoute.HandleFunc)
+		case http.MethodGet:
+			public.GET(publicRoute.Path, publicRoute.HandleFunc)
+		case http.MethodPut:
+			public.PUT(publicRoute.Path, publicRoute.HandleFunc)
+		case http.MethodDelete:
+			public.DELETE(publicRoute.Path, publicRoute.HandleFunc)
+		}
+	}
+}
+
 func Routing(envFile string) {
 	r := routes{
 		router: gin.Default(),
@@ -123,7 +139,7 @@ func Routing(envFile string) {
 	db := database.GetDBConn()
 	InitializeRoutes(apiGroup, db)
 	if envFile == "dev" {
-		r.router.RunTLS(":" + os.Getenv("GO_SERVER_PORT"),"D:\\playground\\BioStat\\cert.pem","D:\\playground\\BioStat\\key.pem")
+		r.router.Run(":" + os.Getenv("GO_SERVER_PORT"))
 	} else {
 		err := r.router.RunTLS(":"+os.Getenv("GO_SERVER_PORT"),
 			"/etc/letsencrypt/live/api.biostack.catseye.cloud/fullchain.pem",

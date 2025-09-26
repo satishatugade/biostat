@@ -175,7 +175,8 @@ func (gc *GmailSyncController) YahooCallbackHandler(ctx *gin.Context) {
 	c := context.Background()
 	token, err := gc.yahooService.GetYahooToken(c, code)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "token exchange failed", "details": err.Error()})
+		log.Println("Error @gc.yahooService.GetYahooToken:", err)
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "token exchange failed", nil, err)
 		return
 	}
 	go func() {

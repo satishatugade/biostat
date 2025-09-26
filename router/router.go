@@ -104,6 +104,8 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
+	
+	OpenRoutes(apiGroup, patientController)
 
 	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService)
 	UserRoutes(apiGroup, userController)
@@ -425,12 +427,16 @@ func getUserRoutes(userController *controller.UserController) Routes {
 
 func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Routes {
 	return Routes{
-		{"gmail sync route", http.MethodPost, "/app-sync", gmailSyncController.FetchEmailsHandlerApp},
-		{"gmail sync route", http.MethodGet, "/oauth2callback", gmailSyncController.GmailCallbackHandler},
-		{"gmail sync route", http.MethodGet, "/web-sync/:user_id", gmailSyncController.GmailLoginHandler},
-		Route{"Outlook ", http.MethodPost, "/outlook/login/:user_id", gmailSyncController.OutLookLoginHandler},
-		Route{"Outlook ", http.MethodGet, "/outlook/callback", gmailSyncController.OutLookCallbackHandler},
-		Route{"Yahoo ", http.MethodPost, "/yahoo/login/:user_id", gmailSyncController.YahooLoginHandler},
-		Route{"Yahoo ", http.MethodGet, "/yahoo/callback", gmailSyncController.YahooCallbackHandler},
+		{"gmail sync route", http.MethodPost, constant.AppSync, gmailSyncController.FetchEmailsHandlerApp},
+		{"gmail sync route", http.MethodGet, constant.OuthCallBack, gmailSyncController.GmailCallbackHandler},
+		{"gmail sync route", http.MethodGet, constant.WebSync, gmailSyncController.GmailLoginHandler},
+		Route{"Outlook ", http.MethodPost, constant.OutlookWebSync, gmailSyncController.OutLookLoginHandler},
+		Route{"Outlook ", http.MethodGet, constant.OutlookCallBack, gmailSyncController.OutLookCallbackHandler},
+	}
+}
+
+func getOpenRoutes(patientController *controller.PatientController) Routes {
+	return Routes{
+		Route{"Transcribe ", http.MethodPost, constant.Transcribe, patientController.TranscriptionHandler},
 	}
 }
