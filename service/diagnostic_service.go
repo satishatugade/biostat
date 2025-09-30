@@ -34,8 +34,8 @@ type DiagnosticService interface {
 	AddMapping(userId uint64, LabInfo *models.DiagnosticLab) error
 	GetDiagnosticLabAuditRecord(labId, labAuditId uint64) ([]models.DiagnosticLabAudit, error)
 	GeneratePatientDiagnosticReport(tx *gorm.DB, patientDiagnoReport *models.PatientDiagnosticReport) (*models.PatientDiagnosticReport, error)
-	SavePatientReportAttachmentMapping(recordMapping *models.PatientReportAttachment) error
-	SaveUserTag(userID uint64, tagName string, recordID, reportID *uint64) ([]*models.UserTag, error)
+	SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error
+	SaveUserTag(tx *gorm.DB, userID uint64, tagName string, recordID, reportID *uint64) ([]*models.UserTag, error)
 	GetDiagnosticTests(limit int, offset int) ([]models.DiagnosticTest, int64, error)
 	CreateDiagnosticTest(diagnosticTest *models.DiagnosticTest, createdBy string) (*models.DiagnosticTest, error)
 	UpdateDiagnosticTest(diagnosticTest *models.DiagnosticTest, updatedBy string) (*models.DiagnosticTest, error)
@@ -79,12 +79,11 @@ type DiagnosticServiceImpl struct {
 	processStatusService ProcessStatusService
 }
 
-// SavePatientReportAttachmentMapping implements DiagnosticService.
-func (s *DiagnosticServiceImpl) SavePatientReportAttachmentMapping(recordMapping *models.PatientReportAttachment) error {
-	return s.diagnosticRepo.SavePatientReportAttachmentMapping(recordMapping)
+func (s *DiagnosticServiceImpl) SavePatientReportAttachmentMapping(tx *gorm.DB, recordMapping *models.PatientReportAttachment) error {
+	return s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, recordMapping)
 }
 
-func (s *DiagnosticServiceImpl) SaveUserTag(userID uint64, tagName string, recordID, reportID *uint64) ([]*models.UserTag, error) {
+func (s *DiagnosticServiceImpl) SaveUserTag(tx *gorm.DB, userID uint64, tagName string, recordID, reportID *uint64) ([]*models.UserTag, error) {
 	if recordID == nil && reportID == nil {
 		return nil, fmt.Errorf("either recordID or reportID must be provided")
 	}
@@ -109,7 +108,7 @@ func (s *DiagnosticServiceImpl) SaveUserTag(userID uint64, tagName string, recor
 			PatientDiagnosticReportId: reportID,
 		}
 
-		if err := s.diagnosticRepo.CreateUserTag(tag); err != nil {
+		if err := s.diagnosticRepo.CreateUserTag(tx, tag); err != nil {
 			log.Println("Error saving user tag:", err)
 			return nil, err
 		}
@@ -549,7 +548,7 @@ func (s *DiagnosticServiceImpl) DigitizeDiagnosticReport(reportData models.LabRe
 			RecordId:                  *recordId,
 			PatientId:                 patientId,
 		}
-		if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(&recordmapping); err != nil {
+		if err := s.diagnosticRepo.SavePatientReportAttachmentMapping(tx, &recordmapping); err != nil {
 			log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
 			tx.Rollback()
 			return "", fmt.Errorf("error while SavePatientReportAttachmentMapping: %w", err)

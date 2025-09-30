@@ -20,15 +20,15 @@ type TblMedicalRecordRepository interface {
 	GetAllMedicalRecord(patientId uint64, limit int, offset int) ([]models.ReportRow, int64, error)
 	ProcessMedicalRecordResponse(data []models.ReportRow) []map[string]interface{}
 	GetMedicalRecordsByUserID(userID uint64, recordIdsMap map[uint64]uint64) ([]models.TblMedicalRecord, error)
-	CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
-	CreateMultipleTblMedicalRecords(data []*models.TblMedicalRecord) error
+	CreateTblMedicalRecord(tx *gorm.DB, data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
+	CreateMultipleTblMedicalRecords(tx *gorm.DB, data []*models.TblMedicalRecord) error
 	UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error)
 	GetMedicalRecordByRecordId(RecordId uint64) (*models.TblMedicalRecord, error)
 	DeleteTblMedicalRecord(id int, updatedBy string) error
 	IsRecordBelongsToUser(userID uint64, recordID uint64) (bool, error)
 	ExistsRecordForUser(userId uint64, source, url string) (bool, error)
 
-	CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error
+	CreateMedicalRecordMappings(tx *gorm.DB, mappings *[]models.TblMedicalRecordUserMapping) error
 	UpdateMedicalRecordMappingByRecordId(tx *gorm.DB, RecordId *uint64, mapping map[string]interface{}) error
 	GetMedicalRecordMappings(recordID uint64) (*models.TblMedicalRecordUserMapping, error)
 	DeleteMecationRecordMappings(id int) error
@@ -411,16 +411,27 @@ func (p *tblMedicalRecordRepositoryImpl) ProcessMedicalRecordResponse(rows []mod
 	return finalReports
 }
 
-func (r *tblMedicalRecordRepositoryImpl) CreateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
-	err := r.db.Create(data).Error
-	if err != nil {
+func (r *tblMedicalRecordRepositoryImpl) CreateTblMedicalRecord(tx *gorm.DB, data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
+	if tx == nil {
+		return nil, fmt.Errorf("transaction is nil")
+	}
+	if err := tx.Create(data).Error; err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (r *tblMedicalRecordRepositoryImpl) CreateMultipleTblMedicalRecords(records []*models.TblMedicalRecord) error {
-	return r.db.Create(records).Error
+func (r *tblMedicalRecordRepositoryImpl) CreateMultipleTblMedicalRecords(tx *gorm.DB, records []*models.TblMedicalRecord) error {
+	if tx == nil {
+		return fmt.Errorf("transaction is nil")
+	}
+	if len(records) == 0 {
+		return nil
+	}
+	if err := tx.Create(records).Error; err != nil {
+		return fmt.Errorf("failed to create multiple medical records: %w", err)
+	}
+	return nil
 }
 
 func (r *tblMedicalRecordRepositoryImpl) UpdateTblMedicalRecord(data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
@@ -557,8 +568,11 @@ func (r *tblMedicalRecordRepositoryImpl) DeleteTblMedicalRecord(id int, updatedB
 	return r.db.Where("record_id = ?", id).Delete(&models.TblMedicalRecord{}).Error
 }
 
-func (r *tblMedicalRecordRepositoryImpl) CreateMedicalRecordMappings(mappings *[]models.TblMedicalRecordUserMapping) error {
-	return r.db.Create(mappings).Error
+func (r *tblMedicalRecordRepositoryImpl) CreateMedicalRecordMappings(tx *gorm.DB, mappings *[]models.TblMedicalRecordUserMapping) error {
+	if tx == nil {
+		return fmt.Errorf("transaction is nil")
+	}
+	return tx.Create(mappings).Error
 }
 
 func (r *tblMedicalRecordRepositoryImpl) UpdateMedicalRecordMappingByRecordId(tx *gorm.DB, recordId *uint64, updates map[string]interface{}) error {

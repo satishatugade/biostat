@@ -29,6 +29,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type TblMedicalRecordService interface {
@@ -144,9 +145,6 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		tx.Rollback()
 		return nil, fmt.Errorf("error while saving patient diagnostic report: %w", err)
 	}
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("ERROR committing transaction: err : %v", err)
-	}
 	newRecord := models.TblMedicalRecord{
 		RecordName:        header.Filename,
 		RecordSize:        int64(header.Size),
@@ -163,11 +161,12 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		Status:            Status,
 	}
 
-	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(&newRecord)
+	record, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(tx, &newRecord)
 	if err != nil {
 		msg = "Failed to save record"
 		log.Println("CreateTblMedicalRecord ERROR : ", err)
 		s.processStatusService.LogStepAndFail(processID, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+		tx.Rollback()
 		return nil, err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
@@ -175,9 +174,10 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		UserID:   userId,
 		RecordID: record.RecordId,
 	})
-	mappingErr := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
+	mappingErr := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(tx, &mappings)
 	if mappingErr != nil {
 		log.Println("CreateMedicalRecordMappings Mapping  ERROR : ", err)
+		tx.Rollback()
 		return nil, mappingErr
 	}
 	reportAttachment := models.PatientReportAttachment{
@@ -185,11 +185,12 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		RecordId:                  record.RecordId,
 		PatientId:                 userId,
 	}
-	if err := s.diagnosticService.SavePatientReportAttachmentMapping(&reportAttachment); err != nil {
+	if err := s.diagnosticService.SavePatientReportAttachmentMapping(tx, &reportAttachment); err != nil {
 		log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
+		tx.Rollback()
 	}
 	if len(attachments) > 0 {
-		if err := s.SaveAttachments(
+		if err := s.SaveAttachments(tx,
 			userId,
 			uploadingPerson,
 			uploadSource,
@@ -199,14 +200,19 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 			attachments,
 			reportInfo.PatientDiagnosticReportId,
 		); err != nil {
+			tx.Rollback()
 			return nil, err
 		}
 	}
-	savedTags, err := s.diagnosticService.SaveUserTag(userId, tags, &record.RecordId, &reportInfo.PatientDiagnosticReportId)
+	savedTags, err := s.diagnosticService.SaveUserTag(tx, userId, tags, &record.RecordId, &reportInfo.PatientDiagnosticReportId)
 	if err != nil {
+		tx.Rollback()
 		log.Println("Error while creating SaveUserTag:", err)
 	}
 	log.Println("SaveUserTag tags ", savedTags)
+	if err := tx.Commit().Error; err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
 	if record.RecordCategory == string(constant.TESTREPORT) || record.RecordCategory == string(constant.MEDICATION) {
 		userInfo, err := s.userService.GetSystemUserInfoByUserID(userId)
 		if err != nil {
@@ -225,7 +231,7 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 	return record, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) SaveAttachments(
+func (s *tblMedicalRecordServiceImpl) SaveAttachments(tx *gorm.DB,
 	userId uint64,
 	uploadingPerson uint64,
 	uploadSource, description, recordCategory, recordSubCategory string,
@@ -266,7 +272,7 @@ func (s *tblMedicalRecordServiceImpl) SaveAttachments(
 			Status:            constant.StatusSuccess,
 		}
 
-		savedAttRecord, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(&attRecord)
+		savedAttRecord, err := s.tblMedicalRecordRepo.CreateTblMedicalRecord(tx, &attRecord)
 		if err != nil {
 			log.Println("CreateTblMedicalRecord (attachment) ERROR:", err)
 			return err
@@ -277,7 +283,7 @@ func (s *tblMedicalRecordServiceImpl) SaveAttachments(
 			UserID:   userId,
 			RecordID: savedAttRecord.RecordId,
 		}
-		if err := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&[]models.TblMedicalRecordUserMapping{attMapping}); err != nil {
+		if err := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(tx, &[]models.TblMedicalRecordUserMapping{attMapping}); err != nil {
 			log.Println("CreateMedicalRecordMappings (attachment) ERROR:", err)
 			return err
 		}
@@ -287,7 +293,7 @@ func (s *tblMedicalRecordServiceImpl) SaveAttachments(
 			RecordId:                  savedAttRecord.RecordId,
 			PatientId:                 userId,
 		}
-		if err := s.diagnosticService.SavePatientReportAttachmentMapping(&reportAttachment); err != nil {
+		if err := s.diagnosticService.SavePatientReportAttachmentMapping(tx, &reportAttachment); err != nil {
 			log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
 		}
 	}
@@ -496,8 +502,15 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 		return nil
 	}
 
-	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(uniqueRecords)
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	err := s.tblMedicalRecordRepo.CreateMultipleTblMedicalRecords(tx, uniqueRecords)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 	var mappings []models.TblMedicalRecordUserMapping
@@ -507,7 +520,17 @@ func (s *tblMedicalRecordServiceImpl) SaveMedicalRecords(records []*models.TblMe
 			RecordID: record.RecordId,
 		})
 	}
-	return s.tblMedicalRecordRepo.CreateMedicalRecordMappings(&mappings)
+	if err := s.tblMedicalRecordRepo.CreateMedicalRecordMappings(tx, &mappings); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *tblMedicalRecordServiceImpl) UpdateTblMedicalRecord(userId uint64, data *models.TblMedicalRecord) (*models.TblMedicalRecord, error) {
@@ -836,24 +859,26 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(
 		for _, rec := range records {
 			// Category filter
 			if rec.RecordCategory == string(constant.SUPPORTINGDOC) {
-				lastMain.SupportingDocs = append(lastMain.SupportingDocs, models.MedicalRecordResponseRes{
-					RecordID:          rec.RecordId,
-					PatientID:         userID,
-					RecordName:        rec.RecordName,
-					RecordCategory:    rec.RecordCategory,
-					RecordDescription: rec.Description,
-					UploadSource:      rec.UploadSource,
-					SourceAccount:     rec.SourceAccount,
-					RecordURL:         rec.RecordUrl,
-					RecordSize:        rec.RecordSize,
-					FileType:          rec.FileType,
-					DigitizeFlag:      rec.DigitizeFlag,
-					IsDeleted:         rec.IsDeleted,
-					IsVerified:        rec.IsVerified,
-					Status:            string(rec.Status),
-					ErrorMessage:      rec.ErrorMessage,
-					CreatedAt:         utils.FormatDateTime(&rec.CreatedAt),
-				})
+				if lastMain != nil {
+					lastMain.SupportingDocs = append(lastMain.SupportingDocs, models.MedicalRecordResponseRes{
+						RecordID:          rec.RecordId,
+						PatientID:         userID,
+						RecordName:        rec.RecordName,
+						RecordCategory:    rec.RecordCategory,
+						RecordDescription: rec.Description,
+						UploadSource:      rec.UploadSource,
+						SourceAccount:     rec.SourceAccount,
+						RecordURL:         rec.RecordUrl,
+						RecordSize:        rec.RecordSize,
+						FileType:          rec.FileType,
+						DigitizeFlag:      rec.DigitizeFlag,
+						IsDeleted:         rec.IsDeleted,
+						IsVerified:        rec.IsVerified,
+						Status:            string(rec.Status),
+						ErrorMessage:      rec.ErrorMessage,
+						CreatedAt:         utils.FormatDateTime(&rec.CreatedAt),
+					})
+				}
 			} else {
 				mainRec := models.MedicalRecordResponseRes{
 					RecordID:                  rec.RecordId,
