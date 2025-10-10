@@ -143,6 +143,7 @@ type MedicalRecordResponseRes struct {
 	CreatedAt                 string                     `json:"created_at"`
 	IsDeleted                 int                        `json:"is_deleted"`
 	UploadedDiagnostic        *UploadedDiagnosticRes     `json:"uploaded_diagnostic"`
+	UploadedPrescription      *[]PatientPrescription       `json:"uploaded_prescription"`
 	SupportingDocs            []MedicalRecordResponseRes `json:"supporting_docs,omitempty"`
 }
 

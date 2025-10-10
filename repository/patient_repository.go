@@ -25,7 +25,7 @@ type PatientRepository interface {
 	AddPatientPrescription(createdBy string, prescription *models.PatientPrescription) error
 	UpdatePatientPrescription(authUserId string, prescription *models.PatientPrescription) error
 	GetSinglePrescription(prescriptiuonId uint64, patientId uint64) (models.PatientPrescription, error)
-	GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
+	GetPrescriptionByPatientId(patientId uint64, recordIDs *[]uint64, limit int, offset int) ([]models.PatientPrescription, int64, error)
 	GetPrescriptionDetailByPatientId(PatientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error)
 	GetPatientDiseaseProfiles(patientId uint64, AttachedFlag int) ([]models.PatientDiseaseProfile, error)
 	AddPatientDiseaseProfile(tx *gorm.DB, input *models.PatientDiseaseProfile) (*models.PatientDiseaseProfile, error)
@@ -222,7 +222,7 @@ func (ps *PatientRepositoryImpl) UpdatePatientPrescription(authUserId string, pr
 	return tx.Commit().Error
 }
 
-func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
+func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, recordIDs *[]uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
@@ -1269,7 +1269,7 @@ func (pr *PatientRepositoryImpl) FetchPatientDiagnosticTrendValue(input models.D
 	if input.DiagnosticTestComponentId != nil {
 		query += " AND pdtrv.diagnostic_test_component_id = ? "
 		args = append(args, *input.DiagnosticTestComponentId)
-		query += " ORDER BY pdtrv.result_date DESC"
+		query += " ORDER BY pdr.report_date DESC"
 	}
 
 	if input.PatientDiagnosticReportId != nil {

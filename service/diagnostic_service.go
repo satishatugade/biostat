@@ -69,6 +69,7 @@ type DiagnosticService interface {
 	ArchivePatientDiagnosticReport(reportID uint64, isDeleted int) error
 	GetSources(patientId uint64, limit, offset int) ([]models.HealthVitalSourceType, int64, error)
 	GetDiagnosticLabReportName(patientId uint64) ([]models.DiagnosticReport, error)
+	CreatePatientReportAndAttachment(userId uint64, recordId uint64) (*models.PatientDiagnosticReport, error)
 }
 
 type DiagnosticServiceImpl struct {
@@ -871,4 +872,52 @@ func ShouldSkipReport(collectionDate time.Time, componentNames []string, existin
 
 	log.Printf("Match < %.2f%% → Treating report as new. Missing keys: %+v", percentage, missing)
 	return false
+}
+
+func (s *DiagnosticServiceImpl) CreatePatientReportAndAttachment(
+	userId uint64, recordId uint64,
+) (*models.PatientDiagnosticReport, error) {
+
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	reportId := uint64(time.Now().UnixNano() + int64(rand.Intn(1000)))
+	patientReport := models.PatientDiagnosticReport{
+		PatientDiagnosticReportId: reportId,
+		DiagnosticLabId:           0,
+		PatientId:                 userId,
+		PaymentStatus:             constant.Success,
+		IsHealthVital:             false,
+	}
+
+	// Generate Patient Diagnostic Report
+	reportInfo, err := s.GeneratePatientDiagnosticReport(tx, &patientReport)
+	if err != nil {
+		log.Println("ERROR saving PatientDiagnosticReport:", err)
+		tx.Rollback()
+		return nil, fmt.Errorf("error while saving patient diagnostic report: %w", err)
+	}
+
+	// Save Attachment Mapping
+	reportAttachment := models.PatientReportAttachment{
+		PatientDiagnosticReportId: reportInfo.PatientDiagnosticReportId,
+		RecordId:                  recordId,
+		PatientId:                 userId,
+	}
+	if err := s.SavePatientReportAttachmentMapping(tx, &reportAttachment); err != nil {
+		log.Println("Error while creating SavePatientReportAttachmentMapping:", err)
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return reportInfo, nil
 }

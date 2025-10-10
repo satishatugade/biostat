@@ -44,7 +44,8 @@ type TblMedicalRecordRepository interface {
 	GetReferenceRanges(componentID uint64) ([]models.DiagnosticTestReferenceRange, error) //separate table
 	GetDiagnosticTestMaster(testID uint64) (*models.DiagnosticTest, error)
 	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
-	GetReportRecordMapping(userID uint64, category, tag string, isDeleted int) (map[uint64][]uint64, error)
+	// GetReportRecordMapping(userID uint64, category, tag string, isDeleted int) (map[uint64][]uint64, error)
+	GetReportRecordMapping(userID uint64, category, tag string, isDeleted int) (map[uint64][]uint64, int64, map[string]int64, error)
 	GetRecordsByIDs(recordIDs []uint64, isDeleted int) ([]models.TblMedicalRecord, error)
 	GetAllReportTag(userId uint64, limit, offset int) ([]models.UserTag, int64, error)
 	AddTag(tag *models.UserTag) error
@@ -707,7 +708,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 	userID uint64,
 	category, tag string,
 	isDeleted int,
-) (map[uint64][]uint64, error) {
+) (map[uint64][]uint64, int64, map[string]int64, error) {
 
 	var attachments []struct {
 		PatientDiagnosticReportId uint64 `gorm:"column:patient_diagnostic_report_id"`
@@ -722,6 +723,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 		Select("pra.patient_diagnostic_report_id, pra.record_id").
 		Joins("JOIN tbl_medical_record_user_mapping AS mrum ON pra.record_id = mrum.record_id").
 		Joins("JOIN tbl_medical_record AS mr ON pra.record_id = mr.record_id").
+		Joins("LEFT JOIN tbl_patient_diagnostic_report AS report ON report.patient_diagnostic_report_id = pra.patient_diagnostic_report_id").
 		Where("mrum.user_id = ? AND mr.is_deleted = ? AND mr.status IN (?)",
 			userID, isDeleted, statuses)
 
@@ -731,13 +733,19 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 			Select("pra2.patient_diagnostic_report_id").
 			Joins("JOIN tbl_medical_record AS mr2 ON pra2.record_id = mr2.record_id").
 			Joins("JOIN tbl_user_tag AS ut ON ut.record_id = mr2.record_id").
-			Where("ut.tag_name ILIKE ? AND ut.user_id = ?", "%"+tag+"%", userID)
+			Where("ut.tag_name = ? AND ut.user_id = ?", tag, userID)
 
 		query = query.Where("pra.patient_diagnostic_report_id IN (?)", subQuery)
 	}
 
+	if category != "" {
+		query = query.Where("mr.record_category = ?", category)
+	}
+
+	query = query.Order("report.report_date DESC")
+
 	if err := query.Find(&attachments).Error; err != nil {
-		return nil, err
+		return nil, 0, nil, err
 	}
 
 	reportMap := make(map[uint64][]uint64)
@@ -745,7 +753,32 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 		reportMap[a.PatientDiagnosticReportId] = append(reportMap[a.PatientDiagnosticReportId], a.RecordId)
 	}
 
-	return reportMap, nil
+	var categoryCounts []struct {
+		RecordCategory string `gorm:"column:record_category"`
+		Count          int64  `gorm:"column:count"`
+	}
+
+	countQuery := r.db.
+		Table("tbl_medical_record AS mr").
+		Joins("JOIN tbl_medical_record_user_mapping AS mrum ON mr.record_id = mrum.record_id").
+		Where("mrum.user_id = ? AND mr.is_deleted = ? AND mr.status IN (?)",
+			userID, isDeleted, statuses)
+
+	if err := countQuery.
+		Select("mr.record_category, COUNT(*) as count").
+		Group("mr.record_category").
+		Scan(&categoryCounts).Error; err != nil {
+		return nil, 0, nil, err
+	}
+
+	categoryCountMap := make(map[string]int64)
+	var totalCount int64
+	for _, c := range categoryCounts {
+		categoryCountMap[c.RecordCategory] = c.Count
+		totalCount += c.Count
+	}
+
+	return reportMap, totalCount, categoryCountMap, nil
 }
 
 func (r *tblMedicalRecordRepositoryImpl) AddTag(tag *models.UserTag) error {

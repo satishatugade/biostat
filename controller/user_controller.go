@@ -73,7 +73,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	user.Username = uc.userService.GenerateUniqueUsername(user.FirstName, user.LastName)
 	notifyId, err := uc.notificationService.RegisterUserInNotify(nil, &user.MobileNo, user.Email)
 	if err != nil {
-		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register", nil, err)
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user, Notify server not reachable", nil, err)
 		return
 	}
 	user.NotifyId = notifyId.String()
@@ -408,7 +408,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	if !isExistingUser {
 		notifyId, err := uc.notificationService.RegisterUserInNotify(nil, &req.MobileNo, req.Email)
 		if err != nil {
-			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register", nil, err)
+			models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user, Notify server not reachable", nil, err)
 			return
 		}
 		req.NotifyId = notifyId.String()

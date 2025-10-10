@@ -378,6 +378,54 @@ func (w *DigitizationWorker) ClassifyDoc(fileBuf *bytes.Buffer, p models.Digitiz
 			}
 			log.Printf("Discharge from %s, Admission: %s, Discharge: %s",
 				&ds.HospitalName, &ds.AdmissionDate, &ds.DischargeDate)
+		case "medications":
+			var prescriptionData models.PatientPrescriptionData
+			if err := json.Unmarshal(reportData.DocumentDetails, &prescriptionData); err != nil {
+				return fmt.Errorf("failed to unmarshal MEDICATION: %w", err)
+			}
+			matchedUserID = p.UserID
+			if reportData.NearMatchedWith != nil {
+				if reportData.NearMatchedWith.UserID != &p.UserID {
+					matchedUserID = *reportData.NearMatchedWith.UserID
+				}
+			}
+			prescriptionDate, err := utils.ParseDate(prescriptionData.PrescriptionDate)
+			if err != nil {
+				log.Println("Prescription medication Date parsing failed:", err)
+			}
+			data := models.PatientPrescription{
+				PrescriptionId:      prescriptionData.PrescriptionId,
+				RecordId:            p.RecordID,
+				PatientId:           matchedUserID,
+				PrescribedBy:        prescriptionData.PrescribedBy,
+				PrescriptionName:    &prescriptionData.PrescriptionName,
+				Description:         prescriptionData.Description,
+				PrescriptionDate:    &prescriptionDate,
+				PrescriptionDetails: make([]models.PrescriptionDetail, 0),
+			}
+
+			for _, detail := range prescriptionData.PrescriptionDetails {
+				d := models.PrescriptionDetail{
+					PrescriptionDetailId: detail.PrescriptionDetailId,
+					PrescriptionId:       detail.PrescriptionId,
+					MedicineName:         detail.MedicineName,
+					PrescriptionType:     detail.PrescriptionType,
+					Duration:             detail.Duration,
+					DosageInfo: []models.PrescriptionDoseSchedule{
+						{
+							DoseQuantity: detail.DoseQuantity,
+							UnitType:     detail.UnitType,
+							Instruction:  detail.Instruction,
+						},
+					},
+				}
+				data.PrescriptionDetails = append(data.PrescriptionDetails, d)
+			}
+			userId := strconv.FormatUint(matchedUserID, 10)
+			PrescMediErr := w.patientService.AddPatientPrescription(userId, &data)
+			if PrescMediErr != nil {
+				w.processStatusService.LogStepAndFail(p.ProcessID, step, constant.Failure, "Failed to save prescrition in database", err.Error(), nil, &p.RecordID, p.AttachmentId)
+			}
 
 		default:
 			log.Printf("Unknown document bucket: %s", utils.SafeString(reportData.DocumentBucket))
@@ -446,6 +494,8 @@ func (w *DigitizationWorker) ClassifyDoc(fileBuf *bytes.Buffer, p models.Digitiz
 				return w.diagnosticService.NotifyAbnormalResult(matchedUserID)
 			}
 		}
+	} else {
+		w.diagnosticService.CreatePatientReportAndAttachment(matchedUserID, p.RecordID)
 	}
 	return nil
 }

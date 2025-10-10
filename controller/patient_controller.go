@@ -1000,10 +1000,22 @@ func (c *PatientController) GetAllMedicalRecord(ctx *gin.Context) {
 	if queryParamErr != nil {
 		isDeleted = 0
 	}
-	data, total, counts, err := c.medicalRecordService.GetMedicalRecords(patientId, category, tag, limit, offset, isDeleted)
-	if err != nil {
-		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, err)
-		return
+	var data []models.MedicalRecordResponseRes
+	var total int64
+	var counts map[string]int64
+	var fetchErr error
+	if category == string(constant.MEDICATION) {
+		data, total, counts, fetchErr = c.medicalRecordService.GetPrecription(patientId, category, tag, limit, offset, isDeleted)
+		if fetchErr != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, fetchErr)
+			return
+		}
+	} else {
+		data, total, counts, fetchErr = c.medicalRecordService.GetMedicalRecords(patientId, category, tag, limit, offset, isDeleted)
+		if fetchErr != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to retrieve records", nil, fetchErr)
+			return
+		}
 	}
 	pagination := utils.GetPagination(limit, page, offset, total)
 	message := "Data not found"

@@ -121,7 +121,7 @@ func (s *PatientServiceImpl) GetGenderById(genderId uint64) (models.GenderMaster
 }
 
 func (s *PatientServiceImpl) GetPrescriptionByPatientId(patientId uint64, limit int, offset int) ([]models.PatientPrescription, int64, error) {
-	return s.patientRepo.GetPrescriptionByPatientId(patientId, limit, offset)
+	return s.patientRepo.GetPrescriptionByPatientId(patientId, nil, limit, offset)
 }
 
 func (s *PatientServiceImpl) GetPrescriptionDetailByPatientId(patientId uint64, limit int, offset int) ([]models.PrescriptionDetail, int64, error) {
@@ -223,7 +223,7 @@ func (s *PatientServiceImpl) GetPharmacokineticsInfo(prescriptionId uint64, pati
 
 func (s *PatientServiceImpl) SummarizeHistorybyAIModel(patientId uint64) (string, error) {
 
-	data, _, err := s.patientRepo.GetPrescriptionByPatientId(patientId, 100, 0)
+	data, _, err := s.patientRepo.GetPrescriptionByPatientId(patientId, nil, 100, 0)
 	if err != nil {
 		return "", err
 	}
@@ -1364,7 +1364,7 @@ func (s *PatientServiceImpl) StartConversation(message string, userInfo models.S
 		query_type = "report"
 
 	case "Prescription":
-		data, _, err := s.patientRepo.GetPrescriptionByPatientId(userInfo.UserId, 1, 0)
+		data, _, err := s.patientRepo.GetPrescriptionByPatientId(userInfo.UserId, nil, 1, 0)
 		if err != nil {
 			return &models.AskAPIResponse{}, err
 		}
