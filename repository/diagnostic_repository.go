@@ -901,6 +901,13 @@ func (dr *DiagnosticRepositoryImpl) ArchivePatientDiagnosticReport(recordId uint
 		tx.Rollback()
 		return err
 	}
+	err1 := tx.Model(&models.PatientPrescription{}).
+		Where("record_id = ?", recordId).
+		Update("is_deleted", isDeleted).Error
+	if err1 != nil {
+		tx.Rollback()
+		return err1
+	}
 
 	return tx.Commit().Error
 }

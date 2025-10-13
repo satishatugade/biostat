@@ -904,29 +904,27 @@ func (s *tblMedicalRecordServiceImpl) GetPrecription(
 	isDeleted int,
 ) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
 
-	// Step 1: Fetch mapping of report records
-	reportMap, totalCount, categoryCount, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, isDeleted)
+	var total int64
+	reportMap, _, categoryCount, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, isDeleted)
 	if err != nil {
 		return nil, 0, nil, err
 	}
 
 	var allRecords []models.MedicalRecordResponseRes
 
-	// Step 2: Loop through each record group
 	for _, recordIDs := range reportMap {
-		// Get record details by IDs
 		records, err := s.tblMedicalRecordRepo.GetRecordsByIDs(recordIDs, isDeleted)
 		if err != nil {
 			return nil, 0, nil, err
 		}
-
-		// Get prescription data by patient ID
-		prescData, _, err := s.patientRepo.GetPrescriptionByPatientId(userID, &recordIDs, limit, offset)
+		total += int64(len(records))
+		prescData, count, err := s.patientRepo.GetPrescriptionByPatientId(userID, &recordIDs, limit, offset)
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		log.Println("prescData ", prescData)
-		// Step 3: Build response objects
+		if count > 0 {
+			categoryCount["medications"] = count
+		}
 		for _, rec := range records {
 			mainRec := models.MedicalRecordResponseRes{
 				RecordID:             rec.RecordId,
@@ -951,7 +949,7 @@ func (s *tblMedicalRecordServiceImpl) GetPrecription(
 		}
 	}
 
-	return allRecords, totalCount, categoryCount, nil
+	return allRecords, total, categoryCount, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(
@@ -964,7 +962,6 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	log.Println("categoryCount ", categoryCount)
 	var responses []models.MedicalRecordResponseRes
 	counts := make(map[string]int64)
 	var total int64

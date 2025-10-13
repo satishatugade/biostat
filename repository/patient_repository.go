@@ -226,20 +226,30 @@ func (p *PatientRepositoryImpl) GetPrescriptionByPatientId(patientId uint64, rec
 	var prescriptions []models.PatientPrescription
 	var totalRecords int64
 
-	query := p.db.
-		Where("patient_id = ? and is_deleted = 0", patientId).
-		Preload("PrescriptionDetails").Preload("PrescriptionDetails.DosageInfo").Preload("MedicalRecord").Order("prescription_id DESC").
-		Limit(limit).
-		Offset(offset).
-		Find(&prescriptions).
-		Count(&totalRecords)
+	if err := p.db.Model(&models.PatientPrescription{}).
+		Where("patient_id = ? AND is_deleted = 0", patientId).
+		Count(&totalRecords).Error; err != nil {
+		return nil, 0, err
+	}
 
-	if query.Error != nil {
-		return nil, 0, query.Error
+	query := p.db.Model(&models.PatientPrescription{}).
+		Where("patient_id = ? AND is_deleted = 0", patientId).
+		Preload("PrescriptionDetails").
+		Preload("PrescriptionDetails.DosageInfo").
+		Preload("MedicalRecord").
+		Order("prescription_date DESC, prescription_id DESC")
+
+	if recordIDs != nil && len(*recordIDs) > 0 {
+		query = query.Where("record_id IN ?", *recordIDs)
+	}
+
+	if err := query.Limit(limit).Offset(offset).Find(&prescriptions).Error; err != nil {
+		return nil, 0, err
 	}
 
 	return prescriptions, totalRecords, nil
 }
+
 func (p *PatientRepositoryImpl) UpdatePrescriptionArchiveState(patientId uint64, prescriptionID uint64, isDeleted int) error {
 	result := p.db.Model(&models.PatientPrescription{}).
 		Where("patient_id = ? AND prescription_id = ?", patientId, prescriptionID).
