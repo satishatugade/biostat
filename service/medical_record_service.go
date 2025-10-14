@@ -905,7 +905,7 @@ func (s *tblMedicalRecordServiceImpl) GetPrecription(
 ) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
 
 	var total int64
-	reportMap, _, categoryCount, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, isDeleted)
+	reportMap, _, categoryCount, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, limit, offset, isDeleted)
 	if err != nil {
 		return nil, 0, nil, err
 	}
@@ -952,13 +952,9 @@ func (s *tblMedicalRecordServiceImpl) GetPrecription(
 	return allRecords, total, categoryCount, nil
 }
 
-func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(
-	userID uint64,
-	category, tag string,
-	limit, offset, isDeleted int,
-) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
+func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, category, tag string, limit, offset, isDeleted int) ([]models.MedicalRecordResponseRes, int64, map[string]int64, error) {
 
-	reportMap, _, categoryCount, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, isDeleted)
+	reportMap, tCount, categoryCount, err := s.tblMedicalRecordRepo.GetReportRecordMapping(userID, category, tag, limit, offset, isDeleted)
 	if err != nil {
 		return nil, 0, nil, err
 	}
@@ -1096,7 +1092,9 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(
 		responses = append(responses, mainRecords...)
 	}
 
-	return responses, total, categoryCount, nil
+	log.Println("tCount:", tCount)
+	log.Println("categoryCount:", categoryCount)
+	return responses, tCount, categoryCount, nil
 }
 
 func (s *tblMedicalRecordServiceImpl) MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error {

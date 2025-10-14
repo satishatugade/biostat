@@ -44,7 +44,7 @@ type TblMedicalRecordRepository interface {
 	GetReferenceRanges(componentID uint64) ([]models.DiagnosticTestReferenceRange, error) //separate table
 	GetDiagnosticTestMaster(testID uint64) (*models.DiagnosticTest, error)
 	MovePatientRecord(patientId, targetPatientId, recordId, reportId uint64) error
-	GetReportRecordMapping(userID uint64, category, tag string, isDeleted int) (map[uint64][]uint64, int64, map[string]int64, error)
+	GetReportRecordMapping(userID uint64, category, tag string, limit, offset, isDeleted int) (map[uint64][]uint64, int64, map[string]int64, error)
 	GetRecordsByIDs(recordIDs []uint64, isDeleted int) ([]models.TblMedicalRecord, error)
 	GetAllReportTag(userId uint64, limit, offset int) ([]models.UserTag, int64, error)
 	AddTag(tag *models.UserTag) error
@@ -703,16 +703,7 @@ func (r *tblMedicalRecordRepositoryImpl) GetRecordsByIDs(recordIDs []uint64, isD
 	return records, err
 }
 
-func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
-	userID uint64,
-	category, tag string,
-	isDeleted int,
-) (
-	map[uint64][]uint64,
-	int64,
-	map[string]int64,
-	error,
-) {
+func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(userID uint64, category, tag string, limit, offset, isDeleted int) (map[uint64][]uint64, int64, map[string]int64, error) {
 
 	var attachments []struct {
 		PatientDiagnosticReportId uint64 `gorm:"column:patient_diagnostic_report_id"`
@@ -744,8 +735,15 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 	if category != "" {
 		query = query.Where("mr.record_category = ?", category)
 	}
+	var totalCount int64
 
-	query = query.Order("report.report_date DESC")
+	if err := query.Count(&totalCount).Error; err != nil {
+		return nil, 0, nil, err
+	}
+
+	query = query.
+		Offset(offset).
+		Limit(limit).Order("report.report_date DESC")
 
 	if err := query.Find(&attachments).Error; err != nil {
 		return nil, 0, nil, err
@@ -762,7 +760,6 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 	}
 
 	categoryCountMap := make(map[string]int64)
-	var totalCount int64
 
 	var recordCounts []CategoryCount
 	recordQuery := r.db.
@@ -778,7 +775,6 @@ func (r *tblMedicalRecordRepositoryImpl) GetReportRecordMapping(
 
 	for _, rc := range recordCounts {
 		categoryCountMap[rc.RecordCategory] = rc.Count
-		totalCount += rc.Count
 	}
 
 	var prescriptionCount int64
