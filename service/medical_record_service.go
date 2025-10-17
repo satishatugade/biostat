@@ -1091,9 +1091,6 @@ func (s *tblMedicalRecordServiceImpl) GetMedicalRecords(userID uint64, category,
 
 		responses = append(responses, mainRecords...)
 	}
-
-	log.Println("tCount:", tCount)
-	log.Println("categoryCount:", categoryCount)
 	return responses, tCount, categoryCount, nil
 }
 

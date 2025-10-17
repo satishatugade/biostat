@@ -144,6 +144,28 @@ func (gc *GmailSyncController) OutLookCallbackHandler(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, fmt.Sprintf(os.Getenv("APP_URL")+"/dashboard/medical-reports?status=processing"))
 }
 
+func (c *GmailSyncController) OutLookFetchEmailsHandlerApp(ctx *gin.Context) {
+	var req models.GmailSyncRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request body", nil, err)
+		return
+	}
+
+	outlookToken, err := c.outlookService.VerifyAndWrapOutlookToken(req.UserID, req.AccessToken)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Outlook couldn't be synced", nil, err)
+		return
+	}
+	go func() {
+		if err := c.outlookService.SyncOutLookApp(ctx, req.UserID, outlookToken); err != nil {
+			log.Println("FetchEmailsHandlerApp:", err)
+		}
+	}()
+
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", gin.H{"message": "Outlook syncing process started will update you once done"}, nil, nil)
+	return
+}
+
 func (pc *GmailSyncController) YahooLoginHandler(ctx *gin.Context) {
 	userId := utils.GetParamAsUInt(ctx, "user_id")
 	if userId == 0 {

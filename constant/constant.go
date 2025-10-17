@@ -232,6 +232,7 @@ const (
 	ProviderList            = "/provider-details"
 	GmailReSync             = "/resync"
 	AppSync                 = "/app-sync"
+	OutlookAppSync          = "/outlook-app-sync"
 	OuthCallBack            = "/oauth2callback"
 	WebSync                 = "/web-sync/:user_id"
 	OutlookWebSync          = "/outlook/login/:user_id"

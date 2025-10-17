@@ -427,11 +427,12 @@ func getUserRoutes(userController *controller.UserController) Routes {
 
 func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Routes {
 	return Routes{
-		{"gmail sync route", http.MethodPost, constant.AppSync, gmailSyncController.FetchEmailsHandlerApp},
-		{"gmail sync route", http.MethodGet, constant.OuthCallBack, gmailSyncController.GmailCallbackHandler},
-		{"gmail sync route", http.MethodGet, constant.WebSync, gmailSyncController.GmailLoginHandler},
+		Route{"gmail sync route", http.MethodPost, constant.AppSync, gmailSyncController.FetchEmailsHandlerApp},
+		Route{"gmail sync route", http.MethodGet, constant.OuthCallBack, gmailSyncController.GmailCallbackHandler},
+		Route{"gmail sync route", http.MethodGet, constant.WebSync, gmailSyncController.GmailLoginHandler},
 		Route{"Outlook ", http.MethodPost, constant.OutlookWebSync, gmailSyncController.OutLookLoginHandler},
 		Route{"Outlook ", http.MethodGet, constant.OutlookCallBack, gmailSyncController.OutLookCallbackHandler},
+		Route{"Outlook", http.MethodPost, constant.OutlookAppSync, gmailSyncController.OutLookFetchEmailsHandlerApp},
 	}
 }
 

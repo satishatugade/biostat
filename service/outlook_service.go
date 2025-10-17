@@ -28,6 +28,8 @@ type OutLookService interface {
 	GetOutLookAuthURL(userID uint64) (string, error)
 	GetOutLookToken(ctx context.Context, code string) (*oauth2.Token, error)
 	SyncOutLookWeb(ctx context.Context, userId uint64, token *oauth2.Token) error
+	VerifyAndWrapOutlookToken(UserID uint64, accessToken string) (*oauth2.Token, error)
+	SyncOutLookApp(ctx context.Context, userID uint64, token *oauth2.Token) error
 }
 
 type OutLookServiceImpl struct {
@@ -150,6 +152,58 @@ func (ols *OutLookServiceImpl) SyncOutLookWeb(ctx context.Context, userID uint64
 		return err
 	}
 	log.Println("Records fetched:", len(allEmailRecords))
+	return ols.gmailSyncService.GmailSyncCore(userID, processIdKey, allEmailRecords)
+}
+
+func (ols *OutLookServiceImpl) VerifyAndWrapOutlookToken(UserID uint64, accessToken string) (*oauth2.Token, error) {
+	_, err := GetOutlookEmailFromToken(accessToken)
+	if err != nil {
+		log.Println("Error @VerifyAndWrapOutlookToken: ", UserID, " :->", err)
+		return nil, err
+	}
+	userToken := oauth2.Token{
+		AccessToken: accessToken,
+		TokenType:   "Bearer",
+	}
+	return &userToken, nil
+}
+
+func (ols *OutLookServiceImpl) SyncOutLookApp(ctx context.Context, userID uint64, token *oauth2.Token) error {
+	processIdKey, _ := ols.processStatusService.StartProcessInRedis(
+		userID,
+		string(constant.GmailSync),
+		strconv.FormatUint(userID, 10),
+		string(constant.MedicalRecordEntity),
+		string(constant.ProcessTokenExchange),
+	)
+	step := string(constant.ProcessTokenExchange)
+	email, err := GetOutlookEmailFromToken(token.AccessToken)
+	if err != nil {
+		ols.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, string(constant.TokenExchangeFailed), err.Error(), nil, nil, nil)
+		return fmt.Errorf("failed to fetch email: %w", err)
+	}
+	_, tokenErr := ols.userService.CreateTblUserToken(&models.TblUserToken{
+		UserId:       userID,
+		AuthToken:    token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Provider:     "OutLook",
+		ProviderId:   email,
+		ExpiresAt:    token.Expiry,
+	})
+	if tokenErr != nil {
+		ols.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, "Failed to save user token: ", tokenErr.Error(), nil, nil, nil)
+	} else {
+		ols.processStatusService.LogStep(processIdKey, step, constant.Success, "User token fetch successfully", "", nil, nil, nil, nil, nil, nil)
+	}
+	allEmailRecords, err := ols.GetOutLookRecords(userID, processIdKey, ctx, token.AccessToken)
+	if err != nil {
+		step := string(constant.ProcessFetchLabs)
+		msg := "No valid medical records were found during this current Gmail sync."
+		ols.processStatusService.LogStepAndFail(processIdKey, step, constant.Failure, msg, err.Error(), nil, nil, nil)
+		log.Println("@GmailSyncCore->FetchEmailsWithAttachments:", userID, " err:", err)
+		return err
+	}
+	log.Println("Records fetched @SyncOutLookApp:", len(allEmailRecords))
 	return ols.gmailSyncService.GmailSyncCore(userID, processIdKey, allEmailRecords)
 }
 
