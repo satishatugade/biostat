@@ -10,6 +10,7 @@ import (
 	"biostat/utils"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"runtime/debug"
 	"strings"
@@ -29,13 +30,14 @@ type UserController struct {
 	authService         auth.AuthService
 	permissionService   service.PermissionService
 	subscriptionService service.SubscriptionService
+	apiService          service.ApiService
 }
 
 func NewUserController(patientService service.PatientService, roleService service.RoleService,
 	userService service.UserService, notificationService service.NotificationService, authService auth.AuthService,
-	permissionService service.PermissionService, subscriptionService service.SubscriptionService) *UserController {
+	permissionService service.PermissionService, subscriptionService service.SubscriptionService, apiService service.ApiService) *UserController {
 	return &UserController{patientService: patientService, roleService: roleService,
-		userService: userService, notificationService: notificationService, authService: authService, permissionService: permissionService, subscriptionService: subscriptionService}
+		userService: userService, notificationService: notificationService, authService: authService, permissionService: permissionService, subscriptionService: subscriptionService, apiService: apiService}
 }
 
 func (uc *UserController) RegisterUser(c *gin.Context) {
@@ -77,6 +79,13 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 		return
 	}
 	user.NotifyId = notifyId.String()
+	userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+	createdEmail, err := uc.apiService.RegisterUserInMailCow(userFullName, user.MobileNo)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user, Mail server not reachable", nil, err)
+		return
+	}
+	user.BiomailId = createdEmail
 
 	keyCloakUser := user
 	keyCloakUser.Password = rawPassword
@@ -412,6 +421,15 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 			return
 		}
 		req.NotifyId = notifyId.String()
+		if req.MobileNo != "" {
+			userFullName := fmt.Sprintf("%s %s", req.FirstName, req.LastName)
+			createdEmail, err := uc.apiService.RegisterUserInMailCow(userFullName, req.MobileNo)
+			if err != nil {
+				models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user, Mail server not reachable", nil, err)
+				return
+			}
+			req.BiomailId = createdEmail
+		}
 		systemUser, systemUserErr = uc.userService.CreateSystemUser(tx, req)
 		if systemUserErr != nil {
 			tx.Rollback()

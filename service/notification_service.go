@@ -34,6 +34,7 @@ type NotificationService interface {
 	RegisterUserInNotify(fcmToken, phone *string, email string) (uuid.UUID, error)
 	UpadateUserInNotify(recipientId string, fcmToken, email, phone *string) error
 	AddUsersToNotify() error
+	AddUsersToMail() error
 	SaveOrUpdateNotifyCreds(userId uint64, fcmToken *string, user *models.SystemUser_) error
 }
 
@@ -327,6 +328,33 @@ func (s *NotificationServiceImpl) AddUsersToNotify() error {
 	return nil
 }
 
+func (s *NotificationServiceImpl) AddUsersToMail() error {
+	users, err := s.notificationRepo.GetMailUnregisteredUsers()
+	if err != nil {
+		return err
+	}
+	for _, user := range users {
+		userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+		createdEmail, err := s.apiService.RegisterUserInMailCow(userFullName, user.MobileNo)
+		if err != nil {
+			log.Println("Failed to Register User In Notify ", err)
+			continue
+		}
+
+		updateInfo := map[string]interface{}{
+			"biomail_id": createdEmail,
+		}
+		err = s.userRepo.UpdateUserInfo(user.AuthUserId, updateInfo)
+		if err != nil {
+			log.Println("Failed to Update User Info in DB ", err)
+			continue
+		}
+		user.BiomailId = createdEmail
+		s.SendBioMailMigrationNofication(user)
+	}
+	return nil
+}
+
 func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, password *string, patient *models.Patient, relationship string) error {
 	APPURL := config.PropConfig.ApiURL.APPURL
 	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
@@ -357,6 +385,8 @@ func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemU
 			"password":        password,
 			"loginURL":        APPURL,
 			"resetURL":        RESETURL,
+			"bioEmail":        systemUser.BiomailId,
+			"bioEmailPass":    os.Getenv("MAIL_COW_DPASS"),
 		},
 	}
 	header := map[string]string{
@@ -396,8 +426,6 @@ func (e *NotificationServiceImpl) SendConnectionMail(systemUser models.SystemUse
 		patientFullName = patient.FirstName + " " + patient.LastName
 	}
 	sendBody := map[string]interface{}{
-		// "user_id":           systemUser.UserId,
-		// "recipient_mail_id": systemUser.Email,
 		"target_type":   "recipient_id",
 		"target_value":  systemUser.NotifyId,
 		"template_code": 11,
@@ -695,4 +723,25 @@ func (ns *NotificationServiceImpl) SaveOrUpdateNotifyCreds(userId uint64, fcmTok
 		return nil
 	}
 	return ns.UpadateUserInNotify(user.NotifyId, fcmToken, &user.Email, &user.MobileNo)
+}
+
+func (e *NotificationServiceImpl) SendBioMailMigrationNofication(systemUser models.SystemUser_) error {
+	sendBody := map[string]interface{}{
+		"target_type":   "recipient_id",
+		"target_value":  systemUser.NotifyId,
+		"template_code": 12,
+		"channels":      []string{"email"},
+		"data": map[string]interface{}{
+			"bioEmail":     systemUser.BiomailId,
+			"bioEmailPass": os.Getenv("MAIL_COW_DPASS"),
+		},
+	}
+	header := map[string]string{
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
+	}
+	_, _, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
+	if sendErr != nil {
+		return sendErr
+	}
+	return nil
 }

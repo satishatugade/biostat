@@ -15,6 +15,7 @@ type UserNotificationRepository interface {
 	GetNotificationByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 	GetRemindersByUserId(userId uint64) ([]models.UserNotificationMapping, error)
 	GetNotifUnregisteredUsers() ([]models.SystemUser_, error)
+	GetMailUnregisteredUsers() ([]models.SystemUser_, error)
 	GetUserNotifyId(userId uint64) (string, error)
 }
 
@@ -61,6 +62,12 @@ func (r *UserNotificationRepositoryImpl) GetRemindersByUserId(userId uint64) ([]
 func (r *UserNotificationRepositoryImpl) GetNotifUnregisteredUsers() ([]models.SystemUser_, error) {
 	var users []models.SystemUser_
 	err := r.db.Where("notify_id IS NULL").Find(&users).Error
+	return users, err
+}
+
+func (r *UserNotificationRepositoryImpl) GetMailUnregisteredUsers() ([]models.SystemUser_, error) {
+	var users []models.SystemUser_
+	err := r.db.Where("(biomail_id IS NULL OR biomail_id = '') AND mobile_no != ''").Find(&users).Error
 	return users, err
 }
 

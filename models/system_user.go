@@ -87,6 +87,7 @@ type SystemUser_ struct {
 	MaritalStatus string        `gorm:"column:marital_status;type:varchar(100)" json:"marital_status"`
 	Address       string        `gorm:"column:address;type:text" json:"address"`
 	NotifyId      string        `gorm:"column:notify_id;type:varchar" json:"notify_id"`
+	BiomailId     string        `gorm:"column:biomail_id;type:varchar" json:"biomail_id"`
 	UserAddress   AddressMaster `gorm:"-" json:"user_address"`
 
 	// Patient-Specific Fields

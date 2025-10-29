@@ -326,6 +326,47 @@ func (pc *PatientController) GetPatientDiagnosticReportResult(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Report grid view load successfully", results, pagination, nil)
 }
 
+func (pc *PatientController) CreateDiagnosticComponentGroup(ctx *gin.Context) {
+	sub, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	reqUserID, err := pc.userService.GetUserIdBySUB(sub)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	var req models.AddGroupRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "failed to serve request", nil, err)
+		return
+	}
+
+	err = pc.patientService.AddGroupWithComponents(req.GroupName, user_id, reqUserID, req.ComponentIDs)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Group created successfully", nil, nil, nil)
+}
+
+func (pc *PatientController) GetDiagnosticComponentGroup(ctx *gin.Context) {
+	_, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	groups, err := pc.patientService.GetPatientGroups(user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Group fetched successfully", groups, nil, nil)
+}
+
 func (pc *PatientController) ExportDiagnosticResultsExcel(c *gin.Context) {
 	_, user_id, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {

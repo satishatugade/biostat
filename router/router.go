@@ -107,7 +107,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	OpenRoutes(apiGroup, patientController)
 
-	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService)
+	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService, apiService)
 	UserRoutes(apiGroup, userController)
 
 	// Workers
@@ -261,6 +261,7 @@ func getMasterRoutes(masterController *controller.MasterController, patientContr
 		Route{"Get-subscription-plan", http.MethodPost, constant.GetSubscriptionPlan, masterController.GetSubscriptionPlanService},
 
 		Route{"Create Users on notify", http.MethodPost, constant.RecipientDetails, masterController.CreateUsersOnNotify},
+		Route{"Create Users on notify", http.MethodPost, constant.MigrateToBioMail, masterController.CreateUsersOnMail},
 	}
 }
 func getPatientRoutes(patientController *controller.PatientController) Routes {
@@ -326,6 +327,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient disease condition", http.MethodPost, constant.GetReportResult, patientController.GetPatientDiagnosticReportResult},
 		Route{"patient disease condition", http.MethodPost, constant.ExportReport, patientController.ExportDiagnosticResultsExcel},
 		Route{"patient disease condition", http.MethodPost, constant.ExportPDFReport, patientController.ExportDiagnosticResultsPDF},
+		Route{"patient disease condition", http.MethodPost, constant.DiagnosticGroup, patientController.CreateDiagnosticComponentGroup},
+		Route{"patient disease condition", http.MethodGet, constant.DiagnosticGroup, patientController.GetDiagnosticComponentGroup},
 
 		Route{"patient diet", http.MethodPost, constant.PatientDietPlan, patientController.GetPatientDietPlan},
 		Route{"patient prescription", http.MethodPost, constant.PatientPrescription, patientController.AddPrescription},

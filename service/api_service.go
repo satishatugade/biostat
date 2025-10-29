@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -31,6 +32,7 @@ type ApiService interface {
 	CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error)
 	MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error)
 	GetTranscription(file multipart.File) (string, error)
+	RegisterUserInMailCow(name, localPart string) (string, error)
 }
 
 type ApiServiceImpl struct {
@@ -47,6 +49,10 @@ type ApiServiceImpl struct {
 	FetchNameAPI               string
 	client                     *http.Client
 	sessionCache               map[uint64]string
+	MailcowBaseDomain          string
+	MailcowAPIKey              string
+	MailDomain                 string
+	MailCowDefaultPass         string
 }
 
 func NewApiService() ApiService {
@@ -64,6 +70,10 @@ func NewApiService() ApiService {
 		FetchNameAPI:               config.PropConfig.ApiURL.FetchNameAPI,
 		client:                     &http.Client{},
 		sessionCache:               make(map[uint64]string),
+		MailcowBaseDomain:          config.PropConfig.ApiURL.MailServerBase,
+		MailcowAPIKey:              config.PropConfig.ApiURL.MailCowAPI,
+		MailDomain:                 config.PropConfig.ApiURL.MailCowDomain,
+		MailCowDefaultPass:         config.PropConfig.ApiURL.MailCowPass,
 	}
 }
 
@@ -803,4 +813,68 @@ func (s *ApiServiceImpl) GetTranscription(file multipart.File) (string, error) {
 	}
 
 	return transcription, nil
+}
+
+func (s *ApiServiceImpl) RegisterUserInMailCow(name, localPart string) (string, error) {
+	log.Println("@RegisterUserInMailCow ", name, localPart)
+	payload := map[string]interface{}{
+		"active":          "1",
+		"domain":          s.MailDomain,
+		"local_part":      localPart,
+		"name":            name,
+		"password":        s.MailCowDefaultPass,
+		"password2":       s.MailCowDefaultPass,
+		"quota":           "2048",
+		"force_pw_update": "1",
+		"tls_enforce_in":  "1",
+		"tls_enforce_out": "1",
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Println("failed to marshal payload: %v", err)
+		return "", fmt.Errorf("failed to marshal payload: %v", err)
+	}
+	MailcowAPIURL := fmt.Sprintf("%s/add/mailbox", s.MailcowBaseDomain)
+	req, err := http.NewRequest("POST", MailcowAPIURL, bytes.NewBuffer(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.MailcowAPIKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("failed to send request: %v", err)
+		return "", fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+	// respBody, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	log.Printf("failed to read response body: %v", err)
+	// 	return "", fmt.Errorf("failed to read response body: %v", err)
+	// }
+	// var jsonResponse interface{}
+	// if err := json.Unmarshal(respBody, &jsonResponse); err != nil {
+	// 	log.Printf("failed to unmarshal JSON response: %v", err)
+	// } else {
+	// 	prettyJSON, err := json.MarshalIndent(jsonResponse, "", "  ")
+	// 	if err != nil {
+	// 		log.Printf("failed to format JSON response: %v", err)
+	// 	} else {
+	// 		log.Println("Mailcow API Response (JSON):")
+	// 		log.Println(string(prettyJSON))
+	// 	}
+	// }
+
+	if resp.StatusCode != 200 {
+		log.Println("Mailcow API returned status: %s", resp.Status)
+		return "", fmt.Errorf("Mailcow API returned status: %s", resp.Status)
+	}
+
+	createdEmail := fmt.Sprintf("%s@%s", localPart, s.MailDomain)
+
+	return createdEmail, nil
 }

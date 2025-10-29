@@ -2522,3 +2522,17 @@ func (mc *MasterController) CreateUsersOnNotify(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "success", nil, nil, nil)
 }
+
+func (mc *MasterController) CreateUsersOnMail(ctx *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(ctx, mc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	err = mc.notificationService.AddUsersToMail()
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusNotFound, "error while creating users on mail server", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "success", nil, nil, nil)
+}

@@ -488,6 +488,7 @@ func MapUserToRoleSchema(user models.SystemUser_, roleName string) interface{} {
 			CountryOfResidence: user.CountryOfResidence,
 			IsIndianOrigin:     user.IsIndianOrigin,
 			Email:              user.Email,
+			BioMailId:          user.BiomailId,
 			Roles:              user.UserRoles,
 			CreatedAt:          user.CreatedAt,
 			UpdatedAt:          user.UpdatedAt,

@@ -36,6 +36,9 @@ type PatientRepository interface {
 	UpdateSystemUserRoleMapping(userId uint64, patientData *models.Patient) error
 	GetDistinctMedicinesByPatientID(patientID uint64) ([]models.UserMedicineInfo, error)
 	UpdatePrescriptionArchiveState(patientId uint64, prescriptionID uint64, isDeleted int) error
+	CreateGroupWithComponents(tx *gorm.DB, group *models.PatientDiagnosticTestGroupMaster, mappings []models.PatientDiagnosticTestGroupComponentMapping) error
+	WithTransaction(fn func(tx *gorm.DB) error) error
+	GetGroupsByPatientID(patientID uint64) ([]models.PatientDiagnosticTestGroupMaster, error)
 
 	MapSystemUserToPatient(updatedPatient *models.SystemUser_, updatedAddress models.AddressMaster) *models.Patient
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
@@ -1724,6 +1727,29 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 		query += " AND tdpdtcm.test_component_name ILIKE ? "
 		args = append(args, "%"+*filter.TestComponentName+"%")
 	}
+	if filter.GroupId != nil {
+		componentNames, err := p.GetTestComponentsByGroupID(*filter.GroupId)
+		if err != nil {
+			return nil, 0, fmt.Errorf("could no fetch components: %w", err)
+		}
+
+		if len(componentNames) > 0 {
+			if len(args) == 0 {
+				query += " WHERE ("
+			} else {
+				query += " AND ("
+			}
+
+			for i, name := range componentNames {
+				if i > 0 {
+					query += " OR "
+				}
+				query += "tdpdtcm.test_component_name ILIKE ?"
+				args = append(args, "%"+name.TestComponentName+"%")
+			}
+			query += ")"
+		}
+	}
 	if filter.DiagnosticLabID != nil {
 		query += " AND dl.diagnostic_lab_id = ? "
 		args = append(args, *filter.DiagnosticLabID)
@@ -2255,4 +2281,48 @@ func (p *PatientRepositoryImpl) GetUserRoles(userId uint64) []string {
 		return nil
 	}
 	return roles
+}
+
+func (r *PatientRepositoryImpl) WithTransaction(fn func(tx *gorm.DB) error) error {
+	return r.db.Transaction(fn)
+}
+
+func (r *PatientRepositoryImpl) CreateGroupWithComponents(tx *gorm.DB, group *models.PatientDiagnosticTestGroupMaster, mappings []models.PatientDiagnosticTestGroupComponentMapping) error {
+	if err := tx.Create(group).Error; err != nil {
+		return err
+	}
+	for i := range mappings {
+		mappings[i].GroupID = group.GroupID
+	}
+
+	if err := tx.Create(&mappings).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *PatientRepositoryImpl) GetGroupsByPatientID(patientID uint64) ([]models.PatientDiagnosticTestGroupMaster, error) {
+	var groups []models.PatientDiagnosticTestGroupMaster
+	err := r.db.Where("patient_id in ? AND is_deleted = 0", []uint64{patientID, 1}).
+		Order("group_name").
+		Find(&groups).Error
+	return groups, err
+}
+
+func (r *PatientRepositoryImpl) GetTestComponentsByGroupID(groupID uint64) ([]models.DiseaseProfileDiagnosticTestComponentMaster, error) {
+	var components []models.DiseaseProfileDiagnosticTestComponentMaster
+
+	if groupID == 0 {
+		return components, nil
+	}
+	err := r.db.
+		Table("tbl_patient_diagnostic_test_group_component_mapping AS mapping").
+		Select("component.*").
+		Joins("INNER JOIN tbl_disease_profile_diagnostic_test_component_master AS component ON mapping.diagnostic_test_component_id = component.diagnostic_test_component_id").
+		Joins("INNER JOIN tbl_patient_diagnostic_test_group_master AS grp ON mapping.group_id = grp.group_id").
+		Where("mapping.group_id = ? AND component.is_deleted = 0 AND grp.is_deleted = 0", groupID).
+		Find(&components).Error
+
+	return components, err
 }

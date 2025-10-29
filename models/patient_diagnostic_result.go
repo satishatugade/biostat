@@ -445,6 +445,7 @@ type DiagnosticReportFilter struct {
 	HealthVital       bool    `json:"health_vital,omitempty"`
 	Qualifier         *string `json:"qualifier,omitempty"`
 	TestComponentName *string `json:"test_component_name,omitempty"`
+	GroupId           *uint64 `json:"group_id,omitempty"`
 	DiagnosticLabID   *uint64 `json:"diagnostic_lab_id,omitempty"`
 	ReportStatus      *string `json:"report_status,omitempty"`
 	ResultStatus      *string `json:"result_status,omitempty"`
@@ -482,6 +483,71 @@ type PatientDiagnosticLabMapping struct {
 
 func (PatientDiagnosticLabMapping) TableName() string {
 	return "tbl_patient_diagnostic_lab_mapping"
+}
+
+type DiseaseProfileDiagnosticTestComponentMaster struct {
+	DiagnosticTestComponentID uint64    `gorm:"primaryKey;column:diagnostic_test_component_id" json:"diagnostic_test_component_id"`
+	TestComponentLoincCode    string    `gorm:"column:test_component_loinc_code" json:"test_component_loinc_code"`
+	TestComponentName         string    `gorm:"column:test_component_name" json:"test_component_name"`
+	TestComponentType         string    `gorm:"column:test_component_type" json:"test_component_type"`
+	Description               string    `gorm:"column:description" json:"description"`
+	Units                     string    `gorm:"column:units" json:"units"`
+	Property                  string    `gorm:"column:property" json:"property"`
+	TimeAspect                string    `gorm:"column:time_aspect" json:"time_aspect"`
+	System                    string    `gorm:"column:system" json:"system"`
+	Scale                     string    `gorm:"column:scale" json:"scale"`
+	TestComponentFrequency    int       `gorm:"column:test_component_frequency" json:"test_component_frequency"`
+	CreatedAt                 time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt                 time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedBy                 string    `gorm:"column:created_by" json:"created_by"`
+	IsDeleted                 int       `gorm:"column:is_deleted" json:"is_deleted"`
+}
+
+func (DiseaseProfileDiagnosticTestComponentMaster) TableName() string {
+	return "tbl_disease_profile_diagnostic_test_component_master"
+}
+
+type PatientDiagnosticTestGroupMaster struct {
+	GroupID   uint64    `gorm:"primaryKey;column:group_id" json:"group_id"`
+	GroupName string    `gorm:"column:group_name;not null" json:"group_name"`
+	PatientID uint64    `gorm:"column:patient_id;not null" json:"patient_id"`
+	CreatedBy uint64    `gorm:"column:created_by;not null" json:"created_by"`
+	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
+	IsDeleted int       `gorm:"column:is_deleted;default:0" json:"is_deleted"`
+}
+
+func (PatientDiagnosticTestGroupMaster) TableName() string {
+	return "tbl_patient_diagnostic_test_group_master"
+}
+
+type PatientDiagnosticTestGroupComponentMapping struct {
+	ID                        uint64 `gorm:"primaryKey;column:id" json:"id"`
+	GroupID                   uint64 `gorm:"column:group_id;not null" json:"group_id"`
+	DiagnosticTestComponentID uint64 `gorm:"column:diagnostic_test_component_id;not null" json:"diagnostic_test_component_id"`
+}
+
+func (PatientDiagnosticTestGroupComponentMapping) TableName() string {
+	return "tbl_patient_diagnostic_test_group_component_mapping"
+}
+
+type AddGroupRequest struct {
+	GroupName    string   `json:"group_name" binding:"required"`
+	ComponentIDs []uint64 `json:"component_ids" binding:"required"`
+}
+
+type ComponentDetail struct {
+	ID            uint64 `json:"component_id"`
+	Name          string `json:"component_name"`
+	Type          string `json:"component_type"`
+	Units         string `json:"units"`
+	TestFrequency int    `json:"test_component_frequency"`
+}
+
+type PatientGroupResponse struct {
+	GroupID    uint64            `json:"group_id"`
+	GroupName  string            `json:"group_name"`
+	CreatedAt  string            `json:"created_at"`
+	Components []ComponentDetail `json:"components"`
 }
 
 type DiagnosticLabResponse struct {

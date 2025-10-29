@@ -93,6 +93,10 @@ type PropertyConfig struct {
 		DocTypeAPI                  string
 		FetchNameAPI                string
 		SpeechToTextAPI             string
+		MailServerBase              string
+		MailCowAPI                  string
+		MailCowDomain               string
+		MailCowPass                 string
 	}
 }
 
@@ -158,6 +162,10 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.DocTypeAPI = getEnv("DOCUMENT_TYPE_API")
 	cfg.ApiURL.FetchNameAPI = getEnv("FETCH_NAME_API")
 	cfg.ApiURL.SpeechToTextAPI = getEnv("SPEECH_TO_TEXT_API")
+	cfg.ApiURL.MailServerBase = getEnv("MAIL_SERVER_BASE")
+	cfg.ApiURL.MailCowAPI = getEnv("MAIL_COW_KEY")
+	cfg.ApiURL.MailCowDomain = getEnv("MAIL_COW_DOMAIN")
+	cfg.ApiURL.MailCowPass = getEnv("MAIL_COW_DPASS")
 
 	return cfg
 }
