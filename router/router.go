@@ -96,9 +96,11 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
+	var abdmService = service.NewABDMService()
+
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
 		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,
-		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService, gmailSyncService)
+		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService, gmailSyncService, abdmService)
 
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
 		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
@@ -403,8 +405,12 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"Gmail ", http.MethodPost, constant.ProviderList, patientController.GetGmailProviderToSync},
 		Route{"Gmail ", http.MethodPost, constant.GmailReSync, patientController.GmailSyncRefreshToken},
-	}
 
+		Route{"ABDM", http.MethodPost, constant.ABDMSendOTP, patientController.SendABDMOTP},
+		Route{"ABDM", http.MethodPost, constant.ABDMVerifyOTP, patientController.VerifyAbdmOTP},
+		Route{"ABDM", http.MethodPost, constant.ABDMVerifyUser, patientController.VerifyAbdmUser},
+		Route{"ABDM", http.MethodPost, constant.ABDMUserAddress, patientController.SetAbhaUsername},
+	}
 }
 
 func getUserRoutes(userController *controller.UserController) Routes {

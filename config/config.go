@@ -97,6 +97,11 @@ type PropertyConfig struct {
 		MailCowAPI                  string
 		MailCowDomain               string
 		MailCowPass                 string
+		ABDMDEV                     string
+		ADBMBase                    string
+		ABDM_CMID                   string
+		ABDM_CLIENT_ID              string
+		ABDM_CLIENT_SECRET          string
 	}
 }
 
@@ -162,10 +167,17 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.DocTypeAPI = getEnv("DOCUMENT_TYPE_API")
 	cfg.ApiURL.FetchNameAPI = getEnv("FETCH_NAME_API")
 	cfg.ApiURL.SpeechToTextAPI = getEnv("SPEECH_TO_TEXT_API")
+
 	cfg.ApiURL.MailServerBase = getEnv("MAIL_SERVER_BASE")
 	cfg.ApiURL.MailCowAPI = getEnv("MAIL_COW_KEY")
 	cfg.ApiURL.MailCowDomain = getEnv("MAIL_COW_DOMAIN")
 	cfg.ApiURL.MailCowPass = getEnv("MAIL_COW_DPASS")
+
+	cfg.ApiURL.ABDMDEV = getEnv("ABDM_DEV")
+	cfg.ApiURL.ADBMBase = getEnv("ADBM_BASE")
+	cfg.ApiURL.ABDM_CMID = getEnv("ABDM_CMID")
+	cfg.ApiURL.ABDM_CLIENT_ID = getEnv("ABDM_CLIENT_ID")
+	cfg.ApiURL.ABDM_CLIENT_SECRET = getEnv("ABDM_CLIENT_SECRET")
 
 	return cfg
 }

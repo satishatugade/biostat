@@ -53,6 +53,7 @@ type PatientController struct {
 	subscriptionService  service.SubscriptionService
 	processStatusService service.ProcessStatusService
 	gmailSyncService     service.GmailSyncService
+	abdmService          service.ABDMService
 }
 
 func NewPatientController(patientService service.PatientService, dietService service.DietService,
@@ -62,7 +63,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 	apiService service.ApiService, diseaseService service.DiseaseService, smsService service.SmsService,
 	emailService service.EmailService, orderService service.OrderService, notificationService service.NotificationService,
 	authService auth.AuthService, roleService service.RoleService, permissionService service.PermissionService,
-	subscriptionService service.SubscriptionService, processStatusService service.ProcessStatusService, gmailSyncService service.GmailSyncService) *PatientController {
+	subscriptionService service.SubscriptionService, processStatusService service.ProcessStatusService, gmailSyncService service.GmailSyncService, abdmService service.ABDMService) *PatientController {
 	return &PatientController{patientService: patientService, dietService: dietService,
 		allergyService: allergyService, medicalRecordService: medicalRecordService,
 		medicationService: medicationService, appointmentService: appointmentService,
@@ -80,6 +81,7 @@ func NewPatientController(patientService service.PatientService, dietService ser
 		subscriptionService:  subscriptionService,
 		processStatusService: processStatusService,
 		gmailSyncService:     gmailSyncService,
+		abdmService:          abdmService,
 	}
 }
 
@@ -3141,5 +3143,115 @@ func (pc *PatientController) TranscriptionHandler(ctx *gin.Context) {
 		return
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Transcribe", gin.H{"transcription": transcription}, nil, nil)
+	return
+}
+
+func (pc *PatientController) SendABDMOTP(ctx *gin.Context) {
+	var req struct {
+		Mobile      string `json:"mobile,omitempty"`
+		AdharCardNo string `json:"aadhaar,omitempty"`
+		Type        string `json:"type" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
+		return
+	}
+
+	if req.Type == "mobile" && req.Mobile != "" {
+		respone, err := pc.abdmService.SendMobileOtp(req.Mobile)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
+			return
+		}
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "OTP sent", respone, nil, nil)
+		return
+	} else if req.Type == "aadhaar" && req.AdharCardNo != "" {
+		respone, err := pc.abdmService.SendAdhaarOtp(req.AdharCardNo)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
+			return
+		}
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "OTP sent", respone, nil, nil)
+		return
+	}
+
+	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request type"))
+	return
+}
+
+func (pc *PatientController) VerifyAbdmOTP(ctx *gin.Context) {
+	var req struct {
+		TxnId  string `json:"txnId" binding:"required"`
+		Otp    string `json:"otp" binding:"required"`
+		Mobile string `json:"mobile"`
+		Type   string `json:"type" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
+		return
+	}
+
+	if req.Type == "mobile" {
+		respone, err := pc.abdmService.VerifyOtp(req.TxnId, req.Otp)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
+			return
+		}
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+		return
+	} else if req.Type == "aadhaar" && req.Mobile != "" {
+		respone, err := pc.abdmService.VerifyAdharOtp(req.TxnId, req.Otp, req.Mobile)
+		if err != nil {
+			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
+			return
+		}
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+		return
+	}
+
+	models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request type"))
+	return
+}
+
+func (pc *PatientController) VerifyAbdmUser(ctx *gin.Context) {
+	var req struct {
+		TxnId      string `json:"txnId" binding:"required"`
+		AbhaNumber string `json:"abhaNumber" binding:"required"`
+		TToken     string `json:"tToken" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
+		return
+	}
+
+	respone, err := pc.abdmService.VerifyUser(req.TxnId, req.AbhaNumber, req.TToken)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+	return
+}
+
+func (pc *PatientController) SetAbhaUsername(ctx *gin.Context) {
+	var req struct {
+		TxnId   string `json:"txnId" binding:"required"`
+		Address string `json:"address" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
+		return
+	}
+
+	respone, err := pc.abdmService.SetAbhaUsername(req.TxnId, req.Address)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
 	return
 }

@@ -242,6 +242,10 @@ const (
 	YahooWebSync            = "/yahoo/login/:user_id"
 	YahooCallBack           = "/yahoo/callback"
 	Transcribe              = "/transcribe"
+	ABDMSendOTP             = "/abha/send-otp"
+	ABDMVerifyOTP           = "/abha/verify-otp"
+	ABDMVerifyUser          = "/abha/verify-user"
+	ABDMUserAddress         = "/abha/abha-address"
 )
 
 const (
