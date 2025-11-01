@@ -96,7 +96,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 
 	GmailSyncRoutes(apiGroup, gmailRecordsController)
 
-	var abdmService = service.NewABDMService()
+	var abdmService = service.NewABDMService(patientRepo)
 
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
 		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,

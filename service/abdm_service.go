@@ -3,6 +3,7 @@ package service
 import (
 	"biostat/config"
 	"biostat/models"
+	"biostat/repository"
 	"biostat/utils"
 	"bytes"
 	"encoding/json"
@@ -19,10 +20,10 @@ import (
 type ABDMService interface {
 	SendMobileOtp(mobile string) (*models.ABDMOtpResponse, error)
 	VerifyOtp(txnId, otp string) (*models.ABDMOtpVerifyResponse, error)
-	VerifyUser(txnId, abhaNumber, tToken string) (*models.ABDMUserVerifyResponse, error)
+	VerifyUser(txnId, abhaNumber, tToken string, userId uint64) (*models.ABDMUserVerifyResponse, error)
 
 	SendAdhaarOtp(adharCardNo string) (*models.ABDMOtpResponse, error)
-	VerifyAdharOtp(txnId, otp, mobile string) (interface{}, error)
+	VerifyAdharOtp(txnId, otp, mobile string, userId uint64) (*models.AbdmVerifyAadhaarOtpResponse, error)
 	SetAbhaUsername(txnId, address string) (interface{}, error)
 }
 
@@ -32,15 +33,17 @@ type ABDMServiceimpl struct {
 	ABDMDev          string
 	ABDMClientID     string
 	ABDMClientSecret string
+	patientRepo      repository.PatientRepository
 }
 
-func NewABDMService() *ABDMServiceimpl {
+func NewABDMService(patientRepo repository.PatientRepository) *ABDMServiceimpl {
 	return &ABDMServiceimpl{
 		X_CM_ID:          config.PropConfig.ApiURL.ABDM_CMID,
 		ABDMBase:         config.PropConfig.ApiURL.ADBMBase,
 		ABDMDev:          config.PropConfig.ApiURL.ABDMDEV,
 		ABDMClientID:     config.PropConfig.ApiURL.ABDM_CLIENT_ID,
 		ABDMClientSecret: config.PropConfig.ApiURL.ABDM_CLIENT_SECRET,
+		patientRepo:      patientRepo,
 	}
 }
 
@@ -93,13 +96,18 @@ func (s *ABDMServiceimpl) VerifyOtp(txnId, otp string) (*models.ABDMOtpVerifyRes
 	return &resp, nil
 }
 
-func (s *ABDMServiceimpl) VerifyUser(txnId, abhaNumber, tToken string) (*models.ABDMUserVerifyResponse, error) {
+func (s *ABDMServiceimpl) VerifyUser(txnId, abhaNumber, tToken string, userId uint64) (*models.ABDMUserVerifyResponse, error) {
 	token, err := s.GetAbdmSession()
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := s.VerifyAbdmUser(token.AccessToken, tToken, abhaNumber, txnId)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.patientRepo.UpdatePatientById(userId, &models.Patient{AbhaNumber: abhaNumber})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +137,7 @@ func (s *ABDMServiceimpl) SendAdhaarOtp(adharCardNo string) (*models.ABDMOtpResp
 	return resp, nil
 }
 
-func (s *ABDMServiceimpl) VerifyAdharOtp(txnId, otp, mobile string) (interface{}, error) {
+func (s *ABDMServiceimpl) VerifyAdharOtp(txnId, otp, mobile string, userId uint64) (*models.AbdmVerifyAadhaarOtpResponse, error) {
 	token, err := s.GetAbdmSession()
 	if err != nil {
 		return nil, err
@@ -145,7 +153,7 @@ func (s *ABDMServiceimpl) VerifyAdharOtp(txnId, otp, mobile string) (interface{}
 		return nil, err
 	}
 
-	createAbhaResp, err := s.CreateAbhaByAadhaar(token.AccessToken, txnId, encryptedOtp, mobile)
+	createdAbhaResp, err := s.CreateAbhaByAadhaar(token.AccessToken, txnId, encryptedOtp, mobile)
 	if err != nil {
 		return nil, err
 	}
@@ -154,10 +162,17 @@ func (s *ABDMServiceimpl) VerifyAdharOtp(txnId, otp, mobile string) (interface{}
 	if err != nil {
 		return nil, err
 	}
+	_, err = s.patientRepo.UpdatePatientById(userId, &models.Patient{AbhaNumber: createdAbhaResp.ABHAProfile.ABHANumber})
+	if err != nil {
+		return nil, err
+	}
 
-	resp := map[string]interface{}{
-		"abha":    createAbhaResp,
-		"address": address,
+	resp := &models.AbdmVerifyAadhaarOtpResponse{
+		TxnId:           address.TxnId,
+		AbhaAddressList: address.AbhaAddressList,
+		Token:           createdAbhaResp.Tokens.Token,
+		ABHAProfile:     createdAbhaResp.ABHAProfile,
+		IsNew:           createdAbhaResp.IsNew,
 	}
 	return resp, nil
 }

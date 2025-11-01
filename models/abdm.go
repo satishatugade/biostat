@@ -75,37 +75,58 @@ type ABDMUserVerifyResponse struct {
 	RefreshExpiresIn int    `json:"refreshExpiresIn"`
 }
 
-
 type AbdmCreateAbhaByAadhaarResponse struct {
 	Message string `json:"message"`
 	TxnId   string `json:"txnId"`
 	Tokens  struct {
-		Token              string `json:"token"`
-		ExpiresIn          int    `json:"expiresIn"`
-		RefreshToken       string `json:"refreshToken"`
-		RefreshExpiresIn   int    `json:"refreshExpiresIn"`
+		Token            string `json:"token"`
+		ExpiresIn        int    `json:"expiresIn"`
+		RefreshToken     string `json:"refreshToken"`
+		RefreshExpiresIn int    `json:"refreshExpiresIn"`
 	} `json:"tokens"`
 	ABHAProfile struct {
-		FirstName     string   `json:"firstName"`
-		MiddleName    string   `json:"middleName"`
-		LastName      string   `json:"lastName"`
-		Dob           string   `json:"dob"`
-		Gender        string   `json:"gender"`
-		Mobile        string   `json:"mobile"`
-		ABHANumber    string   `json:"ABHANumber"`
-		AbhaStatus    string   `json:"abhaStatus"`
-		PhrAddress    []string `json:"phrAddress"`
-		Address       string   `json:"address"`
-		StateName     string   `json:"stateName"`
-		DistrictName  string   `json:"districtName"`
-		Photo         string   `json:"photo"`
+		FirstName    string   `json:"firstName"`
+		MiddleName   string   `json:"middleName"`
+		LastName     string   `json:"lastName"`
+		Dob          string   `json:"dob"`
+		Gender       string   `json:"gender"`
+		Mobile       string   `json:"mobile"`
+		ABHANumber   string   `json:"ABHANumber"`
+		AbhaStatus   string   `json:"abhaStatus"`
+		PhrAddress   []string `json:"phrAddress"`
+		Address      string   `json:"address"`
+		StateName    string   `json:"stateName"`
+		DistrictName string   `json:"districtName"`
+		Photo        string   `json:"photo"`
 	} `json:"ABHAProfile"`
 	IsNew bool `json:"isNew"`
 }
 
 type AbdmAbhaAddressSuggestionResponse struct {
-	TxnId          string   `json:"txnId"`
+	TxnId           string   `json:"txnId"`
 	AbhaAddressList []string `json:"abhaAddressList"`
+}
+
+type AbdmVerifyAadhaarOtpResponse struct {
+	TxnId           string   `json:"txnId"`
+	AbhaAddressList []string `json:"abhaAddressList"`
+	Token           string   `json:"token"`
+	ABHAProfile     struct {
+		FirstName    string   `json:"firstName"`
+		MiddleName   string   `json:"middleName"`
+		LastName     string   `json:"lastName"`
+		Dob          string   `json:"dob"`
+		Gender       string   `json:"gender"`
+		Mobile       string   `json:"mobile"`
+		ABHANumber   string   `json:"ABHANumber"`
+		AbhaStatus   string   `json:"abhaStatus"`
+		PhrAddress   []string `json:"phrAddress"`
+		Address      string   `json:"address"`
+		StateName    string   `json:"stateName"`
+		DistrictName string   `json:"districtName"`
+		Photo        string   `json:"photo"`
+	} `json:"ABHAProfile"`
+	IsNew bool `json:"isNew"`
 }
 
 type AbdmCreateAbhaAddressResponse struct {

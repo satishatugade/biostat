@@ -3147,6 +3147,11 @@ func (pc *PatientController) TranscriptionHandler(ctx *gin.Context) {
 }
 
 func (pc *PatientController) SendABDMOTP(ctx *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	var req struct {
 		Mobile      string `json:"mobile,omitempty"`
 		AdharCardNo string `json:"aadhaar,omitempty"`
@@ -3159,20 +3164,28 @@ func (pc *PatientController) SendABDMOTP(ctx *gin.Context) {
 	}
 
 	if req.Type == "mobile" && req.Mobile != "" {
-		respone, err := pc.abdmService.SendMobileOtp(req.Mobile)
+		response, err := pc.abdmService.SendMobileOtp(req.Mobile)
 		if err != nil {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
 			return
 		}
-		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "OTP sent", respone, nil, nil)
+		// response := map[string]interface{}{
+		// 	"txnId":   "f58fe86d-ac53-45ad-aa5b-1fbe2f7a26c3",
+		// 	"message": "OTP sent to Aadhaar registered mobile number ending with ******9571",
+		// }
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "OTP sent", response, nil, nil)
 		return
 	} else if req.Type == "aadhaar" && req.AdharCardNo != "" {
-		respone, err := pc.abdmService.SendAdhaarOtp(req.AdharCardNo)
+		response, err := pc.abdmService.SendAdhaarOtp(req.AdharCardNo)
 		if err != nil {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
 			return
 		}
-		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "OTP sent", respone, nil, nil)
+		// response := map[string]interface{}{
+		// 	"txnId":   "f58fe86d-ac53-45ad-aa5b-1fbe2f7a26c3",
+		// 	"message": "OTP sent to Aadhaar registered mobile number ending with ******9571",
+		// }
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "OTP sent", response, nil, nil)
 		return
 	}
 
@@ -3181,6 +3194,11 @@ func (pc *PatientController) SendABDMOTP(ctx *gin.Context) {
 }
 
 func (pc *PatientController) VerifyAbdmOTP(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	var req struct {
 		TxnId  string `json:"txnId" binding:"required"`
 		Otp    string `json:"otp" binding:"required"`
@@ -3194,20 +3212,89 @@ func (pc *PatientController) VerifyAbdmOTP(ctx *gin.Context) {
 	}
 
 	if req.Type == "mobile" {
-		respone, err := pc.abdmService.VerifyOtp(req.TxnId, req.Otp)
+		response, err := pc.abdmService.VerifyOtp(req.TxnId, req.Otp)
 		if err != nil {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
 			return
 		}
-		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+		// respone := map[string]interface{}{
+		// 	"txnId":      "588453aa-4bb0-44c0-bbdd-62ebd53c37c6",
+		// 	"authResult": "success",
+		// 	"message":    "OTP verified successfully",
+		// 	"token":      "eyJhbGciOiJSUzUxMiJ9.eyJzdWIiOiI4ODMwNjMzNjQwIiwiY2xpZW50SWQiOiJhYmhhLXByb2ZpbGUtYXBwLWFwaSIsInN5c3RlbSI6IkFCSEEtTiIsIm1vYmlsZSI6Ijg4MzA2MzM2NDAiLCJ0eXAiOiJUcmFuc2ZlciIsImV4cCI6MTcxNTMyNjM1OCwiaWF0IjoxNzE1MzI2MDU4fQ.DgrJKN6S66irm-roZVoOuM_tXfI4Z4p-UwCyUz3pM3bbgPMJu1lpHzN99ufAuD-UZoQiJIrYmOHAIQ_7iBYd2fbH4ou-XMXLDbmG_5EDIFqchRUrG2Rx-5CxW-fKOZZH79poAV7LTQlv7Iuk1jptkF8o8aLdeuO4INYAjvUjgSIr5OTzd2l6Oyexru2g1XaXPEvyr7wHMqdbDqwpKgaYigkZio3C3d0tnEQ0S8B8FJ0ydsFMi9tRc4yf8K5WOgq8uTjpP_kmyzaGTuCcURdpDPGxKze_gGHfejC8BivXGYW_WU_Ct1EjHZ1Xpirh4qRBJMfnn8Qe6OBKdUfdXCTD5ZEf05-X_5AjwT1O71vDzn5FZGQvGbWU85PqTg-qyHr4qoLCOyTWBN2Rq5qQdUUxmi7MiSQwxsct5tK7i3fDkFWmN209VM3o_VWPpHRA1kceH7zg8ykgFIlaqeskBLlfnJUGMQc4poRC04yvbuFh6qg4Rkq7qj_kjwVX_vBYFGhEGpVKDxyzV38d1UQpcilqkJdhU9mzO6BWOOQK7NyfBqPwCIIXeJNh3lT9HjGkTa9AOzsrpJEOerNlRznMlTL13iAa7LGwVhOohfw5y95DiRd1VayMvGVt8LsmL_WicfUFecQ2MmeqNj44GLlwpfdibQpPCJ4vrZ2Ax6Bx_qqa7JY",
+		// 	"expiresIn":  300,
+		// 	"accounts": []interface{}{
+		// 		map[string]interface{}{
+		// 			"ABHANumber":           "91-7561-4088-XXXX",
+		// 			"preferredAbhaAddress": "username1997@sbx",
+		// 			"name":                 "Username Kailas Shelke",
+		// 			"gender":               "M",
+		// 			"dob":                  "26-06-1999",
+		// 			"verifiedStatus":       "VERIFIED",
+		// 			"verificationType":     "AADHAAR",
+		// 			"status":               "ACTIVE",
+		// 			"profilePhoto":         "/9j/4AAQSkZJRgABAgAAAQABAA",
+		// 			"kycVerified":          true,
+		// 		},
+		// 		map[string]interface{}{
+		// 			"ABHANumber":           "91-3202-1536-XXXX",
+		// 			"preferredAbhaAddress": "91320215366XXXX@sbx",
+		// 			"name":                 "Username Mishra",
+		// 			"gender":               "M",
+		// 			"dob":                  "28-02-2022",
+		// 			"verifiedStatus":       "VERIFIED",
+		// 			"verificationType":     "CHILD_ABHA",
+		// 			"status":               "ACTIVE",
+		// 			"profilePhoto":         "/9j/4AAQSkZJRgABAQEASABIAAD/4",
+		// 			"kycVerified":          false,
+		// 		},
+		// 	},
+		// }
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", response, nil, nil)
 		return
 	} else if req.Type == "aadhaar" && req.Mobile != "" {
-		respone, err := pc.abdmService.VerifyAdharOtp(req.TxnId, req.Otp, req.Mobile)
+		response, err := pc.abdmService.VerifyAdharOtp(req.TxnId, req.Otp, req.Mobile, userId)
 		if err != nil {
 			models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
 			return
 		}
-		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+		// response := map[string]interface{}{
+		// 	"txnId": "f58fe86d-ac53-45ad-aa5b-1fbe2f7a26c3",
+		// 	"abhaAddressList": []string{
+		// 		"vaibhav_7200202",
+		// 		"vaibhav_2200207",
+		// 		"vaibhav_2200202",
+		// 		"vaibhav_200272002",
+		// 		"vaibhav_2002707",
+		// 		"vaibhav_2002207",
+		// 		"vaibhav_2002202",
+		// 		"vaibhav_200220027",
+		// 		"vaibhav_200220022",
+		// 		"vaibhav_2002",
+		// 	},
+		// 	"token": "eyJhbGciOiJSUzUxMiJ9.eyJpc0t5Y1ZlcmlmaWVkIjp0cnVlLCJzdWIiOiI5MS0yNDMzLTAyMjctNTQ1NCIsImNsaWVudElkIjoiYWJoYS1wcm9maWxlLWFwcC1hcGkiLCJzeXN0ZW0iOiJBQkhBLU4iLCJhY2NvdW50VHlwZSI6InN0YW5kYXJkIiwibW9iaWxlIjoiOTM1OTk3OTU3MSIsImFiaGFOdW1iZXIiOiI5MS0yNDMzLTAyMjctNTQ1NCIsInByZWZlcnJlZEFiaGFBZGRyZXNzIjoiOTEyNDMzMDIyNzU0NTRAc2J4IiwidHlwIjoiVHJhbnNhY3Rpb24iLCJleHAiOjE3NjE5MDA1MDIsImlhdCI6MTc2MTg5ODcwMiwidHhuSWQiOiJmNThmZTg2ZC1hYzUzLTQ1YWQtYWE1Yi0xZmJlMmY3YTI2YzMifQ.n7z0W7faXvgq1CftgU93z8IV0f9nRfDQE8Zmwg_88mn-9Ctqu4ECLwNXNzt5f9f1eLTgaSf0aITqHcVShmW3ckhaVIN8DufxqRv_JSNftU_vPHpdUofagyl-T242sl0QJa6wNaQ_wJ5pbondCNJwyWAP0s7FgwMsIdbtFQiwaVb2I-Tv6qn9usfGWy1t3uGP5v7HkfibfIuOnhUIT-wagpK-xxOr7IELXXFdwwAxgOEjTxmAcdwppQiH9X5ZWnAKz9l8Bnln6X2DGNuKsqLzgPEc-YYe05RJtHRlx9jpvD2PU7bJq4mIT0G3eyroxRfWbBupqXopDSQN5NpYmBpEf0wlCLZE3CYlgrj97_pQfByxXEebvhJVDvSWMFDXba4fWF10QongfQ4eOFhjSFoDX8pRVk_mv-etX9urtzD54-3X2LP4LpPW3qRIv1BudYO9CaiNDJ-bodzkJhdcH5-LtZ19aP72GaTd0tWWX1JTEqWXyysHbJcbqrQZRQuAo-umfzQZXa-OhEdVpqRjDMDfeIDk1qgngnf5Pg47Emx34n8xNzHvSNIfCw_teyxg9D46KC8wBgOCqRzo5BmnfePWJnZDj4cV6v4HUsggq_aIe5JW9GFgMqqzO-tRvm3I2POUSRla3WsKSXWf6FGPNFjTMHmwHToPWL_oe_niMvErvYc",
+		// 	"ABHAProfile": map[string]interface{}{
+		// 		"firstName":  "Vaibhav",
+		// 		"middleName": "Ganesh",
+		// 		"lastName":   "Pachpute",
+		// 		"dob":        "07-02-2002",
+		// 		"gender":     "M",
+		// 		"mobile":     "9359979571",
+		// 		"ABHANumber": "91-2433-0227-5454",
+		// 		"abhaStatus": "ACTIVE",
+		// 		"phrAddress": []string{
+		// 			"vpachpute_2002@sbx",
+		// 			"vaibhav_2002702@sbx",
+		// 			"vaibhav_20207@sbx",
+		// 		},
+		// 		"address":      "narayan patil Chawl, kalyan road, At-lahoti compaund, Bhiwandi, Bhiwandi, Thane, Maharashtra",
+		// 		"stateName":    "MAHARASHTRA",
+		// 		"districtName": "THANE",
+		// 		"photo":        "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",
+		// 	},
+		// 	"isNew": false,
+		// }
+		models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", response, nil, nil)
 		return
 	}
 
@@ -3216,6 +3303,11 @@ func (pc *PatientController) VerifyAbdmOTP(ctx *gin.Context) {
 }
 
 func (pc *PatientController) VerifyAbdmUser(ctx *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	var req struct {
 		TxnId      string `json:"txnId" binding:"required"`
 		AbhaNumber string `json:"abhaNumber" binding:"required"`
@@ -3227,16 +3319,27 @@ func (pc *PatientController) VerifyAbdmUser(ctx *gin.Context) {
 		return
 	}
 
-	respone, err := pc.abdmService.VerifyUser(req.TxnId, req.AbhaNumber, req.TToken)
+	response, err := pc.abdmService.VerifyUser(req.TxnId, req.AbhaNumber, req.TToken, userId)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+	// response := map[string]interface{}{
+	// 	"token":            "eyJhbGciOiJSUzUxMiJ9.eyJpc0t5Y1ZlcmlmaWVkIjp0cnVlLCJzdWIiOiI5MS01Mjg3LTQ4MzItODcyMSIsImNsaWVudElkIjoiYWJoYS1wcm9maWxlLWFwcC1hcGkiLCJzeXN0ZW0iOiJBQkhBLU4iLCJhY2NvdW50VHlwZSI6ImNoaWxkIiwibW9iaWxlIjoiODgzMDYzMzY0MCIsImFiaGFOdW1iZXIiOiI5MS01Mjg3LTQ4MzItODcyMSIsInByZWZlcnJlZEFiaGFBZGRyZXNzIjoiOTE1Mjg3NDgzMjg3MjFAc2J4IiwidHlwIjoiVHJhbnNhY3Rpb24iLCJleHAiOjE3MTUzMjg2OTAsImlhdCI6MTcxNTMyNjg5MCwidHhuSWQiOiI1MTE0NzYzMi04NjJhLTQxNjUtYWNmMS1kNDhjYzNlZGQ0NWEifQ.TiCyvif93UCfcqjsV0iMPm1dli5k4_qBv3qjs0tjUDSFDvBqirxcwrAU9o0an4ILNJ77jtcThBJ5Uqs85QO0OGOBSgD2hsRW9ofFD1Fh77p142fo_j56tHRnAhtP52_Y_eZxK1ChM4Cx7W9hk90DYSYGSrws-wVZicjSzEBdznmMistQZ-_8DhHkmP5OIzTiWQ6lQD1E83ImyrC-waOStjM_0w6kaaKkHykYlNkHGwzBAPN6OUiVXAp1fl1AifOuEzc6DPPz2Nza6_hbUck3pXKG-p0NLigho9RHCaXtN_1yxhyn9rLy2R4dEYxCHJfG4N97fL4kh3PoJqorj9Kffuo0z2jxIBc-pQvdLxel-6mkbS-qISssz4ufAIRvXH5r2IqHzDip12MdUt3dIj76uD7-UkdfsDkl9bw2cwUtzlATBGtJiywNhRARgMkQ5qAa-tznEYzAL0yQWrnLSOqRulViS3HW7Hpd0kWj6N1CAtsIIEeH4smz4VMdwnw0P99GSZLV1ecRHxOgFEFszssa1An7OVJ_5wXh0ZMeWBR1R7G_kBEb7WyY66zY6pCWGFpDi4WbRwPxPO2nkBP75ft5jxswOE_zhUCCfK6Qodi1bq6fwibfziwo1HnsoyKWH6oEJWYxUwtODURVfzsraWa3jR89U_qidNJoo2XknPEczPk",
+	// 	"expiresIn":        1800,
+	// 	"refreshToken":     "eyJhbGciOiJSUzUxMiJ9.eyJzdWIiOiI5MS01Mjg3LTQ4MzItODcyMSIsImNsaWVudElkIjoiYWJoYS1wcm9maWxlLWFwcC1hcGkiLCJzeXN0ZW0iOiJBQkhBLU4iLCJ0eXAiOiJSZWZyZXNoIiwiZXhwIjoxNzE2NjIyODkwLCJpYXQiOjE3MTUzMjY4OTB9.FFpe2-ARw4EScKIlNohXd_kTZU6YnVlpdpSviopwcSSlCsHhWDqahhDItcZrl26rypHWC8obUcwvwuBJkyKxPQTjMiVEiOFHbob64G-3S85gFi14Yd9BNeexvnU4AFDhB47PuFsLBW1QL6lW_Vr7HROupCvrCGOSZSNzrwtQcYoKJExWnHdqHXUGjBWogpT7BwfWn4tb6FpdsIOkhHZ580EOL7q7rG-rI8nc0h6h0rGKyBLMhZCqYFG3XoCpQGUudt-I8iD5MIeEK0THmRDzRBZ6oc5VMTl1WvSPBsQI3UWCZjIUEH9j9x7DU1fs7ExIid0Z4Nf9qnnNd5u3ZfRTe7s_niHRzbg6Y3XiNj7olhcB5_sCrrgf9CXbBtLgo15WB1t4g0CdRSJTyPTmKsSIxOKmF_u32Ic101EOgj4dxPgdviJVCrbYPT7WaBEaDXs3jfJJj9oUweiMZfL7jI5hGHDcHX8Dz1wukEwE9yMBP52fnDxqlNFnSdUWWmmD8-xswWP2g2-egiEMirg-FBK3CKTBw9MLyZ570maN7FQHYMdzqppx3xZFO7BltDCUMhfEfMxouVc6iodDoUqxuixlcVg0dbtQsBiBwgA99V2rHDWD7PjdEL03quCxdaU6lXXTSQ43Hxbf4Qh2nqH2xIC5ej8SzgxQ_4bzStDxBCij2-Q",
+	// 	"refreshExpiresIn": 1296000,
+	// }
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", response, nil, nil)
 	return
 }
 
 func (pc *PatientController) SetAbhaUsername(ctx *gin.Context) {
+	_, _, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
 	var req struct {
 		TxnId   string `json:"txnId" binding:"required"`
 		Address string `json:"address" binding:"required"`
@@ -3247,11 +3350,16 @@ func (pc *PatientController) SetAbhaUsername(ctx *gin.Context) {
 		return
 	}
 
-	respone, err := pc.abdmService.SetAbhaUsername(req.TxnId, req.Address)
+	response, err := pc.abdmService.SetAbhaUsername(req.TxnId, req.Address)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "request failed", nil, err)
 		return
 	}
-	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", respone, nil, nil)
+	// response := map[string]interface{}{
+	// 	"txnId":                "23acf181-339d-4771-b532-5c5df4a28d19",
+	// 	"healthIdNumber":       "91-7561-4088-XXXX",
+	// 	"preferredAbhaAddress": "username1997@sbx",
+	// }
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "", response, nil, nil)
 	return
 }
