@@ -1,9 +1,12 @@
 package service
 
 import (
+	"biostat/config"
 	"biostat/models"
 	"biostat/repository"
+	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -31,15 +34,17 @@ type UserService interface {
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	IsUsernameExists(username string) bool
 	GenerateUniqueUsername(firstName, lastName string) string
+
+	CreateSharedProfileLink(userId uint64, username, password string) (*models.CreateSharedLinkResponse, error)
+	GetSharedProfileLink(id string) (*models.SharedProfileLink, error)
 }
 
 type UserServiceImpl struct {
-	userRepo    repository.UserRepository
-	patientrepo repository.PatientRepository
+	userRepo repository.UserRepository
 }
 
-func NewTblUserTokenService(repo repository.UserRepository) UserService {
-	return &UserServiceImpl{userRepo: repo}
+func NewTblUserTokenService(userRepo repository.UserRepository) UserService {
+	return &UserServiceImpl{userRepo: userRepo}
 }
 
 func (s *UserServiceImpl) GetAllTblUserTokens(limit int, offset int) ([]models.TblUserToken, int64, error) {
@@ -155,4 +160,35 @@ func (s *UserServiceImpl) GenerateUniqueUsername(firstName, lastName string) str
 
 func (s *UserServiceImpl) GetSystemUserInfoByUserID(userId uint64) (models.SystemUser_, error) {
 	return s.userRepo.GetSystemUserInfo(userId)
+}
+
+func (s *UserServiceImpl) CreateSharedProfileLink(userId uint64, username, password string) (*models.CreateSharedLinkResponse, error) {
+	client := config.Client
+	ctx := context.Background()
+	token, err := client.Login(ctx, config.KeycloakPublicClientID, config.KeycloakPublicClientSecret, config.KeycloakRealm, username, password)
+	if err != nil {
+		return nil, err
+	}
+
+	link := &models.SharedProfileLink{
+		UserID:    userId,
+		Token:     token.AccessToken,
+		ExpiresAt: time.Now().Add(time.Duration(token.ExpiresIn) * time.Second),
+	}
+	err = s.userRepo.CreateShareProfileLink(link)
+	if err != nil {
+		return nil, err
+	}
+	log.Println(link)
+	APPURL := config.PropConfig.ApiURL.APPURL
+	response := &models.CreateSharedLinkResponse{
+		ShareURL:  fmt.Sprintf("%s/view/profile/%s", APPURL, link.SharedPorfileLinkId),
+		ExpiresAt: link.ExpiresAt.Format(time.RFC3339),
+	}
+
+	return response, nil
+}
+
+func (s *UserServiceImpl) GetSharedProfileLink(id string) (*models.SharedProfileLink, error) {
+	return s.userRepo.GetSharedProfileLinkById(id)
 }

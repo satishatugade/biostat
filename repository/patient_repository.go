@@ -2304,8 +2304,14 @@ func (r *PatientRepositoryImpl) CreateGroupWithComponents(tx *gorm.DB, group *mo
 
 func (r *PatientRepositoryImpl) GetGroupsByPatientID(patientID uint64) ([]models.PatientDiagnosticTestGroupMaster, error) {
 	var groups []models.PatientDiagnosticTestGroupMaster
-	err := r.db.Where("patient_id in ? AND is_deleted = 0", []uint64{patientID, 1}).
-		Order("group_name").
+	err := r.db.
+		Table("tbl_patient_diagnostic_test_group_master AS g").
+		Select("DISTINCT g.*").
+		Joins("INNER JOIN tbl_patient_diagnostic_test_group_component_mapping AS m ON g.group_id = m.group_id").
+		Joins("INNER JOIN tbl_patient_diagnostic_test_result_value AS rv ON m.diagnostic_test_component_id = rv.diagnostic_test_component_id").
+		Where("g.patient_id in ? AND g.is_deleted = 0 AND rv.patient_id = ?",
+			[]uint64{patientID, 1}, patientID).
+		Order("g.group_name").
 		Find(&groups).Error
 	return groups, err
 }

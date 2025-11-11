@@ -32,7 +32,8 @@ type ApiService interface {
 	CallPatientDocInfoAPI(req interface{}) (*models.PatientDocResponse, error)
 	MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error)
 	GetTranscription(file multipart.File) (string, error)
-	RegisterUserInMailCow(name, localPart string) (string, error)
+	RegisterUserInMailCow(name, localPart, password string) (string, error)
+	ResetUserPasswordInMailCow(email, password string) error
 }
 
 type ApiServiceImpl struct {
@@ -815,15 +816,15 @@ func (s *ApiServiceImpl) GetTranscription(file multipart.File) (string, error) {
 	return transcription, nil
 }
 
-func (s *ApiServiceImpl) RegisterUserInMailCow(name, localPart string) (string, error) {
+func (s *ApiServiceImpl) RegisterUserInMailCow(name, localPart, password string) (string, error) {
 	log.Println("@RegisterUserInMailCow ", name, localPart)
 	payload := map[string]interface{}{
 		"active":          "1",
 		"domain":          s.MailDomain,
 		"local_part":      localPart,
 		"name":            name,
-		"password":        s.MailCowDefaultPass,
-		"password2":       s.MailCowDefaultPass,
+		"password":        password,
+		"password2":       password,
 		"quota":           "2048",
 		"force_pw_update": "1",
 		"tls_enforce_in":  "1",
@@ -877,4 +878,44 @@ func (s *ApiServiceImpl) RegisterUserInMailCow(name, localPart string) (string, 
 	createdEmail := fmt.Sprintf("%s@%s", localPart, s.MailDomain)
 
 	return createdEmail, nil
+}
+
+func (s *ApiServiceImpl) ResetUserPasswordInMailCow(email, password string) error {
+	payload := map[string]interface{}{
+		"items":  []string{email},
+		"domain": s.MailDomain,
+		"attr": map[string]interface{}{
+			"password":  password,
+			"password2": password,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Println("failed to marshal payload: %v", err)
+		return fmt.Errorf("failed to marshal payload: %v", err)
+	}
+	MailcowAPIURL := fmt.Sprintf("%s/edit/mailbox", s.MailcowBaseDomain)
+	req, err := http.NewRequest("POST", MailcowAPIURL, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.MailcowAPIKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("failed to send request: %v", err)
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		log.Println("Mailcow API returned status: %s", resp.Status)
+		return fmt.Errorf("Mailcow API returned status: %s", resp.Status)
+	}
+
+	return nil
 }

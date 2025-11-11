@@ -335,7 +335,7 @@ func (s *NotificationServiceImpl) AddUsersToMail() error {
 	}
 	for _, user := range users {
 		userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
-		createdEmail, err := s.apiService.RegisterUserInMailCow(userFullName, user.MobileNo)
+		createdEmail, err := s.apiService.RegisterUserInMailCow(userFullName, user.MobileNo, config.PropConfig.ApiURL.MailCowPass)
 		if err != nil {
 			log.Println("Failed to Register User In Notify ", err)
 			continue
@@ -372,6 +372,15 @@ func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemU
 	} else if systemUser.MobileNo != "" {
 		username = systemUser.MobileNo
 	}
+	var maskedPassword string
+	if password != nil && *password != "" {
+		if len(*password) <= 3 {
+			maskedPassword = "***"
+		} else {
+			maskedPassword = fmt.Sprintf("*****%s", (*password)[len(*password)-3:])
+		}
+	}
+
 	sendBody := map[string]interface{}{
 		"target_type":   "recipient_id",
 		"target_value":  systemUser.NotifyId,
@@ -382,11 +391,11 @@ func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemU
 			"patientFullName": patientFullName,
 			"roleName":        roleName,
 			"username":        username,
-			"password":        password,
+			"password":        maskedPassword,
 			"loginURL":        APPURL,
 			"resetURL":        RESETURL,
 			"bioEmail":        systemUser.BiomailId,
-			"bioEmailPass":    os.Getenv("MAIL_COW_DPASS"),
+			"bioEmailPass":    maskedPassword,
 		},
 	}
 	header := map[string]string{
@@ -414,6 +423,13 @@ func (e *NotificationServiceImpl) SendLoginCredentials(systemUser models.SystemU
 		}
 	}
 	return nil
+}
+
+func maskPassword(pwd string) string {
+	if len(pwd) <= 3 {
+		return "***"
+	}
+	return fmt.Sprintf("*****%s", pwd[len(pwd)-3:])
 }
 
 func (e *NotificationServiceImpl) SendConnectionMail(systemUser models.SystemUser_, patient *models.Patient, relationship string) error {

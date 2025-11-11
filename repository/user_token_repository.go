@@ -30,6 +30,10 @@ type UserRepository interface {
 	GetUserIdBySUB(sub string) (uint64, error)
 	GetSystemUserInfo(userId uint64) (models.SystemUser_, error)
 	IsUsernameExists(username string) bool
+
+	// Shared profile link
+	CreateShareProfileLink(link *models.SharedProfileLink) error
+	GetSharedProfileLinkById(id string) (*models.SharedProfileLink, error)
 }
 
 type UserRepositoryImpl struct {
@@ -292,4 +296,17 @@ func (u *UserRepositoryImpl) IsUsernameExists(username string) bool {
 	var count int64
 	u.db.Table("tbl_system_user_").Where("username=?", username).Count(&count)
 	return count > 0
+}
+
+func (r *UserRepositoryImpl) CreateShareProfileLink(link *models.SharedProfileLink) error {
+	return r.db.Create(link).Error
+}
+
+func (r *UserRepositoryImpl) GetSharedProfileLinkById(id string) (*models.SharedProfileLink, error) {
+	var link models.SharedProfileLink
+	err := r.db.Where("shared_porfile_link_id = ? AND is_active = true AND expires_at > ?", id, time.Now()).First(&link).Error
+	if err != nil {
+		return nil, err
+	}
+	return &link, nil
 }

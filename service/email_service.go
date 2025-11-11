@@ -35,7 +35,7 @@ func NewEmailService(notificationRepo repository.UserNotificationRepository, use
 }
 
 func (e *EmailServiceImpl) SendLoginCredentials(systemUser models.SystemUser_, password *string, patient *models.Patient, relationship string) error {
-	APPURL := os.Getenv("APP_URL")
+	APPURL := config.PropConfig.ApiURL.APPURL
 	RESETURL := fmt.Sprintf("%s/auth/reset-password?email=%s", APPURL, systemUser.Email)
 	roleName := systemUser.RoleName
 	if relationship != "" {
@@ -369,7 +369,7 @@ func (e *EmailServiceImpl) ShareReportEmail(recipientEmail []string, userDetails
 }
 
 func (e *EmailServiceImpl) SendResetPasswordMail(systemUser *models.SystemUser_, token string, recipientEmail string) error {
-	APPURL := os.Getenv("APP_URL")
+	APPURL := config.PropConfig.ApiURL.APPURL
 	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s", APPURL, token)
 	header := map[string]string{
 		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,

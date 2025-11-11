@@ -853,46 +853,12 @@ func (s *PatientServiceImpl) GetPatientGroups(patientID uint64) ([]models.Patien
 		return []models.PatientGroupResponse{}, nil
 	}
 
-	// groupIDs := make([]uint64, 0, len(groups))
-	// for _, g := range groups {
-	// 	groupIDs = append(groupIDs, g.GroupID)
-	// }
-	// mappings, err := s.patientRepo.GetComponentsByGroupIDs(groupIDs)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// compIDs := make([]uint64, 0, len(mappings))
-	// for _, m := range mappings {
-	// 	compIDs = append(compIDs, m.DiagnosticTestComponentID)
-	// }
-	// components, err := s.patientRepo.GetComponentDetailsByIDs(compIDs)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// componentMap := make(map[uint64]models.DiseaseProfileDiagnosticTestComponentMaster)
-	// for _, c := range components {
-	// 	componentMap[c.DiagnosticTestComponentID] = c
-	// }
-	// groupComponentMap := make(map[uint64][]models.ComponentDetail)
-	// for _, m := range mappings {
-	// 	if comp, ok := componentMap[m.DiagnosticTestComponentID]; ok {
-	// 		groupComponentMap[m.GroupID] = append(groupComponentMap[m.GroupID], models.ComponentDetail{
-	// 			ID:            comp.DiagnosticTestComponentID,
-	// 			Name:          comp.TestComponentName,
-	// 			Type:          comp.TestComponentType,
-	// 			Units:         comp.Units,
-	// 			TestFrequency: comp.TestComponentFrequency,
-	// 		})
-	// 	}
-	// }
-
 	resp := make([]models.PatientGroupResponse, 0, len(groups))
 	for _, g := range groups {
 		resp = append(resp, models.PatientGroupResponse{
-			GroupID:    g.GroupID,
-			GroupName:  g.GroupName,
-			CreatedAt:  g.CreatedAt.Format("2006-01-02 15:04:05"),
-			// Components: groupComponentMap[g.GroupID],
+			GroupID:   g.GroupID,
+			GroupName: g.GroupName,
+			CreatedAt: g.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 

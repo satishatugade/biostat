@@ -207,6 +207,8 @@ const (
 	AddNote                 = "/add-report-note"
 	SendSMS                 = "/send-sms"
 	ShareReport             = "/share-report"
+	ShareProfile            = "/share-profile"
+	GetSharedProfile        = "/share-profile/:link_id"
 	RedirectURL             = "/r/:code"
 	ValidateUserEmailMobile = "/checkUserMobileEmailExist"
 	ResetPassword           = "/reset-password"

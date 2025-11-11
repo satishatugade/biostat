@@ -143,7 +143,7 @@ type MedicalRecordResponseRes struct {
 	CreatedAt                 string                     `json:"created_at"`
 	IsDeleted                 int                        `json:"is_deleted"`
 	UploadedDiagnostic        *UploadedDiagnosticRes     `json:"uploaded_diagnostic"`
-	UploadedPrescription      *[]PatientPrescription       `json:"uploaded_prescription"`
+	UploadedPrescription      *[]PatientPrescription     `json:"uploaded_prescription"`
 	SupportingDocs            []MedicalRecordResponseRes `json:"supporting_docs,omitempty"`
 }
 
@@ -187,4 +187,23 @@ type UserTag struct {
 
 func (UserTag) TableName() string {
 	return "tbl_user_tag"
+}
+
+type SharedProfileLink struct {
+	SharedPorfileLinkId string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"shared_porfile_link_id"`
+	UserID              uint64    `json:"user_id"`
+	Token               string    `json:"token"`
+	ExpiresAt           time.Time `json:"expires_at"`
+	IsActive            bool      `json:"is_active" gorm:"default:true"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+func (SharedProfileLink) TableName() string {
+	return "tbl_shared_profile_link"
+}
+
+type CreateSharedLinkResponse struct {
+	ShareURL  string `json:"share_url"`
+	ExpiresAt string `json:"expires_at"`
 }

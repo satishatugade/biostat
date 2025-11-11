@@ -80,7 +80,7 @@ func (uc *UserController) RegisterUser(c *gin.Context) {
 	}
 	user.NotifyId = notifyId.String()
 	userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
-	createdEmail, err := uc.apiService.RegisterUserInMailCow(userFullName, user.MobileNo)
+	createdEmail, err := uc.apiService.RegisterUserInMailCow(userFullName, user.MobileNo, rawPassword)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user, Mail server not reachable", nil, err)
 		return
@@ -423,7 +423,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		req.NotifyId = notifyId.String()
 		if req.MobileNo != "" {
 			userFullName := fmt.Sprintf("%s %s", req.FirstName, req.LastName)
-			createdEmail, err := uc.apiService.RegisterUserInMailCow(userFullName, req.MobileNo)
+			createdEmail, err := uc.apiService.RegisterUserInMailCow(userFullName, req.MobileNo, password)
 			if err != nil {
 				models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Failed to register user, Mail server not reachable", nil, err)
 				return
@@ -586,6 +586,11 @@ func (uc *UserController) ResetUserPassword(c *gin.Context) {
 		return
 	}
 	if err := auth.ResetPasswordInKeycloak(userInfo.Username, req.Password); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Password reset failed in Keycloak", nil, err)
+		return
+	}
+	err = uc.apiService.ResetUserPasswordInMailCow(userInfo.BiomailId, req.Password)
+	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusInternalServerError, "Password reset failed in Keycloak", nil, err)
 		return
 	}

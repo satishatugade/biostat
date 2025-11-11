@@ -384,6 +384,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 
 		Route{"send-sms", http.MethodPost, constant.SendSMS, patientController.SendSMS},
 		Route{"send-sms", http.MethodPost, constant.ShareReport, patientController.ShareReport},
+		Route{"share profile", http.MethodPost, constant.ShareProfile, patientController.CreateShareLink},
 
 		Route{"User Notifications", http.MethodPost, constant.Reminder, patientController.SetUserReminder},
 		Route{"Update User reminder", http.MethodPost, constant.UpdateReminder, patientController.UpdateUserReminder},
@@ -448,5 +449,6 @@ func getMailSyncRoutes(gmailSyncController *controller.GmailSyncController) Rout
 func getOpenRoutes(patientController *controller.PatientController) Routes {
 	return Routes{
 		Route{"Transcribe ", http.MethodPost, constant.Transcribe, patientController.TranscriptionHandler},
+		Route{"share profile", http.MethodPost, constant.GetSharedProfile, patientController.GetSharedProfile},
 	}
 }
