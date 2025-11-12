@@ -5,6 +5,7 @@ import (
 	"biostat/models"
 	"biostat/repository"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -37,14 +38,19 @@ type UserService interface {
 
 	CreateSharedProfileLink(userId uint64, username, password string) (*models.CreateSharedLinkResponse, error)
 	GetSharedProfileLink(id string) (*models.SharedProfileLink, error)
+
+	SyncOtherDocs(patientUserId uint64, newRelative models.SystemUser_) error
 }
 
 type UserServiceImpl struct {
-	userRepo repository.UserRepository
+	userRepo   repository.UserRepository
+	apiService ApiService
+	recordRepo repository.TblMedicalRecordRepository
+	db         *gorm.DB
 }
 
-func NewTblUserTokenService(userRepo repository.UserRepository) UserService {
-	return &UserServiceImpl{userRepo: userRepo}
+func NewTblUserTokenService(userRepo repository.UserRepository, apiService ApiService, recordRepo repository.TblMedicalRecordRepository, db *gorm.DB) UserService {
+	return &UserServiceImpl{userRepo: userRepo, apiService: apiService, recordRepo: recordRepo, db: db}
 }
 
 func (s *UserServiceImpl) GetAllTblUserTokens(limit int, offset int) ([]models.TblUserToken, int64, error) {
@@ -191,4 +197,51 @@ func (s *UserServiceImpl) CreateSharedProfileLink(userId uint64, username, passw
 
 func (s *UserServiceImpl) GetSharedProfileLink(id string) (*models.SharedProfileLink, error) {
 	return s.userRepo.GetSharedProfileLinkById(id)
+}
+
+func (s *UserServiceImpl) SyncOtherDocs(patientUserId uint64, newRelative models.SystemUser_) error {
+	// log.Println("Starting to Sync Docs in Other bucket")
+	records, err := s.userRepo.GetOtherBucketRecordsByPatientID(newRelative.UserId)
+	if err != nil {
+		log.Println("Error fetching Records from other bucket:", err)
+		return err
+	}
+	var errorList []error
+	newMmeberName := fmt.Sprintf("%s %s", newRelative.FirstName, newRelative.LastName)
+	for _, record := range records {
+		// log.Println("Processing record:", i, ":", record.RecordID)
+		shouldMove, err := s.apiService.CallCheckOwnerOtherTypeAPI(record.RecordName, record.UserID, record.DocumentOwner, newMmeberName)
+		if err != nil {
+			// log.Println("Error Processing record:", record.RecordID, "Error:", err)
+			errorList = append(errorList, err)
+			continue
+		}
+		if shouldMove == "YES" {
+			// log.Println("Move ", record.RecordID, " To ", newRelative.UserId)
+			tx := s.db.Begin()
+			err := s.recordRepo.UpdateMedicalRecordMappingByRecordId(tx, &record.RecordID, map[string]interface{}{"user_id": newRelative.UserId, "is_unknown_record": false})
+			if err != nil {
+				// log.Println("Error moving Record ", err)
+				errorList = append(errorList, err)
+				continue
+			}
+			updatedRecord := &models.TblMedicalRecord{
+				RecordId:       record.RecordID,
+				RecordCategory: record.DocumentBucket,
+			}
+
+			if err := tx.Commit().Error; err != nil {
+				errorList = append(errorList, err)
+				continue
+			}
+			_, err = s.recordRepo.UpdateTblMedicalRecord(updatedRecord)
+			if err != nil {
+				// log.Println("Error Updating Record ", err)
+				errorList = append(errorList, err)
+				continue
+			}
+		}
+	}
+	finalErr := errors.Join(errorList...)
+	return finalErr
 }

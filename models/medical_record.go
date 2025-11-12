@@ -207,3 +207,11 @@ type CreateSharedLinkResponse struct {
 	ShareURL  string `json:"share_url"`
 	ExpiresAt string `json:"expires_at"`
 }
+
+type OtherBucketRecord struct {
+	RecordID       uint64 `json:"record_id" gorm:"column:record_id"`
+	UserID         uint64 `json:"user_id" gorm:"column:user_id"`
+	RecordName     string `json:"record_name" gorm:"column:record_name"`
+	DocumentOwner  string `json:"document_owner" gorm:"column:document_owner"`
+	DocumentBucket string `json:"document_bucket" gorm:"column:document_bucket"`
+}

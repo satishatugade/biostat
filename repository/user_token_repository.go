@@ -31,6 +31,8 @@ type UserRepository interface {
 	GetSystemUserInfo(userId uint64) (models.SystemUser_, error)
 	IsUsernameExists(username string) bool
 
+	GetOtherBucketRecordsByPatientID(patientID uint64) ([]models.OtherBucketRecord, error)
+
 	// Shared profile link
 	CreateShareProfileLink(link *models.SharedProfileLink) error
 	GetSharedProfileLinkById(id string) (*models.SharedProfileLink, error)
@@ -309,4 +311,39 @@ func (r *UserRepositoryImpl) GetSharedProfileLinkById(id string) (*models.Shared
 		return nil, err
 	}
 	return &link, nil
+}
+
+func (r *UserRepositoryImpl) GetOtherBucketRecordsByPatientID(patientID uint64) ([]models.OtherBucketRecord, error) {
+	var records []models.OtherBucketRecord
+
+	query := `
+	SELECT 
+		mr.record_id,
+		urm.user_id,
+		mr.record_name,
+		mr.metadata -> 'ai' ->> 'document_owner' AS document_owner,
+		mr.metadata -> 'ai' ->> 'document_bucket' AS document_bucket
+	FROM 
+		tbl_medical_record mr
+	JOIN 
+		tbl_medical_record_user_mapping mrum ON mr.record_id = mrum.record_id
+	JOIN 
+		public.tbl_system_user_role_mapping urm 
+			ON mrum.user_id = urm.user_id
+	WHERE 
+		urm.patient_id = ?
+		AND urm.mapping_type = 'R'
+		AND urm.is_deleted = 0
+		AND mr.record_category = 'other'
+		AND mr.metadata -> 'ai' ->> 'document_owner' IS NOT NULL
+		AND trim(mr.metadata -> 'ai' ->> 'document_owner') <> ''
+		AND mr.metadata -> 'ai' ->> 'document_bucket' IS NOT NULL
+		AND trim(mr.metadata -> 'ai' ->> 'document_bucket') <> ''
+	`
+
+	if err := r.db.Raw(query, patientID).Scan(&records).Error; err != nil {
+		return nil, err
+	}
+
+	return records, nil
 }

@@ -34,6 +34,8 @@ type ApiService interface {
 	GetTranscription(file multipart.File) (string, error)
 	RegisterUserInMailCow(name, localPart, password string) (string, error)
 	ResetUserPasswordInMailCow(email, password string) error
+
+	CallCheckOwnerOtherTypeAPI(recordName string, currentUserID uint64, documentOwner string, newMemberName string) (string, error)
 }
 
 type ApiServiceImpl struct {
@@ -46,6 +48,7 @@ type ApiServiceImpl struct {
 	DigitizePrescriptionAPI    string
 	CheckPDFProtectionAPI      string
 	PDFPasswordAPI             string
+	CheckOtherTypeOwnerAPI     string
 	DocTypeCheckAPI            string
 	FetchNameAPI               string
 	client                     *http.Client
@@ -67,6 +70,7 @@ func NewApiService() ApiService {
 		DigitizePrescriptionAPI:    os.Getenv("DIGITIZE_PRESCRIPTION_API"),
 		CheckPDFProtectionAPI:      config.PropConfig.ApiURL.CheckPDFProtectionAPI,
 		PDFPasswordAPI:             config.PropConfig.ApiURL.PDFPasswordAPI,
+		CheckOtherTypeOwnerAPI:     config.PropConfig.ApiURL.CheckOtherTypeOwnerAPI,
 		DocTypeCheckAPI:            config.PropConfig.ApiURL.DocTypeAPI,
 		FetchNameAPI:               config.PropConfig.ApiURL.FetchNameAPI,
 		client:                     &http.Client{},
@@ -727,6 +731,38 @@ func (s *ApiServiceImpl) CallPatientDocInfoAPI(req interface{}) (*models.Patient
 	}
 
 	return &apiResp, nil
+}
+
+func (s *ApiServiceImpl) CallCheckOwnerOtherTypeAPI(recordName string, currentUserID uint64, documentOwner string, newMemberName string) (string, error) {
+	reqBody := map[string]interface{}{
+		"record_name":     recordName,
+		"current_user_id": currentUserID,
+		"document_owner":  documentOwner,
+		"new_member_name": newMemberName,
+	}
+
+	jsonData, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequest(http.MethodPost, s.CheckOtherTypeOwnerAPI, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		ShouldMove string `json:"should_move"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	return result.ShouldMove, nil
 }
 
 func (s *ApiServiceImpl) MakeRESTRequest(method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}, error) {

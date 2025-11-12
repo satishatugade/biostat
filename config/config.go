@@ -90,6 +90,7 @@ type PropertyConfig struct {
 		CheckPDFProtectionAPI       string
 		ExtractDocDetail            string
 		PDFPasswordAPI              string
+		CheckOtherTypeOwnerAPI      string
 		DocTypeAPI                  string
 		FetchNameAPI                string
 		SpeechToTextAPI             string
@@ -164,6 +165,7 @@ func LoadConfigFromEnv() *PropertyConfig {
 	cfg.ApiURL.CheckPDFProtectionAPI = getEnv("CHECK_IS_PDF_PROTECTED_API")
 	cfg.ApiURL.ExtractDocDetail = getEnv("EXTRACT_DOC_DETAIL")
 	cfg.ApiURL.PDFPasswordAPI = getEnv("PDF_PASSWORD_API")
+	cfg.ApiURL.CheckOtherTypeOwnerAPI = getEnv("CHECK_OTHER_TYPE_OWNER_API")
 	cfg.ApiURL.DocTypeAPI = getEnv("DOCUMENT_TYPE_API")
 	cfg.ApiURL.FetchNameAPI = getEnv("FETCH_NAME_API")
 	cfg.ApiURL.SpeechToTextAPI = getEnv("SPEECH_TO_TEXT_API")

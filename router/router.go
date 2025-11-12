@@ -17,99 +17,73 @@ import (
 
 func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var userRepo = repository.NewTblUserTokenRepository(db)
-	var userService = service.NewTblUserTokenService(userRepo)
-
 	var allergyRepo = repository.NewAllergyRepository(db)
-	var allergyService = service.NewAllergyService(allergyRepo)
-
 	var diseaseRepo = repository.NewDiseaseRepository(db)
-	var diseaseService = service.NewDiseaseService(diseaseRepo)
-
 	var causeRepo = repository.NewCauseRepository(db)
-	var causeService = service.NewCauseService(causeRepo)
-
 	var symptomRepo = repository.NewSymptomRepository(db)
-	var symptomService = service.NewSymptomService(symptomRepo)
-
 	var medicationRepo = repository.NewMedicationRepository(db)
-	var medicationService = service.NewMedicationService(medicationRepo)
-
 	var dietRepo = repository.NewDietRepository(db)
-	var dietService = service.NewDietService(dietRepo)
-
 	var exerciseRepo = repository.NewExerciseRepository(db)
-	var exerciseService = service.NewExerciseService(exerciseRepo)
-	var apiService = service.NewApiService()
 	var notificiationRepo = repository.NewUserNotificationRepository(db)
-	var notificationService = service.NewNotificationService(notificiationRepo, userRepo, apiService)
-
-	var emailService = service.NewEmailService(notificiationRepo, userRepo, apiService)
-
 	var medicalRecordsRepo = repository.NewTblMedicalRecordRepository(db)
 	var patientRepo = repository.NewPatientRepository(db)
-
 	var roleRepo = repository.NewRoleRepository(db)
-
 	var processStatusRepo = repository.NewProcessStatusRepository(db)
-	var processStatusService = service.NewProcessStatusService(processStatusRepo, config.RedisClient)
-
 	var permissionRepo = repository.NewPermissionRepository(db)
-	var permissionService = service.NewPermissionService(permissionRepo, roleRepo)
-
-	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo, userRepo)
-
 	var subscriptionRepo = repository.NewSubscriptionRepository(db)
+	var diagnosticRepo = repository.NewDiagnosticRepository(db)
+	var supportGrpRepo = repository.NewSupportGroupRepository(db)
+	var hospitalRepo = repository.NewHospitalRepository(db)
+	var appointmentRepo = repository.NewAppointmentRepository(db)
+	var orderRepo = repository.NewOrderRepository(db)
+
+	var apiService = service.NewApiService()
+	var smsService = service.NewSmsService()
+	var allergyService = service.NewAllergyService(allergyRepo)
+	var diseaseService = service.NewDiseaseService(diseaseRepo)
+	var causeService = service.NewCauseService(causeRepo)
+	var symptomService = service.NewSymptomService(symptomRepo)
+	var medicationService = service.NewMedicationService(medicationRepo)
+	var dietService = service.NewDietService(dietRepo)
+	var exerciseService = service.NewExerciseService(exerciseRepo)
+	var notificationService = service.NewNotificationService(notificiationRepo, userRepo, apiService)
+	var emailService = service.NewEmailService(notificiationRepo, userRepo, apiService)
+	var userService = service.NewTblUserTokenService(userRepo, apiService, medicalRecordsRepo, db)
+	var processStatusService = service.NewProcessStatusService(processStatusRepo, config.RedisClient)
+	var permissionService = service.NewPermissionService(permissionRepo, roleRepo)
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo, userRepo)
 	var subscriptionService = service.NewSubscriptionService(subscriptionRepo, roleRepo)
 	var roleService = service.NewRoleService(roleRepo, patientService, userRepo, subscriptionRepo)
-
-	var diagnosticRepo = repository.NewDiagnosticRepository(db)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService, medicalRecordsRepo, processStatusService)
 	var medicalRecordService = service.NewTblMedicalRecordService(medicalRecordsRepo, apiService, diagnosticService, patientService, userService, config.AsynqClient, config.RedisClient, processStatusService, patientRepo)
-
-	var smsService = service.NewSmsService()
-
-	var supportGrpRepo = repository.NewSupportGroupRepository(db)
 	var supportGrpService = service.NewSupportGroupService(supportGrpRepo)
-
-	var hospitalRepo = repository.NewHospitalRepository(db)
 	var hospitalService = service.NewHospitalService(hospitalRepo)
-
-	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var appointmentService = service.NewAppointmentService(appointmentRepo)
-
-	var orderRepo = repository.NewOrderRepository(db)
 	var orderService = service.NewOrderService(orderRepo)
 	var authService = auth.NewAuthService(userRepo, userService, emailService)
-
 	var healthService = service.NewHealthMonitorService(
 		config.RedisClient,
 		config.PropConfig.HealthCheck.URL,
 		time.Duration(config.PropConfig.HealthCheck.IntervalSeconds)*time.Second,
 		time.Duration(config.PropConfig.HealthCheck.TimeoutSeconds)*time.Second,
 	)
-
 	var gmailSyncService = service.NewGmailSyncService(processStatusService, medicalRecordService, userService, diagnosticRepo, apiService, patientService, medicalRecordsRepo, db)
 	var outlookService = service.NewOutLookService(userService, apiService, processStatusService, gmailSyncService, diagnosticRepo)
 	var yahooService = service.NewYahooService(userService, apiService, processStatusService, gmailSyncService, diagnosticRepo)
-
-	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService, healthService, outlookService, yahooService)
-
-	GmailSyncRoutes(apiGroup, gmailRecordsController)
-
 	var abdmService = service.NewABDMService(patientRepo)
+	var gmailRecordsController = controller.NewGmailSyncController(gmailSyncService, medicalRecordService, userService, healthService, outlookService, yahooService)
 
 	var patientController = controller.NewPatientController(patientService, dietService, allergyService, medicalRecordService,
 		medicationService, appointmentService, diagnosticService, userService, apiService, diseaseService, smsService, emailService,
 		orderService, notificationService, authService, roleService, permissionService, subscriptionService, processStatusService, gmailSyncService, abdmService)
-
 	var masterController = controller.NewMasterController(allergyService, diseaseService, causeService, symptomService,
 		medicationService, dietService, exerciseService, diagnosticService, roleService, supportGrpService, hospitalService, userService, subscriptionService, notificationService)
+	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService, apiService)
+
+	GmailSyncRoutes(apiGroup, gmailRecordsController)
 	MasterRoutes(apiGroup, masterController, patientController)
 	PatientRoutes(apiGroup, patientController)
-
 	OpenRoutes(apiGroup, patientController)
-
-	var userController = controller.NewUserController(patientService, roleService, userService, notificationService, authService, permissionService, subscriptionService, apiService)
 	UserRoutes(apiGroup, userController)
 
 	// Workers

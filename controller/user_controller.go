@@ -478,6 +478,20 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 	if permErr != nil {
 		log.Println("GiveAllPermissionToHOF ERROR : ", permErr)
 	}
+	if req.RoleName == string(constant.Relative) {
+		go func(patientID uint64, newRelative models.SystemUser_ ) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Println("Recovered in SyncOtherDocs:", r)
+				}
+			}()
+
+			if err := uc.userService.SyncOtherDocs(patientID, newRelative); err != nil {
+				log.Println("Error in background SyncOtherDocs:", err)
+			}
+		}(patientUserId, systemUser)
+	}
+
 	response := utils.MapUserToRoleSchema(systemUser, roleMaster.RoleName)
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User added successfully", response, nil, nil)
 	return
