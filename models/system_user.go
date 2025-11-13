@@ -1,6 +1,7 @@
 package models
 
 import (
+	"biostat/constant"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,13 +56,14 @@ type ReverseRelationMappingResponse struct {
 }
 
 type UserResponse struct {
-	UserId     uint64 `json:"user_id" gorm:"primaryKey"`
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
-	Role       string `json:"role"`
-	Username   string `json:"username"`
-	Email      string `json:"email"`
-	AuthUserId string `json:"auth_user_id"`
+	UserId     uint64              `json:"user_id" gorm:"primaryKey"`
+	FirstName  string              `json:"first_name"`
+	LastName   string              `json:"last_name"`
+	Role       string              `json:"role"`
+	Username   string              `json:"username"`
+	Email      string              `json:"email"`
+	AuthUserId string              `json:"auth_user_id"`
+	AccessType constant.AccessType `json:"access_type"`
 }
 
 type UserLoginResponse struct {

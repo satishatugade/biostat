@@ -422,6 +422,13 @@ const (
 	MedicalRecordEntity EntityType = "tbl_medical_record"
 )
 
+type AccessType string
+
+const (
+	Owner    AccessType = "owner"
+	ViewOnly AccessType = "view_only"
+)
+
 type UserRole string
 
 const (

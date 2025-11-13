@@ -2,6 +2,7 @@ package service
 
 import (
 	"biostat/config"
+	"biostat/constant"
 	"biostat/models"
 	"biostat/repository"
 	"context"
@@ -37,7 +38,7 @@ type UserService interface {
 	GenerateUniqueUsername(firstName, lastName string) string
 
 	CreateSharedProfileLink(userId uint64, username, password string) (*models.CreateSharedLinkResponse, error)
-	GetSharedProfileLink(id string) (*models.SharedProfileLink, error)
+	GetSharedProfileLink(id string) (*models.UserLoginResponse, error)
 
 	SyncOtherDocs(patientUserId uint64, newRelative models.SystemUser_) error
 }
@@ -195,8 +196,31 @@ func (s *UserServiceImpl) CreateSharedProfileLink(userId uint64, username, passw
 	return response, nil
 }
 
-func (s *UserServiceImpl) GetSharedProfileLink(id string) (*models.SharedProfileLink, error) {
-	return s.userRepo.GetSharedProfileLinkById(id)
+func (s *UserServiceImpl) GetSharedProfileLink(id string) (*models.UserLoginResponse, error) {
+
+	linkResp, err := s.userRepo.GetSharedProfileLinkById(id)
+	if err != nil {
+		return nil, err
+	}
+	user, err := s.userRepo.GetSystemUserInfo(linkResp.UserID)
+	if err != nil {
+		return nil, err
+	}
+	userLoginResponse := &models.UserLoginResponse{
+		AccessToken: linkResp.Token,
+		UserResponse: models.UserResponse{
+			UserId:     user.UserId,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			Email:      user.Email,
+			Username:   user.Username,
+			Role:       string(constant.Patient),
+			AuthUserId: user.AuthUserId,
+			AccessType: constant.ViewOnly,
+		},
+	}
+	return userLoginResponse, nil
+
 }
 
 func (s *UserServiceImpl) SyncOtherDocs(patientUserId uint64, newRelative models.SystemUser_) error {

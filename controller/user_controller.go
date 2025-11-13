@@ -264,6 +264,7 @@ func (uc *UserController) LoginUser(c *gin.Context) {
 			Username:   user.Username,
 			Role:       string(matchedRole),
 			AuthUserId: user.AuthUserId,
+			AccessType: constant.Owner,
 		},
 	}
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "User login successfully", userLoginResponse, nil, nil)
@@ -479,7 +480,7 @@ func (uc *UserController) UserRegisterByPatient(c *gin.Context) {
 		log.Println("GiveAllPermissionToHOF ERROR : ", permErr)
 	}
 	if req.RoleName == string(constant.Relative) {
-		go func(patientID uint64, newRelative models.SystemUser_ ) {
+		go func(patientID uint64, newRelative models.SystemUser_) {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Println("Recovered in SyncOtherDocs:", r)
