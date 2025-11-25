@@ -3322,3 +3322,29 @@ func (pc *PatientController) GetSharedProfile(ctx *gin.Context) {
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Temparary access granted", resp, nil, nil)
 	return
 }
+
+func (pc *PatientController) RemoveRelativeFromFamily(c *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+	type UserRequest struct {
+		RelativeId uint64 `json:"relative_id"`
+		FamilyId   uint64 `json:"family_id"`
+	}
+
+	var req UserRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
+		return
+	}
+	err = pc.patientService.RemoveRelativeFromFamily(userId, req.RelativeId, req.FamilyId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "failed to remove family member", nil, err)
+		return
+	}
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "Family member removed", nil, nil, nil)
+	return
+}

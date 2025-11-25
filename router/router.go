@@ -250,6 +250,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
 		Route{"patient", http.MethodPut, constant.UpdateRelative, patientController.UpdateRelativeInfoById},
 		Route{"patient", http.MethodPost, constant.RelativeInfo, patientController.GetPatientRelativeList},
+		Route{"patient", http.MethodPost, constant.RemoveRelative, patientController.RemoveRelativeFromFamily},
 		Route{"patient", http.MethodPost, constant.PrimaryCaregiver, patientController.AssignPrimaryCaregiver},
 
 		Route{"patient", http.MethodPost, constant.UserProfile, patientController.GetUserProfile},

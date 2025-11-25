@@ -6,6 +6,7 @@ import (
 	"biostat/repository"
 	"biostat/utils"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ type PatientService interface {
 	SummarizeHistorybyAIModel(patientId uint64) (string, error)
 	// GetPatientRelative(patientId string) ([]models.PatientRelative, error) //TODO DEL V
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
+	RemoveRelativeFromFamily(userId, relativeId, familyId uint64) error
 	GetRelativeListString(patientId *uint64) (string, error)
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
@@ -432,6 +434,12 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 		return []models.PatientRelative{}, err
 	}
 	for idx, _ := range userRelatives {
+		for _, ur := range userRelationIds {
+			if ur.UserId == userRelatives[idx].RelativeId {
+				userRelatives[idx].FamilyId = ur.FamilyId
+				break
+			}
+		}
 		perms, err := s.permissionRepo.ListPermissions(*patientId, userRelatives[idx].RelativeId)
 		if err != nil {
 			log.Println("@GetRelativeList -> ListPermissions,", err)
@@ -442,6 +450,11 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 	}
 
 	return userRelatives, nil
+}
+
+func (s *PatientServiceImpl) RemoveRelativeFromFamily(userId, relativeId, familyId uint64) error {
+	ctx := context.Background()
+	return s.patientRepo.RemoveRelativeFromFamily(ctx, userId, relativeId, familyId)
 }
 
 func (s *PatientServiceImpl) GetCaregiverList(patientId *uint64) ([]models.Caregiver, error) {

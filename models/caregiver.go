@@ -30,4 +30,5 @@ type UserRelation struct {
 	PatientId   uint64 `json:"patient_id"`
 	RelationId  uint64 `json:"relation_id"`
 	MappingType string `json:"mapping_type"`
+	FamilyId    uint64 `json:"family_id"`
 }

@@ -65,6 +65,7 @@ type PatientRelative struct {
 	LastName          string             `json:"last_name"`
 	Gender            string             `json:"gender"`
 	GenderId          int64              `json:"gender_id"`
+	FamilyId          uint64             `json:"family_id"`
 	MappingType       string             `json:"mapping_type"`
 	DateOfBirth       string             `json:"date_of_birth"`
 	RelationId        uint64             `json:"relation_id"`

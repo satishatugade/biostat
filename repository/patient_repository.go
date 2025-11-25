@@ -6,6 +6,7 @@ import (
 	"biostat/database"
 	"biostat/models"
 	"biostat/utils"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -44,6 +45,7 @@ type PatientRepository interface {
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.PatientRelative, error)
+	RemoveRelativeFromFamily(ctx context.Context, userId, relativeId, familyId uint64) error
 	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
 	GetPatientList(patientUserIds []uint64) ([]models.Patient, error)
@@ -892,6 +894,41 @@ func (p *PatientRepositoryImpl) fetchRelatives(userIds []uint64) ([]models.Patie
 	return relatives, err
 }
 
+func (r *PatientRepositoryImpl) RemoveRelativeFromFamily(ctx context.Context, userId, relativeId, familyId uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var count int64
+		err := tx.Table("tbl_system_user_role_mapping").
+			Where("patient_id = ? AND family_id = ? AND mapping_type = 'HOF' AND is_deleted = 0",
+				userId, familyId).
+			Count(&count).Error
+		if err != nil {
+			return err
+		}
+
+		if count == 0 {
+			return fmt.Errorf("user does not have HOF rights")
+		}
+
+		// Remove Relatives for that family member
+		err = tx.Table("tbl_system_user_role_mapping").
+			Where("patient_id = ? AND family_id = ? AND mapping_type = 'R' AND is_deleted = 0",
+				relativeId, familyId).
+			Update("is_deleted", 1).Error
+		if err != nil {
+			return err
+		}
+		// Remove that relative from other family members
+		err = tx.Table("tbl_system_user_role_mapping").
+			Where("user_id = ? AND family_id = ? AND mapping_type = 'R' AND is_deleted = 0",
+				relativeId, familyId).
+			Update("is_deleted", 1).Error
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error) {
 	var userRelations []models.UserRelation
 
@@ -900,7 +937,7 @@ func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappin
 		db = db.Where("patient_id = ?", *patientId)
 	}
 	db = db.Where("mapping_type IN (?) AND is_self = ? AND is_deleted = ? ", mappingType, isSelf, isDeleted)
-	err := db.Select("user_id,patient_id,relation_id,mapping_type").Scan(&userRelations).Error
+	err := db.Select("user_id,patient_id,relation_id,mapping_type,family_id").Scan(&userRelations).Error
 	if err != nil {
 		return nil, err
 	}

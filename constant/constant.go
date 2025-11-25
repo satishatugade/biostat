@@ -14,6 +14,7 @@ const (
 	UpdateRelative       = "/update-relative-info"
 	GetRelative          = "/patient-relative/:patient_id"
 	RelativeInfo         = "/get-relative/:patient_id"
+	RemoveRelative       = "/remove-relative"
 	PrimaryCaregiver     = "/primary-caregiver"
 	RelativeList         = "/relative-list"
 	SingleRelative       = "/relative/:relative_id"
