@@ -3348,3 +3348,44 @@ func (pc *PatientController) RemoveRelativeFromFamily(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Family member removed", nil, nil, nil)
 	return
 }
+
+func (pc *PatientController) MedicalRecordUploadViaWhatsApp(ctx *gin.Context) {
+	phoneNumber := ctx.PostForm("mobile_no")
+	if phoneNumber == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Provide valid phone number", nil, errors.New("invalid phone number"))
+		return
+	}
+	user, err := pc.userService.GetUserInfoByPhoneNumber(phoneNumber)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Provide valid phone number", nil, err)
+		return
+	}
+	canAccess := pc.patientService.CanAccessAPI(user.UserId, []string{string(constant.MappingTypeR), string(constant.MappingTypeHOF), string(constant.MappingTypeS)})
+	if !canAccess {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, string(constant.PermissionUploadMedicalRecord), nil, errors.New("You need subscription for uploading own records"))
+		return
+	}
+
+	file, header, err := ctx.Request.FormFile("file")
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, "Please provid file to save", nil, errors.New("Error while uploading document"))
+		return
+	}
+	form, _ := ctx.MultipartForm()
+	attachments := form.File["attachments"]
+	uploadSource := "WhatsApp"
+	description := ctx.PostForm("description")
+	recordCategory := ctx.PostForm("record_category")
+	recordSubCategory := ctx.PostForm("record_sub_category")
+	tags := ctx.PostForm("tags")
+	data, err := pc.medicalRecordService.CreateTblMedicalRecord(user.UserId, user.AuthUserId, file, header, uploadSource, description, recordCategory, recordSubCategory, attachments, tags)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "Failed to create record", nil, err)
+		return
+	}
+	message := "Your record has been created successfully. Digitization is in progress and should complete within 4–5 minutes."
+	if recordCategory == string(constant.OTHER) || recordCategory == string(constant.INSURANCE) || recordCategory == string(constant.VACCINATION) || recordCategory == string(constant.DISCHARGESUMMARY) || recordCategory == string(constant.INVOICE) || recordCategory == string(constant.NONMEDICAL) || recordCategory == string(constant.SCANS) {
+		message = "Record saved successfully"
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, nil, nil)
+}

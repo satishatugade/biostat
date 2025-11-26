@@ -92,6 +92,9 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 		string(constant.MedicalRecordEntity),
 		step,
 	)
+	if recordCategory == "" {
+		recordCategory = string(constant.OTHER)
+	}
 	s.processStatusService.LogStep(processID, step, constant.Running, msg, errorMsg, nil, nil, nil, nil, nil, nil)
 	uploadingPerson, err := s.userService.GetUserIdBySUB(authUserId)
 	if err != nil {
@@ -168,21 +171,6 @@ func (s *tblMedicalRecordServiceImpl) CreateTblMedicalRecord(userId uint64, auth
 			tx.Rollback()
 			return nil, fmt.Errorf("error while saving patient diagnostic report: %w", reportErr)
 		}
-		// newRecord := models.TblMedicalRecord{
-		// 	RecordName:        header.Filename,
-		// 	RecordSize:        int64(header.Size),
-		// 	FileType:          header.Header.Get("Content-Type"),
-		// 	RecordUrl:         fmt.Sprintf("%s/uploads/%s", os.Getenv("SHORT_URL_BASE"), safeFileName),
-		// 	UploadDestination: "LocalServer",
-		// 	UploadSource:      uploadSource,
-		// 	Description:       description,
-		// 	RecordCategory:    recordCategory,
-		// 	RecordSubCategory: recordSubCategory,
-		// 	FetchedAt:         time.Now(),
-		// 	UploadedBy:        uploadingPerson,
-		// 	SourceAccount:     fmt.Sprint(uploadSource),
-		// 	Status:            Status,
-		// }
 
 		record, recordErr = s.tblMedicalRecordRepo.CreateTblMedicalRecord(tx, &newRecord)
 		if recordErr != nil {

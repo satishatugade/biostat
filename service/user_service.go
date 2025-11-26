@@ -33,6 +33,7 @@ type UserService interface {
 	GetUserInfoByUserName(username string) (*models.UserLoginInfo, error)
 	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
+	GetUserInfoByPhoneNumber(phoneNumber string) (*models.SystemUser_, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	IsUsernameExists(username string) bool
 	GenerateUniqueUsername(firstName, lastName string) string
@@ -118,6 +119,10 @@ func (s *UserServiceImpl) GetUserInfoByIdentifier(identifier string) (*models.Us
 
 func (s *UserServiceImpl) GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error) {
 	return s.userRepo.GetUserInfoByEmailId(emailId)
+}
+
+func (s *UserServiceImpl) GetUserInfoByPhoneNumber(phone string) (*models.SystemUser_, error) {
+	return s.userRepo.GetUserInfoByPhoneNumber(phone)
 }
 
 func (s *UserServiceImpl) UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error {

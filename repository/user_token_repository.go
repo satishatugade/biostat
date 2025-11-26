@@ -27,6 +27,7 @@ type UserRepository interface {
 	GetUserInfoByIdentifier(identifier string) (*models.UserLoginInfo, error)
 	UpdateUserInfo(authUserId string, updateInfo map[string]interface{}) error
 	GetUserInfoByEmailId(emailId string) (*models.SystemUser_, error)
+	GetUserInfoByPhoneNumber(phoneNumber string) (*models.SystemUser_, error)
 	GetUserIdBySUB(sub string) (uint64, error)
 	GetSystemUserInfo(userId uint64) (models.SystemUser_, error)
 	IsUsernameExists(username string) bool
@@ -256,6 +257,15 @@ func (ur *UserRepositoryImpl) GetUserInfoByEmailId(emailId string) (*models.Syst
 		return nil, err
 	}
 
+	return &user, nil
+}
+
+func (ur *UserRepositoryImpl) GetUserInfoByPhoneNumber(phoneNumber string) (*models.SystemUser_, error) {
+	var user models.SystemUser_
+	err := ur.db.Where("mobile_no = ?", phoneNumber).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
 	return &user, nil
 }
 
