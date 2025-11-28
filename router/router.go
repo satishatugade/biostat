@@ -426,5 +426,6 @@ func getOpenRoutes(patientController *controller.PatientController) Routes {
 		Route{"Transcribe ", http.MethodPost, constant.Transcribe, patientController.TranscriptionHandler},
 		Route{"share profile", http.MethodPost, constant.GetSharedProfile, patientController.GetSharedProfile},
 		Route{"uploaded medical record via whatsapp", http.MethodPost, constant.UploadRecord, patientController.MedicalRecordUploadViaWhatsApp},
+		Route{"check user exists by whatsapp no.", http.MethodPost, constant.WaNumber, patientController.CheckUserExistByMobile},
 	}
 }

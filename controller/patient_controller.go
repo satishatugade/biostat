@@ -3389,3 +3389,18 @@ func (pc *PatientController) MedicalRecordUploadViaWhatsApp(ctx *gin.Context) {
 	}
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, message, data, nil, nil)
 }
+
+func (pc *PatientController) CheckUserExistByMobile(ctx *gin.Context) {
+	phoneNumber := ctx.Query("phoneNumber")
+	user, err := pc.userService.GetUserInfoByPhoneNumber(phoneNumber)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Provide valid phone number", nil, err)
+		return
+	}
+	if user.MobileNo == "" {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "User not exist", nil, err)
+		return
+	}
+	msg := fmt.Sprintf("HI %s", user.FirstName)
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, msg, nil, nil, nil)
+}

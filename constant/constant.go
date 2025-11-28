@@ -195,6 +195,7 @@ const (
 	UploadRecord        = "/medical_records"
 	UpdateMedicalRecord = "/medical_records"
 	DeleteMedicalRecord = "/medical_records/:id"
+	WaNumber            = "/wa_number"
 
 	AddOrder  = "/order"
 	GetOrders = "/orders"
