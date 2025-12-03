@@ -328,6 +328,22 @@ func (pc *PatientController) GetPatientDiagnosticReportResult(c *gin.Context) {
 	models.SuccessResponse(c, constant.Success, http.StatusOK, "Report grid view load successfully", results, pagination, nil)
 }
 
+func (pc *PatientController) GetPatientTestComponentsController(ctx *gin.Context) {
+	_, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	testComponents, err := pc.patientService.GetPatientTestComponents(user_id)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to get test components", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "test components", testComponents, nil, nil)
+	return
+}
+
 func (pc *PatientController) CreateDiagnosticComponentGroup(ctx *gin.Context) {
 	sub, user_id, _, err := utils.GetUserIDFromContext(ctx, pc.userService.GetUserIdBySUB)
 	if err != nil {
@@ -346,7 +362,7 @@ func (pc *PatientController) CreateDiagnosticComponentGroup(ctx *gin.Context) {
 		return
 	}
 
-	err = pc.patientService.AddGroupWithComponents(req.GroupName, user_id, reqUserID, req.ComponentIDs)
+	err = pc.patientService.AddGroupWithComponents(req.GroupName, user_id, reqUserID, req.ComponentIDs, req.GroupIDs)
 	if err != nil {
 		models.ErrorResponse(ctx, constant.Failure, http.StatusInternalServerError, "failed to serve request", nil, err)
 		return
@@ -3403,4 +3419,18 @@ func (pc *PatientController) CheckUserExistByMobile(ctx *gin.Context) {
 	}
 	msg := fmt.Sprintf("HI %s", user.FirstName)
 	models.SuccessResponse(ctx, constant.Success, http.StatusOK, msg, nil, nil, nil)
+}
+
+func (pc *PatientController) UserFeedbackController(ctx *gin.Context) {
+	var request models.CreateFeedbackRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
+		return
+	}
+	err := pc.patientService.SaveUserFeedback(request)
+	if err != nil {
+		models.ErrorResponse(ctx, constant.Failure, http.StatusBadRequest, "Provide valid phone number", nil, err)
+		return
+	}
+	models.SuccessResponse(ctx, constant.Success, http.StatusOK, "Thank you for valuable feedback", nil, nil, nil)
 }

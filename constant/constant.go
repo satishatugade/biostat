@@ -39,6 +39,7 @@ const (
 	DisplayConfig             = "/diagnostic-component/configuration"
 	GetResultValue            = "/get-result-value"
 	GetReportResult           = "/report/diagnostic-trend"
+	PatientTestComponents     = "/patient-test-components"
 	DiagnosticGroup           = "/diagnostic-group"
 	ExportReport              = "/export-report-data"
 	ExportPDFReport           = "/export-pdf"
@@ -196,6 +197,7 @@ const (
 	UpdateMedicalRecord = "/medical_records"
 	DeleteMedicalRecord = "/medical_records/:id"
 	WaNumber            = "/wa_number"
+	Feedback            = "/feedback"
 
 	AddOrder  = "/order"
 	GetOrders = "/orders"

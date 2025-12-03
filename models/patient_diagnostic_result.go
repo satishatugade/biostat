@@ -533,6 +533,7 @@ func (PatientDiagnosticTestGroupComponentMapping) TableName() string {
 type AddGroupRequest struct {
 	GroupName    string   `json:"group_name" binding:"required"`
 	ComponentIDs []uint64 `json:"component_ids" binding:"required"`
+	GroupIDs     []uint64 `json:"group_ids"`
 }
 
 type ComponentDetail struct {
@@ -547,6 +548,7 @@ type PatientGroupResponse struct {
 	GroupID    uint64            `json:"group_id"`
 	GroupName  string            `json:"group_name"`
 	CreatedAt  string            `json:"created_at"`
+	IsSystem   bool              `json:"is_system"`
 	Components []ComponentDetail `json:"components"`
 }
 
@@ -736,4 +738,9 @@ type PatientReportComment struct {
 
 func (PatientReportComment) TableName() string {
 	return "tbl_patient_report_comment"
+}
+
+type PatientTestComponent struct {
+	DiagnosticTestComponentID uint64 `json:"diagnostic_test_component_id" gorm:"column:diagnostic_test_component_id"`
+	TestComponentName         string `json:"test_component_name" gorm:"column:test_component_name"`
 }

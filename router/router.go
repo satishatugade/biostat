@@ -302,6 +302,7 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient disease condition", http.MethodPost, constant.DisplayConfig, patientController.AddTestComponentDisplayConfig},
 		Route{"patient disease condition", http.MethodPost, constant.GetResultValue, patientController.GetDiagnosticResults},
 		Route{"patient disease condition", http.MethodPost, constant.GetReportResult, patientController.GetPatientDiagnosticReportResult},
+		Route{"patient disease condition", http.MethodPost, constant.PatientTestComponents, patientController.GetPatientTestComponentsController},
 		Route{"patient disease condition", http.MethodPost, constant.ExportReport, patientController.ExportDiagnosticResultsExcel},
 		Route{"patient disease condition", http.MethodPost, constant.ExportPDFReport, patientController.ExportDiagnosticResultsPDF},
 		Route{"patient disease condition", http.MethodPost, constant.DiagnosticGroup, patientController.CreateDiagnosticComponentGroup},
@@ -427,5 +428,6 @@ func getOpenRoutes(patientController *controller.PatientController) Routes {
 		Route{"share profile", http.MethodPost, constant.GetSharedProfile, patientController.GetSharedProfile},
 		Route{"uploaded medical record via whatsapp", http.MethodPost, constant.UploadRecord, patientController.MedicalRecordUploadViaWhatsApp},
 		Route{"check user exists by whatsapp no.", http.MethodPost, constant.WaNumber, patientController.CheckUserExistByMobile},
+		Route{"Get user feedback", http.MethodPost, constant.Feedback, patientController.UserFeedbackController},
 	}
 }

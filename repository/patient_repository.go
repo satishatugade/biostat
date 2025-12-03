@@ -75,6 +75,8 @@ type PatientRepository interface {
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]models.DiagnosticReportResponse, error)
 	GetPatientDiagnosticHealthVital(patientId uint64, filter models.DiagnosticReportFilter, limit int, offset int) ([]models.ReportRow, int64, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) ([]models.ReportRow, int64, error)
+	GetPatientTestComponents(patientId uint64) ([]models.PatientTestComponent, error)
+	GetComponentIDsByGroupIDs(tx *gorm.DB, groupIDs []uint64) ([]uint64, error)
 	ProcessReportGridData(rows []models.ReportRow, userInfo models.SystemUser_) map[string]interface{}
 	RestructureDiagnosticReports(data []models.DiagnosticReportResponse) []map[string]interface{}
 	GetDiagnosticReportId(patientId uint64) (*string, error)
@@ -86,6 +88,8 @@ type PatientRepository interface {
 	GetPinnedComponentCount(patientId uint64) (int64, error)
 	HasRelation(patientId uint64, userId uint64) (bool, error)
 	UserHasAnyOfRole(userId uint64, roles []string) bool
+
+	SaveFeedback(req *models.UserBioFeedback) error
 }
 
 type PatientRepositoryImpl struct {
@@ -1809,6 +1813,33 @@ func (p *PatientRepositoryImpl) GetPatientDiagnosticReportResult(patientId uint6
 	return results, totalReports, nil
 }
 
+func (p *PatientRepositoryImpl) GetPatientTestComponents(patientId uint64) ([]models.PatientTestComponent, error) {
+	var out []models.PatientTestComponent
+
+	query := `
+        SELECT DISTINCT
+            pdtrv.diagnostic_test_component_id,
+            COALESCE(orig_comp.test_component_name, tdpdtcm.test_component_name) AS test_component_name
+        FROM tbl_patient_diagnostic_test_result_value pdtrv
+        LEFT JOIN tbl_patient_diagnostic_report pdr
+            ON pdr.patient_diagnostic_report_id = pdtrv.patient_diagnostic_report_id
+        LEFT JOIN tbl_disease_profile_diagnostic_test_component_master tdpdtcm
+            ON tdpdtcm.diagnostic_test_component_id = pdtrv.diagnostic_test_component_id
+        LEFT JOIN tbl_diagnostic_test_component_alias_mapping tcam
+            ON tcam.alias_test_component_id = pdtrv.diagnostic_test_component_id
+        LEFT JOIN tbl_disease_profile_diagnostic_test_component_master orig_comp
+            ON orig_comp.diagnostic_test_component_id = tcam.diagnostic_test_component_id
+        WHERE pdr.patient_id = ?
+        AND pdr.is_deleted = 0
+        ORDER BY test_component_name;
+    `
+
+	if err := p.db.Raw(query, patientId).Scan(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (p *PatientRepositoryImpl) BuildOrderByClause(orderBy *string, orderDir *string) string {
 	columnMap := map[string]string{
 		"result_date":                  "pdtrv.result_date",
@@ -2339,6 +2370,16 @@ func (r *PatientRepositoryImpl) CreateGroupWithComponents(tx *gorm.DB, group *mo
 	return nil
 }
 
+func (r *PatientRepositoryImpl) GetComponentIDsByGroupIDs(tx *gorm.DB, groupIDs []uint64) ([]uint64, error) {
+	var ids []uint64
+
+	err := tx.Model(&models.PatientDiagnosticTestGroupComponentMapping{}).
+		Where("group_id IN ?", groupIDs).
+		Pluck("diagnostic_test_component_id", &ids).Error
+
+	return ids, err
+}
+
 func (r *PatientRepositoryImpl) GetGroupsByPatientID(patientID uint64) ([]models.PatientDiagnosticTestGroupMaster, error) {
 	var groups []models.PatientDiagnosticTestGroupMaster
 	err := r.db.
@@ -2368,4 +2409,8 @@ func (r *PatientRepositoryImpl) GetTestComponentsByGroupID(groupID uint64) ([]mo
 		Find(&components).Error
 
 	return components, err
+}
+
+func (r *PatientRepositoryImpl) SaveFeedback(req *models.UserBioFeedback) error {
+	return r.db.Create(req).Error
 }

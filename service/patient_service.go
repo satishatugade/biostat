@@ -68,6 +68,7 @@ type PatientService interface {
 	GetPatientDiagnosticTrendValue(input models.DiagnosticResultRequest) ([]map[string]interface{}, error)
 	FetchPatientDiagnosticReports(patientID uint64, filter models.DiagnosticReportFilter) ([]map[string]interface{}, error)
 	GetPatientDiagnosticReportResult(patientID uint64, filter models.DiagnosticReportFilter, limit, offset int) (map[string]interface{}, int64, error)
+	GetPatientTestComponents(patientId uint64) ([]models.PatientTestComponent, error)
 	GenerateExcelFile(data map[string]interface{}) ([]byte, error)
 	GeneratePDF(data models.ReportData) ([]byte, error)
 	SaveUserHealthProfile(tx *gorm.DB, input *models.TblPatientHealthProfile) (*models.TblPatientHealthProfile, error)
@@ -76,13 +77,15 @@ type PatientService interface {
 	AddTestComponentDisplayConfig(config *models.PatientTestComponentDisplayConfig) error
 	GetPinnedComponentCount(patientId uint64) (int64, error)
 	SendSOS(patientID uint64, ip, userAgent string) error
-	AddGroupWithComponents(groupName string, patientID, createdBy uint64, componentIDs []uint64) error
+	AddGroupWithComponents(groupName string, patientID, createdBy uint64, componentIDs, groupIDs []uint64) error
 	GetPatientGroups(patientID uint64) ([]models.PatientGroupResponse, error)
 
 	CanContinue(patientID, userID uint64, permission string) error
 	CanAccessAPI(userID uint64, roles []string) bool
 	CheckPatientRelativeMapping(relativeId, patientId uint64, relation string) error
 	StartConversation(message string, userInfo models.SystemUser_) (*models.AskAPIResponse, error)
+
+	SaveUserFeedback(request models.CreateFeedbackRequest) error
 }
 
 type PatientServiceImpl struct {
@@ -836,25 +839,54 @@ func (ps *PatientServiceImpl) GetPatientDiagnosticReportResult(patientId uint64,
 	return response, totalReports, nil
 }
 
-func (s *PatientServiceImpl) AddGroupWithComponents(groupName string, patientID, createdBy uint64, componentIDs []uint64) error {
-	group := &models.PatientDiagnosticTestGroupMaster{
-		GroupName: groupName,
-		PatientID: patientID,
-		CreatedBy: createdBy,
-	}
+func (ps *PatientServiceImpl) GetPatientTestComponents(patientId uint64) ([]models.PatientTestComponent, error) {
+	return ps.patientRepo.GetPatientTestComponents(patientId)
+}
 
-	mappings := make([]models.PatientDiagnosticTestGroupComponentMapping, 0, len(componentIDs))
-	for _, compID := range componentIDs {
-		mappings = append(mappings, models.PatientDiagnosticTestGroupComponentMapping{
-			DiagnosticTestComponentID: compID,
-		})
-	}
-
+func (s *PatientServiceImpl) AddGroupWithComponents(groupName string, patientID, createdBy uint64, componentIDs, groupIDs []uint64) error {
 	err := s.patientRepo.WithTransaction(func(tx *gorm.DB) error {
+		var groupCompIDs []uint64
+		if len(groupIDs) > 0 {
+			var err error
+			groupCompIDs, err = s.patientRepo.GetComponentIDsByGroupIDs(tx, groupIDs)
+			if err != nil {
+				return err
+			}
+		}
+		finalCompIDs := mergeUniqueUint64(componentIDs, groupCompIDs)
+		group := &models.PatientDiagnosticTestGroupMaster{
+			GroupName: groupName,
+			PatientID: patientID,
+			CreatedBy: createdBy,
+		}
+		mappings := make([]models.PatientDiagnosticTestGroupComponentMapping, 0, len(finalCompIDs))
+		for _, compID := range finalCompIDs {
+			mappings = append(mappings, models.PatientDiagnosticTestGroupComponentMapping{
+				DiagnosticTestComponentID: compID,
+			})
+		}
 		return s.patientRepo.CreateGroupWithComponents(tx, group, mappings)
 	})
 
 	return err
+}
+
+func mergeUniqueUint64(a, b []uint64) []uint64 {
+	seen := make(map[uint64]struct{})
+	result := []uint64{}
+	for _, v := range a {
+		if _, ok := seen[v]; !ok {
+			seen[v] = struct{}{}
+			result = append(result, v)
+		}
+	}
+	for _, v := range b {
+		if _, ok := seen[v]; !ok {
+			seen[v] = struct{}{}
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 func (s *PatientServiceImpl) GetPatientGroups(patientID uint64) ([]models.PatientGroupResponse, error) {
@@ -872,6 +904,7 @@ func (s *PatientServiceImpl) GetPatientGroups(patientID uint64) ([]models.Patien
 			GroupID:   g.GroupID,
 			GroupName: g.GroupName,
 			CreatedAt: g.CreatedAt.Format("2006-01-02 15:04:05"),
+			IsSystem:  g.PatientID != patientID,
 		})
 	}
 
@@ -1466,4 +1499,21 @@ func (s *PatientServiceImpl) StartConversation(message string, userInfo models.S
 
 	}
 	return s.apiService.AskAI(message, userInfo.UserId, userInfo.FirstName+" "+userInfo.LastName, query_type)
+}
+
+func (s *PatientServiceImpl) SaveUserFeedback(req models.CreateFeedbackRequest) error {
+	imagesJSON, _ := json.Marshal(req.Images)
+	deviceJSON, _ := json.Marshal(req.DeviceInfo)
+
+	feedback := models.UserBioFeedback{
+		UserID:       req.UserID,
+		Name:         req.Name,
+		Email:        req.Email,
+		MobileNo:     req.MobileNo,
+		FeedbackType: req.FeedbackType,
+		Message:      req.Message,
+		Images:       imagesJSON,
+		DeviceInfo:   deviceJSON,
+	}
+	return s.patientRepo.SaveFeedback(&feedback)
 }
