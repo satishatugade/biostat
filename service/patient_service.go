@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -46,7 +47,10 @@ type PatientService interface {
 	SummarizeHistorybyAIModel(patientId uint64) (string, error)
 	// GetPatientRelative(patientId string) ([]models.PatientRelative, error) //TODO DEL V
 	GetRelativeList(patientId *uint64) ([]models.PatientRelative, error)
-	RemoveRelativeFromFamily(userId, relativeId, familyId uint64) error
+	// RemoveRelativeFromFamily(userId, relativeId, familyId uint64) error
+	RequestRemoveFamilyMember(userId, relativeId, familyId uint64) error
+	ConfirmRemoveFamilyMember(userId, relativeId, familyId uint64, otp string) error
+
 	GetRelativeListString(patientId *uint64) (string, error)
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
@@ -98,15 +102,16 @@ type PatientServiceImpl struct {
 	notificationService NotificationService
 	permissionRepo      repository.PermissionRepository
 	userRepo            repository.UserRepository
+	otpService          OTPService
 }
 
 // Ensure patientRepo is properly initialized
 func NewPatientService(repo repository.PatientRepository, apiService ApiService, allergyService AllergyService,
 	medicalRecordRepo repository.TblMedicalRecordRepository, roleRepo repository.RoleRepository,
-	notificationService NotificationService, permissionRepo repository.PermissionRepository, userRepo repository.UserRepository) PatientService {
+	notificationService NotificationService, permissionRepo repository.PermissionRepository, userRepo repository.UserRepository, otpService OTPService) PatientService {
 	return &PatientServiceImpl{patientRepo: repo, apiService: apiService, allergyService: allergyService,
 		medicalRecordRepo: medicalRecordRepo, roleRepo: roleRepo, notificationService: notificationService,
-		permissionRepo: permissionRepo, userRepo: userRepo}
+		permissionRepo: permissionRepo, userRepo: userRepo, otpService: otpService}
 }
 
 // GetAllRelation implements PatientService.
@@ -455,7 +460,59 @@ func (s *PatientServiceImpl) GetRelativeList(patientId *uint64) ([]models.Patien
 	return userRelatives, nil
 }
 
-func (s *PatientServiceImpl) RemoveRelativeFromFamily(userId, relativeId, familyId uint64) error {
+func (s *PatientServiceImpl) RequestRemoveFamilyMember(userId, relativeId, familyId uint64) error {
+
+	user, err := s.patientRepo.GetUserProfileByUserId(userId)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	// 1. Validate HOF rights
+	if err := s.patientRepo.ValidateHOFRepository(ctx, userId, familyId); err != nil {
+		return errors.New("user does not have HOF rights")
+	}
+
+	// 2. Validate relative exists in family
+	if err := s.patientRepo.ValidateRelativeInFamilyRepo(ctx, relativeId, familyId); err != nil {
+		return errors.New("relative not part of the family")
+	}
+
+	// 3. Generate OTP
+	identityValue := strconv.FormatUint(userId, 10)
+
+	return s.otpService.GenerateOTPService(models.GenerateOTPRequest{
+		UserID:        &userId,
+		IdentityType:  constant.OTPIdentityUser,
+		IdentityValue: identityValue,
+		Purpose:       constant.OTPPurposeRemoveFamily,
+		ReferenceType: utils.StringPtr("FAMILY"),
+		ReferenceID:   &relativeId,
+		FamilyID:      &familyId,
+		Channel:       constant.OTPChannelSMS,
+	}, user.NotifyId)
+}
+
+// func (s *PatientServiceImpl) RemoveRelativeFromFamily(userId, relativeId, familyId uint64) error {
+// 	ctx := context.Background()
+// 	return s.patientRepo.RemoveRelativeFromFamily(ctx, userId, relativeId, familyId)
+// }
+
+func (s *PatientServiceImpl) ConfirmRemoveFamilyMember(userId, relativeId, familyId uint64, otp string) error {
+
+	// 1. Validate OTP
+	err := s.otpService.ValidateOTPService(models.ValidateOTPRequest{
+		IdentityType:  constant.OTPIdentityUser,
+		IdentityValue: strconv.FormatUint(userId, 10),
+		Purpose:       constant.OTPPurposeRemoveFamily,
+		OTP:           otp,
+	})
+	if err != nil {
+		return err
+	}
+
+	// 2. Perform removal
 	ctx := context.Background()
 	return s.patientRepo.RemoveRelativeFromFamily(ctx, userId, relativeId, familyId)
 }

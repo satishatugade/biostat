@@ -36,6 +36,7 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var hospitalRepo = repository.NewHospitalRepository(db)
 	var appointmentRepo = repository.NewAppointmentRepository(db)
 	var orderRepo = repository.NewOrderRepository(db)
+	var otpRepo = repository.NewOTPRepository(db)
 
 	var apiService = service.NewApiService()
 	var smsService = service.NewSmsService()
@@ -51,7 +52,8 @@ func InitializeRoutes(apiGroup *gin.RouterGroup, db *gorm.DB) {
 	var userService = service.NewTblUserTokenService(userRepo, apiService, medicalRecordsRepo, db)
 	var processStatusService = service.NewProcessStatusService(processStatusRepo, config.RedisClient)
 	var permissionService = service.NewPermissionService(permissionRepo, roleRepo)
-	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo, userRepo)
+	var otpService = service.NewOTPService(otpRepo, notificationService)
+	var patientService = service.NewPatientService(patientRepo, apiService, allergyService, medicalRecordsRepo, roleRepo, notificationService, permissionRepo, userRepo, otpService)
 	var subscriptionService = service.NewSubscriptionService(subscriptionRepo, roleRepo)
 	var roleService = service.NewRoleService(roleRepo, patientService, userRepo, subscriptionRepo)
 	var diagnosticService = service.NewDiagnosticService(diagnosticRepo, emailService, patientService, medicalRecordsRepo, processStatusService)
@@ -250,7 +252,8 @@ func getPatientRoutes(patientController *controller.PatientController) Routes {
 		Route{"patient", http.MethodPut, constant.UpdatePatient, patientController.UpdatePatientInfoById},
 		Route{"patient", http.MethodPut, constant.UpdateRelative, patientController.UpdateRelativeInfoById},
 		Route{"patient", http.MethodPost, constant.RelativeInfo, patientController.GetPatientRelativeList},
-		Route{"patient", http.MethodPost, constant.RemoveRelative, patientController.RemoveRelativeFromFamily},
+		Route{"patient", http.MethodPost, constant.RemoveRelativeRequest, patientController.RemoveRelativeRequestController},
+		Route{"patient", http.MethodPost, constant.RemoveRelativeConfirm, patientController.RemoveRelativeConfirmController},
 		Route{"patient", http.MethodPost, constant.PrimaryCaregiver, patientController.AssignPrimaryCaregiver},
 
 		Route{"patient", http.MethodPost, constant.UserProfile, patientController.GetUserProfile},

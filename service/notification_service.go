@@ -30,6 +30,7 @@ type NotificationService interface {
 	UpdateReminder(userID uint64, reminder models.UpdateReminderRequest) error
 	SendSOS(recipientId, familyMember, patientName, location, dateTime, deviceId string) error
 	GetUserReminders(userId uint64) ([]models.UserReminder, error)
+	SendMemberRemoveOTPMail(notifyId, otp string) error
 
 	RegisterUserInNotify(fcmToken, phone *string, email string) (uuid.UUID, error)
 	UpadateUserInNotify(recipientId string, fcmToken, email, phone *string) error
@@ -713,6 +714,23 @@ func (e *NotificationServiceImpl) SendResetPasswordMail(systemUser *models.Syste
 		"data": map[string]interface{}{
 			"fullName": systemUser.FirstName + " " + systemUser.LastName,
 			"resetURL": resetURL,
+		},
+	}
+	_, _, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)
+	return sendErr
+}
+
+func (e *NotificationServiceImpl) SendMemberRemoveOTPMail(notifyId, otp string) error {
+	header := map[string]string{
+		"X-API-Key": config.PropConfig.ApiURL.NotifyAPIKey,
+	}
+	sendBody := map[string]interface{}{
+		"target_type":   "recipient_id",
+		"target_value":  notifyId,
+		"template_code": 14,
+		"channels":      []string{"email"},
+		"data": map[string]interface{}{
+			"otp": otp,
 		},
 	}
 	_, _, sendErr := e.apiService.MakeRESTRequest(http.MethodPost, config.PropConfig.ApiURL.NotificationSendURL, sendBody, header)

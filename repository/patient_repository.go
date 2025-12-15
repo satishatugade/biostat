@@ -45,6 +45,8 @@ type PatientRepository interface {
 	AssignPrimaryCaregiver(patientId uint64, relativeId uint64, mappingType string) error
 	SetPatientUserDeletedMappingStatus(patientId uint64, userId uint64, isDeleted int, mappingType string) error
 	GetRelativeList(relativeUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.PatientRelative, error)
+	ValidateHOFRepository(ctx context.Context, userId, familyId uint64) error
+	ValidateRelativeInFamilyRepo(ctx context.Context, relativeId, familyId uint64) error
 	RemoveRelativeFromFamily(ctx context.Context, userId, relativeId, familyId uint64) error
 	GetCaregiverList(caregiverUserIds []uint64, userRelation []models.UserRelation, relation []models.RelationMaster) ([]models.Caregiver, error)
 	GetDoctorList(doctorUserIds []uint64) ([]models.Doctor, error)
@@ -931,6 +933,51 @@ func (r *PatientRepositoryImpl) RemoveRelativeFromFamily(ctx context.Context, us
 		}
 		return nil
 	})
+}
+
+func (r *PatientRepositoryImpl) ValidateHOFRepository(ctx context.Context, userId, familyId uint64) error {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("tbl_system_user_role_mapping").
+		Where(`
+            patient_id = ?
+            AND family_id = ?
+            AND mapping_type = 'HOF'
+            AND is_deleted = 0
+        `, userId, familyId).
+		Count(&count).Error
+
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return errors.New("not HOF")
+	}
+	return nil
+}
+
+func (r *PatientRepositoryImpl) ValidateRelativeInFamilyRepo(ctx context.Context, relativeId, familyId uint64) error {
+
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("tbl_system_user_role_mapping").
+		Where(`
+            patient_id = ?
+            AND family_id = ?
+            AND mapping_type = 'R'
+            AND is_deleted = 0
+        `, relativeId, familyId).
+		Count(&count).Error
+
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return errors.New("relative not found")
+	}
+	return nil
 }
 
 func (p *PatientRepositoryImpl) FetchUserIdByPatientId(patientId *uint64, mappingType []string, isSelf bool, isDeleted int) ([]models.UserRelation, error) {

@@ -3339,7 +3339,34 @@ func (pc *PatientController) GetSharedProfile(ctx *gin.Context) {
 	return
 }
 
-func (pc *PatientController) RemoveRelativeFromFamily(c *gin.Context) {
+func (pc *PatientController) RemoveRelativeRequestController(c *gin.Context) {
+	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
+		return
+	}
+
+	type Request struct {
+		RelativeId uint64 `json:"relative_id"`
+		FamilyId   uint64 `json:"family_id"`
+	}
+
+	var req Request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "invalid request", nil, err)
+		return
+	}
+
+	err = pc.patientService.RequestRemoveFamilyMember(userId, req.RelativeId, req.FamilyId)
+	if err != nil {
+		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, err.Error(), nil, err)
+		return
+	}
+
+	models.SuccessResponse(c, constant.Success, http.StatusOK, "OTP sent to registered contact", nil, nil, nil)
+}
+
+func (pc *PatientController) RemoveRelativeConfirmController(c *gin.Context) {
 	_, userId, _, err := utils.GetUserIDFromContext(c, pc.userService.GetUserIdBySUB)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusUnauthorized, err.Error(), nil, err)
@@ -3348,6 +3375,7 @@ func (pc *PatientController) RemoveRelativeFromFamily(c *gin.Context) {
 	type UserRequest struct {
 		RelativeId uint64 `json:"relative_id"`
 		FamilyId   uint64 `json:"family_id"`
+		OTP        string `json:"otp"`
 	}
 
 	var req UserRequest
@@ -3356,7 +3384,7 @@ func (pc *PatientController) RemoveRelativeFromFamily(c *gin.Context) {
 		models.ErrorResponse(c, constant.Failure, http.StatusBadRequest, "invalid request", nil, errors.New("please check request body"))
 		return
 	}
-	err = pc.patientService.RemoveRelativeFromFamily(userId, req.RelativeId, req.FamilyId)
+	err = pc.patientService.ConfirmRemoveFamilyMember(userId, req.RelativeId, req.FamilyId, req.OTP)
 	if err != nil {
 		models.ErrorResponse(c, constant.Failure, http.StatusNotFound, "failed to remove family member", nil, err)
 		return
